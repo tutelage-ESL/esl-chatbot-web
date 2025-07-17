@@ -1,4 +1,6 @@
-// Main Application Controller
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+
 
 class ESLChatbotApp {
 
@@ -7,97 +9,128 @@ class ESLChatbotApp {
     const loginForm = document.getElementById('login-form');
     const signupForm = document.getElementById('signup-form');
     const logoutBtn = document.getElementById('logout-btn');
-    const showSignup = document.getElementById('show-signup');
-    const showLogin = document.getElementById('show-login');
 
-    loginForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('login-email').value;
-      const password = document.getElementById('login-password').value;
-      await this.login(email, password);
-    });
+    if (loginForm) {
+      loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+        await this.login(email, password);
+      });
+    }
 
-    signupForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('signup-email').value;
-      const password = document.getElementById('signup-password').value;
-      await this.signup(email, password);
-    });
+    if (signupForm) {
+      console.log('Signup form element found, attaching event listener.');
+      signupForm.addEventListener('submit', async (e) => {
+    console.log('Signup form submitted.');
+        e.preventDefault();
+        const username = document.getElementById('signup-username').value;
+        const email = document.getElementById('signup-email').value;
+        const password = document.getElementById('signup-password').value;
+        await this.signup(username, email, password);
+      });
+    }
 
-    logoutBtn.addEventListener('click', () => this.logout());
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', async () => {
+        const response = await fetch('/api/auth/logout', {
+          method: 'POST',
+        });
 
-    showSignup.addEventListener('click', (e) => {
-      e.preventDefault();
-      document.getElementById('login-form-container').style.display = 'none';
-      document.getElementById('signup-form-container').style.display = 'block';
-    });
-
-    showLogin.addEventListener('click', (e) => {
-      e.preventDefault();
-      document.getElementById('signup-form-container').style.display = 'none';
-      document.getElementById('login-form-container').style.display = 'block';
-    });
-
-    // Check for existing session
-    this.checkSession();
-  }
-
-  async login(email, password) {
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      this.currentUser = data.user;
-      this.showApp();
-    } catch (error) {
-      alert(`Login failed: ${error.message}`);
+        if (response.ok) {
+          console.log('Logout successful');
+          window.location.href = '/login';
+        } else {
+          console.error('Logout failed');
+          alert('Logout failed!');
+        }
+      });
     }
   }
 
-  async signup(email, password) {
+  async login(email, password) {
+    console.log('Attempting login for:', email);
     try {
-      const { data, error } = await supabase.auth.signUp({ email, password });
-      if (error) throw error;
-      alert('Signup successful! Please check your email to verify your account.');
-      // Optionally log them in directly or wait for verification
-      // this.currentUser = data.user;
-      // this.showApp();
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        console.log('Login successful:', data);
+        alert('Login successful!');
+        if (data.redirect) {
+          window.location.href = data.redirect;
+        } else {
+          window.location.href = '/dashboard'; // Fallback
+        }
+      } else {
+        console.error('Login failed:', data);
+        alert(`Login failed: ${data.message || data.error}`);
+      }
+    } catch (error) {
+      alert(`Login failed: ${error.message}`);
+      console.error('Login error:', error);
+    }
+  }
+
+  async signup(username, email, password) {
+    console.log('Attempting signup for:', email);
+    try {
+      console.log('Attempting to send signup data to backend API...');
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, email, password }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        console.log('Signup successful:', data);
+        alert('Signup successful! Please log in.');
+        if (data.redirect) {
+          window.location.href = data.redirect;
+        } else {
+          window.location.href = '/login'; // Fallback
+        }
+      } else {
+        console.error('Signup failed:', data);
+        alert(`Signup failed: ${data.message || data.error}`);
+      }
     } catch (error) {
       alert(`Signup failed: ${error.message}`);
+      console.error('Signup error:', error);
     }
   }
 
   async logout() {
-    await supabase.auth.signOut();
-    this.currentUser = null;
-    this.showAuth();
-  }
+    const response = await fetch('/api/auth/logout', {
+      method: 'POST',
+    });
 
-  async checkSession() {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-      this.currentUser = session.user;
-      this.showApp();
+    if (response.ok) {
+      console.log('Logout successful');
+      window.location.href = '/login';
     } else {
-      this.showAuth();
+      console.error('Logout failed');
+      alert('Logout failed!');
     }
   }
 
-  showApp() {
-    document.getElementById('auth-container').style.display = 'none';
-    document.querySelector('.app-container').style.display = 'flex';
-    this.fetchProgress(); // Fetch progress now that user is logged in
-  }
-
-  showAuth() {
-    document.getElementById('auth-container').style.display = 'block';
-    document.querySelector('.app-container').style.display = 'none';
-  }
 
   constructor() {
     this.currentUser = null;
     this.currentSection = 'chat';
     this.settings = this.loadSettings();
-    this.init();
+    document.addEventListener('DOMContentLoaded', () => this.init());
   }
 
   init() {
@@ -107,37 +140,20 @@ class ESLChatbotApp {
     this.setupVoice();
     this.setupProgress();
     this.setupSettings();
-    this.checkServerConnection();
-    this.updateConnectionStatus();
   }
 
   // Navigation System
   setupNavigation() {
     const navButtons = document.querySelectorAll('.nav-btn');
-    const sections = document.querySelectorAll('.section');
 
     navButtons.forEach(button => {
       button.addEventListener('click', () => {
-        const sectionName = button.dataset.section;
-        this.switchSection(sectionName);
+        const route = button.dataset.route;
+        if (route) {
+          window.location.href = `/${route}`;
+        }
       });
     });
-  }
-
-  switchSection(sectionName) {
-    // Update navigation
-    document.querySelectorAll('.nav-btn').forEach(btn => {
-      btn.classList.remove('active');
-    });
-    document.querySelector(`[data-section="${sectionName}"]`).classList.add('active');
-
-    // Update sections
-    document.querySelectorAll('.section').forEach(section => {
-      section.classList.remove('active');
-    });
-    document.getElementById(`${sectionName}-section`).classList.add('active');
-
-    this.currentSection = sectionName;
   }
 
   // Chat Functionality
@@ -147,39 +163,41 @@ class ESLChatbotApp {
     const chatMessages = document.getElementById('chat-messages');
     const sendBtn = document.getElementById('send-btn');
 
-    chatForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const message = chatInput.value.trim();
-      if (!message) return;
+    if (chatForm) {
+      chatForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const message = chatInput.value.trim();
+        if (!message) return;
 
-      // Disable input while processing
-      chatInput.disabled = true;
-      sendBtn.disabled = true;
-      sendBtn.innerHTML = '<div class="loading"></div>';
+        // Disable input while processing
+        chatInput.disabled = true;
+        sendBtn.disabled = true;
+        sendBtn.innerHTML = '<div class="loading"></div>';
 
-      // Add user message
-      this.addMessage(message, 'user');
-      chatInput.value = '';
+        // Add user message
+        this.addMessage(message, 'user');
+        chatInput.value = '';
 
-      try {
-        const response = await this.sendChatMessage(message);
-        this.addMessage(response, 'bot');
-        
-        // Auto-speak if enabled
-        if (this.settings.autoSpeak) {
-          this.speakText(response);
+        try {
+          const response = await this.sendChatMessage(message);
+          this.addMessage(response, 'bot');
+
+          // Auto-speak if enabled
+          if (this.settings.autoSpeak) {
+            this.speakText(response);
+          }
+        } catch (error) {
+          this.addMessage('Sorry, I encountered an error. Please try again.', 'error');
+          console.error('Chat error:', error);
+        } finally {
+          // Re-enable input
+          chatInput.disabled = false;
+          sendBtn.disabled = false;
+          sendBtn.textContent = 'Send';
+          chatInput.focus();
         }
-      } catch (error) {
-        this.addMessage('Sorry, I encountered an error. Please try again.', 'error');
-        console.error('Chat error:', error);
-      } finally {
-        // Re-enable input
-        chatInput.disabled = false;
-        sendBtn.disabled = false;
-        sendBtn.textContent = 'Send';
-        chatInput.focus();
-      }
-    });
+      });
+    }
   }
 
   async sendChatMessage(message) {
@@ -201,19 +219,21 @@ class ESLChatbotApp {
 
   addMessage(text, type) {
     const chatMessages = document.getElementById('chat-messages');
+    if (!chatMessages) return; // Ensure chatMessages element exists
+
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${type}-message`;
-    
+
     const now = new Date();
     const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    
+
     messageDiv.innerHTML = `
       <div class="message-content">
         <strong>${type === 'user' ? 'You' : type === 'bot' ? 'ESL Assistant' : 'System'}:</strong> ${text}
       </div>
       <div class="message-time">${timeString}</div>
     `;
-    
+
     chatMessages.appendChild(messageDiv);
     chatMessages.scrollTop = chatMessages.scrollHeight;
   }
@@ -225,6 +245,8 @@ class ESLChatbotApp {
     const status = document.getElementById('voice-status');
     const transcript = document.getElementById('voice-transcript');
     const response = document.getElementById('voice-response');
+
+    if (!startBtn) return; // Ensure voice elements exist
 
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
       status.textContent = 'Speech recognition not supported in this browser.';
@@ -255,7 +277,7 @@ class ESLChatbotApp {
     this.recognition.onresult = async (event) => {
       const spokenText = event.results[0][0].transcript;
       transcript.textContent = `You said: "${spokenText}"`;
-      
+
       try {
         const botResponse = await this.sendChatMessage(spokenText);
         response.textContent = `Assistant: ${botResponse}`;
@@ -305,11 +327,22 @@ class ESLChatbotApp {
   }
 
   async loadProgress() {
-    if (!this.currentUser) return;
+    // Only attempt to load progress if on the progress page
+    if (window.location.pathname !== '/progress') return;
+
+    // Fetch current user session to get user ID
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !session || !session.user) {
+      console.error('No active session found for progress tracking:', sessionError);
+      document.getElementById('progress-list').textContent = 'Please log in to view your progress.';
+      return;
+    }
+    this.currentUser = session.user;
+
     try {
       const response = await fetch(`/api/progress/${this.currentUser.id}`);
       const progressData = await response.json();
-      
+
       this.displayProgress(progressData);
     } catch (error) {
       console.error('Error loading progress:', error);
@@ -321,6 +354,8 @@ class ESLChatbotApp {
     const progressFill = document.getElementById('overall-progress');
     const progressPercentage = document.getElementById('progress-percentage');
     const progressList = document.getElementById('progress-list');
+
+    if (!progressFill || !progressPercentage || !progressList) return; // Ensure elements exist
 
     if (progressData.length > 0) {
       const latestProgress = progressData[progressData.length - 1].progress;
@@ -347,6 +382,8 @@ class ESLChatbotApp {
     const speedValue = document.getElementById('speed-value');
     const autoSpeakCheckbox = document.getElementById('auto-speak');
 
+    if (!settingsForm) return; // Ensure settings elements exist
+
     // Load current settings
     languageSelect.value = this.settings.language;
     voiceSpeedSlider.value = this.settings.voiceSpeed;
@@ -361,13 +398,13 @@ class ESLChatbotApp {
     // Save settings
     settingsForm.addEventListener('submit', (e) => {
       e.preventDefault();
-      
+
       this.settings = {
         language: languageSelect.value,
         voiceSpeed: parseFloat(voiceSpeedSlider.value),
         autoSpeak: autoSpeakCheckbox.checked
       };
-      
+
       this.saveSettings();
       this.showNotification('Settings saved successfully!');
     });
@@ -379,7 +416,7 @@ class ESLChatbotApp {
       voiceSpeed: 1.0,
       autoSpeak: false
     };
-    
+
     try {
       const saved = localStorage.getItem('eslChatbotSettings');
       return saved ? { ...defaultSettings, ...JSON.parse(saved) } : defaultSettings;
@@ -393,41 +430,12 @@ class ESLChatbotApp {
   }
 
   // Utility Functions
-  getUserId() {
-    let userId = localStorage.getItem('eslChatbotUserId');
-    if (!userId) {
-      userId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-      localStorage.setItem('eslChatbotUserId', userId);
-    }
-    return userId;
-  }
-
-  async checkServerConnection() {
-    try {
-      const response = await fetch('/api/health');
-      const data = await response.json();
-      this.updateConnectionStatus(true, data);
-    } catch (error) {
-      this.updateConnectionStatus(false);
-    }
-  }
-
-  updateConnectionStatus(connected = true, healthData = null) {
-    const statusElement = document.getElementById('connection-status');
-    if (connected) {
-      statusElement.innerHTML = '🟢 Connected';
-      if (healthData) {
-        console.log('Server health:', healthData);
-      }
-    } else {
-      statusElement.innerHTML = '🔴 Disconnected';
-    }
-  }
-
   showNotification(message) {
     // Simple notification - could be enhanced with a proper notification system
     alert(message);
   }
+
+
 }
 
 // Initialize the application when DOM is loaded

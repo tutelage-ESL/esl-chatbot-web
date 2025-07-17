@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESL Chatbot - Progress</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <h1>🤖 ESL Learning Assistant</h1>
+            <nav class="app-nav">
+                <button class="nav-btn" data-route="chat">
+                    <i class="fas fa-comments"></i>
+                    <span>Chat</span>
+                </button>
+                <button class="nav-btn" data-route="voice">
+                    <i class="fas fa-microphone"></i>
+                    <span>Voice</span>
+                </button>
+                <button class="nav-btn active" data-route="progress">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Progress</span>
+                </button>
+                <button class="nav-btn" data-route="settings">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </button>
+                <button id="logout-btn" class="nav-btn">Logout</button>
+            </nav>
+        </header>
+
+        <main class="app-main">
+            <section id="progress-section" class="section active">
+                <h2>Your Learning Progress</h2>
+                <div class="progress-summary">
+                    <h3>Overall Progress: <span id="progress-percentage">0%</span></h3>
+                    <div class="progress-bar">
+                        <div id="overall-progress" class="progress-fill"></div>
+                    </div>
+                </div>
+                <div class="progress-details">
+                    <h3>Recent Activities</h3>
+                    <div id="progress-list" class="progress-list">
+                        <!-- Progress items will be loaded here -->
+                        <p>No progress data available yet. Start chatting to track your progress!</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        const SUPABASE_URL = "<%= SUPABASE_URL %>";
+        const SUPABASE_ANON_KEY = "<%= SUPABASE_ANON_KEY %>";
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/js/app.js" defer></script>
+</body>
+</html>
