@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ESL Chatbot - Voice</title>
-    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
 </head>
 <body>
@@ -16,16 +16,24 @@
 
         <main class="app-main">
             <section id="voice-section" class="section active">
+                <div class="voice-container">
   <h2>Voice Interaction (Text Simulation)</h2>
-  <form action="/voice" method="post">
-    <textarea name="message" placeholder="Type your spoken message here..."></textarea>
-    <button type="submit">Send</button>
-  </form>
-  <% if (response) { %>
-    <div class="voice-output">
-      <p>Assistant: <%= response %></p>
+  <div class="voice-controls">
+    <button id="start-recognition" class="btn btn-primary">Start Speaking</button>
+    <button id="stop-recognition" class="btn btn-secondary" disabled>Stop Speaking</button>
+  </div>
+  <div class="voice-output">
+    <h3>You said:</h3>
+    <p id="recognized-text"></p>
+    <h3>Assistant:</h3>
+    <p id="assistant-response"></p>
+  </div>
+                </div>
+            </section>
+        </main>
     </div>
-  <% } %>
+
+    <script src="/js/voice.js"></script>
 </section>
         </main>
     </div>

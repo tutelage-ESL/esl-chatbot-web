@@ -47,7 +47,7 @@ router.post('/voice', async (req, res) => {
 
 router.get('/progress', async (req, res) => {
   if (!req.session.userId) return res.redirect('/login');
-  const progress = await models.Progress.findOne({ where: { userId: req.session.userId } }) || { progress: 0, updatedAt: new Date() };
+  const progress = await models.Progress.findOne({ where: { userId: req.session.userId } }) || { progress: 0, updatedAt: new Date(), activities: [] };
   res.render('progress', { progress, currentRoute: 'progress' });
 });
 

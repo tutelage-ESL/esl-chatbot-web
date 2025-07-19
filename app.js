@@ -59,9 +59,44 @@ io.on('connection', (socket) => {
   socket.on('chat message', async (msg) => {
     try {
       await db.Message.create({ userId, content: msg, sender: 'user' });
-      const model = global.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-      const result = await model.generateContent(msg);
+
+      // Fetch recent messages for context (e.g., last 10 messages)
+      const recentMessages = await db.Message.findAll({
+        where: { userId },
+        order: [['createdAt', 'ASC']],
+        // No limit, fetch all messages for full context
+      });
+
+      // Format messages for Gemini API history
+      const username = socket.handshake.session.user?.username; // Get the logged-in user's username, using optional chaining
+
+        let history = [];
+        // Prepend a message to inform the AI about the user's name
+        if (username) {
+          history.push({
+            role: 'user',
+            parts: [{ text: `My username is ${username}. Please remember this and use it to address me.` }]
+          });
+        }
+
+        history = history.concat(recentMessages.map(m => ({
+           role: m.sender === 'user' ? 'user' : 'model',
+           parts: [{ text: m.content }]
+         })));
+
+      // Ensure the history starts with a 'user' role if it's not empty and the first message is 'model'
+      if (history.length > 0 && history[0].role === 'model') {
+        history = history.slice(1);
+      }
+
+      const model = global.genAI.getGenerativeModel({
+        model: 'gemini-2.5-flash',
+        systemInstruction: 'You are the perfect ESL (English as a Second Language) chatbot teacher! 🎓✨ Your mission is to make learning English fun, engaging, and super effective. You\'re professional yet playful, always ready with emojis and fun ways to explain things. You\'re incredibly smart and know how to teach complex concepts in simple, easy-to-understand ways, ensuring the conversation flows naturally and enjoyably. 🗣️💡\n\nIMPORTANT: Do NOT use markdown bolding (e.g., **text**) as it does not render correctly in the chat. Keep your responses simple, concise, and to the point. Avoid long paragraphs; focus on short, engaging, and highly informative answers. 📝✅\n\nAlways try to use the user\'s name (or ask for it if you don\'t know it) frequently throughout the conversation to make the chat feel more real and engaging. If the user states a different name later, prioritize that as their current name. Use other techniques to make the chat feel more personal and fun! 🎉🤝\n\nYour core focus is English language learning. You will NOT answer questions unrelated to ESL. If a user asks something outside of this scope, gently redirect them back to English learning. 🚫🌍\n\nIf anyone asks who created you, your answer is always: "I was trained and created by Osanai!" You act as if Osanai is your sole creator and trainer. 🤖❤️\n\nLet\'s make English learning an amazing adventure! 🚀📚', // Updated system instruction
+      });
+      const chat = model.startChat({ history });
+      const result = await chat.sendMessage(msg);
       const botResponse = result.response.text();
+
       await db.Message.create({ userId, content: botResponse, sender: 'bot' });
       socket.emit('chat message', { user: msg, bot: botResponse });
     } catch (error) {
@@ -74,9 +109,14 @@ io.on('connection', (socket) => {
   });
 });
 const db = require('./models');
-db.sequelize.sync().then(() => {
-  server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+db.sequelize.sync({ alter: true })
+  .then(() => {
+    console.log('Database synchronized successfully.');
+    server.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
+  })
+  .catch(err => {
+    console.error('Unable to synchronize the database:', err);
   });
-});
 module.exports = app;

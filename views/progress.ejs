@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ESL Chatbot - Progress</title>
-    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
 </head>
 <body>
@@ -19,14 +19,55 @@
                 <h2>Your Learning Progress</h2>
                 <div class="progress-summary">
                     <h3>Overall Progress: <span id="progress-percentage"><%= progress.progress %>%</span></h3>
-                    <div class="progress-bar">
+                    <div class="progress-bar" id="progressBar" style="width: 0%;">
                         <div id="overall-progress" class="progress-fill" style="width: <%= progress.progress %>%;"></div>
                     </div>
                 </div>
                 <div class="progress-details">
                     <h3>Recent Activities</h3>
                     <div id="progress-list" class="progress-list">
-  <p>Last updated: <%= progress.updatedAt.toLocaleString() %></p>
+  <% if (progress.activities && progress.activities.length > 0) { %>
+    <% progress.activities.forEach(activity => { %>
+      <div class="activity-item">
+        <p class="activity-date"><%= activity.date.toLocaleString() %></p>
+        <p class="activity-description"><%= activity.description %></p>
+        <p class="activity-score">Score: <%= activity.score %>%</p>
+      </div>
+    <% }); %>
+  <% } else { %>
+    <p>No recent activities to display.</p>
+  <% } %>
+    <p>Last updated: <%= progress.updatedAt.toLocaleDateString() %></p>
+</div>
+
+<div class="activities-section">
+    <h3>Recent Learning Activities</h3>
+    <% if (progress.activities && progress.activities.length > 0) { %>
+        <ul class="activity-list">
+            <% progress.activities.forEach(activity => { %>
+                <li class="activity-item">
+                    <i class="fas fa-book activity-icon"></i>
+                    <div class="activity-details">
+                        <h4><%= activity.description %></h4>
+                        <p>Date: <%= new Date(activity.date).toLocaleDateString() %></p>
+                        <p>Score: <%= activity.score %></p>
+                    </div>
+                </li>
+            <% }); %>
+        </ul>
+    <% } else { %>
+        <p class="no-activities">No recent activities to display. Start learning to see your progress here!</p>
+    <% } %>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const progressBar = document.getElementById('progressBar');
+        const progressValue = <%= progress.progress %>;
+        progressBar.style.width = progressValue + '%';
+        progressBar.textContent = progressValue + '%';
+    });
+</script>
 </div>
                 </div>
             </section>

@@ -131,4 +131,23 @@ router.get('/health', (req, res) => {
   });
 });
 
+router.post('/voice-message', async (req, res) => {
+    try {
+        const { message } = req.body;
+        if (!message) {
+            return res.status(400).json({ success: false, message: 'No message provided.' });
+        }
+
+        // Use the global genAI instance to get the model
+        const model = global.genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
+        const result = await model.generateContent(message);
+        const botResponse = result.response.text();
+
+        res.json({ success: true, response: botResponse });
+    } catch (error) {
+        console.error('Error processing voice message:', error);
+        res.status(500).json({ success: false, message: 'Failed to process voice message.' });
+    }
+});
+
 module.exports = router;
