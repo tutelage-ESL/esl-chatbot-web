@@ -10,24 +10,28 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 // Chat endpoint with Gemini AI
 router.post('/chat', async (req, res) => {
   try {
+    console.log('Received chat request with message:', req.body.message);
     const { message } = req.body;
     
     if (!message) {
+      console.log('No message provided');
       return res.status(400).json({ error: 'Message is required' });
     }
 
-    // Assuming genAI is initialized in app.js and passed or accessible
-    // For now, a simple echo if genAI is not available
-    if (!global.genAI) { // Using global for simplicity, consider dependency injection
+    if (!global.genAI) {
+      console.log('genAI not initialized, echoing message');
       return res.json({ response: `Echo: ${message}` });
     }
 
+    console.log('Initializing model');
     const model = global.genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
     const prompt = `You are an ESL (English as Second Language) tutor. Help the student with their English learning. Student says: "${message}". Provide a helpful, encouraging response.`;
     
+    console.log('Generating content with prompt:', prompt);
     const result = await model.generateContent(prompt);
     const response = result.response.text();
     
+    console.log('Generated response:', response);
     res.json({ response });
   } catch (error) {
     console.error('Chat error:', error);
@@ -39,10 +43,11 @@ router.post('/chat', async (req, res) => {
 router.get('/progress/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    // Placeholder for Sequelize integration
-    // You will need to implement Sequelize queries here to fetch user progress
-    // For now, returning a dummy response
-    return res.json([{ user_id: userId, progress: 50, updated_at: new Date().toISOString() }]);
+    const progress = await models.Progress.findOne({ where: { userId } });
+    if (!progress) {
+      return res.status(404).json({ error: 'Progress not found' });
+    }
+    return res.json(progress);
   } catch (error) {
     console.error('Progress fetch error:', error);
     res.status(500).json({ error: 'Failed to fetch progress' });
@@ -56,13 +61,48 @@ router.post('/progress', async (req, res) => {
     if (!user_id || progress === undefined) {
       return res.status(400).json({ error: 'user_id and progress are required' });
     }
-    // Placeholder for Sequelize integration
-    // You will need to implement Sequelize queries here to update user progress
-    // For now, returning a dummy response
-    return res.json({ user_id, progress, updated_at: new Date().toISOString() });
+    const [updatedProgress, created] = await models.Progress.upsert({
+      userId: user_id,
+      progress
+    });
+    return res.json(updatedProgress);
   } catch (error) {
     console.error('Progress update error:', error);
     res.status(500).json({ error: 'Failed to update progress' });
+  }
+});
+
+// Settings endpoints
+router.get('/settings/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const settings = await models.Settings.findOne({ where: { userId } });
+    if (!settings) {
+      return res.status(404).json({ error: 'Settings not found' });
+    }
+    return res.json(settings);
+  } catch (error) {
+    console.error('Settings fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch settings' });
+  }
+});
+
+router.post('/settings', async (req, res) => {
+  try {
+    const { user_id, language, voiceSpeed, autoSpeak } = req.body;
+    if (!user_id) {
+      return res.status(400).json({ error: 'user_id is required' });
+    }
+    const [updatedSettings, created] = await models.Settings.upsert({
+      userId: user_id,
+      language,
+      voiceSpeed,
+      autoSpeak
+    });
+    return res.json(updatedSettings);
+  } catch (error) {
+    console.error('Settings update error:', error);
+    res.status(500).json({ error: 'Failed to update settings' });
   }
 });
 

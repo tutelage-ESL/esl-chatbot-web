@@ -11,69 +11,18 @@
     <div class="app-container">
         <header class="app-header">
             <h1>🤖 ESL Learning Assistant</h1>
-            <nav class="app-nav">
-                <button class="nav-btn" data-route="chat">
-                    <i class="fas fa-comments"></i>
-                    <span>Chat</span>
-                </button>
-                <button class="nav-btn" data-route="voice">
-                    <i class="fas fa-microphone"></i>
-                    <span>Voice</span>
-                </button>
-                <button class="nav-btn" data-route="progress">
-                    <i class="fas fa-chart-line"></i>
-                    <span>Progress</span>
-                </button>
-                <button class="nav-btn" data-route="settings">
-                    <i class="fas fa-cog"></i>
-                    <span>Settings</span>
-                </button>
-                <button id="logout-btn" class="nav-btn">Logout</button>
-            </nav>
+            <%- include('partials/nav', { currentRoute: currentRoute }) %>
         </header>
 
         <main class="app-main">
-            <!-- Chat Section -->
-            <section id="chat-section" class="section <%= initialSection === 'chat' ? 'active' : '' %>">
-                <div class="chat-container">
-                    <div id="chat-messages" class="chat-messages">
-                        <div class="message bot-message">
-                            <div class="message-content">
-                                <p>Hello! I'm your ESL Chatbot. How can I help you today?</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="chat-input-container">
-                        <textarea id="chat-input" placeholder="Type your message..."></textarea>
-                        <button id="send-chat-btn">Send</button>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Voice Section -->
-            <section id="voice-section" class="section <%= initialSection === 'voice' ? 'active' : '' %>">
-                <h2>Voice Practice</h2>
-                <p>Coming soon!</p>
-            </section>
-
-            <!-- Progress Section -->
-            <section id="progress-section" class="section <%= initialSection === 'progress' ? 'active' : '' %>">
-                <h2>Your Progress</h2>
-                <p>Coming soon!</p>
-            </section>
-
-            <!-- Settings Section -->
-            <section id="settings-section" class="section <%= initialSection === 'settings' ? 'active' : '' %>">
-                <h2>Settings</h2>
-                <p>Coming soon!</p>
-            </section>
-        </main>
+  <section id="dashboard-section" class="section active">
+    <h2>Welcome, <%= user.username %>!</h2>
+    <p>Use the navigation to access different features.</p>
+  </section>
+</main>
     </div>
 
-    <script>
-        window.SUPABASE_URL = "<%= SUPABASE_URL %>";
-        window.SUPABASE_ANON_KEY = "<%= SUPABASE_ANON_KEY %>";
-    </script>
-    <script src="/js/app.js" defer></script>
+
+    
 </body>
 </html>

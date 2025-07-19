@@ -11,48 +11,25 @@
     <div class="app-container">
         <header class="app-header">
             <h1>🤖 ESL Learning Assistant</h1>
-            <nav class="app-nav">
-                <button class="nav-btn" data-route="chat">
-                    <i class="fas fa-comments"></i>
-                    <span>Chat</span>
-                </button>
-                <button class="nav-btn active" data-route="voice">
-                    <i class="fas fa-microphone"></i>
-                    <span>Voice</span>
-                </button>
-                <button class="nav-btn" data-route="progress">
-                    <i class="fas fa-chart-line"></i>
-                    <span>Progress</span>
-                </button>
-                <button class="nav-btn" data-route="settings">
-                    <i class="fas fa-cog"></i>
-                    <span>Settings</span>
-                </button>
-                <button id="logout-btn" class="nav-btn">Logout</button>
-            </nav>
+            <%- include('partials/nav', { currentRoute: currentRoute }) %>
         </header>
 
         <main class="app-main">
             <section id="voice-section" class="section active">
-                <h2>Voice Interaction</h2>
-                <div class="voice-controls">
-                    <button id="start-voice-btn">Start Speaking</button>
-                    <button id="stop-voice-btn" disabled>Stop Speaking</button>
-                    <p id="voice-status">Click "Start Speaking" to begin</p>
-                    <div class="voice-output">
-                        <p id="voice-transcript"></p>
-                        <p id="voice-response"></p>
-                    </div>
-                </div>
-            </section>
+  <h2>Voice Interaction (Text Simulation)</h2>
+  <form action="/voice" method="post">
+    <textarea name="message" placeholder="Type your spoken message here..."></textarea>
+    <button type="submit">Send</button>
+  </form>
+  <% if (response) { %>
+    <div class="voice-output">
+      <p>Assistant: <%= response %></p>
+    </div>
+  <% } %>
+</section>
         </main>
     </div>
 
-    <script>
-        const SUPABASE_URL = "<%= SUPABASE_URL %>";
-        const SUPABASE_ANON_KEY = "<%= SUPABASE_ANON_KEY %>";
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="/js/app.js" defer></script>
+    
 </body>
 </html>
