@@ -40,6 +40,13 @@
     <p>Last updated: <%= progress.updatedAt.toLocaleDateString() %></p>
 </div>
 
+<div class="chat-activity-summary">
+    <h3>Chat Activity</h3>
+    <p>Total Messages Sent: <span id="chat-message-count"><%= progress.chatMessageCount %></span></p>
+    <p>Total Words Typed: <span id="total-words-typed"><%= progress.totalWordsTyped %></span></p>
+    <p>Last Active: <span id="last-active-date"><%= progress.lastActiveDate ? progress.lastActiveDate.toLocaleDateString() : 'N/A' %></span></p>
+</div>
+
 <div class="activities-section">
     <h3>Recent Learning Activities</h3>
     <% if (progress.activities && progress.activities.length > 0) { %>

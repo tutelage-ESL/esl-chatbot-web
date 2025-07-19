@@ -60,6 +60,14 @@ io.on('connection', (socket) => {
     try {
       await db.Message.create({ userId, content: msg, sender: 'user' });
 
+      // Update chat message count in Progress model
+      await db.Progress.upsert({
+        userId: socket.handshake.session.userId,
+        chatMessageCount: (await db.Progress.findOne({ where: { userId: socket.handshake.session.userId } }))?.chatMessageCount + 1 || 1,
+        totalWordsTyped: (await db.Progress.findOne({ where: { userId: socket.handshake.session.userId } }))?.totalWordsTyped + msg.split(' ').length || msg.split(' ').length,
+        lastActiveDate: new Date()
+      });
+
       // Fetch recent messages for context (e.g., last 10 messages)
       const recentMessages = await db.Message.findAll({
         where: { userId },

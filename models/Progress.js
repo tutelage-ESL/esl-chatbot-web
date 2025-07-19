@@ -15,8 +15,18 @@ module.exports = (sequelize, DataTypes) => {
     },
     progress: {
       type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 0
+    },
+    totalWordsTyped: {
+      type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 0
+    },
+    lastActiveDate: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      defaultValue: DataTypes.NOW
     },
     updatedAt: {
       type: DataTypes.DATE,
@@ -26,6 +36,11 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.JSON,
       allowNull: false,
       defaultValue: []
+    },
+    chatMessageCount: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0
     }
   }, {
     sequelize,
