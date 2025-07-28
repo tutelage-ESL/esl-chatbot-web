@@ -337,6 +337,46 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function getBestVoice() {
+    const voices = speechSynthesis.getVoices();
+    
+    // Priority order for better quality voices
+    const preferredVoices = [
+      // High-quality English voices (usually local/system voices)
+      'Microsoft Zira - English (United States)',
+      'Microsoft David - English (United States)', 
+      'Microsoft Mark - English (United States)',
+      'Google US English',
+      'Alex', // macOS
+      'Samantha', // macOS
+      'Karen', // macOS
+      'Daniel', // macOS
+      // Fallback to any English voice
+      voices.find(v => v.lang === 'en-US' && v.localService),
+      voices.find(v => v.lang === 'en-GB' && v.localService),
+      voices.find(v => v.lang.startsWith('en-') && v.localService),
+      voices.find(v => v.lang === 'en-US'),
+      voices.find(v => v.lang === 'en-GB'),
+      voices.find(v => v.lang.startsWith('en-'))
+    ];
+    
+    for (const preferred of preferredVoices) {
+      if (typeof preferred === 'string') {
+        const voice = voices.find(v => v.name === preferred);
+        if (voice) {
+          console.log('Selected high-quality voice:', voice.name);
+          return voice;
+        }
+      } else if (preferred) {
+        console.log('Selected voice:', preferred.name);
+        return preferred;
+      }
+    }
+    
+    console.log('Using default voice');
+    return null;
+  }
+
   function speakText(text) {
     if (!('speechSynthesis' in window)) {
       console.error('Speech synthesis not supported');
@@ -349,16 +389,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const utterance = new SpeechSynthesisUtterance(text);
     const speed = voiceSpeedChat ? parseFloat(voiceSpeedChat.value) : 1.0;
     utterance.rate = speed;
-    utterance.pitch = 1;
-    utterance.volume = 1;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
     utterance.lang = 'en-US';
 
-    const voices = speechSynthesis.getVoices();
-    if (voices.length > 0) {
-      const englishVoice = voices.find(voice => voice.lang.startsWith('en'));
-      if (englishVoice) {
-        utterance.voice = englishVoice;
-      }
+    // Use the best available voice
+    const bestVoice = getBestVoice();
+    if (bestVoice) {
+      utterance.voice = bestVoice;
+      console.log('Using high-quality voice:', bestVoice.name, '- Local:', bestVoice.localService);
     }
 
     currentUtterance = utterance;
@@ -372,13 +411,22 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log('AI finished speaking');
     };
 
-    utterance.onerror = () => {
+    utterance.onerror = (event) => {
       currentUtterance = null;
-      console.error('Speech synthesis error');
+      console.error('Speech synthesis error:', event.error);
     };
 
-    console.log(`Speaking text at ${speed}x speed: "${text.substring(0, 50)}..."`); 
-    speechSynthesis.speak(currentUtterance);
+    console.log(`Speaking text at ${speed}x speed with ${bestVoice ? bestVoice.name : 'default voice'}: "${text.substring(0, 50)}..."`); 
+    
+    if (!voicesLoaded) {
+      console.log('Voices not loaded yet, attempting to load...');
+      loadVoices();
+      setTimeout(() => {
+        speechSynthesis.speak(currentUtterance);
+      }, 100);
+    } else {
+      speechSynthesis.speak(currentUtterance);
+    }
   }
 
   // Voice event listeners
