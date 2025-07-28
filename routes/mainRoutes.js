@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const models = require('../models');
+const fs = require('fs');
+const path = require('path');
 
 router.get('/', (req, res) => {
   res.render('login');
@@ -54,7 +56,20 @@ router.get('/progress', async (req, res) => {
 router.get('/settings', async (req, res) => {
   if (!req.session.userId) return res.redirect('/login');
   const settings = await models.Settings.findOne({ where: { userId: req.session.userId } }) || { language: 'en', voiceSpeed: 1.0, autoSpeak: false };
-  res.render('settings', { settings, currentRoute: 'settings' });
+  
+  // Load student data from JSON file
+  let studentData = {};
+  try {
+    const studentsPath = path.join(__dirname, '../data/students.json');
+    const studentsFile = fs.readFileSync(studentsPath, 'utf8');
+    const students = JSON.parse(studentsFile);
+    const userId = req.session.userId || 'user_hehxzwj55vhmd0u2mriz1';
+    studentData = students[userId] || {};
+  } catch (error) {
+    console.error('Error loading student data:', error);
+  }
+  
+  res.render('settings', { settings, student: studentData, currentRoute: 'settings' });
 });
 
 router.post('/settings', async (req, res) => {

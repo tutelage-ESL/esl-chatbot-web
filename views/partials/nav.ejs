@@ -1,21 +1,15 @@
-<nav class="app-nav">
-  <div class="nav-brand">
-    <i class="fas fa-graduation-cap"></i>
-    <span class="brand-text">ESL Chatbot</span>
-  </div>
-  
-  <div class="nav-links">
+<div class="nav-tabs">
     <a class="nav-btn" href="/dashboard" data-page="dashboard">
       <i class="fas fa-home"></i>
       <span>Dashboard</span>
     </a>
     <a class="nav-btn" href="/chat" data-page="chat">
       <i class="fas fa-comments"></i>
-      <span>Chat</span>
+      <span>AI Tutor</span>
     </a>
     <a class="nav-btn" href="/voice" data-page="voice">
       <i class="fas fa-microphone"></i>
-      <span>Voice</span>
+      <span>Speaking</span>
       <span class="nav-badge">New</span>
     </a>
     <a class="nav-btn" href="/progress" data-page="progress">
@@ -23,22 +17,14 @@
       <span>Progress</span>
     </a>
     <a class="nav-btn" href="/settings" data-page="settings">
-      <i class="fas fa-cog"></i>
-      <span>Settings</span>
+      <i class="fas fa-user-cog"></i>
+      <span>Profile</span>
     </a>
-  </div>
-  
-  <div class="nav-user">
-    <div class="user-info">
-      <i class="fas fa-user-circle"></i>
-      <span class="user-name">Student</span>
-    </div>
     <a href="/api/auth/logout" class="nav-btn logout-btn">
       <i class="fas fa-sign-out-alt"></i>
       <span>Logout</span>
     </a>
-  </div>
-</nav>
+</div>
 
 <script>
 // Add active state to current page

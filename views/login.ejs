@@ -10,20 +10,24 @@
 <body>
     <div id="auth-container">
         <div id="login-form-container">
-            <h2>Login</h2>
+            <div class="auth-logo">
+                🎓
+            </div>
+            <h2>Welcome Back</h2>
+            <p class="auth-subtitle">Sign in to continue your English learning journey</p>
             <% if (typeof errors !== 'undefined' && errors.length > 0) { %>
                 <div class="error-messages">
                     <% errors.forEach(function(error) { %>
-                        <p><%= error.msg %></p>
+                        <p style="color: #ef4444; margin: 0.5rem 0; font-size: 0.9rem;"><%= error.msg %></p>
                     <% }); %>
                 </div>
             <% } %>
             <form id="login-form" action="/api/auth/login" method="POST">
-                <input type="email" id="login-email" name="email" placeholder="Email" value="<%= typeof oldInput !== 'undefined' ? oldInput.email : '' %>" required>
-                <input type="password" id="login-password" name="password" placeholder="Password" required>
-                <button type="submit">Login</button>
+                <input type="email" id="login-email" name="email" placeholder="📧 Email Address" value="<%= typeof oldInput !== 'undefined' ? oldInput.email : '' %>" required>
+                <input type="password" id="login-password" name="password" placeholder="🔒 Password" required>
+                <button type="submit">Sign In to Academy</button>
             </form>
-            <p>Don't have an account? <a href="/signup" id="show-signup">Sign up</a></p>
+            <p>New to ESL Academy? <a href="/signup" id="show-signup">Create Account</a></p>
         </div>
     </div>
 

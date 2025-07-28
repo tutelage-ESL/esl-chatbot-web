@@ -3,20 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESL Chatbot - Chat</title>
+    <title>AI Tutor - ESL Academy</title>
     <link rel="stylesheet" href="/css/styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎓</text></svg>">
 </head>
 <body>
     <div class="app-container">
         <header class="app-header">
-            <h1>🤖 ESL Learning Assistant</h1>
+            <div class="academy-brand">
+                <div class="academy-logo">🎓</div>
+                <div>
+                    <h1>ESL Academy</h1>
+                    <p class="academy-tagline">Master English with AI-Powered Learning</p>
+                </div>
+            </div>
             <%- include('partials/nav', { currentRoute: currentRoute }) %>
         </header>
 
         <main class="app-main">
             <section id="chat-section" class="section active">
+                <div class="chat-header">
+                    <div class="tutor-info">
+                        <div class="tutor-avatar">
+                            <i class="fas fa-robot"></i>
+                        </div>
+                        <div class="tutor-details">
+                            <h3>AI English Tutor</h3>
+                            <span class="tutor-status"><i class="fas fa-circle online"></i> Online & Ready to Help</span>
+                        </div>
+                    </div>
+                    <div class="chat-actions">
+                        <button id="voice-settings-btn" class="btn btn-outline-light" type="button" title="Voice Settings">
+                            <i class="fas fa-cog"></i>
+                        </button>
+                        <button class="btn btn-outline-light" type="button" title="Clear Chat">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                </div>
+                
                 <div class="chat-container">
                     <div class="chat-messages" id="chat-messages">
                         <!-- Connection status indicator -->
@@ -26,21 +52,49 @@
                         </div>
                         <!-- Messages will be dynamically added here -->
                     </div>
-                    <div class="chat-input-container" id="chat-input-container">
-                        <div class="voice-controls-mini">
-                            <button id="voice-input-btn" type="button" class="voice-btn" title="Voice Input">
-                                <i class="fas fa-microphone"></i>
-                            </button>
-                            <div class="voice-status-mini" id="voice-status-mini">Ready</div>
+                    
+                    <div class="typing-indicator" id="typing-indicator" style="display: none;">
+                        <div class="typing-dots">
+                            <span></span>
+                            <span></span>
+                            <span></span>
                         </div>
-                        <textarea id="chat-input" placeholder="Type your message here... (Press Enter to send, or use voice input)" rows="1"></textarea>
-                        <div class="chat-actions">
-                            <button id="voice-settings-toggle" type="button" class="settings-btn" title="Voice Settings">
-                                <i class="fas fa-cog"></i>
+                        <span class="typing-text">AI Tutor is typing...</span>
+                    </div>
+                </div>
+                
+                <div id="chat-input-container">
+                    <div class="input-wrapper">
+                        <div class="input-group">
+                            <div class="input-icon">
+                                <i class="fas fa-comment-dots"></i>
+                            </div>
+                            <input type="text" id="chat-input" placeholder="Ask me anything about English..." class="form-control">
+                            <div class="input-actions">
+                                <button id="voice-btn" class="btn btn-voice" type="button" title="Voice Input">
+                                    <i class="fas fa-microphone"></i>
+                                </button>
+                                <button id="send-btn" class="btn btn-send" type="button" title="Send Message">
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="quick-suggestions">
+                            <button class="suggestion-btn" data-text="Help me with grammar">
+                                <i class="fas fa-spell-check"></i> Grammar Help
                             </button>
-                            <button id="send-btn" type="button" disabled>
-                                <i class="fas fa-paper-plane"></i>
+                            <button class="suggestion-btn" data-text="Practice conversation">
+                                <i class="fas fa-comments"></i> Conversation
                             </button>
+                            <button class="suggestion-btn" data-text="Explain vocabulary">
+                                <i class="fas fa-book"></i> Vocabulary
+                            </button>
+                            <button class="suggestion-btn" data-text="Check pronunciation">
+                                <i class="fas fa-volume-up"></i> Pronunciation
+                            </button>
+                        </div>
+                        <div class="voice-controls-mini">
+                            <div class="voice-status-mini" id="voice-status-mini">Ready</div>
                         </div>
                     </div>
                     

@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const sendBtn = document.getElementById('send-btn');
   
   // Voice elements
-  const voiceInputBtn = document.getElementById('voice-input-btn');
+  const voiceInputBtn = document.getElementById('voice-btn');
   const voiceStatusMini = document.getElementById('voice-status-mini');
   const voiceSettingsToggle = document.getElementById('voice-settings-toggle');
   const voiceSettingsPanel = document.getElementById('voice-settings-panel');
