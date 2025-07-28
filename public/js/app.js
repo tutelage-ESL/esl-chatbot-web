@@ -1,20 +1,75 @@
 document.addEventListener('DOMContentLoaded', () => {
   const socket = io();
 
-  const chatForm = document.getElementById('chat-form');
+  const chatInputContainer = document.getElementById('chat-input-container');
   const chatInput = document.getElementById('chat-input');
   const chatMessages = document.getElementById('chat-messages');
-  const sendBtn = document.getElementById('send-chat-btn');
+  const sendBtn = document.getElementById('send-btn');
+  
+  // Voice elements
+  const voiceInputBtn = document.getElementById('voice-input-btn');
+  const voiceStatusMini = document.getElementById('voice-status-mini');
+  const voiceSettingsToggle = document.getElementById('voice-settings-toggle');
+  const voiceSettingsPanel = document.getElementById('voice-settings-panel');
+  const autoSpeakChat = document.getElementById('auto-speak-chat');
+  const voiceSpeedChat = document.getElementById('voice-speed-chat');
+  const speedValueChat = document.getElementById('speed-value-chat');
+  const autoSpeakIndicatorChat = document.getElementById('auto-speak-indicator-chat');
+  const testVoiceChat = document.getElementById('test-voice-chat');
+  
+  let isConnected = false;
+  let messageCount = 0;
+  
+  // Voice variables
+  let recognition;
+  let isRecognizing = false;
+  let currentUtterance = null;
+  let voicesLoaded = false;
+  
+  // Load voices when available
+  function loadVoices() {
+    const voices = speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      voicesLoaded = true;
+      console.log('Voices loaded:', voices.length);
+    }
+  }
+  
+  // Load voices on page load and when they change
+  if ('speechSynthesis' in window) {
+    loadVoices();
+    speechSynthesis.onvoiceschanged = loadVoices;
+  }
 
+  // Connection status handling
   socket.on('connect', () => {
     console.log('Connected to Socket.IO server');
+    isConnected = true;
+    updateConnectionStatus(true);
     socket.emit('load history');
+    showWelcomeMessage();
+  });
+
+  socket.on('disconnect', () => {
+    console.log('Disconnected from server');
+    isConnected = false;
+    updateConnectionStatus(false);
+  });
+
+  socket.on('reconnect', () => {
+    console.log('Reconnected to server');
+    isConnected = true;
+    updateConnectionStatus(true);
+    addSystemMessage('Reconnected to server! 🎉');
   });
 
   socket.on('chat history', (history) => {
-    history.forEach(msg => {
-      addMessage(msg.content, msg.sender, msg.createdAt);
-    });
+    if (history && history.length > 0) {
+      history.forEach(msg => {
+        addMessage(msg.content, msg.sender, msg.createdAt);
+        messageCount++;
+      });
+    }
   });
 
   socket.on('chat message', (data) => {
@@ -23,14 +78,28 @@ document.addEventListener('DOMContentLoaded', () => {
     if (loadingMessage) {
       loadingMessage.closest('.message').remove();
     }
-    addMessage(data.bot, 'bot', new Date()); // Display bot message
+    addMessage(data.bot, 'bot', new Date());
+    messageCount++;
+    
+    // Auto-speak AI response if enabled
+    if (autoSpeakChat && autoSpeakChat.checked && data.bot) {
+      setTimeout(() => {
+        speakText(data.bot);
+      }, 500); // Small delay to ensure message is displayed
+    }
   });
 
   socket.on('error', (msg) => {
+    // Remove loading indicator if present
+    const loadingMessage = document.querySelector('.bot-message .loading-dots');
+    if (loadingMessage) {
+      loadingMessage.closest('.message').remove();
+    }
     addMessage(msg, 'error');
+    enableInput();
   });
 
-  chatForm.addEventListener('submit', sendMessage);
+  sendBtn.addEventListener('click', sendMessage);
 
   chatInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -40,33 +109,33 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   chatInput.addEventListener('input', () => {
-    chatInput.style.height = 'auto';
-    chatInput.style.height = chatInput.scrollHeight + 'px';
+    autoResizeTextarea();
+    updateSendButtonState();
+  });
+
+  chatInput.addEventListener('focus', () => {
+    chatInput.parentElement.classList.add('focused');
+  });
+
+  chatInput.addEventListener('blur', () => {
+    chatInput.parentElement.classList.remove('focused');
   });
 
   function sendMessage(e) {
-    e.preventDefault();
+    if (e) e.preventDefault();
     const message = chatInput.value.trim();
-    if (!message) return;
+    if (!message || !isConnected) return;
 
-    chatInput.disabled = true;
-    sendBtn.disabled = true;
-    sendBtn.innerHTML = '<div class="loading"></div>';
+    disableInput();
+    addMessage(message, 'user', new Date());
+    messageCount++;
 
-    addMessage(message, 'user', new Date()); // Display user message immediately
-
-    // Add a loading indicator for the bot's response
-    const botLoadingMessageId = 'bot-loading-' + Date.now();
-    addMessage('<div class="loading-dots"><span>.</span><span>.</span><span>.</span></div>', 'bot', new Date(), botLoadingMessageId);
+    // Add typing indicator
+    const typingId = 'typing-' + Date.now();
+    addTypingIndicator(typingId);
 
     socket.emit('chat message', message);
-
-    chatInput.value = '';
-    chatInput.style.height = 'auto'; // Reset height after sending
-    chatInput.disabled = false;
-    sendBtn.disabled = false;
-    sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>'; // Restore icon
-    chatInput.focus();
+    clearInput();
   }
 
   function addMessage(text, type, timestamp = new Date(), id = null) {
@@ -79,11 +148,284 @@ document.addEventListener('DOMContentLoaded', () => {
     const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
     const timeString = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+    let avatarIcon = '';
+    if (type === 'user') {
+      avatarIcon = '<i class="fas fa-user"></i>';
+    } else if (type === 'bot') {
+      avatarIcon = '<i class="fas fa-robot"></i>';
+    } else if (type === 'error') {
+      avatarIcon = '<i class="fas fa-exclamation-triangle"></i>';
+    }
+
     messageDiv.innerHTML = `
-      <div class="message-bubble">${text}</div>
-      <div class="message-time">${timeString}</div>
+      <div class="message-avatar">${avatarIcon}</div>
+      <div class="message-content">
+        <div class="message-bubble">${text}</div>
+        <div class="message-time">${timeString}</div>
+      </div>
     `;
+    
     chatMessages.appendChild(messageDiv);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    smoothScrollToBottom();
+    
+    // Add entrance animation
+    setTimeout(() => {
+      messageDiv.classList.add('message-entered');
+    }, 10);
   }
+
+  function addTypingIndicator(id) {
+    const typingDiv = document.createElement('div');
+    typingDiv.className = 'message bot-message typing-indicator';
+    typingDiv.id = id;
+    
+    typingDiv.innerHTML = `
+      <div class="message-avatar"><i class="fas fa-robot"></i></div>
+      <div class="message-content">
+        <div class="message-bubble">
+          <div class="typing-animation">
+            <span></span><span></span><span></span>
+          </div>
+          <span class="typing-text">AI is thinking...</span>
+        </div>
+      </div>
+    `;
+    
+    chatMessages.appendChild(typingDiv);
+    smoothScrollToBottom();
+    
+    setTimeout(() => {
+      typingDiv.classList.add('message-entered');
+    }, 10);
+  }
+
+  function addSystemMessage(text) {
+    const systemDiv = document.createElement('div');
+    systemDiv.className = 'message system-message';
+    
+    systemDiv.innerHTML = `
+      <div class="system-content">
+        <i class="fas fa-info-circle"></i>
+        <span>${text}</span>
+      </div>
+    `;
+    
+    chatMessages.appendChild(systemDiv);
+    smoothScrollToBottom();
+  }
+
+  function showWelcomeMessage() {
+    if (messageCount === 0) {
+      setTimeout(() => {
+        addSystemMessage('Welcome to your ESL Learning Assistant! 👋 Start a conversation to practice your English!');
+      }, 500);
+    }
+  }
+
+  function disableInput() {
+    chatInput.disabled = true;
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = '<div class="loading"></div>';
+    chatInputContainer.classList.add('sending');
+  }
+
+  function enableInput() {
+    chatInput.disabled = false;
+    sendBtn.disabled = false;
+    sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
+    chatInputContainer.classList.remove('sending');
+    chatInput.focus();
+    updateSendButtonState();
+  }
+
+  function clearInput() {
+    chatInput.value = '';
+    autoResizeTextarea();
+    enableInput();
+  }
+
+  function autoResizeTextarea() {
+    chatInput.style.height = 'auto';
+    chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
+  }
+
+  function updateSendButtonState() {
+    const hasText = chatInput.value.trim().length > 0;
+    sendBtn.classList.toggle('has-text', hasText && isConnected);
+  }
+
+  function updateConnectionStatus(connected) {
+    const statusIndicator = document.querySelector('.connection-status') || createConnectionStatus();
+    statusIndicator.className = `connection-status ${connected ? 'connected' : 'disconnected'}`;
+    statusIndicator.innerHTML = connected 
+      ? '<i class="fas fa-wifi"></i> Connected' 
+      : '<i class="fas fa-wifi"></i> Disconnected';
+  }
+
+  function createConnectionStatus() {
+    const statusDiv = document.createElement('div');
+    statusDiv.className = 'connection-status';
+    statusDiv.id = 'connection-status';
+    chatMessages.appendChild(statusDiv);
+    return statusDiv;
+  }
+
+  function smoothScrollToBottom() {
+    chatMessages.scrollTo({
+      top: chatMessages.scrollHeight,
+      behavior: 'smooth'
+    });
+  }
+
+  // Voice functionality
+  function initializeVoiceRecognition() {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      console.log('Speech recognition not supported');
+      if (voiceInputBtn) voiceInputBtn.style.display = 'none';
+      return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => {
+      isRecognizing = true;
+      updateVoiceStatus('Listening...', 'listening');
+      if (voiceInputBtn) {
+        voiceInputBtn.innerHTML = '<i class="fas fa-stop"></i>';
+        voiceInputBtn.classList.add('listening');
+      }
+    };
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      console.log('Voice input:', transcript);
+      chatInput.value = transcript;
+      updateSendButtonState();
+      updateVoiceStatus('Voice input received', 'success');
+      setTimeout(() => updateVoiceStatus('Ready', 'ready'), 2000);
+    };
+
+    recognition.onerror = (event) => {
+      console.error('Speech recognition error:', event.error);
+      let errorMessage = 'Voice input error';
+      if (event.error === 'no-speech') {
+        errorMessage = 'No speech detected';
+      } else if (event.error === 'not-allowed') {
+        errorMessage = 'Microphone access denied';
+      }
+      updateVoiceStatus(errorMessage, 'error');
+      setTimeout(() => updateVoiceStatus('Ready', 'ready'), 3000);
+    };
+
+    recognition.onend = () => {
+      isRecognizing = false;
+      if (voiceInputBtn) {
+        voiceInputBtn.innerHTML = '<i class="fas fa-microphone"></i>';
+        voiceInputBtn.classList.remove('listening');
+      }
+    };
+  }
+
+  function updateVoiceStatus(message, type) {
+    if (voiceStatusMini) {
+      voiceStatusMini.textContent = message;
+      voiceStatusMini.className = `voice-status-mini ${type}`;
+    }
+  }
+
+  function speakText(text) {
+    if (!('speechSynthesis' in window)) {
+      console.error('Speech synthesis not supported');
+      return;
+    }
+
+    console.log('Starting speech synthesis...');
+    speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    const speed = voiceSpeedChat ? parseFloat(voiceSpeedChat.value) : 1.0;
+    utterance.rate = speed;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+    utterance.lang = 'en-US';
+
+    const voices = speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      const englishVoice = voices.find(voice => voice.lang.startsWith('en'));
+      if (englishVoice) {
+        utterance.voice = englishVoice;
+      }
+    }
+
+    currentUtterance = utterance;
+
+    utterance.onstart = () => {
+      console.log('AI speaking...');
+    };
+
+    utterance.onend = () => {
+      currentUtterance = null;
+      console.log('AI finished speaking');
+    };
+
+    utterance.onerror = () => {
+      currentUtterance = null;
+      console.error('Speech synthesis error');
+    };
+
+    console.log(`Speaking text at ${speed}x speed: "${text.substring(0, 50)}..."`); 
+    speechSynthesis.speak(currentUtterance);
+  }
+
+  // Voice event listeners
+  if (voiceInputBtn) {
+    voiceInputBtn.addEventListener('click', () => {
+      if (isRecognizing) {
+        recognition.stop();
+      } else {
+        recognition.start();
+      }
+    });
+  }
+
+  if (voiceSettingsToggle && voiceSettingsPanel) {
+    voiceSettingsToggle.addEventListener('click', () => {
+      const isVisible = voiceSettingsPanel.style.display !== 'none';
+      voiceSettingsPanel.style.display = isVisible ? 'none' : 'block';
+    });
+  }
+
+  if (voiceSpeedChat && speedValueChat) {
+    voiceSpeedChat.addEventListener('input', () => {
+      speedValueChat.textContent = voiceSpeedChat.value;
+    });
+  }
+
+  if (autoSpeakChat && autoSpeakIndicatorChat) {
+    autoSpeakChat.addEventListener('change', () => {
+      const isEnabled = autoSpeakChat.checked;
+      if (isEnabled) {
+        autoSpeakIndicatorChat.textContent = ' (Enabled)';
+        autoSpeakIndicatorChat.className = 'text-success';
+      } else {
+        autoSpeakIndicatorChat.textContent = ' (Disabled)';
+        autoSpeakIndicatorChat.className = 'text-muted';
+      }
+    });
+  }
+
+  if (testVoiceChat) {
+    testVoiceChat.addEventListener('click', () => {
+      const testMessage = 'Hello! This is a test of the voice synthesis system in chat.';
+      speakText(testMessage);
+    });
+  }
+
+  // Initialize
+  updateSendButtonState();
+  initializeVoiceRecognition();
 });

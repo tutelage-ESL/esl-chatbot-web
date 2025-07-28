@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { HfInference } = require('@huggingface/inference');
 
 // Initialize Google Generative AI (assuming genAI is globally available or passed)
 // For now, we'll assume it's initialized elsewhere or handle it here if needed.
@@ -9,6 +10,11 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // Chat endpoint with Gemini AI
 router.post('/chat', async (req, res) => {
+  // Check if user is authenticated
+  if (!req.session.userId) {
+    console.log('Unauthorized access to /api/chat');
+    return res.status(401).json({ error: 'Authentication required' });
+  }
   try {
     console.log('Received chat request with message:', req.body.message);
     const { message } = req.body;
@@ -138,10 +144,14 @@ router.post('/voice-message', async (req, res) => {
             return res.status(400).json({ success: false, message: 'No message provided.' });
         }
 
-        // Use the global genAI instance to get the model
-        const model = global.genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
-        const result = await model.generateContent(message);
-        const botResponse = result.response.text();
+        const hf = new HfInference(process.env.HUGGINGFACE_API_TOKEN, { provider: 'hf-inference' });
+        const modelName = 'HuggingFaceH4/zephyr-7b-beta'; // A suitable free model
+
+        const response = await hf.textGeneration({
+            model: modelName,
+            inputs: message,
+        });
+        const botResponse = response.generated_text;
 
         res.json({ success: true, response: botResponse });
     } catch (error) {
