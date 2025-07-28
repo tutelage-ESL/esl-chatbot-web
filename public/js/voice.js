@@ -18,6 +18,110 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentUtterance = null;
     let voicesLoaded = false;
     
+    // ElevenLabs Voice Service
+    let elevenLabsAvailable = false;
+    let elevenLabsVoices = [];
+    let selectedVoiceId = null;
+
+    async function checkElevenLabsStatus() {
+        try {
+            const response = await fetch('/api/voice-status');
+            const status = await response.json();
+            elevenLabsAvailable = status.elevenLabs.available;
+            
+            if (elevenLabsAvailable) {
+                console.log('ElevenLabs service available with', status.elevenLabs.voiceCount, 'voices');
+                await loadElevenLabsVoices();
+                updateVoiceStatus('ElevenLabs AI voices ready', 'ready');
+            } else {
+                console.log('ElevenLabs service not available, using browser TTS fallback');
+                updateVoiceStatus('Browser voices ready', 'ready');
+            }
+        } catch (error) {
+            console.error('Failed to check ElevenLabs status:', error);
+            elevenLabsAvailable = false;
+            updateVoiceStatus('Browser voices ready', 'ready');
+        }
+    }
+
+    async function loadElevenLabsVoices() {
+        try {
+            const response = await fetch('/api/voices');
+            const data = await response.json();
+            
+            if (data.available && data.voices) {
+                elevenLabsVoices = data.voices;
+                // Select the first available voice as default
+                selectedVoiceId = elevenLabsVoices[0]?.id || null;
+                console.log('Loaded ElevenLabs voices:', elevenLabsVoices.length);
+            }
+        } catch (error) {
+            console.error('Failed to load ElevenLabs voices:', error);
+        }
+    }
+
+    async function speakWithElevenLabs(text) {
+        try {
+            const speed = voiceSpeedSlider ? parseFloat(voiceSpeedSlider.value) : 1.0;
+            
+            const response = await fetch('/api/text-to-speech', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    text: text,
+                    voiceId: selectedVoiceId,
+                    options: {
+                        stability: 0.5,
+                        similarityBoost: 0.8,
+                        style: 0.0,
+                        useSpeakerBoost: true
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                if (errorData.fallback) {
+                    console.log('ElevenLabs not available, falling back to browser TTS');
+                    return false; // Signal to use fallback
+                }
+                throw new Error(errorData.error || 'Failed to generate speech');
+            }
+
+            const audioBuffer = await response.arrayBuffer();
+            const audioBlob = new Blob([audioBuffer], { type: 'audio/mpeg' });
+            const audioUrl = URL.createObjectURL(audioBlob);
+            
+            const audio = new Audio(audioUrl);
+            audio.playbackRate = speed; // Apply speed setting
+            
+            audio.onplay = () => {
+                console.log('ElevenLabs AI speaking...');
+                updateVoiceStatus('Speaking with AI voice...', 'speaking');
+            };
+            
+            audio.onended = () => {
+                URL.revokeObjectURL(audioUrl);
+                console.log('ElevenLabs AI finished speaking');
+                updateVoiceStatus('Ready to listen', 'ready');
+            };
+            
+            audio.onerror = (error) => {
+                console.error('Audio playback error:', error);
+                URL.revokeObjectURL(audioUrl);
+                updateVoiceStatus('Audio error', 'error');
+            };
+            
+            await audio.play();
+            return true;
+        } catch (error) {
+            console.error('ElevenLabs TTS error:', error);
+            return false; // Signal to use fallback
+        }
+    }
+    
     // Load voices when available
     function loadVoices() {
         const voices = speechSynthesis.getVoices();
@@ -295,14 +399,14 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
     }
 
-    function speakText(text) {
+    function speakWithBrowserTTS(text) {
         if (!('speechSynthesis' in window)) {
             console.error('Speech synthesis not supported');
             alert('Text-to-speech is not supported in your browser.');
             return;
         }
 
-        console.log('Starting speech synthesis...');
+        console.log('Using browser TTS fallback...');
         console.log('Available voices:', speechSynthesis.getVoices().length);
         
         // Stop any current speech
@@ -331,7 +435,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 speakResponseBtn.innerHTML = '<i class="fas fa-stop"></i> Stop Speaking';
                 speakResponseBtn.classList.add('speaking');
             }
-            updateVoiceStatus('AI is speaking...', 'speaking');
+            updateVoiceStatus('Browser TTS speaking...', 'speaking');
         };
 
         utterance.onend = () => {
@@ -365,6 +469,39 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             speechSynthesis.speak(currentUtterance);
         }
+
+        console.log(`Speaking text at ${speed}x speed with ${bestVoice ? bestVoice.name : 'default voice'}: "${text.substring(0, 50)}..."`); 
+        
+        if (!voicesLoaded) {
+            console.log('Voices not loaded yet, attempting to load...');
+            loadVoices();
+            setTimeout(() => {
+                speechSynthesis.speak(currentUtterance);
+            }, 100);
+        } else {
+            speechSynthesis.speak(currentUtterance);
+        }
+    }
+
+    async function speakText(text) {
+        console.log('Starting speech synthesis...');
+        
+        // Update UI to show speaking state
+        if (speakResponseBtn) {
+            speakResponseBtn.innerHTML = '<i class="fas fa-stop"></i> Stop Speaking';
+            speakResponseBtn.classList.add('speaking');
+        }
+        
+        // Try ElevenLabs first if available
+        if (elevenLabsAvailable) {
+            const success = await speakWithElevenLabs(text);
+            if (success) {
+                return; // Successfully used ElevenLabs
+            }
+        }
+        
+        // Fallback to browser TTS
+        speakWithBrowserTTS(text);
     }
 
     function resetButtons() {

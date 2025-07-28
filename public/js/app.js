@@ -337,8 +337,144 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // ElevenLabs Voice Service
+  let elevenLabsAvailable = false;
+  let elevenLabsVoices = [];
+  let selectedVoiceId = null;
+
+  async function checkElevenLabsStatus() {
+    try {
+      const response = await fetch('/api/voice-status');
+      const status = await response.json();
+      elevenLabsAvailable = status.elevenLabs.available;
+      
+      if (elevenLabsAvailable) {
+        console.log('ElevenLabs service available with', status.elevenLabs.voiceCount, 'voices');
+        await loadElevenLabsVoices();
+      } else {
+        console.log('ElevenLabs service not available, using browser TTS fallback');
+      }
+    } catch (error) {
+      console.error('Failed to check ElevenLabs status:', error);
+      elevenLabsAvailable = false;
+    }
+  }
+
+  async function loadElevenLabsVoices() {
+    try {
+      const response = await fetch('/api/voices');
+      const data = await response.json();
+      
+      if (data.available && data.voices) {
+        elevenLabsVoices = data.voices;
+        // Select the first available voice as default
+        selectedVoiceId = elevenLabsVoices[0]?.id || null;
+        console.log('Loaded ElevenLabs voices:', elevenLabsVoices.length);
+      }
+    } catch (error) {
+      console.error('Failed to load ElevenLabs voices:', error);
+    }
+  }
+
+  async function speakWithElevenLabs(text) {
+    try {
+      const speed = voiceSpeedChat ? parseFloat(voiceSpeedChat.value) : 1.0;
+      
+      const response = await fetch('/api/text-to-speech', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          text: text,
+          voiceId: selectedVoiceId,
+          options: {
+            stability: 0.5,
+            similarityBoost: 0.8,
+            style: 0.0,
+            useSpeakerBoost: true
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        if (errorData.fallback) {
+          console.log('ElevenLabs not available, falling back to browser TTS');
+          return false; // Signal to use fallback
+        }
+        throw new Error(errorData.error || 'Failed to generate speech');
+      }
+
+      const audioBuffer = await response.arrayBuffer();
+      
+      // Use Web Audio API for better compatibility
+      try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const decodedAudio = await audioContext.decodeAudioData(audioBuffer.slice());
+        
+        // Create audio source
+        const source = audioContext.createBufferSource();
+        source.buffer = decodedAudio;
+        
+        // Apply speed setting
+        source.playbackRate.value = speed;
+        
+        // Connect to output
+        source.connect(audioContext.destination);
+        
+        console.log('ElevenLabs AI speaking...');
+        
+        // Play audio
+        source.start(0);
+        
+        // Wait for audio to finish
+        await new Promise((resolve) => {
+          source.onended = () => {
+            console.log('ElevenLabs AI finished speaking');
+            resolve();
+          };
+        });
+        
+      } catch (webAudioError) {
+        console.warn('Web Audio API failed, trying HTML5 Audio:', webAudioError);
+        
+        // Fallback to HTML5 Audio with base64 encoding
+        const base64Audio = btoa(String.fromCharCode(...new Uint8Array(audioBuffer)));
+        const audioSrc = `data:audio/mpeg;base64,${base64Audio}`;
+        
+        const audio = new Audio(audioSrc);
+        audio.playbackRate = speed;
+        
+        audio.onplay = () => {
+          console.log('ElevenLabs AI speaking (HTML5 fallback)...');
+        };
+        
+        audio.onended = () => {
+          console.log('ElevenLabs AI finished speaking');
+        };
+        
+        audio.onerror = (error) => {
+          console.error('HTML5 Audio playback error:', error);
+          throw error;
+        };
+        
+        await audio.play();
+      }
+      return true;
+    } catch (error) {
+      console.error('ElevenLabs TTS error:', error);
+      return false; // Signal to use fallback
+    }
+  }
+
   function getBestVoice() {
     const voices = speechSynthesis.getVoices();
+    
+    if (!voicesLoaded || !voices.length) {
+      console.log('Voices not loaded yet');
+      return null;
+    }
     
     // Priority order for better quality voices
     const preferredVoices = [
@@ -347,6 +483,8 @@ document.addEventListener('DOMContentLoaded', () => {
       'Microsoft David - English (United States)', 
       'Microsoft Mark - English (United States)',
       'Google US English',
+      'Google UK English Female',
+      'Google UK English Male',
       'Alex', // macOS
       'Samantha', // macOS
       'Karen', // macOS
@@ -377,13 +515,13 @@ document.addEventListener('DOMContentLoaded', () => {
     return null;
   }
 
-  function speakText(text) {
+  function speakWithBrowserTTS(text) {
     if (!('speechSynthesis' in window)) {
       console.error('Speech synthesis not supported');
       return;
     }
 
-    console.log('Starting speech synthesis...');
+    console.log('Using browser TTS fallback...');
     speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
@@ -403,12 +541,12 @@ document.addEventListener('DOMContentLoaded', () => {
     currentUtterance = utterance;
 
     utterance.onstart = () => {
-      console.log('AI speaking...');
+      console.log('Browser TTS speaking...');
     };
 
     utterance.onend = () => {
       currentUtterance = null;
-      console.log('AI finished speaking');
+      console.log('Browser TTS finished speaking');
     };
 
     utterance.onerror = (event) => {
@@ -427,6 +565,21 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       speechSynthesis.speak(currentUtterance);
     }
+  }
+
+  async function speakText(text) {
+    console.log('Starting speech synthesis...');
+    
+    // Try ElevenLabs first if available
+    if (elevenLabsAvailable) {
+      const success = await speakWithElevenLabs(text);
+      if (success) {
+        return; // Successfully used ElevenLabs
+      }
+    }
+    
+    // Fallback to browser TTS
+    speakWithBrowserTTS(text);
   }
 
   // Voice event listeners
@@ -476,4 +629,5 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize
   updateSendButtonState();
   initializeVoiceRecognition();
+  checkElevenLabsStatus();
 });

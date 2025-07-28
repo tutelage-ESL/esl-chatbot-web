@@ -117,9 +117,15 @@ io.on('connection', (socket) => {
   });
 });
 const db = require('./models');
+const elevenLabsService = require('./services/elevenLabsService');
+
 db.sequelize.sync({ alter: true })
-  .then(() => {
+  .then(async () => {
     console.log('Database synchronized successfully.');
+    
+    // Initialize ElevenLabs service
+    await elevenLabsService.init();
+    
     server.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });

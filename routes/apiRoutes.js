@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { HfInference } = require('@huggingface/inference');
+const elevenLabsService = require('../services/elevenLabsService');
 
 // Initialize Google Generative AI (assuming genAI is globally available or passed)
 // For now, we'll assume it's initialized elsewhere or handle it here if needed.
@@ -158,6 +159,122 @@ router.post('/voice-message', async (req, res) => {
         console.error('Error processing voice message:', error);
         res.status(500).json({ success: false, message: 'Failed to process voice message.' });
     }
+});
+
+// ElevenLabs Voice Synthesis Endpoints
+router.get('/voices', async (req, res) => {
+  try {
+    if (!elevenLabsService.isAvailable()) {
+      return res.status(503).json({ 
+        error: 'ElevenLabs service not available',
+        fallback: true
+      });
+    }
+
+    const voices = elevenLabsService.getAvailableVoices();
+    res.json({ voices, available: true });
+  } catch (error) {
+    console.error('Failed to get voices:', error);
+    res.status(500).json({ error: 'Failed to retrieve voices' });
+  }
+});
+
+router.post('/text-to-speech', async (req, res) => {
+  try {
+    const { text, voiceId, options = {} } = req.body;
+
+    if (!text) {
+      return res.status(400).json({ error: 'Text is required' });
+    }
+
+    if (!elevenLabsService.isAvailable()) {
+      return res.status(503).json({ 
+        error: 'ElevenLabs service not available',
+        fallback: true
+      });
+    }
+
+    // Generate audio buffer
+    const audioBuffer = await elevenLabsService.textToSpeech(text, {
+      voiceId,
+      ...options
+    });
+
+    // Set appropriate headers for audio response
+    res.set({
+      'Content-Type': 'audio/mpeg',
+      'Content-Length': audioBuffer.length,
+      'Cache-Control': 'public, max-age=3600' // Cache for 1 hour
+    });
+
+    res.send(audioBuffer);
+  } catch (error) {
+    console.error('Text-to-speech error:', error);
+    res.status(500).json({ 
+      error: 'Failed to generate speech',
+      message: error.message
+    });
+  }
+});
+
+router.post('/text-to-speech-stream', async (req, res) => {
+  try {
+    const { text, voiceId, options = {} } = req.body;
+
+    if (!text) {
+      return res.status(400).json({ error: 'Text is required' });
+    }
+
+    if (!elevenLabsService.isAvailable()) {
+      return res.status(503).json({ 
+        error: 'ElevenLabs service not available',
+        fallback: true
+      });
+    }
+
+    // Set headers for streaming audio
+    res.set({
+      'Content-Type': 'audio/mpeg',
+      'Transfer-Encoding': 'chunked',
+      'Cache-Control': 'no-cache'
+    });
+
+    // Get audio stream and pipe to response
+    const audioStream = await elevenLabsService.textToSpeechStream(text, {
+      voiceId,
+      ...options
+    });
+
+    audioStream.pipe(res);
+  } catch (error) {
+    console.error('Text-to-speech stream error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ 
+        error: 'Failed to generate speech stream',
+        message: error.message
+      });
+    }
+  }
+});
+
+router.get('/voice-status', async (req, res) => {
+  try {
+    const status = {
+      elevenLabs: {
+        available: elevenLabsService.isAvailable(),
+        voiceCount: elevenLabsService.getAvailableVoices().length
+      },
+      browserTTS: {
+        available: true, // Browser TTS is always available as fallback
+        note: 'Fallback option'
+      }
+    };
+
+    res.json(status);
+  } catch (error) {
+    console.error('Voice status error:', error);
+    res.status(500).json({ error: 'Failed to get voice status' });
+  }
 });
 
 module.exports = router;
