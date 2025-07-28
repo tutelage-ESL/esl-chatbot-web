@@ -4,10 +4,83 @@ const multer = require('multer');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { HfInference } = require('@huggingface/inference');
 const elevenLabsService = require('../services/elevenLabsService');
+const fs = require('fs');
+const path = require('path');
 
 // Initialize Google Generative AI (assuming genAI is globally available or passed)
 // For now, we'll assume it's initialized elsewhere or handle it here if needed.
 // const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+// Helper function to update progress.json file
+function updateProgressJSON(userId, message, type, responsePreview) {
+  try {
+    const progressPath = path.join(__dirname, '../data/progress.json');
+    let progressData = {};
+    
+    // Read existing progress data
+    if (fs.existsSync(progressPath)) {
+      const progressFile = fs.readFileSync(progressPath, 'utf8');
+      progressData = JSON.parse(progressFile);
+    }
+    
+    // Initialize user data if it doesn't exist
+    if (!progressData[userId]) {
+      progressData[userId] = {
+        userId: userId,
+        userName: 'Student',
+        interactions: [],
+        metrics: {
+          totalInteractions: 0,
+          textInteractions: 0,
+          voiceInteractions: 0,
+          commandsUsed: 0,
+          lessonsCompleted: 0,
+          practiceSessionsCompleted: 0,
+          estimatedLevel: null,
+          skillMetrics: {
+            grammar: 0,
+            vocabulary: 0,
+            reading: 0,
+            writing: 0,
+            speaking: 0,
+            listening: 0
+          },
+          lastUpdated: new Date().toISOString()
+        }
+      };
+    }
+    
+    // Add new interaction
+    const interaction = {
+      timestamp: new Date().toISOString(),
+      type: type,
+      message: message,
+      responsePreview: responsePreview
+    };
+    
+    progressData[userId].interactions.unshift(interaction);
+    
+    // Update metrics
+    progressData[userId].metrics.totalInteractions++;
+    if (type === 'text') {
+      progressData[userId].metrics.textInteractions++;
+    } else if (type === 'voice') {
+      progressData[userId].metrics.voiceInteractions++;
+    }
+    progressData[userId].metrics.lastUpdated = new Date().toISOString();
+    
+    // Keep only last 50 interactions to prevent file from growing too large
+    if (progressData[userId].interactions.length > 50) {
+      progressData[userId].interactions = progressData[userId].interactions.slice(0, 50);
+    }
+    
+    // Write back to file
+    fs.writeFileSync(progressPath, JSON.stringify(progressData, null, 2));
+    
+  } catch (error) {
+    console.error('Error updating progress.json:', error);
+  }
+}
 
 // Chat endpoint with Gemini AI
 router.post('/chat', async (req, res) => {
@@ -140,6 +213,11 @@ router.get('/health', (req, res) => {
 
 router.post('/voice-message', async (req, res) => {
     try {
+        // Check if user is authenticated
+        if (!req.session.userId) {
+            return res.status(401).json({ success: false, message: 'Authentication required' });
+        }
+        
         const { message } = req.body;
         if (!message) {
             return res.status(400).json({ success: false, message: 'No message provided.' });
@@ -153,10 +231,20 @@ router.post('/voice-message', async (req, res) => {
             inputs: message,
         });
         const botResponse = response.generated_text;
+        
+        // Track voice interaction in progress.json
+        const responsePreview = botResponse.length > 100 ? botResponse.substring(0, 100) + '...' : botResponse;
+        updateProgressJSON(req.session.userId, 'Voice message', 'voice', responsePreview);
 
         res.json({ success: true, response: botResponse });
     } catch (error) {
         console.error('Error processing voice message:', error);
+        
+        // Track failed voice interaction
+        if (req.session.userId) {
+            updateProgressJSON(req.session.userId, 'Voice message', 'voice', 'Sorry, I encountered an error processing your voice message. Please try again.');
+        }
+        
         res.status(500).json({ success: false, message: 'Failed to process voice message.' });
     }
 });
@@ -274,6 +362,211 @@ router.get('/voice-status', async (req, res) => {
   } catch (error) {
     console.error('Voice status error:', error);
     res.status(500).json({ error: 'Failed to get voice status' });
+  }
+});
+
+// Vocabulary tracking endpoints
+router.post('/vocabulary/add', async (req, res) => {
+  try {
+    const { word, definition, example, difficulty } = req.body;
+    const userId = req.session.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+    
+    const vocabularyPath = path.join(__dirname, '../data/vocabulary.json');
+    let vocabularyData = {};
+    
+    // Read existing vocabulary data
+    if (fs.existsSync(vocabularyPath)) {
+      const vocabularyFile = fs.readFileSync(vocabularyPath, 'utf8');
+      vocabularyData = JSON.parse(vocabularyFile);
+    }
+    
+    // Initialize user vocabulary if it doesn't exist
+    if (!vocabularyData[userId]) {
+      vocabularyData[userId] = {
+        words: [],
+        totalWords: 0,
+        masteredWords: 0
+      };
+    }
+    
+    // Add new word
+    const newWord = {
+      id: Date.now().toString(),
+      word: word.toLowerCase(),
+      definition,
+      example,
+      difficulty: difficulty || 'medium',
+      dateAdded: new Date().toISOString(),
+      reviewCount: 0,
+      mastered: false
+    };
+    
+    vocabularyData[userId].words.push(newWord);
+    vocabularyData[userId].totalWords = vocabularyData[userId].words.length;
+    
+    // Write updated data
+    fs.writeFileSync(vocabularyPath, JSON.stringify(vocabularyData, null, 2));
+    
+    res.json({ success: true, word: newWord });
+  } catch (error) {
+    console.error('Error adding vocabulary word:', error);
+    res.status(500).json({ error: 'Failed to add vocabulary word' });
+  }
+});
+
+router.get('/vocabulary', async (req, res) => {
+  try {
+    const userId = req.session.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+    
+    const vocabularyPath = path.join(__dirname, '../data/vocabulary.json');
+    let vocabularyData = {};
+    
+    if (fs.existsSync(vocabularyPath)) {
+      const vocabularyFile = fs.readFileSync(vocabularyPath, 'utf8');
+      vocabularyData = JSON.parse(vocabularyFile);
+    }
+    
+    const userVocabulary = vocabularyData[userId] || {
+      words: [],
+      totalWords: 0,
+      masteredWords: 0
+    };
+    
+    res.json(userVocabulary);
+  } catch (error) {
+    console.error('Error getting vocabulary:', error);
+    res.status(500).json({ error: 'Failed to get vocabulary' });
+  }
+});
+
+// Learning goals endpoints
+router.post('/goals/set', async (req, res) => {
+  try {
+    const { type, target, deadline, description } = req.body;
+    const userId = req.session.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+    
+    const goalsPath = path.join(__dirname, '../data/goals.json');
+    let goalsData = {};
+    
+    // Read existing goals data
+    if (fs.existsSync(goalsPath)) {
+      const goalsFile = fs.readFileSync(goalsPath, 'utf8');
+      goalsData = JSON.parse(goalsFile);
+    }
+    
+    // Initialize user goals if it doesn't exist
+    if (!goalsData[userId]) {
+      goalsData[userId] = {
+        activeGoals: [],
+        completedGoals: []
+      };
+    }
+    
+    // Add new goal
+    const newGoal = {
+      id: Date.now().toString(),
+      type, // 'daily', 'weekly', 'monthly', 'custom'
+      target,
+      current: 0,
+      deadline: deadline || null,
+      description,
+      dateCreated: new Date().toISOString(),
+      completed: false
+    };
+    
+    goalsData[userId].activeGoals.push(newGoal);
+    
+    // Write updated data
+    fs.writeFileSync(goalsPath, JSON.stringify(goalsData, null, 2));
+    
+    res.json({ success: true, goal: newGoal });
+  } catch (error) {
+    console.error('Error setting goal:', error);
+    res.status(500).json({ error: 'Failed to set goal' });
+  }
+});
+
+router.get('/goals', async (req, res) => {
+  try {
+    const userId = req.session.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+    
+    const goalsPath = path.join(__dirname, '../data/goals.json');
+    let goalsData = {};
+    
+    if (fs.existsSync(goalsPath)) {
+      const goalsFile = fs.readFileSync(goalsPath, 'utf8');
+      goalsData = JSON.parse(goalsFile);
+    }
+    
+    const userGoals = goalsData[userId] || {
+      activeGoals: [],
+      completedGoals: []
+    };
+    
+    res.json(userGoals);
+  } catch (error) {
+    console.error('Error getting goals:', error);
+    res.status(500).json({ error: 'Failed to get goals' });
+  }
+});
+
+// Pronunciation practice endpoint
+router.post('/pronunciation/analyze', async (req, res) => {
+  try {
+    const { text, audioData } = req.body;
+    const userId = req.session.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+    
+    // Simulate pronunciation analysis (in a real app, you'd use speech recognition API)
+    const analysis = {
+      accuracy: Math.floor(Math.random() * 30) + 70, // 70-100%
+      feedback: [
+        'Good pronunciation overall!',
+        'Try to emphasize the stressed syllables more.',
+        'Work on the "th" sound in "the".'
+      ],
+      suggestions: [
+        'Practice tongue twisters with similar sounds',
+        'Record yourself and compare with native speakers',
+        'Focus on mouth positioning for difficult sounds'
+      ],
+      score: Math.floor(Math.random() * 30) + 70
+    };
+    
+    // Save pronunciation practice session
+    const practiceData = {
+      userId,
+      text,
+      score: analysis.score,
+      timestamp: new Date().toISOString()
+    };
+    
+    // Update progress tracking
+    updateProgressJSON(userId, text, 'pronunciation', `Pronunciation practice: ${analysis.score}%`);
+    
+    res.json({ success: true, analysis });
+  } catch (error) {
+    console.error('Error analyzing pronunciation:', error);
+    res.status(500).json({ error: 'Failed to analyze pronunciation' });
   }
 });
 

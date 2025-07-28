@@ -1,4 +1,45 @@
 {
+  "10": {
+    "userId": 10,
+    "userName": "Student",
+    "interactions": [
+      {
+        "timestamp": "2025-07-28T16:55:50.176Z",
+        "type": "text",
+        "message": "hhh",
+        "responsePreview": "It seems like you're having fun with the keyboard, Lola! 😄\n\nRemember, Lola, I'm here to help you le..."
+      },
+      {
+        "timestamp": "2025-07-28T16:55:38.002Z",
+        "type": "pronunciation",
+        "responsePreview": "Pronunciation practice: 81%"
+      },
+      {
+        "timestamp": "2025-07-28T16:46:55.980Z",
+        "type": "text",
+        "message": "fvfg",
+        "responsePreview": "Hmm, it looks like that might have been a little typing adventure, Lola! 😉\n\nRemember, Lola, I'm her..."
+      }
+    ],
+    "metrics": {
+      "totalInteractions": 3,
+      "textInteractions": 2,
+      "voiceInteractions": 0,
+      "commandsUsed": 0,
+      "lessonsCompleted": 0,
+      "practiceSessionsCompleted": 0,
+      "estimatedLevel": null,
+      "skillMetrics": {
+        "grammar": 0,
+        "vocabulary": 0,
+        "reading": 0,
+        "writing": 0,
+        "speaking": 0,
+        "listening": 0
+      },
+      "lastUpdated": "2025-07-28T16:55:50.176Z"
+    }
+  },
   "user_hehxzwj55vhmd0u2mriz1": {
     "userId": "user_hehxzwj55vhmd0u2mriz1",
     "userName": "Redyar",

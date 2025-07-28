@@ -39,22 +39,22 @@
                 <div class="dashboard-stats">
                     <div class="stat-card">
                         <div class="stat-icon lessons"><i class="fas fa-book-open"></i></div>
-                        <div class="stat-number">24</div>
+                        <div class="stat-number"><%= stats.lessonsCompleted %></div>
                         <div class="stat-label">Lessons Completed</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-icon time"><i class="fas fa-clock"></i></div>
-                        <div class="stat-number">18h</div>
+                        <div class="stat-number"><%= stats.studyTime %></div>
                         <div class="stat-label">Study Time</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-icon streak"><i class="fas fa-fire"></i></div>
-                        <div class="stat-number">7</div>
+                        <div class="stat-number"><%= stats.dayStreak %></div>
                         <div class="stat-label">Day Streak</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-icon achievements"><i class="fas fa-trophy"></i></div>
-                        <div class="stat-number">12</div>
+                        <div class="stat-number"><%= stats.achievements %></div>
                         <div class="stat-label">Achievements</div>
                     </div>
                 </div>
@@ -74,19 +74,36 @@
                         <h3>Voice Training</h3>
                         <p>Practice pronunciation and speaking with real-time feedback</p>
                     </a>
-                    <a href="/progress" class="action-card">
+                    <a href="/pronunciation" class="action-card">
+                        <div class="action-icon" style="background: linear-gradient(135deg, #dc2626, #ef4444);">
+                            <i class="fas fa-volume-up"></i>
+                        </div>
+                        <h3>Pronunciation Practice</h3>
+                        <p>Perfect your pronunciation with AI-powered analysis and feedback</p>
+                        <span class="new-badge">New!</span>
+                    </a>
+                    <a href="/vocabulary" class="action-card">
+                        <div class="action-icon" style="background: linear-gradient(135deg, #ea580c, #f97316);">
+                            <i class="fas fa-book"></i>
+                        </div>
+                        <h3>Vocabulary Builder</h3>
+                        <p>Expand your vocabulary with personalized word tracking and practice</p>
+                        <span class="new-badge">New!</span>
+                    </a>
+                    <a href="/goals" class="action-card">
                         <div class="action-icon" style="background: linear-gradient(135deg, #059669, #10b981);">
+                            <i class="fas fa-target"></i>
+                        </div>
+                        <h3>Learning Goals</h3>
+                        <p>Set and track your learning objectives to stay motivated</p>
+                        <span class="new-badge">New!</span>
+                    </a>
+                    <a href="/progress" class="action-card">
+                        <div class="action-icon" style="background: linear-gradient(135deg, #7c3aed, #a855f7);">
                             <i class="fas fa-chart-line"></i>
                         </div>
                         <h3>Track Progress</h3>
                         <p>Monitor your learning journey and celebrate achievements</p>
-                    </a>
-                    <a href="/settings" class="action-card">
-                        <div class="action-icon" style="background: linear-gradient(135deg, #7c3aed, #a855f7);">
-                            <i class="fas fa-cog"></i>
-                        </div>
-                        <h3>Customize Settings</h3>
-                        <p>Personalize your learning experience and preferences</p>
                     </a>
                 </div>
             </section>

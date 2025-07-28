@@ -7,6 +7,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const session = require('express-session');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const fs = require('fs');
 require('dotenv').config();
 const app = express();
 const server = http.createServer(app);
@@ -37,6 +38,77 @@ const authRoutes = require('./routes/authRoutes');
 const apiRoutes = require('./routes/apiRoutes');
 console.log('Applying auth routes middleware...');
 app.use('/api/auth', authRoutes);
+// Helper function to update progress.json file
+function updateProgressJSON(userId, message, type, responsePreview) {
+  try {
+    const progressPath = path.join(__dirname, 'data/progress.json');
+    let progressData = {};
+    
+    // Read existing progress data
+    if (fs.existsSync(progressPath)) {
+      const progressFile = fs.readFileSync(progressPath, 'utf8');
+      progressData = JSON.parse(progressFile);
+    }
+    
+    // Initialize user data if it doesn't exist
+    if (!progressData[userId]) {
+      progressData[userId] = {
+        userId: userId,
+        userName: 'Student',
+        interactions: [],
+        metrics: {
+          totalInteractions: 0,
+          textInteractions: 0,
+          voiceInteractions: 0,
+          commandsUsed: 0,
+          lessonsCompleted: 0,
+          practiceSessionsCompleted: 0,
+          estimatedLevel: null,
+          skillMetrics: {
+            grammar: 0,
+            vocabulary: 0,
+            reading: 0,
+            writing: 0,
+            speaking: 0,
+            listening: 0
+          },
+          lastUpdated: new Date().toISOString()
+        }
+      };
+    }
+    
+    // Add new interaction
+    const interaction = {
+      timestamp: new Date().toISOString(),
+      type: type,
+      message: message,
+      responsePreview: responsePreview
+    };
+    
+    progressData[userId].interactions.unshift(interaction);
+    
+    // Update metrics
+    progressData[userId].metrics.totalInteractions++;
+    if (type === 'text') {
+      progressData[userId].metrics.textInteractions++;
+    } else if (type === 'voice') {
+      progressData[userId].metrics.voiceInteractions++;
+    }
+    progressData[userId].metrics.lastUpdated = new Date().toISOString();
+    
+    // Keep only last 50 interactions to prevent file from growing too large
+    if (progressData[userId].interactions.length > 50) {
+      progressData[userId].interactions = progressData[userId].interactions.slice(0, 50);
+    }
+    
+    // Write back to file
+    fs.writeFileSync(progressPath, JSON.stringify(progressData, null, 2));
+    
+  } catch (error) {
+    console.error('Error updating progress.json:', error);
+  }
+}
+
 app.use('/api', apiRoutes);
 io.on('connection', (socket) => {
   console.log('New client connected');
@@ -106,6 +178,11 @@ io.on('connection', (socket) => {
       const botResponse = result.response.text();
 
       await db.Message.create({ userId, content: botResponse, sender: 'bot' });
+      
+      // Update progress tracking with bot response preview
+      const responsePreview = botResponse.length > 100 ? botResponse.substring(0, 100) + '...' : botResponse;
+      updateProgressJSON(userId, msg, 'text', responsePreview);
+      
       socket.emit('chat message', { user: msg, bot: botResponse });
     } catch (error) {
       console.error('Error processing message:', error);

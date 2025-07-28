@@ -18,8 +18,86 @@ router.get('/signup', (req, res) => {
 
 router.get('/dashboard', async (req, res) => {
   if (!req.session.userId) return res.redirect('/login');
-  const user = await models.User.findByPk(req.session.userId);
-  res.render('dashboard', { user, currentRoute: 'dashboard' });
+  
+  let user;
+  try {
+    user = await models.User.findByPk(req.session.userId);
+  } catch (error) {
+    console.error('Error finding user:', error);
+    return res.redirect('/login');
+  }
+  
+  // Load real statistics from progress.json
+  let stats = {
+    lessonsCompleted: 0,
+    studyTime: '0h',
+    dayStreak: 0,
+    achievements: 0
+  };
+  
+  try {
+    const progressPath = path.join(__dirname, '../data/progress.json');
+    const progressFile = fs.readFileSync(progressPath, 'utf8');
+    const progressData = JSON.parse(progressFile);
+    const userId = req.session.userId || 'user_hehxzwj55vhmd0u2mriz1';
+    const userProgress = progressData[userId];
+    
+    if (userProgress) {
+      // Calculate lessons completed (based on practice sessions and interactions)
+      stats.lessonsCompleted = userProgress.metrics.practiceSessionsCompleted + Math.floor(userProgress.metrics.totalInteractions / 5);
+      
+      // Calculate study time (estimate based on interactions)
+      const avgTimePerInteraction = 2; // minutes
+      const totalMinutes = userProgress.metrics.totalInteractions * avgTimePerInteraction;
+      stats.studyTime = totalMinutes >= 60 ? Math.floor(totalMinutes / 60) + 'h' : totalMinutes + 'm';
+      
+      // Calculate day streak (based on recent activity)
+      const interactions = userProgress.interactions || [];
+      if (interactions.length > 0) {
+        const today = new Date();
+        const lastActivity = new Date(interactions[0].timestamp);
+        const daysDiff = Math.floor((today - lastActivity) / (1000 * 60 * 60 * 24));
+        
+        if (daysDiff <= 1) {
+          // Count consecutive days with activity
+          let streak = 1;
+          const dates = interactions.map(i => new Date(i.timestamp).toDateString());
+          const uniqueDates = [...new Set(dates)];
+          
+          for (let i = 1; i < uniqueDates.length; i++) {
+            const currentDate = new Date(uniqueDates[i-1]);
+            const prevDate = new Date(uniqueDates[i]);
+            const diff = Math.floor((currentDate - prevDate) / (1000 * 60 * 60 * 24));
+            if (diff <= 1) {
+              streak++;
+            } else {
+              break;
+            }
+          }
+          stats.dayStreak = streak;
+        }
+      }
+      
+      // Calculate achievements (based on milestones)
+      let achievements = 0;
+      if (userProgress.metrics.totalInteractions >= 10) achievements++;
+      if (userProgress.metrics.totalInteractions >= 25) achievements++;
+      if (userProgress.metrics.voiceInteractions >= 5) achievements++;
+      if (stats.dayStreak >= 3) achievements++;
+      if (stats.dayStreak >= 7) achievements++;
+      if (stats.lessonsCompleted >= 5) achievements++;
+      stats.achievements = achievements;
+    }
+  } catch (error) {
+    console.error('Error loading progress data:', error);
+  }
+  
+  try {
+    res.render('dashboard', { user, stats, currentRoute: 'dashboard' });
+  } catch (error) {
+    console.error('Error rendering dashboard:', error);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 router.get('/chat', (req, res) => {
@@ -49,8 +127,95 @@ router.post('/voice', async (req, res) => {
 
 router.get('/progress', async (req, res) => {
   if (!req.session.userId) return res.redirect('/login');
-  const progress = await models.Progress.findOne({ where: { userId: req.session.userId } }) || { progress: 0, updatedAt: new Date(), activities: [], chatMessageCount: 0, totalWordsTyped: 0, lastActiveDate: new Date() };
-  res.render('progress', { progress, currentRoute: 'progress' });
+  
+  let progress;
+  try {
+    progress = await models.Progress.findOne({ where: { userId: req.session.userId } }) || { progress: 0, updatedAt: new Date(), activities: [], chatMessageCount: 0, totalWordsTyped: 0, lastActiveDate: new Date() };
+  } catch (error) {
+    console.error('Error finding progress:', error);
+    progress = { progress: 0, updatedAt: new Date(), activities: [], chatMessageCount: 0, totalWordsTyped: 0, lastActiveDate: new Date() };
+  }
+  
+  // Load real statistics from progress.json
+  let stats = {
+    studyTime: '0h',
+    dayStreak: 0,
+    weeklyGoal: 0,
+    completionRate: 0,
+    averageSessionTime: '0m',
+    totalSessions: 0
+  };
+  
+  try {
+    const progressPath = path.join(__dirname, '../data/progress.json');
+    const progressFile = fs.readFileSync(progressPath, 'utf8');
+    const progressData = JSON.parse(progressFile);
+    const userId = req.session.userId || 'user_hehxzwj55vhmd0u2mriz1';
+    const userProgress = progressData[userId];
+    
+    if (userProgress) {
+      // Calculate study time (estimate based on interactions)
+      const avgTimePerInteraction = 2; // minutes
+      const totalMinutes = userProgress.metrics.totalInteractions * avgTimePerInteraction;
+      stats.studyTime = totalMinutes >= 60 ? Math.floor(totalMinutes / 60) + 'h' : totalMinutes + 'm';
+      
+      // Calculate day streak (based on recent activity)
+      const interactions = userProgress.interactions || [];
+      if (interactions.length > 0) {
+        const today = new Date();
+        const lastActivity = new Date(interactions[0].timestamp);
+        const daysDiff = Math.floor((today - lastActivity) / (1000 * 60 * 60 * 24));
+        
+        if (daysDiff <= 1) {
+          // Count consecutive days with activity
+          let streak = 1;
+          const dates = interactions.map(i => new Date(i.timestamp).toDateString());
+          const uniqueDates = [...new Set(dates)];
+          
+          for (let i = 1; i < uniqueDates.length; i++) {
+            const currentDate = new Date(uniqueDates[i-1]);
+            const prevDate = new Date(uniqueDates[i]);
+            const diff = Math.floor((currentDate - prevDate) / (1000 * 60 * 60 * 24));
+            if (diff <= 1) {
+              streak++;
+            } else {
+              break;
+            }
+          }
+          stats.dayStreak = streak;
+        }
+      }
+      
+      // Calculate weekly goal progress (target: 5 sessions per week)
+      const weeklyTarget = 5;
+      const thisWeekSessions = interactions.filter(i => {
+        const interactionDate = new Date(i.timestamp);
+        const weekStart = new Date();
+        weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+        return interactionDate >= weekStart;
+      }).length;
+      stats.weeklyGoal = Math.min(100, Math.round((thisWeekSessions / weeklyTarget) * 100));
+      
+      // Calculate completion rate (based on successful interactions)
+      const successfulInteractions = interactions.filter(i => i.type === 'text' || i.type === 'voice').length;
+      stats.completionRate = interactions.length > 0 ? Math.round((successfulInteractions / interactions.length) * 100) : 0;
+      
+      // Calculate average session time
+      stats.averageSessionTime = interactions.length > 0 ? Math.round(totalMinutes / interactions.length) + 'm' : '0m';
+      
+      // Total sessions
+      stats.totalSessions = interactions.length;
+    }
+  } catch (error) {
+    console.error('Error loading progress data:', error);
+  }
+  
+  try {
+    res.render('progress', { progress, stats, currentRoute: 'progress' });
+  } catch (error) {
+    console.error('Error rendering progress:', error);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 router.get('/settings', async (req, res) => {
@@ -75,13 +240,67 @@ router.get('/settings', async (req, res) => {
 router.post('/settings', async (req, res) => {
   if (!req.session.userId) return res.redirect('/login');
   const { language, voiceSpeed, autoSpeak } = req.body;
+  
   await models.Settings.upsert({
     userId: req.session.userId,
     language,
     voiceSpeed: parseFloat(voiceSpeed),
     autoSpeak: autoSpeak === 'on'
   });
+  
   res.redirect('/settings');
+});
+
+// Vocabulary page route
+router.get('/vocabulary', async (req, res) => {
+  if (!req.session.userId) return res.redirect('/login');
+  
+  let vocabularyData = {
+    words: [],
+    totalWords: 0,
+    masteredWords: 0
+  };
+  
+  try {
+    const vocabularyPath = path.join(__dirname, '../data/vocabulary.json');
+    if (fs.existsSync(vocabularyPath)) {
+      const vocabularyFile = fs.readFileSync(vocabularyPath, 'utf8');
+      const allVocabulary = JSON.parse(vocabularyFile);
+      vocabularyData = allVocabulary[req.session.userId] || vocabularyData;
+    }
+  } catch (error) {
+    console.error('Error loading vocabulary:', error);
+  }
+  
+  res.render('vocabulary', { vocabulary: vocabularyData, currentRoute: 'vocabulary' });
+});
+
+// Goals page route
+router.get('/goals', async (req, res) => {
+  if (!req.session.userId) return res.redirect('/login');
+  
+  let goalsData = {
+    activeGoals: [],
+    completedGoals: []
+  };
+  
+  try {
+    const goalsPath = path.join(__dirname, '../data/goals.json');
+    if (fs.existsSync(goalsPath)) {
+      const goalsFile = fs.readFileSync(goalsPath, 'utf8');
+      const allGoals = JSON.parse(goalsFile);
+      goalsData = allGoals[req.session.userId] || goalsData;
+    }
+  } catch (error) {
+    console.error('Error loading goals:', error);
+  }
+  
+  res.render('goals', { goals: goalsData, currentRoute: 'goals' });
+});
+
+// Pronunciation practice page
+router.get('/pronunciation', (req, res) => {
+  res.render('pronunciation', { currentRoute: 'pronunciation' });
 });
 
 module.exports = router;
