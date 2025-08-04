@@ -262,12 +262,20 @@ router.get('/vocabulary', async (req, res) => {
   };
   
   try {
-    const vocabularyPath = path.join(__dirname, '../data/vocabulary.json');
-    if (fs.existsSync(vocabularyPath)) {
-      const vocabularyFile = fs.readFileSync(vocabularyPath, 'utf8');
-      const allVocabulary = JSON.parse(vocabularyFile);
-      vocabularyData = allVocabulary[req.session.userId] || vocabularyData;
-    }
+    // Get all vocabulary words for the user from database
+    const words = await models.Vocabulary.findAll({
+      where: { userId: req.session.userId },
+      order: [['createdAt', 'DESC']]
+    });
+    
+    const totalWords = words.length;
+    const masteredWords = words.filter(word => word.masteryLevel >= 80).length;
+    
+    vocabularyData = {
+      words: words,
+      totalWords: totalWords,
+      masteredWords: masteredWords
+    };
   } catch (error) {
     console.error('Error loading vocabulary:', error);
   }
@@ -285,12 +293,14 @@ router.get('/goals', async (req, res) => {
   };
   
   try {
-    const goalsPath = path.join(__dirname, '../data/goals.json');
-    if (fs.existsSync(goalsPath)) {
-      const goalsFile = fs.readFileSync(goalsPath, 'utf8');
-      const allGoals = JSON.parse(goalsFile);
-      goalsData = allGoals[req.session.userId] || goalsData;
-    }
+    // Fetch goals from database
+    const allGoals = await models.Goal.findAll({
+      where: { userId: req.session.userId },
+      order: [['createdAt', 'DESC']]
+    });
+    
+    goalsData.activeGoals = allGoals.filter(goal => !goal.isCompleted);
+    goalsData.completedGoals = allGoals.filter(goal => goal.isCompleted);
   } catch (error) {
     console.error('Error loading goals:', error);
   }

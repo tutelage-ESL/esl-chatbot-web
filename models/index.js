@@ -14,21 +14,17 @@ if (config.use_env_variable) {
   sequelize = new Sequelize(config.database, config.username, config.password, config);
 }
 
-fs
-  .readdirSync(__dirname)
-  .filter(file => {
-    return (
-      file.indexOf('.') !== 0 &&
-      file !== basename &&
-      file.slice(-3) === '.js' &&
-      file.indexOf('.test.js') === -1
-    );
-  })
-  .forEach(file => {
-    const model = require(path.join(__dirname, file))(sequelize, Sequelize.DataTypes);
-    db[model.name] = model;
-  });
+// Import and initialize models
+db.User = require('./User');
+db.Message = require('./Message');
+db.Progress = require('./Progress');
+db.Settings = require('./Settings');
+db.Vocabulary = require('./Vocabulary');
+db.Goal = require('./Goal');
+db.Interaction = require('./Interaction');
+db.UserMetrics = require('./UserMetrics');
 
+// Handle associations if they exist
 Object.keys(db).forEach(modelName => {
   if (db[modelName].associate) {
     db[modelName].associate(db);

@@ -1,8 +1,89 @@
 {
+  "3": {
+    "userId": 3,
+    "userName": "Student",
+    "interactions": [
+      {
+        "timestamp": "2025-08-04T14:07:36.448Z",
+        "type": "text",
+        "message": "my name is redyar",
+        "responsePreview": "Hi Redyar! It's fantastic to meet you! 👋 So glad to have you here.\n\nI'm excited to help you learn E..."
+      },
+      {
+        "timestamp": "2025-08-04T14:07:24.858Z",
+        "type": "text",
+        "message": "helo whats my name",
+        "responsePreview": "Hello there! 👋 I'm a friendly ESL chatbot teacher, and I don't know your name yet! 😊 What should I..."
+      }
+    ],
+    "metrics": {
+      "totalInteractions": 2,
+      "textInteractions": 2,
+      "voiceInteractions": 0,
+      "commandsUsed": 0,
+      "lessonsCompleted": 0,
+      "practiceSessionsCompleted": 0,
+      "estimatedLevel": null,
+      "skillMetrics": {
+        "grammar": 0,
+        "vocabulary": 0,
+        "reading": 0,
+        "writing": 0,
+        "speaking": 0,
+        "listening": 0
+      },
+      "lastUpdated": "2025-08-04T14:07:36.448Z"
+    }
+  },
+  "7": {
+    "userId": 7,
+    "userName": "Student",
+    "interactions": [
+      {
+        "timestamp": "2025-08-04T13:40:02.224Z",
+        "type": "text",
+        "message": "hello",
+        "responsePreview": "Hello hello, Redyar! 👋 Sounds like you're very excited to say hello!\n\nRemember, Redyar, my job is t..."
+      }
+    ],
+    "metrics": {
+      "totalInteractions": 1,
+      "textInteractions": 1,
+      "voiceInteractions": 0,
+      "commandsUsed": 0,
+      "lessonsCompleted": 0,
+      "practiceSessionsCompleted": 0,
+      "estimatedLevel": null,
+      "skillMetrics": {
+        "grammar": 0,
+        "vocabulary": 0,
+        "reading": 0,
+        "writing": 0,
+        "speaking": 0,
+        "listening": 0
+      },
+      "lastUpdated": "2025-08-04T13:40:02.224Z"
+    }
+  },
   "10": {
     "userId": 10,
     "userName": "Student",
     "interactions": [
+      {
+        "timestamp": "2025-08-04T13:44:41.851Z",
+        "type": "pronunciation",
+        "responsePreview": "Pronunciation practice: 93%"
+      },
+      {
+        "timestamp": "2025-08-04T13:44:29.385Z",
+        "type": "pronunciation",
+        "responsePreview": "Pronunciation practice: 94%"
+      },
+      {
+        "timestamp": "2025-08-04T13:44:22.051Z",
+        "type": "pronunciation",
+        "responsePreview": "Pronunciation practice: 70%"
+      },
       {
         "timestamp": "2025-07-28T16:55:50.176Z",
         "type": "text",
@@ -22,7 +103,7 @@
       }
     ],
     "metrics": {
-      "totalInteractions": 3,
+      "totalInteractions": 6,
       "textInteractions": 2,
       "voiceInteractions": 0,
       "commandsUsed": 0,
@@ -37,7 +118,37 @@
         "speaking": 0,
         "listening": 0
       },
-      "lastUpdated": "2025-07-28T16:55:50.176Z"
+      "lastUpdated": "2025-08-04T13:44:41.851Z"
+    }
+  },
+  "11": {
+    "userId": 11,
+    "userName": "Student",
+    "interactions": [
+      {
+        "timestamp": "2025-08-04T14:00:40.915Z",
+        "type": "text",
+        "message": "hello",
+        "responsePreview": "Hello there! 👋 So happy you're here!\n\nI'm your personal ESL chatbot teacher, ready to make learning..."
+      }
+    ],
+    "metrics": {
+      "totalInteractions": 1,
+      "textInteractions": 1,
+      "voiceInteractions": 0,
+      "commandsUsed": 0,
+      "lessonsCompleted": 0,
+      "practiceSessionsCompleted": 0,
+      "estimatedLevel": null,
+      "skillMetrics": {
+        "grammar": 0,
+        "vocabulary": 0,
+        "reading": 0,
+        "writing": 0,
+        "speaking": 0,
+        "listening": 0
+      },
+      "lastUpdated": "2025-08-04T14:00:40.915Z"
     }
   },
   "user_hehxzwj55vhmd0u2mriz1": {

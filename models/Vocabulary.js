@@ -8,7 +8,7 @@ if (config.use_env_variable) {
   sequelize = new Sequelize(config.database, config.username, config.password, config);
 }
 
-const Progress = sequelize.define('Progress', {
+const Vocabulary = sequelize.define('Vocabulary', {
   id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
@@ -22,34 +22,48 @@ const Progress = sequelize.define('Progress', {
       key: 'id'
     }
   },
-  progress: {
+  word: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  definition: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  pronunciation: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  example: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  difficulty: {
+    type: DataTypes.ENUM('beginner', 'intermediate', 'advanced'),
+    allowNull: true,
+    defaultValue: 'beginner'
+  },
+  category: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  practiceCount: {
     type: DataTypes.INTEGER,
     allowNull: true,
     defaultValue: 0
   },
-  totalWordsTyped: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    defaultValue: 0
-  },
-  lastActiveDate: {
+  lastPracticed: {
     type: DataTypes.DATE,
-    allowNull: true,
-    defaultValue: DataTypes.NOW
+    allowNull: true
   },
-  activities: {
-    type: DataTypes.JSON,
-    allowNull: false,
-    defaultValue: []
-  },
-  chatMessageCount: {
+  masteryLevel: {
     type: DataTypes.INTEGER,
-    allowNull: false,
+    allowNull: true,
     defaultValue: 0
   }
 }, {
-  tableName: 'Progresses',
+  tableName: 'vocabularies',
   timestamps: true
 });
 
-module.exports = Progress;
+module.exports = Vocabulary;

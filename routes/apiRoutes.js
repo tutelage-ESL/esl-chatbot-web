@@ -6,79 +6,67 @@ const { HfInference } = require('@huggingface/inference');
 const elevenLabsService = require('../services/elevenLabsService');
 const fs = require('fs');
 const path = require('path');
+const { User, Vocabulary, Goal, Interaction, UserMetrics } = require('../models');
+const { Op } = require('sequelize');
 
 // Initialize Google Generative AI (assuming genAI is globally available or passed)
 // For now, we'll assume it's initialized elsewhere or handle it here if needed.
 // const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// Helper function to update progress.json file
-function updateProgressJSON(userId, message, type, responsePreview) {
+// Helper function to update progress using database
+async function updateProgressDB(userId, message, type, responsePreview) {
   try {
-    const progressPath = path.join(__dirname, '../data/progress.json');
-    let progressData = {};
-    
-    // Read existing progress data
-    if (fs.existsSync(progressPath)) {
-      const progressFile = fs.readFileSync(progressPath, 'utf8');
-      progressData = JSON.parse(progressFile);
-    }
-    
-    // Initialize user data if it doesn't exist
-    if (!progressData[userId]) {
-      progressData[userId] = {
-        userId: userId,
-        userName: 'Student',
-        interactions: [],
-        metrics: {
-          totalInteractions: 0,
-          textInteractions: 0,
-          voiceInteractions: 0,
-          commandsUsed: 0,
-          lessonsCompleted: 0,
-          practiceSessionsCompleted: 0,
-          estimatedLevel: null,
-          skillMetrics: {
-            grammar: 0,
-            vocabulary: 0,
-            reading: 0,
-            writing: 0,
-            speaking: 0,
-            listening: 0
-          },
-          lastUpdated: new Date().toISOString()
-        }
-      };
-    }
-    
-    // Add new interaction
-    const interaction = {
-      timestamp: new Date().toISOString(),
+    // Create new interaction record
+    await Interaction.create({
+      userId: userId,
       type: type,
       message: message,
-      responsePreview: responsePreview
-    };
+      responsePreview: responsePreview,
+      timestamp: new Date()
+    });
     
-    progressData[userId].interactions.unshift(interaction);
+    // Update or create user metrics
+    const [userMetrics, created] = await UserMetrics.findOrCreate({
+      where: { userId: userId },
+      defaults: {
+        userId: userId,
+        totalInteractions: 0,
+        textInteractions: 0,
+        voiceInteractions: 0,
+        pronunciationInteractions: 0,
+        commandsUsed: 0,
+        lessonsCompleted: 0,
+        practiceSessionsCompleted: 0,
+        vocabularyWordsLearned: 0,
+        goalsSet: 0,
+        goalsCompleted: 0,
+        totalStudyTimeMinutes: 0,
+        estimatedLevel: null,
+        grammarScore: 0,
+        vocabularyScore: 0,
+        readingScore: 0,
+        writingScore: 0,
+        speakingScore: 0,
+        listeningScore: 0,
+        lastUpdated: new Date()
+      }
+    });
     
     // Update metrics
-    progressData[userId].metrics.totalInteractions++;
+    userMetrics.totalInteractions++;
     if (type === 'text') {
-      progressData[userId].metrics.textInteractions++;
+      userMetrics.textInteractions++;
     } else if (type === 'voice') {
-      progressData[userId].metrics.voiceInteractions++;
+      userMetrics.voiceInteractions++;
+    } else if (type === 'pronunciation') {
+      userMetrics.pronunciationInteractions++;
     }
-    progressData[userId].metrics.lastUpdated = new Date().toISOString();
+    userMetrics.lastUpdated = new Date();
     
-    // Keep only last 50 interactions to prevent file from growing too large
-    if (progressData[userId].interactions.length > 50) {
-      progressData[userId].interactions = progressData[userId].interactions.slice(0, 50);
-    }
-    
-    // Write back to file
-    fs.writeFileSync(progressPath, JSON.stringify(progressData, null, 2));
+    await userMetrics.save();
     
   } catch (error) {
-    console.error('Error updating progress.json:', error);
+    console.error('Error updating progress in database:', error);
   }
 }
 
@@ -123,11 +111,47 @@ router.post('/chat', async (req, res) => {
 router.get('/progress/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    const progress = await models.Progress.findOne({ where: { userId } });
-    if (!progress) {
-      return res.status(404).json({ error: 'Progress not found' });
-    }
-    return res.json(progress);
+    
+    // Get user interactions
+    const interactions = await Interaction.findAll({
+      where: { userId: userId },
+      order: [['timestamp', 'DESC']],
+      limit: 50
+    });
+    
+    // Get user metrics
+    const metrics = await UserMetrics.findOne({
+      where: { userId: userId }
+    });
+    
+    const progressData = {
+      userId: userId,
+      userName: 'Student',
+      interactions: interactions,
+      metrics: metrics || {
+        totalInteractions: 0,
+        textInteractions: 0,
+        voiceInteractions: 0,
+        pronunciationInteractions: 0,
+        commandsUsed: 0,
+        lessonsCompleted: 0,
+        practiceSessionsCompleted: 0,
+        vocabularyWordsLearned: 0,
+        goalsSet: 0,
+        goalsCompleted: 0,
+        totalStudyTimeMinutes: 0,
+        estimatedLevel: null,
+        grammarScore: 0,
+        vocabularyScore: 0,
+        readingScore: 0,
+        writingScore: 0,
+        speakingScore: 0,
+        listeningScore: 0,
+        lastUpdated: new Date()
+      }
+    };
+    
+    return res.json(progressData);
   } catch (error) {
     console.error('Progress fetch error:', error);
     res.status(500).json({ error: 'Failed to fetch progress' });
@@ -141,11 +165,10 @@ router.post('/progress', async (req, res) => {
     if (!user_id || progress === undefined) {
       return res.status(400).json({ error: 'user_id and progress are required' });
     }
-    const [updatedProgress, created] = await models.Progress.upsert({
-      userId: user_id,
-      progress
-    });
-    return res.json(updatedProgress);
+    
+    // This endpoint is kept for backward compatibility
+    // In the new system, progress is updated automatically via updateProgressDB
+    return res.json({ success: true, message: 'Progress tracking is now automatic' });
   } catch (error) {
     console.error('Progress update error:', error);
     res.status(500).json({ error: 'Failed to update progress' });
@@ -232,9 +255,9 @@ router.post('/voice-message', async (req, res) => {
         });
         const botResponse = response.generated_text;
         
-        // Track voice interaction in progress.json
+        // Track voice interaction in database
         const responsePreview = botResponse.length > 100 ? botResponse.substring(0, 100) + '...' : botResponse;
-        updateProgressJSON(req.session.userId, 'Voice message', 'voice', responsePreview);
+        await updateProgressDB(req.session.userId, 'Voice message', 'voice', responsePreview);
 
         res.json({ success: true, response: botResponse });
     } catch (error) {
@@ -242,7 +265,7 @@ router.post('/voice-message', async (req, res) => {
         
         // Track failed voice interaction
         if (req.session.userId) {
-            updateProgressJSON(req.session.userId, 'Voice message', 'voice', 'Sorry, I encountered an error processing your voice message. Please try again.');
+            await updateProgressDB(req.session.userId, 'Voice message', 'voice', 'Sorry, I encountered an error processing your voice message. Please try again.');
         }
         
         res.status(500).json({ success: false, message: 'Failed to process voice message.' });
@@ -375,41 +398,29 @@ router.post('/vocabulary/add', async (req, res) => {
       return res.status(401).json({ error: 'User not authenticated' });
     }
     
-    const vocabularyPath = path.join(__dirname, '../data/vocabulary.json');
-    let vocabularyData = {};
+    // Check if word already exists for this user
+    const existingWord = await Vocabulary.findOne({
+      where: {
+        userId: userId,
+        word: word.toLowerCase()
+      }
+    });
     
-    // Read existing vocabulary data
-    if (fs.existsSync(vocabularyPath)) {
-      const vocabularyFile = fs.readFileSync(vocabularyPath, 'utf8');
-      vocabularyData = JSON.parse(vocabularyFile);
+    if (existingWord) {
+      return res.status(400).json({ error: 'Word already exists in your vocabulary' });
     }
     
-    // Initialize user vocabulary if it doesn't exist
-    if (!vocabularyData[userId]) {
-      vocabularyData[userId] = {
-        words: [],
-        totalWords: 0,
-        masteredWords: 0
-      };
-    }
-    
-    // Add new word
-    const newWord = {
-      id: Date.now().toString(),
+    // Create new vocabulary entry
+    const newWord = await Vocabulary.create({
+      userId: userId,
       word: word.toLowerCase(),
       definition,
       example,
-      difficulty: difficulty || 'medium',
-      dateAdded: new Date().toISOString(),
-      reviewCount: 0,
-      mastered: false
-    };
-    
-    vocabularyData[userId].words.push(newWord);
-    vocabularyData[userId].totalWords = vocabularyData[userId].words.length;
-    
-    // Write updated data
-    fs.writeFileSync(vocabularyPath, JSON.stringify(vocabularyData, null, 2));
+      difficulty: difficulty || 'beginner',
+      practiceCount: 0,
+      masteryLevel: 0,
+      lastPracticed: null
+    });
     
     res.json({ success: true, word: newWord });
   } catch (error) {
@@ -426,18 +437,19 @@ router.get('/vocabulary', async (req, res) => {
       return res.status(401).json({ error: 'User not authenticated' });
     }
     
-    const vocabularyPath = path.join(__dirname, '../data/vocabulary.json');
-    let vocabularyData = {};
+    // Get all vocabulary words for the user
+    const words = await Vocabulary.findAll({
+      where: { userId: userId },
+      order: [['createdAt', 'DESC']]
+    });
     
-    if (fs.existsSync(vocabularyPath)) {
-      const vocabularyFile = fs.readFileSync(vocabularyPath, 'utf8');
-      vocabularyData = JSON.parse(vocabularyFile);
-    }
+    const totalWords = words.length;
+    const masteredWords = words.filter(word => word.masteryLevel >= 80).length; // Consider mastered if masteryLevel >= 80
     
-    const userVocabulary = vocabularyData[userId] || {
-      words: [],
-      totalWords: 0,
-      masteredWords: 0
+    const userVocabulary = {
+      words: words,
+      totalWords: totalWords,
+      masteredWords: masteredWords
     };
     
     res.json(userVocabulary);
@@ -450,46 +462,25 @@ router.get('/vocabulary', async (req, res) => {
 // Learning goals endpoints
 router.post('/goals/set', async (req, res) => {
   try {
-    const { type, target, deadline, description } = req.body;
+    const { type, target, deadline, description, category, priority } = req.body;
     const userId = req.session.userId;
     
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
     
-    const goalsPath = path.join(__dirname, '../data/goals.json');
-    let goalsData = {};
-    
-    // Read existing goals data
-    if (fs.existsSync(goalsPath)) {
-      const goalsFile = fs.readFileSync(goalsPath, 'utf8');
-      goalsData = JSON.parse(goalsFile);
-    }
-    
-    // Initialize user goals if it doesn't exist
-    if (!goalsData[userId]) {
-      goalsData[userId] = {
-        activeGoals: [],
-        completedGoals: []
-      };
-    }
-    
-    // Add new goal
-    const newGoal = {
-      id: Date.now().toString(),
-      type, // 'daily', 'weekly', 'monthly', 'custom'
-      target,
-      current: 0,
-      deadline: deadline || null,
-      description,
-      dateCreated: new Date().toISOString(),
-      completed: false
-    };
-    
-    goalsData[userId].activeGoals.push(newGoal);
-    
-    // Write updated data
-    fs.writeFileSync(goalsPath, JSON.stringify(goalsData, null, 2));
+    // Create new goal
+    const newGoal = await Goal.create({
+      userId: userId,
+      title: description,
+      description: description,
+      category: category || 'vocabulary', // Use valid ENUM value
+      difficulty: 'intermediate', // Valid ENUM value: beginner, intermediate, advanced
+      targetValue: target,
+      currentValue: 0,
+      unit: 'points',
+      isCompleted: false
+    });
     
     res.json({ success: true, goal: newGoal });
   } catch (error) {
@@ -506,17 +497,18 @@ router.get('/goals', async (req, res) => {
       return res.status(401).json({ error: 'User not authenticated' });
     }
     
-    const goalsPath = path.join(__dirname, '../data/goals.json');
-    let goalsData = {};
+    // Get all goals for the user
+    const allGoals = await Goal.findAll({
+      where: { userId: userId },
+      order: [['createdAt', 'DESC']]
+    });
     
-    if (fs.existsSync(goalsPath)) {
-      const goalsFile = fs.readFileSync(goalsPath, 'utf8');
-      goalsData = JSON.parse(goalsFile);
-    }
+    const activeGoals = allGoals.filter(goal => !goal.isCompleted);
+    const completedGoals = allGoals.filter(goal => goal.isCompleted);
     
-    const userGoals = goalsData[userId] || {
-      activeGoals: [],
-      completedGoals: []
+    const userGoals = {
+      activeGoals: activeGoals,
+      completedGoals: completedGoals
     };
     
     res.json(userGoals);
@@ -561,7 +553,7 @@ router.post('/pronunciation/analyze', async (req, res) => {
     };
     
     // Update progress tracking
-    updateProgressJSON(userId, text, 'pronunciation', `Pronunciation practice: ${analysis.score}%`);
+    await updateProgressDB(userId, text, 'pronunciation', `Pronunciation practice: ${analysis.score}%`);
     
     res.json({ success: true, analysis });
   } catch (error) {
