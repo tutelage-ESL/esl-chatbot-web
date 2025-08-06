@@ -14,15 +14,35 @@ if (config.use_env_variable) {
   sequelize = new Sequelize(config.database, config.username, config.password, config);
 }
 
+db.sequelize = sequelize;
+db.Sequelize = Sequelize;
+
 // Import and initialize models
-db.User = require('./User');
-db.Message = require('./Message');
-db.Progress = require('./Progress');
-db.Settings = require('./Settings');
-db.Vocabulary = require('./Vocabulary');
-db.Goal = require('./Goal');
-db.Interaction = require('./Interaction');
-db.UserMetrics = require('./UserMetrics');
+// Models expect db.sequelize to be defined
+
+const UserModel = require('./User');
+db.User = UserModel(sequelize, Sequelize.DataTypes);
+
+const MessageModel = require('./Message');
+db.Message = MessageModel(sequelize, Sequelize.DataTypes);
+
+const ProgressModel = require('./Progress');
+db.Progress = ProgressModel(sequelize, Sequelize.DataTypes);
+
+const SettingsModel = require('./Settings');
+db.Settings = SettingsModel(sequelize, Sequelize.DataTypes);
+
+const VocabularyModel = require('./Vocabulary');
+db.Vocabulary = VocabularyModel(sequelize, Sequelize.DataTypes);
+
+const GoalModel = require('./Goal');
+db.Goal = GoalModel(sequelize, Sequelize.DataTypes);
+
+const InteractionModel = require('./Interaction');
+db.Interaction = InteractionModel(sequelize, Sequelize.DataTypes);
+
+const UserMetricsModel = require('./UserMetrics');
+db.UserMetrics = UserMetricsModel(sequelize, Sequelize.DataTypes);
 
 // Handle associations if they exist
 Object.keys(db).forEach(modelName => {
@@ -30,8 +50,5 @@ Object.keys(db).forEach(modelName => {
     db[modelName].associate(db);
   }
 });
-
-db.sequelize = sequelize;
-db.Sequelize = Sequelize;
 
 module.exports = db;
