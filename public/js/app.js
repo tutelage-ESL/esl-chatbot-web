@@ -73,10 +73,10 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   socket.on('chat message', (data) => {
-    // Remove loading indicator if present
-    const loadingMessage = document.querySelector('.bot-message .loading-dots');
-    if (loadingMessage) {
-      loadingMessage.closest('.message').remove();
+    // Remove typing indicator if present
+    const typingIndicator = document.querySelector('.typing-indicator');
+    if (typingIndicator) {
+      typingIndicator.remove();
     }
     addMessage(data.bot, 'bot', new Date());
     messageCount++;
@@ -90,10 +90,10 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   socket.on('error', (msg) => {
-    // Remove loading indicator if present
-    const loadingMessage = document.querySelector('.bot-message .loading-dots');
-    if (loadingMessage) {
-      loadingMessage.closest('.message').remove();
+    // Remove typing indicator if present
+    const typingIndicator = document.querySelector('.typing-indicator');
+    if (typingIndicator) {
+      typingIndicator.remove();
     }
     addMessage(msg, 'error');
     enableInput();

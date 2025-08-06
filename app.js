@@ -196,7 +196,7 @@ io.on('connection', (socket) => {
 const db = require('./models');
 const elevenLabsService = require('./services/elevenLabsService');
 
-db.sequelize.sync({ alter: true })
+db.sequelize.sync({ alter: false })
   .then(async () => {
     console.log('Database synchronized successfully.');
     

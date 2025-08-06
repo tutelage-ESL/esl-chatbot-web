@@ -4,6 +4,18 @@
     "userName": "Student",
     "interactions": [
       {
+        "timestamp": "2025-08-06T18:23:08.360Z",
+        "type": "text",
+        "message": "hey",
+        "responsePreview": "Hey there! 👋 It's great to hear from you again!\n\nYou know, it's still just you and me here, ready t..."
+      },
+      {
+        "timestamp": "2025-08-06T18:21:32.375Z",
+        "type": "text",
+        "message": "Hey guys, can you hear me?",
+        "responsePreview": "Loud and clear! I can definitely hear you! 👂 And I'm ready to chat with just you!\n\nIt sounds like y..."
+      },
+      {
         "timestamp": "2025-08-06T14:11:17.110Z",
         "type": "text",
         "message": "Hey man, what are you doing? I'm trying to learn English. Can you help me do this man?",
@@ -17,8 +29,8 @@
       }
     ],
     "metrics": {
-      "totalInteractions": 2,
-      "textInteractions": 2,
+      "totalInteractions": 4,
+      "textInteractions": 4,
       "voiceInteractions": 0,
       "commandsUsed": 0,
       "lessonsCompleted": 0,
@@ -32,7 +44,7 @@
         "speaking": 0,
         "listening": 0
       },
-      "lastUpdated": "2025-08-06T14:11:17.110Z"
+      "lastUpdated": "2025-08-06T18:23:08.360Z"
     }
   },
   "3": {
@@ -69,6 +81,42 @@
         "listening": 0
       },
       "lastUpdated": "2025-08-04T14:07:36.448Z"
+    }
+  },
+  "4": {
+    "userId": 4,
+    "userName": "Student",
+    "interactions": [
+      {
+        "timestamp": "2025-08-06T19:09:30.188Z",
+        "type": "text",
+        "message": "bavin",
+        "responsePreview": "Hi Bavinbavin! What a cool name! So great to meet you! 🎉\n\nAre you ready to dive into the amazing wo..."
+      },
+      {
+        "timestamp": "2025-08-06T19:08:40.662Z",
+        "type": "text",
+        "message": "hello",
+        "responsePreview": "Hello there! 👋 So happy to see you! I'm here to help you learn English in a super fun way! ✨\n\nWhat'..."
+      }
+    ],
+    "metrics": {
+      "totalInteractions": 2,
+      "textInteractions": 2,
+      "voiceInteractions": 0,
+      "commandsUsed": 0,
+      "lessonsCompleted": 0,
+      "practiceSessionsCompleted": 0,
+      "estimatedLevel": null,
+      "skillMetrics": {
+        "grammar": 0,
+        "vocabulary": 0,
+        "reading": 0,
+        "writing": 0,
+        "speaking": 0,
+        "listening": 0
+      },
+      "lastUpdated": "2025-08-06T19:09:30.188Z"
     }
   },
   "7": {

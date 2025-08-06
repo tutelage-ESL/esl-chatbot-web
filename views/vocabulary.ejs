@@ -584,10 +584,10 @@
 
                 <!-- Tab Navigation -->
                 <div class="tabs">
-                    <div class="tab active" onclick="showTab('wordList')">My Words</div>
-                    <div class="tab" onclick="showTab('practice')">Practice</div>
-                    <div class="tab" onclick="showTab('quiz')">Quiz</div>
-                    <div class="tab" onclick="showTab('addWord')">Add Word</div>
+                    <div class="tab active" onclick="showTab('wordList', event)">My Words</div>
+                <div class="tab" onclick="showTab('practice', event)">Practice</div>
+                <div class="tab" onclick="showTab('quiz', event)">Quiz</div>
+                <div class="tab" onclick="showTab('addWord', event)">Add Word</div>
                 </div>
 
                 <!-- Word List Tab -->
@@ -754,13 +754,15 @@
         });
         
         // Tab switching functionality
-        function showTab(tabName) {
+        function showTab(tabName, event) {
             // Remove active class from all tabs and content
             document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
             
             // Add active class to clicked tab and corresponding content
-            event.target.classList.add('active');
+            if (event && event.target) {
+                event.target.classList.add('active');
+            }
             document.getElementById(tabName + 'Tab').classList.add('active');
         }
         
@@ -877,7 +879,7 @@
                     alert('Word added successfully!');
                     document.getElementById('addWordForm').reset();
                     loadVocabulary();
-                    showTab('wordList');
+                    showTab('wordList', null);
                 } else {
                     alert('Error adding word: ' + result.error);
                 }
@@ -890,8 +892,16 @@
         // Practice individual word
         async function practiceWord(wordId) {
             try {
-                const response = await fetch(`/api/vocabulary/${wordId}/practice`, {
-                    method: 'POST'
+                const response = await fetch('/api/vocabulary/practice', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        wordId: wordId, 
+                        correct: true, 
+                        timeSpent: 1000 
+                    })
                 });
                 
                 const result = await response.json();
@@ -913,8 +923,10 @@
             const word = currentWords.find(w => w.id === wordId);
             if (!word) return;
             
-            const newDefinition = prompt('Edit definition:', word.definition);
-            if (newDefinition === null) return;
+            // Create a simple input dialog
+            const newDefinition = window.prompt ? prompt('Edit definition:', word.definition) : 
+                                 window.confirm('Edit mode not supported in this browser. Use the Add Word tab to create new words.');
+            if (!newDefinition || newDefinition === word.definition) return;
             
             try {
                 const response = await fetch(`/api/vocabulary/${wordId}`, {
@@ -1033,12 +1045,16 @@
             const word = practiceWords[currentPracticeIndex];
             
             try {
-                await fetch(`/api/vocabulary/${word.id}/practice`, {
+                await fetch('/api/vocabulary/practice', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ correct })
+                    body: JSON.stringify({ 
+                        wordId: word.id, 
+                        correct: correct,
+                        timeSpent: 2000
+                    })
                 });
             } catch (error) {
                 console.error('Error recording practice result:', error);

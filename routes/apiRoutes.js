@@ -418,7 +418,7 @@ router.get('/vocabulary', async (req, res) => {
     // Calculate statistics
     const stats = await calculateVocabularyStats(userId);
 
-    res.json({ vocabulary, stats });
+    res.json({ words: vocabulary, stats });
   } catch (error) {
     console.error('Error fetching vocabulary:', error);
     res.status(500).json({ error: 'Failed to fetch vocabulary' });
@@ -536,6 +536,34 @@ router.delete('/vocabulary/:id', async (req, res) => {
   }
 });
 
+// Get vocabulary for practice
+router.get('/vocabulary/practice', async (req, res) => {
+  try {
+    const userId = req.session.userId;
+    const { difficulty = 'all', count = 10 } = req.query;
+    
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    let whereClause = { userId };
+    if (difficulty !== 'all') {
+      whereClause.difficulty = difficulty;
+    }
+
+    const words = await Vocabulary.findAll({
+      where: whereClause,
+      order: require('sequelize').literal('RAND()'),
+      limit: parseInt(count)
+    });
+
+    res.json({ words });
+  } catch (error) {
+    console.error('Error fetching practice words:', error);
+    res.status(500).json({ error: 'Failed to fetch practice words' });
+  }
+});
+
 // Practice vocabulary
 router.post('/vocabulary/practice', async (req, res) => {
   try {
@@ -612,7 +640,7 @@ router.get('/vocabulary/quiz', async (req, res) => {
 
     const vocabulary = await Vocabulary.findAll({
       where: whereClause,
-      order: require('sequelize').literal('RANDOM()'),
+      order: require('sequelize').literal('RAND()'),
       limit: parseInt(count)
     });
 
@@ -623,7 +651,7 @@ router.get('/vocabulary/quiz', async (req, res) => {
     // Generate quiz questions
     const quiz = await generateVocabularyQuiz(vocabulary);
     
-    res.json({ quiz });
+    res.json({ questions: quiz });
   } catch (error) {
     console.error('Error generating vocabulary quiz:', error);
     res.status(500).json({ error: 'Failed to generate quiz' });
