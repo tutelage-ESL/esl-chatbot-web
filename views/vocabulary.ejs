@@ -144,6 +144,402 @@
             margin-bottom: 20px;
             color: #ddd;
         }
+        
+        /* Tab Navigation */
+        .tabs {
+            display: flex;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 15px 20px;
+            text-align: center;
+            background: #f8f9fa;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            color: #6c757d;
+            transition: all 0.3s ease;
+            border-right: 1px solid #e9ecef;
+        }
+        
+        .tab:last-child {
+            border-right: none;
+        }
+        
+        .tab.active {
+            background: #3498db;
+            color: white;
+        }
+        
+        .tab:hover:not(.active) {
+            background: #e9ecef;
+            color: #495057;
+        }
+        
+        /* Tab Content */
+        .tab-content {
+            display: none;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Word Filters */
+        .word-filters {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+        }
+        
+        .word-filters select,
+        .word-filters input {
+            padding: 10px 15px;
+            border: 2px solid #e0e6ed;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+        }
+        
+        .word-filters input {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        /* Words List */
+        .words-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .word-card {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .word-card:hover {
+            border-color: #3498db;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(52, 152, 219, 0.15);
+        }
+        
+        .word-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #2c3e50;
+        }
+        
+        .word-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .difficulty-beginner {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .difficulty-intermediate {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .difficulty-advanced {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .mastery-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .mastery-learning {
+            background: #cce5ff;
+            color: #0066cc;
+        }
+        
+        .mastery-practicing {
+            background: #ffe6cc;
+            color: #cc6600;
+        }
+        
+        .mastery-mastered {
+            background: #ccffcc;
+            color: #006600;
+        }
+        
+        .word-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        
+        /* Practice Area */
+        .practice-controls,
+        .quiz-controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 25px;
+            align-items: center;
+        }
+        
+        .practice-area,
+        .quiz-area {
+            text-align: center;
+        }
+        
+        .practice-card,
+        .quiz-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 40px;
+            margin-bottom: 25px;
+            min-height: 300px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .practice-word {
+            font-size: 36px;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        
+        .practice-definition,
+        .practice-example {
+            font-size: 18px;
+            color: #5a6c7d;
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+        
+        .practice-example {
+            font-style: italic;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+        }
+        
+        .practice-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .practice-progress,
+        .quiz-progress {
+            margin-top: 20px;
+        }
+        
+        .progress-text {
+            text-align: center;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #5a6c7d;
+        }
+        
+        .progress-bar {
+            background: #e9ecef;
+            border-radius: 10px;
+            height: 20px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            background: linear-gradient(90deg, #3498db, #2980b9);
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+        
+        /* Quiz Specific */
+        .quiz-question {
+            font-size: 24px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+        
+        .quiz-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        
+        .quiz-option {
+            padding: 15px 20px;
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 16px;
+        }
+        
+        .quiz-option:hover {
+            border-color: #3498db;
+            background: #f8f9fa;
+        }
+        
+        .quiz-option.selected {
+            border-color: #3498db;
+            background: #e3f2fd;
+        }
+        
+        .quiz-option.correct {
+            border-color: #28a745;
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .quiz-option.incorrect {
+            border-color: #dc3545;
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .quiz-feedback {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        
+        .quiz-feedback.correct {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .quiz-feedback.incorrect {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        /* Quiz Results */
+        .quiz-results {
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .quiz-score {
+            margin: 30px 0;
+        }
+        
+        .score-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+            color: white;
+            font-size: 24px;
+            font-weight: 700;
+        }
+        
+        .quiz-stats {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 30px 0;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-label {
+            display: block;
+            color: #6c757d;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        
+        /* Button Styles */
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #2980b9, #1f5f8b);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(52, 152, 219, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
     </style>
 </head>
 <body>
@@ -169,113 +565,626 @@
                 <!-- Vocabulary Statistics -->
                 <div class="vocab-stats">
                     <div class="vocab-stat-card">
-                        <div class="vocab-stat-number"><%= vocabulary.totalWords %></div>
+                        <div class="vocab-stat-number" id="totalWords"><%= vocabulary.totalWords %></div>
                         <div class="vocab-stat-label">Total Words</div>
                     </div>
                     <div class="vocab-stat-card">
-                        <div class="vocab-stat-number"><%= vocabulary.masteredWords %></div>
-                        <div class="vocab-stat-label">Mastered Words</div>
+                        <div class="vocab-stat-number" id="learnedToday"><%= vocabulary.learnedToday || 0 %></div>
+                        <div class="vocab-stat-label">Learned Today</div>
                     </div>
                     <div class="vocab-stat-card">
-                        <div class="vocab-stat-number"><%= vocabulary.totalWords > 0 ? Math.round((vocabulary.masteredWords / vocabulary.totalWords) * 100) : 0 %>%</div>
-                        <div class="vocab-stat-label">Mastery Rate</div>
+                        <div class="vocab-stat-number" id="masteryLevel"><%= vocabulary.totalWords > 0 ? Math.round((vocabulary.masteredWords / vocabulary.totalWords) * 100) : 0 %>%</div>
+                        <div class="vocab-stat-label">Mastery Level</div>
+                    </div>
+                    <div class="vocab-stat-card">
+                        <div class="vocab-stat-number" id="currentStreak"><%= vocabulary.currentStreak || 0 %></div>
+                        <div class="vocab-stat-label">Day Streak</div>
                     </div>
                 </div>
 
-                <!-- Add New Word Form -->
-                <div class="add-word-form">
-                    <h3><i class="fas fa-plus"></i> Add New Word</h3>
-                    <form id="addWordForm">
-                        <div class="form-row">
+                <!-- Tab Navigation -->
+                <div class="tabs">
+                    <div class="tab active" onclick="showTab('wordList')">My Words</div>
+                    <div class="tab" onclick="showTab('practice')">Practice</div>
+                    <div class="tab" onclick="showTab('quiz')">Quiz</div>
+                    <div class="tab" onclick="showTab('addWord')">Add Word</div>
+                </div>
+
+                <!-- Word List Tab -->
+                <div id="wordListTab" class="tab-content active">
+                    <div class="word-filters">
+                        <select id="difficultyFilter" onchange="filterWords()">
+                            <option value="all">All Difficulties</option>
+                            <option value="beginner">Beginner</option>
+                            <option value="intermediate">Intermediate</option>
+                            <option value="advanced">Advanced</option>
+                        </select>
+                        <select id="masteryFilter" onchange="filterWords()">
+                            <option value="all">All Mastery Levels</option>
+                            <option value="learning">Learning</option>
+                            <option value="practicing">Practicing</option>
+                            <option value="mastered">Mastered</option>
+                        </select>
+                        <input type="text" id="searchWords" placeholder="Search words..." oninput="filterWords()">
+                    </div>
+                    <div id="wordsList" class="words-list"></div>
+                    <div id="wordsEmpty" class="empty-state" style="display: none;">
+                        <h3>No words found</h3>
+                        <p>Add some words to start building your vocabulary!</p>
+                    </div>
+                </div>
+
+                <!-- Practice Tab -->
+                <div id="practiceTab" class="tab-content">
+                    <div class="practice-controls">
+                        <select id="practiceDifficulty">
+                            <option value="all">All Difficulties</option>
+                            <option value="beginner">Beginner</option>
+                            <option value="intermediate">Intermediate</option>
+                            <option value="advanced">Advanced</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="startPractice()">Start Practice</button>
+                    </div>
+                    <div id="practiceArea" class="practice-area" style="display: none;">
+                        <div class="practice-card">
+                            <div class="practice-word" id="practiceWord"></div>
+                            <div class="practice-definition" id="practiceDefinition" style="display: none;"></div>
+                            <div class="practice-example" id="practiceExample" style="display: none;"></div>
+                            <div class="practice-actions">
+                                <button class="btn btn-secondary" onclick="showDefinition()">Show Definition</button>
+                                <button class="btn btn-success" onclick="markCorrect()">I Know This</button>
+                                <button class="btn btn-danger" onclick="markIncorrect()">I Don't Know</button>
+                                <button class="btn btn-primary" onclick="nextWord()">Next Word</button>
+                            </div>
+                        </div>
+                        <div class="practice-progress">
+                            <div class="progress-text">Progress: <span id="practiceProgress">0/0</span></div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="practiceProgressBar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quiz Tab -->
+                <div id="quizTab" class="tab-content">
+                    <div class="quiz-controls">
+                        <select id="quizDifficulty">
+                            <option value="all">All Difficulties</option>
+                            <option value="beginner">Beginner</option>
+                            <option value="intermediate">Intermediate</option>
+                            <option value="advanced">Advanced</option>
+                        </select>
+                        <select id="quizType">
+                            <option value="definition">Definition Quiz</option>
+                            <option value="word">Word Quiz</option>
+                            <option value="mixed">Mixed Quiz</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="startQuiz()">Start Quiz</button>
+                    </div>
+                    <div id="quizArea" class="quiz-area" style="display: none;">
+                        <div class="quiz-card">
+                            <div class="quiz-question" id="quizQuestion"></div>
+                            <div class="quiz-options" id="quizOptions"></div>
+                            <div class="quiz-feedback" id="quizFeedback" style="display: none;"></div>
+                            <div class="quiz-actions">
+                                <button class="btn btn-primary" id="nextQuizBtn" onclick="nextQuizQuestion()" style="display: none;">Next Question</button>
+                            </div>
+                        </div>
+                        <div class="quiz-progress">
+                            <div class="progress-text">Question: <span id="quizProgress">0/0</span></div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="quizProgressBar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="quizResults" class="quiz-results" style="display: none;">
+                        <h3>Quiz Complete!</h3>
+                        <div class="quiz-score">
+                            <div class="score-circle">
+                                <span id="finalScore">0%</span>
+                            </div>
+                        </div>
+                        <div class="quiz-stats">
+                            <div class="stat-item">
+                                <span class="stat-label">Correct:</span>
+                                <span id="correctAnswers">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Incorrect:</span>
+                                <span id="incorrectAnswers">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Total:</span>
+                                <span id="totalQuestions">0</span>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" onclick="resetQuiz()">Take Another Quiz</button>
+                    </div>
+                </div>
+
+                <!-- Add Word Tab -->
+                <div id="addWordTab" class="tab-content">
+                    <div class="add-word-section">
+                        <h2>Add New Word</h2>
+                        <form id="addWordForm" class="add-word-form">
                             <div class="form-group">
                                 <label for="word">Word</label>
-                                <input type="text" id="word" name="word" required placeholder="Enter new word">
+                                <input type="text" id="word" name="word" required>
                             </div>
                             <div class="form-group">
                                 <label for="definition">Definition</label>
-                                <textarea id="definition" name="definition" required placeholder="Enter definition"></textarea>
+                                <textarea id="definition" name="definition" required></textarea>
                             </div>
                             <div class="form-group">
-                                <label for="difficulty">Difficulty</label>
+                                <label for="example">Example Sentence</label>
+                                <textarea id="example" name="example"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="difficulty">Difficulty Level</label>
                                 <select id="difficulty" name="difficulty">
-                                    <option value="beginner" selected>Beginner</option>
-                                    <option value="intermediate">Intermediate</option>
+                                    <option value="beginner">Beginner</option>
+                                    <option value="intermediate" selected>Intermediate</option>
                                     <option value="advanced">Advanced</option>
                                 </select>
                             </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="example">Example Sentence</label>
-                            <textarea id="example" name="example" placeholder="Enter an example sentence using this word"></textarea>
-                        </div>
-                        <button type="submit" class="add-btn">
-                            <i class="fas fa-plus"></i> Add Word
-                        </button>
-                    </form>
+                            <button type="submit" class="btn btn-primary">Add Word</button>
+                        </form>
+                    </div>
                 </div>
-
-                <!-- Words List -->
-                <% if (vocabulary.words && vocabulary.words.length > 0) { %>
-                    <div class="words-grid" id="wordsGrid">
-                        <% vocabulary.words.forEach(word => { %>
-                            <div class="word-card">
-                                <div class="word-header">
-                                    <div class="word-title"><%= word.word %></div>
-                                    <div class="difficulty-badge difficulty-<%= word.difficulty %>">
-                                        <%= word.difficulty %>
-                                    </div>
-                                </div>
-                                <div class="word-definition"><%= word.definition %></div>
-                                <% if (word.example) { %>
-                                    <div class="word-example">
-                                        "<%= word.example %>"
-                                    </div>
-                                <% } %>
-                            </div>
-                        <% }); %>
-                    </div>
-                <% } else { %>
-                    <div class="empty-state">
-                        <i class="fas fa-book-open"></i>
-                        <h3>No words yet!</h3>
-                        <p>Start building your vocabulary by adding your first word above.</p>
-                    </div>
-                <% } %>
             </div>
         </main>
     </div>
 
     <script>
-        document.getElementById('addWordForm').addEventListener('submit', async (e) => {
+        let currentWords = [];
+        let filteredWords = [];
+        let currentStats = {};
+        let practiceWords = [];
+        let currentPracticeIndex = 0;
+        let practiceCorrect = 0;
+        let quizQuestions = [];
+        let currentQuizIndex = 0;
+        let quizCorrect = 0;
+        let selectedQuizOption = null;
+        
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', function() {
+            loadVocabulary();
+        });
+        
+        // Tab switching functionality
+        function showTab(tabName) {
+            // Remove active class from all tabs and content
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            // Add active class to clicked tab and corresponding content
+            event.target.classList.add('active');
+            document.getElementById(tabName + 'Tab').classList.add('active');
+        }
+        
+        // Load vocabulary data
+        async function loadVocabulary() {
+            try {
+                const response = await fetch('/api/vocabulary');
+                const data = await response.json();
+                
+                if (data.words) {
+                    currentWords = data.words;
+                    currentStats = data.stats || {};
+                    
+                    updateStatistics();
+                    filterWords();
+                }
+            } catch (error) {
+                console.error('Error loading vocabulary:', error);
+            }
+        }
+        
+        // Update statistics display
+        function updateStatistics() {
+            document.getElementById('totalWords').textContent = currentStats.total || 0;
+            document.getElementById('learnedToday').textContent = currentStats.learnedToday || 0;
+            document.getElementById('masteryLevel').textContent = (currentStats.masteryRate || 0) + '%';
+            document.getElementById('currentStreak').textContent = currentStats.currentStreak || 0;
+        }
+        
+        // Filter words based on current filters
+        function filterWords() {
+            const difficultyFilter = document.getElementById('difficultyFilter').value;
+            const masteryFilter = document.getElementById('masteryFilter').value;
+            const searchTerm = document.getElementById('searchWords').value.toLowerCase();
+            
+            filteredWords = currentWords.filter(word => {
+                const matchesDifficulty = difficultyFilter === 'all' || word.difficulty === difficultyFilter;
+                const matchesMastery = masteryFilter === 'all' || word.masteryLevel === masteryFilter;
+                const matchesSearch = word.word.toLowerCase().includes(searchTerm) || 
+                                    word.definition.toLowerCase().includes(searchTerm);
+                
+                return matchesDifficulty && matchesMastery && matchesSearch;
+            });
+            
+            renderWords();
+        }
+        
+        // Render words list
+        function renderWords() {
+            const container = document.getElementById('wordsList');
+            const emptyState = document.getElementById('wordsEmpty');
+            
+            if (filteredWords.length === 0) {
+                container.innerHTML = '';
+                emptyState.style.display = 'block';
+                return;
+            }
+            
+            emptyState.style.display = 'none';
+            container.innerHTML = filteredWords.map(word => createWordCard(word)).join('');
+        }
+        
+        // Create word card HTML
+        function createWordCard(word) {
+            return `
+                <div class="word-card">
+                    <div class="word-header">
+                        <div class="word-title">${word.word}</div>
+                        <div class="difficulty-badge difficulty-${word.difficulty}">${word.difficulty}</div>
+                    </div>
+                    <div class="word-meta">
+                        <div class="mastery-badge mastery-${word.masteryLevel || 'learning'}">
+                            ${word.masteryLevel || 'learning'}
+                        </div>
+                        <div style="font-size: 12px; color: #6c757d;">
+                            Practiced: ${word.practiceCount || 0} times
+                        </div>
+                    </div>
+                    <div class="word-definition">${word.definition}</div>
+                    ${word.example ? `<div class="word-example">"${word.example}"</div>` : ''}
+                    ${word.pronunciation ? `<div style="color: #7f8c8d; font-size: 14px; margin-bottom: 15px;">/${word.pronunciation}/</div>` : ''}
+                    <div class="word-actions">
+                        <button class="btn btn-primary btn-small" onclick="practiceWord(${word.id})">Practice</button>
+                        <button class="btn btn-secondary btn-small" onclick="editWord(${word.id})">Edit</button>
+                        <button class="btn btn-danger btn-small" onclick="deleteWord(${word.id})">Delete</button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Add word form submission
+        document.getElementById('addWordForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const formData = new FormData(e.target);
-            const wordData = {
-                word: formData.get('word'),
-                definition: formData.get('definition'),
-                example: formData.get('example'),
-                difficulty: formData.get('difficulty')
+            const formData = {
+                word: document.getElementById('word').value,
+                definition: document.getElementById('definition').value,
+                example: document.getElementById('example').value,
+                difficulty: document.getElementById('difficulty').value
             };
             
             try {
-                const response = await fetch('/api/vocabulary/add', {
+                const response = await fetch('/api/vocabulary', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify(wordData)
+                    body: JSON.stringify(formData)
                 });
                 
-                if (response.ok) {
-                    location.reload(); // Refresh to show new word
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Word added successfully!');
+                    document.getElementById('addWordForm').reset();
+                    loadVocabulary();
+                    showTab('wordList');
                 } else {
-                    alert('Failed to add word. Please try again.');
+                    alert('Error adding word: ' + result.error);
                 }
             } catch (error) {
-                console.error('Error adding word:', error);
-                alert('Failed to add word. Please try again.');
+                console.error('Error:', error);
+                alert('Error adding word');
             }
         });
+        
+        // Practice individual word
+        async function practiceWord(wordId) {
+            try {
+                const response = await fetch(`/api/vocabulary/${wordId}/practice`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Practice recorded!');
+                    loadVocabulary();
+                } else {
+                    alert('Error recording practice: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error recording practice');
+            }
+        }
+        
+        // Edit word
+        async function editWord(wordId) {
+            const word = currentWords.find(w => w.id === wordId);
+            if (!word) return;
+            
+            const newDefinition = prompt('Edit definition:', word.definition);
+            if (newDefinition === null) return;
+            
+            try {
+                const response = await fetch(`/api/vocabulary/${wordId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        definition: newDefinition
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Word updated successfully!');
+                    loadVocabulary();
+                } else {
+                    alert('Error updating word: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error updating word');
+            }
+        }
+        
+        // Delete word
+        async function deleteWord(wordId) {
+            if (!confirm('Are you sure you want to delete this word?')) return;
+            
+            try {
+                const response = await fetch(`/api/vocabulary/${wordId}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Word deleted successfully!');
+                    loadVocabulary();
+                } else {
+                    alert('Error deleting word: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error deleting word');
+            }
+        }
+        
+        // Start practice session
+        async function startPractice() {
+            const difficulty = document.getElementById('practiceDifficulty').value;
+            
+            try {
+                const response = await fetch(`/api/vocabulary/practice?difficulty=${difficulty}`);
+                const data = await response.json();
+                
+                if (data.words && data.words.length > 0) {
+                    practiceWords = data.words;
+                    currentPracticeIndex = 0;
+                    practiceCorrect = 0;
+                    
+                    document.getElementById('practiceArea').style.display = 'block';
+                    showPracticeWord();
+                } else {
+                    alert('No words available for practice. Add some words first!');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error starting practice');
+            }
+        }
+        
+        // Show current practice word
+        function showPracticeWord() {
+            if (currentPracticeIndex >= practiceWords.length) {
+                finishPractice();
+                return;
+            }
+            
+            const word = practiceWords[currentPracticeIndex];
+            document.getElementById('practiceWord').textContent = word.word;
+            document.getElementById('practiceDefinition').textContent = word.definition;
+            document.getElementById('practiceExample').textContent = word.example || '';
+            
+            // Hide definition and example initially
+            document.getElementById('practiceDefinition').style.display = 'none';
+            document.getElementById('practiceExample').style.display = 'none';
+            
+            updatePracticeProgress();
+        }
+        
+        // Show definition
+        function showDefinition() {
+            document.getElementById('practiceDefinition').style.display = 'block';
+            if (document.getElementById('practiceExample').textContent) {
+                document.getElementById('practiceExample').style.display = 'block';
+            }
+        }
+        
+        // Mark as correct
+        function markCorrect() {
+            practiceCorrect++;
+            recordPracticeResult(true);
+            nextWord();
+        }
+        
+        // Mark as incorrect
+        function markIncorrect() {
+            recordPracticeResult(false);
+            nextWord();
+        }
+        
+        // Record practice result
+        async function recordPracticeResult(correct) {
+            const word = practiceWords[currentPracticeIndex];
+            
+            try {
+                await fetch(`/api/vocabulary/${word.id}/practice`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ correct })
+                });
+            } catch (error) {
+                console.error('Error recording practice result:', error);
+            }
+        }
+        
+        // Next word in practice
+        function nextWord() {
+            currentPracticeIndex++;
+            showPracticeWord();
+        }
+        
+        // Update practice progress
+        function updatePracticeProgress() {
+            const progress = ((currentPracticeIndex + 1) / practiceWords.length) * 100;
+            document.getElementById('practiceProgress').textContent = `${currentPracticeIndex + 1}/${practiceWords.length}`;
+            document.getElementById('practiceProgressBar').style.width = progress + '%';
+        }
+        
+        // Finish practice session
+        function finishPractice() {
+            const accuracy = Math.round((practiceCorrect / practiceWords.length) * 100);
+            alert(`Practice complete! Accuracy: ${accuracy}% (${practiceCorrect}/${practiceWords.length})`);
+            
+            document.getElementById('practiceArea').style.display = 'none';
+            loadVocabulary();
+        }
+        
+        // Start quiz
+        async function startQuiz() {
+            const difficulty = document.getElementById('quizDifficulty').value;
+            const type = document.getElementById('quizType').value;
+            
+            try {
+                const response = await fetch(`/api/vocabulary/quiz?difficulty=${difficulty}&type=${type}`);
+                const data = await response.json();
+                
+                if (data.questions && data.questions.length > 0) {
+                    quizQuestions = data.questions;
+                    currentQuizIndex = 0;
+                    quizCorrect = 0;
+                    selectedQuizOption = null;
+                    
+                    document.getElementById('quizArea').style.display = 'block';
+                    document.getElementById('quizResults').style.display = 'none';
+                    showQuizQuestion();
+                } else {
+                    alert('No questions available for quiz. Add more words first!');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error starting quiz');
+            }
+        }
+        
+        // Show current quiz question
+        function showQuizQuestion() {
+            if (currentQuizIndex >= quizQuestions.length) {
+                showQuizResults();
+                return;
+            }
+            
+            const question = quizQuestions[currentQuizIndex];
+            document.getElementById('quizQuestion').textContent = question.question;
+            
+            const optionsHtml = question.options.map((option, index) => 
+                `<div class="quiz-option" onclick="selectQuizOption(${index})" data-index="${index}">${option}</div>`
+            ).join('');
+            
+            document.getElementById('quizOptions').innerHTML = optionsHtml;
+            document.getElementById('quizFeedback').style.display = 'none';
+            document.getElementById('nextQuizBtn').style.display = 'none';
+            
+            selectedQuizOption = null;
+            updateQuizProgress();
+        }
+        
+        // Select quiz option
+        function selectQuizOption(index) {
+            // Remove previous selection
+            document.querySelectorAll('.quiz-option').forEach(opt => {
+                opt.classList.remove('selected', 'correct', 'incorrect');
+            });
+            
+            // Mark selected option
+            const selectedElement = document.querySelector(`[data-index="${index}"]`);
+            selectedElement.classList.add('selected');
+            selectedQuizOption = index;
+            
+            // Check answer
+            const question = quizQuestions[currentQuizIndex];
+            const isCorrect = index === question.correctAnswer;
+            
+            if (isCorrect) {
+                selectedElement.classList.add('correct');
+                quizCorrect++;
+                showQuizFeedback('Correct!', 'correct');
+            } else {
+                selectedElement.classList.add('incorrect');
+                // Show correct answer
+                document.querySelector(`[data-index="${question.correctAnswer}"]`).classList.add('correct');
+                showQuizFeedback(`Incorrect. The correct answer is: ${question.options[question.correctAnswer]}`, 'incorrect');
+            }
+            
+            document.getElementById('nextQuizBtn').style.display = 'inline-block';
+        }
+        
+        // Show quiz feedback
+        function showQuizFeedback(message, type) {
+            const feedback = document.getElementById('quizFeedback');
+            feedback.textContent = message;
+            feedback.className = `quiz-feedback ${type}`;
+            feedback.style.display = 'block';
+        }
+        
+        // Next quiz question
+        function nextQuizQuestion() {
+            currentQuizIndex++;
+            showQuizQuestion();
+        }
+        
+        // Update quiz progress
+        function updateQuizProgress() {
+            const progress = ((currentQuizIndex + 1) / quizQuestions.length) * 100;
+            document.getElementById('quizProgress').textContent = `${currentQuizIndex + 1}/${quizQuestions.length}`;
+            document.getElementById('quizProgressBar').style.width = progress + '%';
+        }
+        
+        // Show quiz results
+        function showQuizResults() {
+            const accuracy = Math.round((quizCorrect / quizQuestions.length) * 100);
+            
+            document.getElementById('quizArea').style.display = 'none';
+            document.getElementById('quizResults').style.display = 'block';
+            
+            document.getElementById('finalScore').textContent = accuracy + '%';
+            document.getElementById('correctAnswers').textContent = quizCorrect;
+            document.getElementById('incorrectAnswers').textContent = quizQuestions.length - quizCorrect;
+            document.getElementById('totalQuestions').textContent = quizQuestions.length;
+        }
+        
+        // Reset quiz
+        function resetQuiz() {
+            document.getElementById('quizResults').style.display = 'none';
+            document.getElementById('quizArea').style.display = 'none';
+        }
     </script>
 </body>
 </html>

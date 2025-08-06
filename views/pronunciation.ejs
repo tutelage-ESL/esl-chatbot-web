@@ -35,6 +35,41 @@
         .word-input-section {
             margin-bottom: 30px;
         }
+
+        .difficulty-selector {
+            margin-bottom: 25px;
+            text-align: center;
+        }
+
+        .difficulty-selector label {
+            display: block;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .difficulty-selector select {
+            padding: 12px 20px;
+            border: 2px solid #e1e8ed;
+            border-radius: 10px;
+            font-size: 1em;
+            background: white;
+            color: #2c3e50;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 250px;
+        }
+
+        .difficulty-selector select:hover {
+            border-color: #3498db;
+        }
+
+        .difficulty-selector select:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
         .input-group {
             display: flex;
             gap: 15px;
@@ -134,45 +169,190 @@
             color: #dc3545;
         }
         .analysis-section {
-            background: #f8f9fa;
-            padding: 25px;
-            border-radius: 10px;
-            margin-top: 20px;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-top: 30px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
             display: none;
         }
-        .analysis-title {
-            font-size: 1.3em;
-            font-weight: bold;
-            color: #333;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
+
+        .loading {
+            text-align: center;
+            padding: 40px;
         }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            text-align: center;
+            padding: 20px;
+            color: #e74c3c;
+        }
+
+        .error-details {
+            font-size: 0.9em;
+            color: #7f8c8d;
+            margin-top: 10px;
+        }
+
+        .analysis-title {
+            font-size: 1.5em;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+
         .score-display {
             display: flex;
             justify-content: space-around;
-            margin-bottom: 25px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 20px;
         }
+
         .score-item {
             text-align: center;
-        }
-        .score-value {
-            font-size: 2em;
-            font-weight: bold;
-            color: #667eea;
-            display: block;
-        }
-        .score-label {
-            color: #666;
-            font-size: 0.9em;
-        }
-        .feedback-text {
-            background: white;
+            flex: 1;
+            min-width: 120px;
+            background: #f8f9fa;
             padding: 20px;
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
+            border-radius: 10px;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .score-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .score-value {
+            font-size: 2.2em;
+            font-weight: bold;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .score-label {
+            font-size: 0.9em;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .excellent { 
+            color: #27ae60;
+        }
+        .good { 
+            color: #f39c12;
+        }
+        .fair {
+            color: #e67e22;
+        }
+        .needs-work { 
+            color: #e74c3c;
+        }
+
+        .feedback-text {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
             margin-bottom: 20px;
+            line-height: 1.6;
+            border-left: 4px solid #3498db;
+        }
+
+        .feedback-text ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+
+        .feedback-text li {
+            margin-bottom: 8px;
+            color: #2c3e50;
+        }
+
+        .transcription-section {
+            background: #e8f4fd;
+            border: 2px solid #3498db;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+
+        .transcription-title {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #2980b9;
+            margin-bottom: 15px;
+        }
+
+        .transcription-text {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #2c3e50;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-style: italic;
+            border: 1px solid #bdc3c7;
+        }
+
+        .target-word {
+            font-size: 1em;
+            color: #7f8c8d;
+        }
+
+        .target-word strong {
+            color: #2980b9;
+            font-size: 1.1em;
+        }
+
+        .difficulty-badge {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .difficulty {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .difficulty.beginner {
+            background: #d5f4e6;
+            color: #27ae60;
+        }
+
+        .difficulty.intermediate {
+            background: #fef9e7;
+            color: #f39c12;
+        }
+
+        .difficulty.advanced {
+            background: #fadbd8;
+            color: #e74c3c;
         }
         .try-again-btn {
             background: #28a745;
@@ -284,6 +464,15 @@
 
                 <div class="practice-section">
                     <div class="word-input-section">
+                        <div class="difficulty-selector">
+                            <label for="difficultySelect">Difficulty Level:</label>
+                            <select id="difficultySelect" onchange="changeDifficulty()">
+                                <option value="beginner">Beginner (Simple words)</option>
+                                <option value="intermediate" selected>Intermediate (Common words)</option>
+                                <option value="advanced">Advanced (Complex words)</option>
+                            </select>
+                        </div>
+                        
                         <div class="quick-words">
                             <div class="quick-words-title">Quick Practice Words:</div>
                             <div class="quick-word-buttons">
@@ -299,6 +488,7 @@
                         
                         <div class="input-group">
                             <input type="text" id="wordInput" class="word-input" placeholder="Enter a word to practice..." value="">
+                            <button id="generateBtn" onclick="generateNewWord()">🎲 Random Word</button>
                             <button id="startPracticeBtn" class="practice-btn" onclick="startPractice()">
                                 <i class="fas fa-play"></i> Start Practice
                             </button>
@@ -451,9 +641,19 @@
         }
 
         async function analyzePronunciation(audioBlob) {
+            // Show loading state
+            const analysisSection = document.getElementById('analysisSection');
+            analysisSection.style.display = 'block';
+            analysisSection.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Analyzing your pronunciation...</p>
+                </div>
+            `;
+
             try {
                 const formData = new FormData();
-                formData.append('audio', audioBlob, 'pronunciation.wav');
+                formData.append('audio', audioBlob, 'recording.wav');
                 formData.append('word', currentWord);
                 
                 const response = await fetch('/api/pronunciation/analyze', {
@@ -461,36 +661,102 @@
                     body: formData
                 });
                 
-                if (response.ok) {
-                    const result = await response.json();
-                    displayAnalysis(result);
+                const data = await response.json();
+                if (data.success) {
+                    displayAnalysis(data);
+                    addToHistory(currentWord, data.overall);
                 } else {
-                    throw new Error('Analysis failed');
+                    throw new Error(data.error || 'Analysis failed');
                 }
             } catch (error) {
-                console.error('Error analyzing pronunciation:', error);
-                // Show mock analysis for demo purposes
-                const mockResult = {
-                    accuracy: Math.floor(Math.random() * 30) + 70,
-                    fluency: Math.floor(Math.random() * 25) + 75,
-                    overall: Math.floor(Math.random() * 20) + 80,
-                    feedback: 'Good pronunciation! Try to emphasize the stressed syllables more clearly.'
-                };
-                displayAnalysis(mockResult);
+                console.error('Error:', error);
+                analysisSection.innerHTML = `
+                    <div class="error">
+                        <p>❌ Analysis failed. Please try again.</p>
+                        <p class="error-details">${error.message}</p>
+                    </div>
+                `;
             }
         }
 
-        function displayAnalysis(result) {
-            document.getElementById('accuracyScore').textContent = result.accuracy + '%';
-            document.getElementById('fluencyScore').textContent = result.fluency + '%';
-            document.getElementById('overallScore').textContent = result.overall + '%';
-            document.getElementById('feedbackText').textContent = result.feedback;
+        function displayAnalysis(analysis) {
+            const analysisSection = document.getElementById('analysisSection');
+            analysisSection.style.display = 'block';
+            
+            // Create comprehensive analysis display
+            analysisSection.innerHTML = `
+                <div class="analysis-title">
+                    <i class="fas fa-chart-line"></i> Pronunciation Analysis
+                </div>
+                
+                ${analysis.transcription ? `
+                    <div class="transcription-section">
+                        <div class="transcription-title">
+                            <i class="fas fa-quote-left"></i> What we heard:
+                        </div>
+                        <div class="transcription-text">
+                            "${analysis.transcription}"
+                        </div>
+                        <div class="target-word">
+                            Target word: <strong>${currentWord}</strong>
+                        </div>
+                    </div>
+                ` : ''}
+                
+                <div class="score-display">
+                    <div class="score-item">
+                        <span class="score-value ${getScoreClass(analysis.accuracy)}">${analysis.accuracy}%</span>
+                        <div class="score-label">Accuracy</div>
+                    </div>
+                    <div class="score-item">
+                        <span class="score-value ${getScoreClass(analysis.fluency)}">${analysis.fluency}%</span>
+                        <div class="score-label">Fluency</div>
+                    </div>
+                    <div class="score-item">
+                        <span class="score-value ${getScoreClass(analysis.overall)}">${analysis.overall}%</span>
+                        <div class="score-label">Overall</div>
+                    </div>
+                </div>
+                
+                <div class="feedback-text">
+                    <strong>📝 Feedback:</strong><br>
+                    ${analysis.feedback}
+                </div>
+                
+                ${analysis.suggestions && analysis.suggestions.length > 0 ? `
+                    <div class="feedback-text">
+                        <strong>💡 Improvement Suggestions:</strong>
+                        <ul>
+                            ${analysis.suggestions.map(suggestion => `<li>${suggestion}</li>`).join('')}
+                        </ul>
+                    </div>
+                ` : ''}
+                
+                ${analysis.phoneticTips && analysis.phoneticTips.length > 0 ? `
+                    <div class="feedback-text">
+                        <strong>🗣️ Phonetic Tips:</strong>
+                        <ul>
+                            ${analysis.phoneticTips.map(tip => `<li>${tip}</li>`).join('')}
+                        </ul>
+                    </div>
+                ` : ''}
+                
+                <button class="try-again-btn" onclick="resetPractice()">
+                    <i class="fas fa-redo"></i> Try Again
+                </button>
+            `;
             
             document.getElementById('recordingStatus').textContent = 'Analysis complete!';
-            document.getElementById('analysisSection').style.display = 'block';
             
             // Add to history
-            addToHistory(currentWord, result.overall);
+            addToHistory(currentWord, analysis.overall);
+        }
+        
+        function getScoreClass(score) {
+            if (score >= 90) return 'excellent';
+            if (score >= 75) return 'good';
+            if (score >= 60) return 'fair';
+            return 'needs-work';
         }
 
         function addToHistory(word, score) {
@@ -529,6 +795,27 @@
             document.getElementById('recordBtn').innerHTML = '<i class="fas fa-microphone"></i>';
             document.getElementById('recordingStatus').textContent = 'Click to start recording';
             document.getElementById('recordingTimer').style.display = 'none';
+        }
+
+        function generateNewWord() {
+            const practiceWords = {
+                beginner: ['cat', 'dog', 'book', 'pen', 'red', 'big', 'yes', 'no', 'sun', 'car', 'tree', 'house', 'water', 'food', 'happy'],
+                intermediate: ['beautiful', 'important', 'different', 'interesting', 'comfortable', 'wonderful', 'education', 'computer', 'telephone', 'restaurant', 'hospital', 'university', 'government', 'environment', 'technology'],
+                advanced: ['pronunciation', 'communication', 'responsibility', 'characteristics', 'unfortunately', 'administration', 'representative', 'international', 'organization', 'development', 'implementation', 'extraordinary', 'pharmaceutical', 'entrepreneurship', 'incomprehensible']
+            };
+            
+            const currentDifficulty = document.getElementById('difficultySelect')?.value || 'intermediate';
+            const words = practiceWords[currentDifficulty];
+            const randomWord = words[Math.floor(Math.random() * words.length)];
+            
+            document.getElementById('wordInput').value = randomWord;
+            currentWord = randomWord;
+            resetPractice();
+        }
+
+        // Add difficulty selector functionality
+        function changeDifficulty() {
+            generateNewWord();
         }
 
         // Allow Enter key to start practice

@@ -1,4 +1,40 @@
 {
+  "1": {
+    "userId": 1,
+    "userName": "Student",
+    "interactions": [
+      {
+        "timestamp": "2025-08-06T14:11:17.110Z",
+        "type": "text",
+        "message": "Hey man, what are you doing? I'm trying to learn English. Can you help me do this man?",
+        "responsePreview": "Hey there! Absolutely, I can definitely help you learn English! That's exactly what I'm here for! 🎉..."
+      },
+      {
+        "timestamp": "2025-08-06T14:10:07.288Z",
+        "type": "text",
+        "message": "hello there",
+        "responsePreview": "Hello there! 👋 So glad to meet you!\n\nI'm your friendly ESL chatbot teacher, ready to make learning ..."
+      }
+    ],
+    "metrics": {
+      "totalInteractions": 2,
+      "textInteractions": 2,
+      "voiceInteractions": 0,
+      "commandsUsed": 0,
+      "lessonsCompleted": 0,
+      "practiceSessionsCompleted": 0,
+      "estimatedLevel": null,
+      "skillMetrics": {
+        "grammar": 0,
+        "vocabulary": 0,
+        "reading": 0,
+        "writing": 0,
+        "speaking": 0,
+        "listening": 0
+      },
+      "lastUpdated": "2025-08-06T14:11:17.110Z"
+    }
+  },
   "3": {
     "userId": 3,
     "userName": "Student",

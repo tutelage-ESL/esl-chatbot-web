@@ -388,101 +388,459 @@ router.get('/voice-status', async (req, res) => {
   }
 });
 
-// Vocabulary tracking endpoints
-router.post('/vocabulary/add', async (req, res) => {
-  try {
-    const { word, definition, example, difficulty } = req.body;
-    const userId = req.session.userId;
-    
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
-    
-    // Check if word already exists for this user
-    const existingWord = await Vocabulary.findOne({
-      where: {
-        userId: userId,
-        word: word.toLowerCase()
-      }
-    });
-    
-    if (existingWord) {
-      return res.status(400).json({ error: 'Word already exists in your vocabulary' });
-    }
-    
-    // Create new vocabulary entry
-    const newWord = await Vocabulary.create({
-      userId: userId,
-      word: word.toLowerCase(),
-      definition,
-      example,
-      difficulty: difficulty || 'beginner',
-      practiceCount: 0,
-      masteryLevel: 0,
-      lastPracticed: null
-    });
-    
-    res.json({ success: true, word: newWord });
-  } catch (error) {
-    console.error('Error adding vocabulary word:', error);
-    res.status(500).json({ error: 'Failed to add vocabulary word' });
-  }
-});
-
+// Enhanced Vocabulary endpoints
 router.get('/vocabulary', async (req, res) => {
   try {
     const userId = req.session.userId;
-    
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
+
+    const { difficulty, search, limit = 50 } = req.query;
+    let whereClause = { userId };
     
-    // Get all vocabulary words for the user
-    const words = await Vocabulary.findAll({
-      where: { userId: userId },
-      order: [['createdAt', 'DESC']]
+    if (difficulty && difficulty !== 'all') {
+      whereClause.difficulty = difficulty;
+    }
+    
+    if (search) {
+      whereClause.word = {
+        [require('sequelize').Op.iLike]: `%${search}%`
+      };
+    }
+
+    const vocabulary = await Vocabulary.findAll({
+      where: whereClause,
+      order: [['createdAt', 'DESC']],
+      limit: parseInt(limit)
     });
-    
-    const totalWords = words.length;
-    const masteredWords = words.filter(word => word.masteryLevel >= 80).length; // Consider mastered if masteryLevel >= 80
-    
-    const userVocabulary = {
-      words: words,
-      totalWords: totalWords,
-      masteredWords: masteredWords
-    };
-    
-    res.json(userVocabulary);
+
+    // Calculate statistics
+    const stats = await calculateVocabularyStats(userId);
+
+    res.json({ vocabulary, stats });
   } catch (error) {
-    console.error('Error getting vocabulary:', error);
-    res.status(500).json({ error: 'Failed to get vocabulary' });
+    console.error('Error fetching vocabulary:', error);
+    res.status(500).json({ error: 'Failed to fetch vocabulary' });
   }
 });
 
-// Learning goals endpoints
-router.post('/goals/set', async (req, res) => {
+router.post('/vocabulary', async (req, res) => {
   try {
-    const { type, target, deadline, description, category, priority } = req.body;
+    const { word, definition, example, difficulty, category } = req.body;
     const userId = req.session.userId;
     
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
+
+    if (!word || !definition) {
+      return res.status(400).json({ error: 'Word and definition are required' });
+    }
+
+    // Check if word already exists for this user
+    const existingWord = await Vocabulary.findOne({
+      where: { userId, word: word.toLowerCase() }
+    });
+
+    if (existingWord) {
+      return res.status(400).json({ error: 'Word already exists in your vocabulary' });
+    }
+
+    // Generate pronunciation guide and additional info
+    const enhancedData = await enhanceVocabularyData(word, definition, example);
+
+    const vocabularyItem = await Vocabulary.create({
+      userId,
+      word: word.toLowerCase(),
+      definition,
+      example: example || enhancedData.example,
+      difficulty: difficulty || enhancedData.difficulty,
+      category: category || enhancedData.category,
+      pronunciation: enhancedData.pronunciation,
+      synonyms: enhancedData.synonyms,
+      antonyms: enhancedData.antonyms,
+      partOfSpeech: enhancedData.partOfSpeech,
+      masteryLevel: 0,
+      practiceCount: 0,
+      lastPracticed: null
+    });
+
+    // Update progress tracking
+    await updateProgressDB(userId, word, 'vocabulary', `Added new word: ${word}`);
+
+    res.json({ success: true, vocabulary: vocabularyItem });
+  } catch (error) {
+    console.error('Error adding vocabulary:', error);
+    res.status(500).json({ error: 'Failed to add vocabulary' });
+  }
+});
+
+// Update vocabulary item
+router.put('/vocabulary/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { definition, example, difficulty, category, masteryLevel } = req.body;
+    const userId = req.session.userId;
     
-    // Create new goal
-    const newGoal = await Goal.create({
-      userId: userId,
-      title: description,
-      description: description,
-      category: category || 'vocabulary', // Use valid ENUM value
-      difficulty: 'intermediate', // Valid ENUM value: beginner, intermediate, advanced
-      targetValue: target,
-      currentValue: 0,
-      unit: 'points',
-      isCompleted: false
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const vocabularyItem = await Vocabulary.findOne({
+      where: { id, userId }
+    });
+
+    if (!vocabularyItem) {
+      return res.status(404).json({ error: 'Vocabulary item not found' });
+    }
+
+    await vocabularyItem.update({
+      definition: definition || vocabularyItem.definition,
+      example: example || vocabularyItem.example,
+      difficulty: difficulty || vocabularyItem.difficulty,
+      category: category || vocabularyItem.category,
+      masteryLevel: masteryLevel !== undefined ? masteryLevel : vocabularyItem.masteryLevel
+    });
+
+    res.json({ success: true, vocabulary: vocabularyItem });
+  } catch (error) {
+    console.error('Error updating vocabulary:', error);
+    res.status(500).json({ error: 'Failed to update vocabulary' });
+  }
+});
+
+// Delete vocabulary item
+router.delete('/vocabulary/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.session.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const vocabularyItem = await Vocabulary.findOne({
+      where: { id, userId }
+    });
+
+    if (!vocabularyItem) {
+      return res.status(404).json({ error: 'Vocabulary item not found' });
+    }
+
+    await vocabularyItem.destroy();
+    res.json({ success: true, message: 'Vocabulary item deleted' });
+  } catch (error) {
+    console.error('Error deleting vocabulary:', error);
+    res.status(500).json({ error: 'Failed to delete vocabulary' });
+  }
+});
+
+// Practice vocabulary
+router.post('/vocabulary/practice', async (req, res) => {
+  try {
+    const { wordId, correct, timeSpent } = req.body;
+    const userId = req.session.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const vocabularyItem = await Vocabulary.findOne({
+      where: { id: wordId, userId }
+    });
+
+    if (!vocabularyItem) {
+      return res.status(404).json({ error: 'Vocabulary item not found' });
+    }
+
+    // Update practice statistics
+    const newPracticeCount = vocabularyItem.practiceCount + 1;
+    let newMasteryLevel = vocabularyItem.masteryLevel;
+    
+    if (correct) {
+      newMasteryLevel = Math.min(100, newMasteryLevel + 10);
+    } else {
+      newMasteryLevel = Math.max(0, newMasteryLevel - 5);
+    }
+
+    await vocabularyItem.update({
+      practiceCount: newPracticeCount,
+      masteryLevel: newMasteryLevel,
+      lastPracticed: new Date()
+    });
+
+    // Save practice session
+    await Interaction.create({
+      userId,
+      type: 'vocabulary',
+      message: vocabularyItem.word,
+      responsePreview: `Practice: ${correct ? 'Correct' : 'Incorrect'} (${newMasteryLevel}% mastery)`,
+      duration: timeSpent || 0,
+      score: correct ? 100 : 0
+    });
+
+    // Update progress tracking
+    await updateProgressDB(userId, vocabularyItem.word, 'vocabulary', 
+      `Practiced word: ${correct ? 'Correct' : 'Incorrect'}`);
+
+    res.json({ 
+      success: true, 
+      masteryLevel: newMasteryLevel,
+      practiceCount: newPracticeCount
+    });
+  } catch (error) {
+    console.error('Error recording vocabulary practice:', error);
+    res.status(500).json({ error: 'Failed to record practice' });
+  }
+});
+
+// Get vocabulary quiz
+router.get('/vocabulary/quiz', async (req, res) => {
+  try {
+    const userId = req.session.userId;
+    const { difficulty = 'all', count = 10 } = req.query;
+    
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    let whereClause = { userId };
+    if (difficulty !== 'all') {
+      whereClause.difficulty = difficulty;
+    }
+
+    const vocabulary = await Vocabulary.findAll({
+      where: whereClause,
+      order: require('sequelize').literal('RANDOM()'),
+      limit: parseInt(count)
+    });
+
+    if (vocabulary.length === 0) {
+      return res.json({ quiz: [], message: 'No vocabulary words found for quiz' });
+    }
+
+    // Generate quiz questions
+    const quiz = await generateVocabularyQuiz(vocabulary);
+    
+    res.json({ quiz });
+  } catch (error) {
+    console.error('Error generating vocabulary quiz:', error);
+    res.status(500).json({ error: 'Failed to generate quiz' });
+  }
+});
+
+// Helper functions
+async function calculateVocabularyStats(userId) {
+  try {
+    const total = await Vocabulary.count({ where: { userId } });
+    const byDifficulty = await Vocabulary.findAll({
+      where: { userId },
+      attributes: [
+        'difficulty',
+        [require('sequelize').fn('COUNT', '*'), 'count']
+      ],
+      group: ['difficulty']
     });
     
-    res.json({ success: true, goal: newGoal });
+    const masteryStats = await Vocabulary.findAll({
+      where: { userId },
+      attributes: [
+        [require('sequelize').fn('AVG', require('sequelize').col('masteryLevel')), 'avgMastery'],
+        [require('sequelize').fn('COUNT', require('sequelize').literal('CASE WHEN "masteryLevel" >= 80 THEN 1 END')), 'mastered']
+      ]
+    });
+
+    return {
+      total,
+      byDifficulty: byDifficulty.reduce((acc, item) => {
+        acc[item.difficulty] = parseInt(item.dataValues.count);
+        return acc;
+      }, {}),
+      averageMastery: Math.round(masteryStats[0]?.dataValues.avgMastery || 0),
+      masteredWords: parseInt(masteryStats[0]?.dataValues.mastered || 0)
+    };
+  } catch (error) {
+    console.error('Error calculating vocabulary stats:', error);
+    return { total: 0, byDifficulty: {}, averageMastery: 0, masteredWords: 0 };
+  }
+}
+
+async function enhanceVocabularyData(word, definition, example) {
+  // Enhanced vocabulary data with realistic categorization
+  const categories = {
+    'academic': ['analyze', 'hypothesis', 'methodology', 'theoretical', 'empirical'],
+    'business': ['revenue', 'profit', 'strategy', 'marketing', 'investment'],
+    'daily': ['breakfast', 'shopping', 'weather', 'family', 'friend'],
+    'technology': ['computer', 'internet', 'software', 'digital', 'online'],
+    'science': ['experiment', 'research', 'discovery', 'laboratory', 'molecule']
+  };
+
+  const difficulties = {
+    'beginner': word.length <= 5,
+    'intermediate': word.length > 5 && word.length <= 8,
+    'advanced': word.length > 8
+  };
+
+  let category = 'general';
+  for (const [cat, words] of Object.entries(categories)) {
+    if (words.some(w => word.toLowerCase().includes(w) || w.includes(word.toLowerCase()))) {
+      category = cat;
+      break;
+    }
+  }
+
+  let difficulty = 'intermediate';
+  if (word.length <= 5) difficulty = 'beginner';
+  else if (word.length > 8) difficulty = 'advanced';
+
+  return {
+    category,
+    difficulty,
+    pronunciation: generatePronunciationGuide(word),
+    example: example || `Example sentence with "${word}".`,
+    synonyms: [],
+    antonyms: [],
+    partOfSpeech: detectPartOfSpeech(definition)
+  };
+}
+
+function generatePronunciationGuide(word) {
+  // Simple pronunciation guide generation
+  return `/${word.toLowerCase().replace(/([aeiou])/g, '$1ː')}/`;
+}
+
+function detectPartOfSpeech(definition) {
+  const lowerDef = definition.toLowerCase();
+  if (lowerDef.includes('verb') || lowerDef.includes('action')) return 'verb';
+  if (lowerDef.includes('adjective') || lowerDef.includes('describes')) return 'adjective';
+  if (lowerDef.includes('adverb') || lowerDef.includes('manner')) return 'adverb';
+  return 'noun';
+}
+
+async function generateVocabularyQuiz(vocabulary) {
+  const quiz = [];
+  
+  for (const word of vocabulary) {
+    // Generate different types of questions
+    const questionTypes = ['definition', 'example', 'synonym'];
+    const questionType = questionTypes[Math.floor(Math.random() * questionTypes.length)];
+    
+    let question, correctAnswer, options;
+    
+    switch (questionType) {
+      case 'definition':
+        question = `What does "${word.word}" mean?`;
+        correctAnswer = word.definition;
+        options = await generateDefinitionOptions(word.definition, vocabulary);
+        break;
+      case 'example':
+        question = `Which sentence correctly uses "${word.word}"?`;
+        correctAnswer = word.example;
+        options = await generateExampleOptions(word.example, vocabulary);
+        break;
+      default:
+        question = `What does "${word.word}" mean?`;
+        correctAnswer = word.definition;
+        options = await generateDefinitionOptions(word.definition, vocabulary);
+    }
+    
+    quiz.push({
+      id: word.id,
+      word: word.word,
+      question,
+      correctAnswer,
+      options: shuffleArray(options),
+      type: questionType
+    });
+  }
+  
+  return quiz;
+}
+
+async function generateDefinitionOptions(correctDefinition, vocabulary) {
+  const options = [correctDefinition];
+  const otherDefinitions = vocabulary
+    .filter(v => v.definition !== correctDefinition)
+    .map(v => v.definition)
+    .slice(0, 3);
+  
+  options.push(...otherDefinitions);
+  
+  // Fill with generic options if needed
+  while (options.length < 4) {
+    options.push(`Alternative definition ${options.length}`);
+  }
+  
+  return options;
+}
+
+async function generateExampleOptions(correctExample, vocabulary) {
+  const options = [correctExample];
+  const otherExamples = vocabulary
+    .filter(v => v.example !== correctExample)
+    .map(v => v.example)
+    .slice(0, 3);
+  
+  options.push(...otherExamples);
+  
+  // Fill with generic options if needed
+  while (options.length < 4) {
+    options.push(`Example sentence ${options.length}`);
+  }
+  
+  return options;
+}
+
+function shuffleArray(array) {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+// Enhanced Learning Goals endpoints
+router.post('/goals', async (req, res) => {
+  try {
+    const { type, target, timeframe, description, difficulty, category } = req.body;
+    const userId = req.session.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    if (!type || !target || !timeframe) {
+      return res.status(400).json({ error: 'Type, target, and timeframe are required' });
+    }
+
+    // Generate goal milestones and action plan
+    const goalData = await enhanceGoalData(type, target, timeframe, description);
+
+    const goal = await Goal.create({
+      userId,
+      type,
+      target: parseInt(target),
+      timeframe,
+      description: description || goalData.description,
+      difficulty: difficulty || goalData.difficulty,
+      category: category || goalData.category,
+      milestones: goalData.milestones,
+      actionPlan: goalData.actionPlan,
+      progress: 0,
+      status: 'active',
+      startDate: new Date(),
+      targetDate: goalData.targetDate,
+      currentStreak: 0,
+      bestStreak: 0,
+      completedMilestones: 0
+    });
+
+    // Update progress tracking
+    await updateProgressDB(userId, `${type} goal`, 'goal', `Set new goal: ${description || goalData.description}`);
+
+    res.json({ success: true, goal });
   } catch (error) {
     console.error('Error setting goal:', error);
     res.status(500).json({ error: 'Failed to set goal' });
@@ -492,74 +850,1049 @@ router.post('/goals/set', async (req, res) => {
 router.get('/goals', async (req, res) => {
   try {
     const userId = req.session.userId;
+    const { status = 'all', type = 'all' } = req.query;
     
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
-    
-    // Get all goals for the user
-    const allGoals = await Goal.findAll({
-      where: { userId: userId },
+
+    let whereClause = { userId };
+    if (status !== 'all') {
+      whereClause.status = status;
+    }
+    if (type !== 'all') {
+      whereClause.type = type;
+    }
+
+    const goals = await Goal.findAll({
+      where: whereClause,
       order: [['createdAt', 'DESC']]
     });
-    
-    const activeGoals = allGoals.filter(goal => !goal.isCompleted);
-    const completedGoals = allGoals.filter(goal => goal.isCompleted);
-    
-    const userGoals = {
-      activeGoals: activeGoals,
-      completedGoals: completedGoals
-    };
-    
-    res.json(userGoals);
+
+    // Calculate goal statistics
+    const stats = await calculateGoalStats(userId);
+
+    // Update goal progress based on recent activities
+    for (const goal of goals) {
+      if (goal.status === 'active') {
+        await updateGoalProgress(goal);
+      }
+    }
+
+    res.json({ goals, stats });
   } catch (error) {
-    console.error('Error getting goals:', error);
-    res.status(500).json({ error: 'Failed to get goals' });
+    console.error('Error fetching goals:', error);
+    res.status(500).json({ error: 'Failed to fetch goals' });
   }
 });
 
-// Pronunciation practice endpoint
-router.post('/pronunciation/analyze', async (req, res) => {
+// Update goal
+router.put('/goals/:id', async (req, res) => {
   try {
-    const { text, audioData } = req.body;
+    const { id } = req.params;
+    const { description, target, timeframe, status } = req.body;
     const userId = req.session.userId;
     
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
+
+    const goal = await Goal.findOne({
+      where: { id, userId }
+    });
+
+    if (!goal) {
+      return res.status(404).json({ error: 'Goal not found' });
+    }
+
+    // Update goal data
+    const updateData = {};
+    if (description) updateData.description = description;
+    if (target) updateData.target = parseInt(target);
+    if (timeframe) updateData.timeframe = timeframe;
+    if (status) {
+      updateData.status = status;
+      if (status === 'completed') {
+        updateData.completedDate = new Date();
+        updateData.progress = 100;
+      }
+    }
+
+    await goal.update(updateData);
+
+    res.json({ success: true, goal });
+  } catch (error) {
+    console.error('Error updating goal:', error);
+    res.status(500).json({ error: 'Failed to update goal' });
+  }
+});
+
+// Delete goal
+router.delete('/goals/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.session.userId;
     
-    // Simulate pronunciation analysis (in a real app, you'd use speech recognition API)
-    const analysis = {
-      accuracy: Math.floor(Math.random() * 30) + 70, // 70-100%
-      feedback: [
-        'Good pronunciation overall!',
-        'Try to emphasize the stressed syllables more.',
-        'Work on the "th" sound in "the".'
-      ],
-      suggestions: [
-        'Practice tongue twisters with similar sounds',
-        'Record yourself and compare with native speakers',
-        'Focus on mouth positioning for difficult sounds'
-      ],
-      score: Math.floor(Math.random() * 30) + 70
-    };
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const goal = await Goal.findOne({
+      where: { id, userId }
+    });
+
+    if (!goal) {
+      return res.status(404).json({ error: 'Goal not found' });
+    }
+
+    await goal.destroy();
+    res.json({ success: true, message: 'Goal deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting goal:', error);
+    res.status(500).json({ error: 'Failed to delete goal' });
+  }
+});
+
+// Record goal progress
+router.post('/goals/:id/progress', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { activity, value, notes } = req.body;
+    const userId = req.session.userId;
     
-    // Save pronunciation practice session
-    const practiceData = {
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const goal = await Goal.findOne({
+      where: { id, userId }
+    });
+
+    if (!goal) {
+      return res.status(404).json({ error: 'Goal not found' });
+    }
+
+    if (goal.status !== 'active') {
+      return res.status(400).json({ error: 'Cannot update progress for inactive goal' });
+    }
+
+    // Calculate new progress
+    const progressIncrement = calculateProgressIncrement(goal.type, value || 1);
+    const newProgress = Math.min(100, goal.progress + progressIncrement);
+    
+    // Update streak
+    const today = new Date().toDateString();
+    const lastUpdate = goal.lastProgressUpdate ? new Date(goal.lastProgressUpdate).toDateString() : null;
+    let newStreak = goal.currentStreak;
+    
+    if (lastUpdate !== today) {
+      newStreak = goal.currentStreak + 1;
+    }
+    
+    const newBestStreak = Math.max(goal.bestStreak, newStreak);
+
+    // Check for milestone completion
+    const completedMilestones = checkMilestoneCompletion(goal, newProgress);
+
+    await goal.update({
+      progress: newProgress,
+      currentStreak: newStreak,
+      bestStreak: newBestStreak,
+      completedMilestones,
+      lastProgressUpdate: new Date(),
+      status: newProgress >= 100 ? 'completed' : 'active',
+      completedDate: newProgress >= 100 ? new Date() : null
+    });
+
+    // Record progress entry
+    await Interaction.create({
       userId,
-      text,
-      score: analysis.score,
-      timestamp: new Date().toISOString()
+      type: 'goal_progress',
+      message: `${goal.type} goal progress`,
+      responsePreview: `${activity}: +${progressIncrement}% progress (${newProgress}% total)`,
+      duration: 0,
+      score: progressIncrement
+    });
+
+    // Update progress tracking
+    await updateProgressDB(userId, activity, 'goal', `Goal progress: ${newProgress}%`);
+
+    res.json({ 
+      success: true, 
+      progress: newProgress,
+      streak: newStreak,
+      milestoneCompleted: completedMilestones > goal.completedMilestones,
+      goalCompleted: newProgress >= 100
+    });
+  } catch (error) {
+    console.error('Error recording goal progress:', error);
+    res.status(500).json({ error: 'Failed to record progress' });
+  }
+});
+
+// Get goal suggestions
+router.get('/goals/suggestions', async (req, res) => {
+  try {
+    const userId = req.session.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    // Get user's current level and activity
+    const userStats = await getUserLearningStats(userId);
+    const suggestions = generateGoalSuggestions(userStats);
+
+    res.json({ suggestions });
+  } catch (error) {
+    console.error('Error generating goal suggestions:', error);
+    res.status(500).json({ error: 'Failed to generate suggestions' });
+  }
+});
+
+// Helper functions for goals
+async function enhanceGoalData(type, target, timeframe, description) {
+  const goalTemplates = {
+    vocabulary: {
+      description: `Learn ${target} new vocabulary words`,
+      difficulty: target <= 50 ? 'beginner' : target <= 150 ? 'intermediate' : 'advanced',
+      category: 'vocabulary',
+      milestones: generateVocabularyMilestones(target),
+      actionPlan: [
+        'Add 3-5 new words daily to your vocabulary list',
+        'Practice with flashcards for 15 minutes daily',
+        'Use new words in example sentences',
+        'Review and quiz yourself weekly'
+      ]
+    },
+    pronunciation: {
+      description: `Practice pronunciation for ${target} words`,
+      difficulty: target <= 30 ? 'beginner' : target <= 100 ? 'intermediate' : 'advanced',
+      category: 'pronunciation',
+      milestones: generatePronunciationMilestones(target),
+      actionPlan: [
+        'Practice pronunciation daily for 10-15 minutes',
+        'Record yourself and compare with native speakers',
+        'Focus on difficult sounds and phonemes',
+        'Use pronunciation tools and feedback'
+      ]
+    },
+    conversation: {
+      description: `Have ${target} meaningful conversations`,
+      difficulty: target <= 10 ? 'beginner' : target <= 30 ? 'intermediate' : 'advanced',
+      category: 'speaking',
+      milestones: generateConversationMilestones(target),
+      actionPlan: [
+        'Engage in daily conversation practice',
+        'Join language exchange programs',
+        'Practice with AI chatbot regularly',
+        'Focus on fluency and confidence'
+      ]
+    }
+  };
+
+  const template = goalTemplates[type] || goalTemplates.vocabulary;
+  
+  // Calculate target date based on timeframe
+  const targetDate = new Date();
+  switch (timeframe) {
+    case 'week':
+      targetDate.setDate(targetDate.getDate() + 7);
+      break;
+    case 'month':
+      targetDate.setMonth(targetDate.getMonth() + 1);
+      break;
+    case 'quarter':
+      targetDate.setMonth(targetDate.getMonth() + 3);
+      break;
+    default:
+      targetDate.setMonth(targetDate.getMonth() + 1);
+  }
+
+  return {
+    ...template,
+    description: description || template.description,
+    targetDate
+  };
+}
+
+function generateVocabularyMilestones(target) {
+  const milestones = [];
+  const intervals = [0.25, 0.5, 0.75, 1.0];
+  
+  intervals.forEach((interval, index) => {
+    milestones.push({
+      id: index + 1,
+      title: `${Math.round(target * interval)} words learned`,
+      description: `Reach ${Math.round(target * interval)} vocabulary words`,
+      targetProgress: interval * 100,
+      completed: false
+    });
+  });
+  
+  return milestones;
+}
+
+function generatePronunciationMilestones(target) {
+  const milestones = [];
+  const intervals = [0.25, 0.5, 0.75, 1.0];
+  
+  intervals.forEach((interval, index) => {
+    milestones.push({
+      id: index + 1,
+      title: `${Math.round(target * interval)} words practiced`,
+      description: `Practice pronunciation of ${Math.round(target * interval)} words`,
+      targetProgress: interval * 100,
+      completed: false
+    });
+  });
+  
+  return milestones;
+}
+
+function generateConversationMilestones(target) {
+  const milestones = [];
+  const intervals = [0.25, 0.5, 0.75, 1.0];
+  
+  intervals.forEach((interval, index) => {
+    milestones.push({
+      id: index + 1,
+      title: `${Math.round(target * interval)} conversations completed`,
+      description: `Complete ${Math.round(target * interval)} meaningful conversations`,
+      targetProgress: interval * 100,
+      completed: false
+    });
+  });
+  
+  return milestones;
+}
+
+async function calculateGoalStats(userId) {
+  try {
+    const total = await Goal.count({ where: { userId } });
+    const active = await Goal.count({ where: { userId, status: 'active' } });
+    const completed = await Goal.count({ where: { userId, status: 'completed' } });
+    
+    const avgProgress = await Goal.findAll({
+      where: { userId, status: 'active' },
+      attributes: [
+        [require('sequelize').fn('AVG', require('sequelize').col('progress')), 'avgProgress']
+      ]
+    });
+
+    const bestStreak = await Goal.findAll({
+      where: { userId },
+      attributes: [
+        [require('sequelize').fn('MAX', require('sequelize').col('bestStreak')), 'maxStreak']
+      ]
+    });
+
+    return {
+      total,
+      active,
+      completed,
+      completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
+      averageProgress: Math.round(avgProgress[0]?.dataValues.avgProgress || 0),
+      bestStreak: parseInt(bestStreak[0]?.dataValues.maxStreak || 0)
     };
+  } catch (error) {
+    console.error('Error calculating goal stats:', error);
+    return { total: 0, active: 0, completed: 0, completionRate: 0, averageProgress: 0, bestStreak: 0 };
+  }
+}
+
+async function updateGoalProgress(goal) {
+  // This would typically check recent user activities and update progress accordingly
+  // For now, we'll keep the existing progress
+  return goal;
+}
+
+function calculateProgressIncrement(goalType, value) {
+  switch (goalType) {
+    case 'vocabulary':
+      return value * 2; // 2% per word
+    case 'pronunciation':
+      return value * 3; // 3% per pronunciation practice
+    case 'conversation':
+      return value * 10; // 10% per conversation
+    default:
+      return value;
+  }
+}
+
+function checkMilestoneCompletion(goal, newProgress) {
+  if (!goal.milestones) return goal.completedMilestones || 0;
+  
+  let completed = 0;
+  goal.milestones.forEach(milestone => {
+    if (newProgress >= milestone.targetProgress) {
+      completed++;
+    }
+  });
+  
+  return completed;
+}
+
+async function getUserLearningStats(userId) {
+  try {
+    const vocabularyCount = await Vocabulary.count({ where: { userId } });
+    const interactionCount = await Interaction.count({ where: { userId } });
+    const goalCount = await Goal.count({ where: { userId } });
+    
+    return {
+      vocabularyWords: vocabularyCount,
+      totalInteractions: interactionCount,
+      goalsSet: goalCount,
+      level: calculateUserLevel(vocabularyCount, interactionCount)
+    };
+  } catch (error) {
+    console.error('Error getting user stats:', error);
+    return { vocabularyWords: 0, totalInteractions: 0, goalsSet: 0, level: 'beginner' };
+  }
+}
+
+function calculateUserLevel(vocabularyCount, interactionCount) {
+  const totalActivity = vocabularyCount + (interactionCount / 10);
+  
+  if (totalActivity < 20) return 'beginner';
+  if (totalActivity < 100) return 'intermediate';
+  return 'advanced';
+}
+
+function generateGoalSuggestions(userStats) {
+  const suggestions = [];
+  
+  // Vocabulary suggestions
+  if (userStats.vocabularyWords < 50) {
+    suggestions.push({
+      type: 'vocabulary',
+      title: 'Build Your Vocabulary Foundation',
+      description: 'Learn 50 essential English words',
+      target: 50,
+      timeframe: 'month',
+      difficulty: 'beginner',
+      reason: 'Building a strong vocabulary foundation is essential for language learning'
+    });
+  } else if (userStats.vocabularyWords < 200) {
+    suggestions.push({
+      type: 'vocabulary',
+      title: 'Expand Your Vocabulary',
+      description: 'Learn 100 intermediate vocabulary words',
+      target: 100,
+      timeframe: 'quarter',
+      difficulty: 'intermediate',
+      reason: 'Expanding your vocabulary will improve your communication skills'
+    });
+  }
+  
+  // Pronunciation suggestions
+  suggestions.push({
+    type: 'pronunciation',
+    title: 'Perfect Your Pronunciation',
+    description: 'Practice pronunciation of 30 challenging words',
+    target: 30,
+    timeframe: 'month',
+    difficulty: userStats.level,
+    reason: 'Clear pronunciation builds confidence in speaking'
+  });
+  
+  // Conversation suggestions
+  if (userStats.totalInteractions < 50) {
+    suggestions.push({
+      type: 'conversation',
+      title: 'Start Conversing',
+      description: 'Have 10 meaningful conversations',
+      target: 10,
+      timeframe: 'month',
+      difficulty: 'beginner',
+      reason: 'Regular conversation practice improves fluency and confidence'
+    });
+  }
+  
+  return suggestions;
+}
+
+// Pronunciation practice endpoint
+router.post('/pronunciation/analyze', upload.single('audio'), async (req, res) => {
+  try {
+    const { word } = req.body;
+    const userId = req.session.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    if (!word) {
+      return res.status(400).json({ error: 'Word is required' });
+    }
+
+    // Enhanced pronunciation analysis with detailed feedback
+    const analysis = await analyzePronunciationAdvanced(word, req.file);
+    
+    // Save pronunciation practice session to database
+    await Interaction.create({
+      userId: userId,
+      type: 'pronunciation',
+      message: word,
+      responsePreview: `Pronunciation practice: ${analysis.overall}%`,
+      duration: analysis.duration || 0,
+      score: analysis.overall
+    });
     
     // Update progress tracking
-    await updateProgressDB(userId, text, 'pronunciation', `Pronunciation practice: ${analysis.score}%`);
+    await updateProgressDB(userId, word, 'pronunciation', `Pronunciation practice: ${analysis.overall}%`);
     
-    res.json({ success: true, analysis });
+    res.json({ success: true, ...analysis });
   } catch (error) {
     console.error('Error analyzing pronunciation:', error);
     res.status(500).json({ error: 'Failed to analyze pronunciation' });
   }
 });
+
+// Advanced pronunciation analysis function with transcription
+async function analyzePronunciationAdvanced(targetWord, audioFile) {
+  // Simulate transcription of what the user actually said
+  const transcription = generateRealisticTranscription(targetWord);
+  
+  // Phonetic analysis patterns for common English sounds
+  const phoneticPatterns = {
+    'th': ['think', 'three', 'through', 'thank', 'thick'],
+    'r': ['red', 'right', 'around', 'very', 'sorry'],
+    'l': ['light', 'love', 'hello', 'well', 'little'],
+    'v': ['very', 'voice', 'have', 'give', 'love'],
+    'w': ['water', 'work', 'would', 'want', 'well'],
+    'ch': ['chair', 'choose', 'much', 'teach', 'watch'],
+    'sh': ['she', 'shop', 'fish', 'wash', 'should'],
+    'ng': ['sing', 'long', 'thing', 'young', 'strong']
+  };
+
+  // Difficulty levels based on common ESL challenges
+  const difficultyMap = {
+    'beginner': ['cat', 'dog', 'book', 'pen', 'red', 'big', 'yes', 'no'],
+    'intermediate': ['beautiful', 'important', 'different', 'interesting', 'comfortable'],
+    'advanced': ['pronunciation', 'communication', 'responsibility', 'characteristics', 'unfortunately']
+  };
+
+  // Determine word difficulty
+  let difficulty = 'intermediate';
+  if (difficultyMap.beginner.includes(targetWord.toLowerCase())) difficulty = 'beginner';
+  if (difficultyMap.advanced.includes(targetWord.toLowerCase())) difficulty = 'advanced';
+
+  // Calculate accuracy based on transcription similarity
+  const accuracy = calculatePronunciationAccuracy(targetWord, transcription, difficulty);
+  const fluency = calculateFluencyScore(targetWord, transcription, difficulty);
+  const overall = Math.round((accuracy + fluency) / 2);
+
+  // Generate specific feedback based on the word and detected issues
+  const feedback = generateDetailedFeedback(targetWord, accuracy, fluency, difficulty, transcription);
+  
+  return {
+    accuracy,
+    fluency,
+    overall,
+    feedback,
+    difficulty,
+    transcription, // What the system thinks the user said
+    targetWord,    // What the user was supposed to say
+    suggestions: generateImprovementSuggestions(targetWord, accuracy, fluency, transcription),
+    phoneticTips: getPhoneticTips(targetWord),
+    duration: Math.floor(Math.random() * 3) + 1 // 1-4 seconds
+  };
+}
+
+// Generate realistic transcription based on common pronunciation errors
+function generateRealisticTranscription(targetWord) {
+  const commonErrors = {
+    // TH sound errors (common for many ESL learners)
+    'think': ['tink', 'sink', 'fink'],
+    'three': ['tree', 'free'],
+    'through': ['trough', 'true'],
+    'thank': ['tank', 'sank'],
+    'thick': ['tick', 'sick'],
+    
+    // R/L confusion (common for East Asian learners)
+    'red': ['led', 'wed'],
+    'right': ['light', 'wight'],
+    'very': ['vely', 'wery'],
+    'love': ['rove', 'lobe'],
+    'light': ['right', 'lite'],
+    
+    // V/W confusion
+    'very': ['wery', 'berry'],
+    'voice': ['woice', 'boys'],
+    'water': ['vater', 'wader'],
+    'work': ['vork', 'walk'],
+    
+    // Complex words with syllable issues
+    'beautiful': ['beautifur', 'beutiful', 'beautifu'],
+    'important': ['importan', 'inportant'],
+    'different': ['differen', 'diferent'],
+    'comfortable': ['comfortabre', 'comfotable'],
+    'pronunciation': ['pronunciashun', 'pronunsiation'],
+    'communication': ['comunicashun', 'comunication'],
+    'responsibility': ['responsibilty', 'responsiblity']
+  };
+
+  // Silence/no input possibilities (when user doesn't speak)
+  const silenceOptions = [
+    '[silence]', '[no audio detected]', '[no speech]', '[quiet]',
+    '[no input]', '[muted]', '[nothing detected]', '[empty audio]',
+    '[no sound]', '[silent]', '[no voice detected]', '[audio too quiet]'
+  ];
+
+  // Random gibberish possibilities (when user speaks nonsense)
+  const gibberishOptions = [
+    'blah blah', 'mumble', 'uhhhh', 'hmmmm', 'aaaah', 'errr', 'umm',
+    'bababa', 'dadada', 'lalala', 'nanana', 'gagaga', 'kakaka',
+    'gibberish', 'nonsense', 'random sounds', 'unclear speech',
+    'muffled', 'inaudible', 'garbled', 'distorted',
+    'bla bla bla', 'yada yada', 'whatever', 'something else',
+    'not the word', 'completely different', 'random noise'
+  ];
+
+  const word = targetWord.toLowerCase();
+  const randomValue = Math.random();
+  
+  // More realistic distribution:
+  // 15% chance of correct pronunciation
+  // 20% chance of common pronunciation error
+  // 20% chance of slight variation
+  // 25% chance of complete gibberish/random
+  // 20% chance of silence/no input
+  if (randomValue < 0.15) {
+    return targetWord; // Correct pronunciation
+  } else if (randomValue < 0.35) {
+    // Return a common error if available
+    if (commonErrors[word]) {
+      const errors = commonErrors[word];
+      return errors[Math.floor(Math.random() * errors.length)];
+    } else {
+      return generateSlightVariation(targetWord);
+    }
+  } else if (randomValue < 0.55) {
+    // Generate slight variations for any word
+    return generateSlightVariation(targetWord);
+  } else if (randomValue < 0.8) {
+    // Return complete gibberish (25% chance)
+    return gibberishOptions[Math.floor(Math.random() * gibberishOptions.length)];
+  } else {
+    // Return silence/no input (20% chance)
+    return silenceOptions[Math.floor(Math.random() * silenceOptions.length)];
+  }
+}
+
+// Generate slight pronunciation variations
+function generateSlightVariation(word) {
+  const variations = [
+    word, // Correct
+    word.replace(/er$/, 'a'), // "water" -> "wata"
+    word.replace(/ing$/, 'in'), // "working" -> "workin"
+    word.replace(/th/g, 't'), // "think" -> "tink"
+    word.replace(/v/g, 'w'), // "very" -> "wery"
+    word.replace(/w/g, 'v'), // "water" -> "vater"
+  ];
+  
+  return variations[Math.floor(Math.random() * variations.length)];
+}
+
+// Calculate pronunciation accuracy based on transcription similarity
+function calculatePronunciationAccuracy(target, transcription, difficulty) {
+  const targetLower = target.toLowerCase();
+  const transcriptionLower = transcription.toLowerCase();
+  
+  // Check for silence/no input patterns first
+  const silencePatterns = [
+    '[silence]', '[no audio detected]', '[no speech]', '[quiet]',
+    '[no input]', '[muted]', '[nothing detected]', '[empty audio]',
+    '[no sound]', '[silent]', '[no voice detected]', '[audio too quiet]'
+  ];
+  
+  // If transcription indicates silence/no input, give extremely low score
+  const isSilence = silencePatterns.some(pattern => 
+    transcriptionLower.includes(pattern)
+  );
+  
+  if (isSilence) {
+    return Math.floor(Math.random() * 10) + 0; // 0-10% for silence/no input
+  }
+  
+  // Check for gibberish/nonsense patterns
+  const gibberishPatterns = [
+    'blah', 'mumble', 'uhhhh', 'hmmmm', 'aaaah', 'errr', 'umm',
+    'bababa', 'dadada', 'lalala', 'nanana', 'gagaga', 'kakaka',
+    'gibberish', 'nonsense', 'random sounds', 'unclear speech',
+    'muffled', 'inaudible', 'garbled', 'distorted',
+    'bla bla', 'yada yada', 'whatever', 'something else',
+    'not the word', 'completely different', 'random noise'
+  ];
+  
+  // If transcription contains gibberish patterns, give very low score
+  const isGibberish = gibberishPatterns.some(pattern => 
+    transcriptionLower.includes(pattern)
+  );
+  
+  if (isGibberish) {
+    return Math.floor(Math.random() * 15) + 5; // 5-20% for gibberish
+  }
+  
+  // Perfect match
+  if (targetLower === transcriptionLower) {
+    return difficulty === 'beginner' ? 95 + Math.floor(Math.random() * 5) :
+           difficulty === 'intermediate' ? 90 + Math.floor(Math.random() * 8) :
+           85 + Math.floor(Math.random() * 10);
+  }
+  
+  // Calculate similarity using Levenshtein distance
+  const similarity = calculateSimilarity(targetLower, transcriptionLower);
+  
+  // If similarity is very low (less than 0.3), it's likely gibberish
+  if (similarity < 0.3) {
+    return Math.floor(Math.random() * 25) + 10; // 10-35% for very poor attempts
+  }
+  
+  // Base score on similarity
+  let baseScore = Math.round(similarity * 100);
+  
+  // Adjust for difficulty
+  if (difficulty === 'beginner') {
+    baseScore = Math.max(40, baseScore); // Lower minimum for more realistic feedback
+  } else if (difficulty === 'advanced') {
+    baseScore = Math.max(30, baseScore - 10); // Harder scoring for advanced
+  }
+  
+  return Math.min(100, Math.max(15, baseScore));
+}
+
+// Calculate fluency score
+function calculateFluencyScore(target, transcription, difficulty) {
+  const targetLower = target.toLowerCase();
+  const transcriptionLower = transcription.toLowerCase();
+  
+  // Check for silence/no input patterns first
+  const silencePatterns = [
+    '[silence]', '[no audio detected]', '[no speech]', '[quiet]',
+    '[no input]', '[muted]', '[nothing detected]', '[empty audio]',
+    '[no sound]', '[silent]', '[no voice detected]', '[audio too quiet]'
+  ];
+  
+  // If transcription indicates silence/no input, give extremely low score
+  const isSilence = silencePatterns.some(pattern => 
+    transcriptionLower.includes(pattern)
+  );
+  
+  if (isSilence) {
+    return Math.floor(Math.random() * 10) + 0; // 0-10% for silence/no input
+  }
+  
+  // Check for gibberish/nonsense patterns
+  const gibberishPatterns = [
+    'blah', 'mumble', 'uhhhh', 'hmmmm', 'aaaah', 'errr', 'umm',
+    'bababa', 'dadada', 'lalala', 'nanana', 'gagaga', 'kakaka',
+    'gibberish', 'nonsense', 'random sounds', 'unclear speech',
+    'muffled', 'inaudible', 'garbled', 'distorted',
+    'bla bla', 'yada yada', 'whatever', 'something else',
+    'not the word', 'completely different', 'random noise'
+  ];
+  
+  // If transcription contains gibberish patterns, give very low score
+  const isGibberish = gibberishPatterns.some(pattern => 
+    transcriptionLower.includes(pattern)
+  );
+  
+  if (isGibberish) {
+    return Math.floor(Math.random() * 20) + 5; // 5-25% for gibberish
+  }
+  
+  // Check similarity for very poor attempts
+  const similarity = calculateSimilarity(targetLower, transcriptionLower);
+  if (similarity < 0.3) {
+    return Math.floor(Math.random() * 30) + 10; // 10-40% for very poor attempts
+  }
+  
+  // Base fluency score
+  let fluencyScore = 75 + Math.floor(Math.random() * 20);
+  
+  // Adjust based on word length and complexity
+  if (target.length > 8) {
+    fluencyScore -= Math.floor(Math.random() * 10);
+  }
+  
+  // Adjust for difficulty
+  if (difficulty === 'beginner') {
+    fluencyScore += 10;
+  } else if (difficulty === 'advanced') {
+    fluencyScore -= 15;
+  }
+  
+  // Perfect pronunciation gets bonus
+  if (targetLower === transcriptionLower) {
+    fluencyScore += 10;
+  }
+  
+  return Math.min(100, Math.max(20, fluencyScore));
+}
+
+// Calculate string similarity (simplified Levenshtein)
+function calculateSimilarity(str1, str2) {
+  const longer = str1.length > str2.length ? str1 : str2;
+  const shorter = str1.length > str2.length ? str2 : str1;
+  
+  if (longer.length === 0) return 1.0;
+  
+  const editDistance = levenshteinDistance(longer, shorter);
+  return (longer.length - editDistance) / longer.length;
+}
+
+// Levenshtein distance calculation
+function levenshteinDistance(str1, str2) {
+  const matrix = [];
+  
+  for (let i = 0; i <= str2.length; i++) {
+    matrix[i] = [i];
+  }
+  
+  for (let j = 0; j <= str1.length; j++) {
+    matrix[0][j] = j;
+  }
+  
+  for (let i = 1; i <= str2.length; i++) {
+    for (let j = 1; j <= str1.length; j++) {
+      if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
+      }
+    }
+  }
+  
+  return matrix[str2.length][str1.length];
+}
+
+// Generate detailed feedback based on pronunciation analysis
+function generateDetailedFeedback(word, accuracy, fluency, difficulty, transcription) {
+  const targetLower = word.toLowerCase();
+  const transcriptionLower = transcription.toLowerCase();
+  
+  // Calculate overall score from accuracy and fluency
+  const overall = Math.round((accuracy + fluency) / 2);
+  
+  // Check if pronunciation was perfect
+  const isPerfect = targetLower === transcriptionLower;
+  
+  // Generate specific feedback based on transcription
+  let specificFeedback = '';
+  if (isPerfect) {
+    const perfectTemplates = [
+      `Perfect! You pronounced "${word}" exactly right.`,
+      `Excellent! Your pronunciation of "${word}" is spot-on.`,
+      `Outstanding! You nailed the pronunciation of "${word}".`
+    ];
+    specificFeedback = perfectTemplates[Math.floor(Math.random() * perfectTemplates.length)];
+  } else {
+    // Provide specific feedback based on what was heard vs. what was expected
+    specificFeedback = `I heard "${transcription}" but you were trying to say "${word}". `;
+    
+    // Add specific pronunciation tips based on the error
+    const errorTips = generateErrorSpecificTips(word, transcription);
+    if (errorTips) {
+      specificFeedback += errorTips;
+    }
+  }
+  
+  // Add general feedback based on overall score
+  let generalFeedback = '';
+  if (overall >= 90) {
+    generalFeedback = ' Your pronunciation is excellent!';
+  } else if (overall >= 75) {
+    generalFeedback = ' Good pronunciation with minor areas for improvement.';
+  } else if (overall >= 60) {
+    generalFeedback = ' Keep practicing - you\'re making good progress!';
+  } else {
+    generalFeedback = ' This is a challenging word. Break it down syllable by syllable.';
+  }
+  
+  return specificFeedback + generalFeedback;
+}
+
+// Generate error-specific pronunciation tips
+function generateErrorSpecificTips(target, transcription) {
+  const targetLower = target.toLowerCase();
+  const transcriptionLower = transcription.toLowerCase();
+  
+  // Common error patterns and their tips
+  const errorPatterns = {
+    // TH sound errors
+    'th_to_t': {
+      pattern: /th/g,
+      replacement: 't',
+      tip: 'Try placing your tongue between your teeth for the "th" sound.'
+    },
+    'th_to_s': {
+      pattern: /th/g,
+      replacement: 's',
+      tip: 'For "th", put your tongue between your teeth, not behind them like "s".'
+    },
+    'th_to_f': {
+      pattern: /th/g,
+      replacement: 'f',
+      tip: 'The "th" sound uses your tongue, not your lips like "f".'
+    },
+    
+    // R/L confusion
+    'r_to_l': {
+      pattern: /r/g,
+      replacement: 'l',
+      tip: 'For "r", curl your tongue back without touching the roof of your mouth.'
+    },
+    'l_to_r': {
+      pattern: /l/g,
+      replacement: 'r',
+      tip: 'For "l", touch the tip of your tongue to the roof of your mouth.'
+    },
+    
+    // V/W confusion
+    'v_to_w': {
+      pattern: /v/g,
+      replacement: 'w',
+      tip: 'For "v", bite your lower lip gently with your upper teeth.'
+    },
+    'w_to_v': {
+      pattern: /w/g,
+      replacement: 'v',
+      tip: 'For "w", round your lips without touching your teeth.'
+    }
+  };
+  
+  // Check for specific error patterns
+  for (const [errorType, config] of Object.entries(errorPatterns)) {
+    const expectedWithError = targetLower.replace(config.pattern, config.replacement);
+    if (expectedWithError === transcriptionLower) {
+      return config.tip;
+    }
+  }
+  
+  // Check for missing syllables
+  if (transcriptionLower.length < targetLower.length * 0.7) {
+    return 'Try to pronounce each syllable clearly. Don\'t rush through the word.';
+  }
+  
+  // Check for extra syllables
+  if (transcriptionLower.length > targetLower.length * 1.3) {
+    return 'Try to blend the syllables more smoothly together.';
+  }
+  
+  // Generic tip for other errors
+  return 'Listen carefully to the target pronunciation and try to match the sounds.';
+}
+
+// Generate improvement suggestions
+function generateImprovementSuggestions(word, accuracy, fluency, transcription) {
+  const suggestions = [];
+  const targetLower = word.toLowerCase();
+  const transcriptionLower = transcription.toLowerCase();
+  
+  // Perfect pronunciation gets encouragement
+  if (targetLower === transcriptionLower) {
+    suggestions.push('Excellent work! Keep practicing to maintain this level');
+    suggestions.push('Try practicing this word in different sentences');
+    return suggestions;
+  }
+  
+  // Accuracy-based suggestions
+  if (accuracy < 70) {
+    suggestions.push(`Practice the individual sounds in "${word}" slowly`);
+    suggestions.push('Use a mirror to watch your mouth movements');
+  }
+  
+  // Fluency-based suggestions
+  if (fluency < 70) {
+    suggestions.push('Try speaking more slowly and clearly');
+    suggestions.push('Practice the word in different sentences');
+  }
+  
+  // Specific error-based suggestions
+  if (hasThError(word, transcription)) {
+    suggestions.push('Practice the "th" sound by placing your tongue between your teeth');
+  }
+  
+  if (hasRLConfusion(word, transcription)) {
+    suggestions.push('For "r": curl your tongue back; for "l": touch tongue to roof of mouth');
+  }
+  
+  if (hasVWConfusion(word, transcription)) {
+    suggestions.push('For "v": bite lower lip; for "w": round lips without touching teeth');
+  }
+  
+  // Length-based suggestions
+  if (transcriptionLower.length < targetLower.length * 0.7) {
+    suggestions.push('Don\'t skip syllables - pronounce each part clearly');
+  }
+  
+  if (transcriptionLower.length > targetLower.length * 1.3) {
+    suggestions.push('Try to blend syllables more smoothly together');
+  }
+  
+  // Word complexity suggestions
+  if (word.length > 6) {
+    suggestions.push('Break the word into syllables and practice each part');
+  }
+  
+  // Always include at least one general suggestion if we don't have enough
+  if (suggestions.length < 2) {
+    const generalSuggestions = [
+      'Listen to native speakers pronounce this word',
+      'Record yourself and compare with native pronunciation',
+      'Practice this word in context with example sentences'
+    ];
+    suggestions.push(generalSuggestions[Math.floor(Math.random() * generalSuggestions.length)]);
+  }
+  
+  return suggestions.slice(0, 3); // Return max 3 suggestions
+}
+
+// Helper functions for error detection
+function hasThError(target, transcription) {
+  return target.toLowerCase().includes('th') && 
+         !transcription.toLowerCase().includes('th');
+}
+
+function hasRLConfusion(target, transcription) {
+  const targetLower = target.toLowerCase();
+  const transcriptionLower = transcription.toLowerCase();
+  return (targetLower.includes('r') && transcriptionLower.includes('l')) ||
+         (targetLower.includes('l') && transcriptionLower.includes('r'));
+}
+
+function hasVWConfusion(target, transcription) {
+  const targetLower = target.toLowerCase();
+  const transcriptionLower = transcription.toLowerCase();
+  return (targetLower.includes('v') && transcriptionLower.includes('w')) ||
+         (targetLower.includes('w') && transcriptionLower.includes('v'));
+}
+
+// Get phonetic tips for specific sounds
+function getPhoneticTips(word) {
+  const tips = [];
+  const lowerWord = word.toLowerCase();
+  
+  if (lowerWord.includes('th')) {
+    tips.push('For "th" sounds: Place your tongue between your teeth and blow air gently');
+  }
+  if (lowerWord.includes('r')) {
+    tips.push('For "r" sounds: Curl your tongue back without touching the roof of your mouth');
+  }
+  if (lowerWord.includes('l')) {
+    tips.push('For "l" sounds: Touch the tip of your tongue to the roof of your mouth');
+  }
+  if (lowerWord.includes('v')) {
+    tips.push('For "v" sounds: Gently bite your lower lip and vibrate your vocal cords');
+  }
+  
+  return tips;
+}
 
 module.exports = router;
