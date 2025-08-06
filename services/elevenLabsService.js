@@ -186,6 +186,38 @@ class ElevenLabsService {
         }
     }
 
+    async speechToText(audioBuffer, options = {}) {
+        try {
+            if (!this.isAvailable()) {
+                throw new Error('ElevenLabs service not available');
+            }
+
+            console.log('Transcribing audio with ElevenLabs STT API');
+            console.log('Options received:', options);
+            const modelId = options.model || 'scribe_v1';
+            console.log('Model ID to use:', modelId);
+
+            // Use ElevenLabs Speech-to-Text API
+            const response = await this.client.speechToText.convert({
+                file: audioBuffer,
+                modelId: modelId,
+                language: options.language || 'en',
+                webhook: false,
+                use_multi_channel: false
+            });
+
+            return {
+                text: response.text,
+                transcript: response.text,
+                confidence: response.confidence || 0.9
+            };
+
+        } catch (error) {
+            console.error('ElevenLabs STT error:', error);
+            throw error;
+        }
+    }
+
     isAvailable() {
         return this.isInitialized && this.client !== null;
     }
