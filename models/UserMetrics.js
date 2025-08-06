@@ -1,28 +1,14 @@
-const { DataTypes, Sequelize } = require('sequelize');
-const config = require('../config/config.json')[process.env.NODE_ENV || 'development'];
-
-let sequelize;
-if (config.use_env_variable) {
-  sequelize = new Sequelize(process.env[config.use_env_variable], config);
-} else {
-  sequelize = new Sequelize(config.database, config.username, config.password, config);
-}
-
-const UserMetrics = sequelize.define('UserMetrics', {
+module.exports = (sequelize, DataTypes) => {
+  const UserMetrics = sequelize.define('UserMetrics', {
   id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
     autoIncrement: true
   },
   userId: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    unique: true,
-    references: {
-      model: 'Users',
-      key: 'id'
-    }
-  },
+      type: DataTypes.INTEGER,
+      allowNull: false
+    },
   totalInteractions: {
     type: DataTypes.INTEGER,
     allowNull: false,
@@ -152,8 +138,18 @@ const UserMetrics = sequelize.define('UserMetrics', {
     defaultValue: DataTypes.NOW
   }
 }, {
-  tableName: 'usermetrics',
-  timestamps: true
-});
+    tableName: 'usermetrics',
+    timestamps: true
+  });
 
-module.exports = UserMetrics;
+  // Define associations
+  UserMetrics.associate = function(models) {
+    UserMetrics.belongsTo(models.User, {
+      foreignKey: 'userId',
+      as: 'user',
+      constraints: false
+    });
+  };
+
+  return UserMetrics;
+};

@@ -14,15 +14,15 @@ if (config.use_env_variable) {
   sequelize = new Sequelize(config.database, config.username, config.password, config);
 }
 
-// Import and initialize models
-db.User = require('./User');
-db.Message = require('./Message');
-db.Progress = require('./Progress');
-db.Settings = require('./Settings');
-db.Vocabulary = require('./Vocabulary');
-db.Goal = require('./Goal');
-db.Interaction = require('./Interaction');
-db.UserMetrics = require('./UserMetrics');
+// Import and initialize models with sequelize instance
+db.User = require('./User')(sequelize, Sequelize.DataTypes);
+db.Message = require('./Message')(sequelize, Sequelize.DataTypes);
+db.Progress = require('./Progress')(sequelize, Sequelize.DataTypes);
+db.Settings = require('./Settings')(sequelize, Sequelize.DataTypes);
+db.Vocabulary = require('./Vocabulary')(sequelize, Sequelize.DataTypes);
+db.Goal = require('./Goal')(sequelize, Sequelize.DataTypes);
+db.Interaction = require('./Interaction')(sequelize, Sequelize.DataTypes);
+db.UserMetrics = require('./UserMetrics')(sequelize, Sequelize.DataTypes);
 
 // Handle associations if they exist
 Object.keys(db).forEach(modelName => {
