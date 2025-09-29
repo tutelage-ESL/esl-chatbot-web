@@ -1,0 +1,680 @@
+/* Classic Theme - Traditional and professional styling */
+
+/* Import Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700;800&family=Roboto:wght@300;400;500;700&display=swap');
+
+/* CSS Custom Properties for classic theming */
+:root {
+  --classic-primary: #2563eb;
+  --classic-secondary: #64748b;
+  --classic-accent: #059669;
+  --classic-bg: #f8fafc;
+  --classic-card-bg: #ffffff;
+  --classic-text-primary: #1e293b;
+  --classic-text-secondary: #64748b;
+  --classic-border: #e2e8f0;
+  --classic-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --classic-shadow-medium: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --classic-shadow-large: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --classic-radius: 8px;
+  --classic-radius-large: 12px;
+  --classic-transition: all 0.2s ease;
+}
+
+/* Dark mode support for classic theme */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --classic-bg: #0f172a;
+    --classic-card-bg: #1e293b;
+    --classic-text-primary: #f1f5f9;
+    --classic-text-secondary: #94a3b8;
+    --classic-border: #334155;
+  }
+}
+
+/* Reset and Base Styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.classic-theme {
+  font-family: 'Open Sans', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  line-height: 1.6;
+  color: var(--classic-text-primary);
+  background: var(--classic-bg);
+  min-height: 100vh;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Classic App Container */
+.classic-app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  max-width: 1200px;
+  margin: 0 auto;
+  background: var(--classic-card-bg);
+  box-shadow: var(--classic-shadow-large);
+}
+
+/* Classic Header */
+.classic-header {
+  background: var(--classic-primary);
+  color: white;
+  padding: 2rem;
+  text-align: center;
+  box-shadow: var(--classic-shadow-medium);
+}
+
+.classic-academy-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.classic-academy-logo {
+  width: 60px;
+  height: 60px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: var(--classic-radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  transition: var(--classic-transition);
+}
+
+.classic-academy-logo:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.classic-header h1 {
+  font-family: 'Roboto', sans-serif;
+  font-size: 2.25rem;
+  margin: 0;
+  font-weight: 700;
+}
+
+.classic-academy-tagline {
+  font-size: 1rem;
+  opacity: 0.9;
+  margin-top: 0.5rem;
+  font-weight: 400;
+}
+
+/* Classic Dashboard Styles */
+.classic-dashboard-container {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.classic-dashboard-header {
+  margin-bottom: 2rem;
+}
+
+.classic-dashboard-title {
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: var(--classic-text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.classic-dashboard-subtitle {
+  color: var(--classic-text-secondary);
+  font-size: 1.125rem;
+}
+
+/* Classic Navigation */
+.classic-nav {
+  background: var(--classic-card-bg);
+  padding: 1rem 2rem;
+  border-bottom: 2px solid var(--classic-border);
+  margin-bottom: 2rem;
+}
+
+.classic-nav-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.classic-nav-links {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.classic-nav-link {
+  color: var(--classic-text-primary);
+  text-decoration: none;
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--classic-radius);
+  font-weight: 500;
+  transition: var(--classic-transition);
+  border: 1px solid transparent;
+}
+
+.classic-nav-link:hover {
+  background: var(--classic-bg);
+  border-color: var(--classic-border);
+  color: var(--classic-text-primary);
+  text-decoration: none;
+}
+
+.classic-nav-link.active {
+  background: var(--classic-primary);
+  color: white;
+  border-color: var(--classic-primary);
+}
+
+.classic-theme-toggle {
+  background: var(--classic-bg);
+  border: 2px solid var(--classic-border);
+  color: var(--classic-text-primary);
+  padding: 0.75rem;
+  border-radius: var(--classic-radius);
+  cursor: pointer;
+  transition: var(--classic-transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+}
+
+.classic-theme-toggle:hover {
+  background: var(--classic-primary);
+  color: white;
+  border-color: var(--classic-primary);
+}
+
+/* Classic Stats Grid */
+.classic-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.classic-stat-card {
+  background: var(--classic-card-bg);
+  padding: 1.5rem;
+  border-radius: var(--classic-radius-large);
+  box-shadow: var(--classic-shadow-medium);
+  border: 1px solid var(--classic-border);
+  transition: var(--classic-transition);
+}
+
+.classic-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--classic-shadow-large);
+}
+
+.classic-stat-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: var(--classic-radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  margin-bottom: 1rem;
+  background: var(--classic-primary);
+  color: white;
+}
+
+.classic-stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--classic-text-primary);
+  margin-bottom: 0.5rem;
+  font-family: 'Roboto', sans-serif;
+}
+
+.classic-stat-label {
+  color: var(--classic-text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Classic Content Grid */
+.classic-content-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 2rem;
+}
+
+.classic-main-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.classic-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Classic Cards */
+.classic-card {
+  background: var(--classic-card-bg);
+  border-radius: var(--classic-radius-large);
+  box-shadow: var(--classic-shadow-medium);
+  border: 1px solid var(--classic-border);
+  overflow: hidden;
+  transition: var(--classic-transition);
+}
+
+.classic-card:hover {
+  box-shadow: var(--classic-shadow-large);
+}
+
+.classic-card-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--classic-border);
+  background: var(--classic-bg);
+}
+
+.classic-card-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--classic-text-primary);
+  margin: 0;
+}
+
+.classic-card-body {
+  padding: 1.5rem;
+}
+
+.classic-card-footer {
+  padding: 1.5rem;
+  border-top: 1px solid var(--classic-border);
+  background: var(--classic-bg);
+}
+
+/* Classic Buttons */
+.classic-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border: 2px solid transparent;
+  border-radius: var(--classic-radius);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: var(--classic-transition);
+  white-space: nowrap;
+  user-select: none;
+  font-family: inherit;
+}
+
+.classic-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.classic-btn-primary {
+  background: var(--classic-primary);
+  color: white;
+  border-color: var(--classic-primary);
+}
+
+.classic-btn-primary:hover:not(:disabled) {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  color: white;
+  text-decoration: none;
+}
+
+.classic-btn-secondary {
+  background: var(--classic-card-bg);
+  color: var(--classic-text-primary);
+  border-color: var(--classic-border);
+}
+
+.classic-btn-secondary:hover:not(:disabled) {
+  background: var(--classic-bg);
+  color: var(--classic-text-primary);
+  text-decoration: none;
+}
+
+.classic-btn-outline {
+  background: transparent;
+  color: var(--classic-primary);
+  border-color: var(--classic-primary);
+}
+
+.classic-btn-outline:hover:not(:disabled) {
+  background: var(--classic-primary);
+  color: white;
+  text-decoration: none;
+}
+
+/* Classic Forms */
+.classic-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.classic-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.classic-form-label {
+  font-weight: 500;
+  color: var(--classic-text-primary);
+  font-size: 0.875rem;
+}
+
+.classic-form-input {
+  padding: 0.75rem;
+  border: 2px solid var(--classic-border);
+  border-radius: var(--classic-radius);
+  font-size: 1rem;
+  transition: var(--classic-transition);
+  background: var(--classic-card-bg);
+  color: var(--classic-text-primary);
+}
+
+.classic-form-input:focus {
+  outline: none;
+  border-color: var(--classic-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.classic-form-textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+/* Classic Authentication Container */
+.classic-auth-container {
+  max-width: 400px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background: var(--classic-card-bg);
+  border-radius: var(--classic-radius-large);
+  box-shadow: var(--classic-shadow-large);
+  text-align: center;
+  border: 1px solid var(--classic-border);
+}
+
+.classic-auth-logo {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 1.5rem;
+  background: var(--classic-primary);
+  border-radius: var(--classic-radius-large);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  color: white;
+}
+
+.classic-auth-container h2 {
+  font-family: 'Roboto', sans-serif;
+  color: var(--classic-text-primary);
+  margin-bottom: 0.5rem;
+  font-size: 1.75rem;
+  font-weight: 600;
+}
+
+.classic-auth-subtitle {
+  color: var(--classic-text-secondary);
+  margin-bottom: 2rem;
+  font-size: 0.875rem;
+}
+
+.classic-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.classic-auth-button {
+  width: 100%;
+  padding: 0.875rem;
+  background: var(--classic-primary);
+  color: white;
+  border: none;
+  border-radius: var(--classic-radius);
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: var(--classic-transition);
+  font-family: inherit;
+}
+
+.classic-auth-button:hover {
+  background: #1d4ed8;
+}
+
+.classic-auth-container p {
+  margin-top: 1.5rem;
+  color: var(--classic-text-secondary);
+  font-size: 0.875rem;
+}
+
+.classic-auth-container a {
+  color: var(--classic-primary);
+  text-decoration: none;
+  font-weight: 600;
+  transition: var(--classic-transition);
+}
+
+.classic-auth-container a:hover {
+  text-decoration: underline;
+}
+
+/* Classic Loading States */
+.classic-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  color: var(--classic-text-secondary);
+}
+
+.classic-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--classic-border);
+  border-top: 3px solid var(--classic-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 0.75rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Classic Error States */
+.classic-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  padding: 1rem;
+  border-radius: var(--classic-radius);
+  margin-bottom: 1rem;
+}
+
+.classic-success {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #16a34a;
+  padding: 1rem;
+  border-radius: var(--classic-radius);
+  margin-bottom: 1rem;
+}
+
+/* Classic Student Dashboard */
+.classic-student-welcome {
+  background: var(--classic-card-bg);
+  border-radius: var(--classic-radius-large);
+  padding: 2rem;
+  margin: 2rem 0;
+  box-shadow: var(--classic-shadow-medium);
+  border: 1px solid var(--classic-border);
+}
+
+.classic-student-info {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.classic-student-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--classic-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  color: white;
+  font-weight: bold;
+}
+
+.classic-student-details h2 {
+  font-family: 'Roboto', sans-serif;
+  color: var(--classic-text-primary);
+  margin: 0 0 0.5rem 0;
+  font-size: 1.75rem;
+  font-weight: 600;
+}
+
+.classic-student-level {
+  display: inline-block;
+  background: var(--classic-accent);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--classic-radius);
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.classic-student-progress {
+  color: var(--classic-text-secondary);
+  font-size: 0.875rem;
+}
+
+/* Classic Responsive Design */
+@media (max-width: 1024px) {
+  .classic-content-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .classic-sidebar {
+    order: -1;
+  }
+}
+
+@media (max-width: 768px) {
+  .classic-dashboard-container {
+    padding: 1rem;
+  }
+  
+  .classic-nav {
+    padding: 1rem;
+  }
+  
+  .classic-nav-content {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .classic-nav-links {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .classic-stats-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .classic-stat-card {
+    padding: 1rem;
+  }
+  
+  .classic-card-body {
+    padding: 1rem;
+  }
+  
+  .classic-dashboard-title {
+    font-size: 1.875rem;
+  }
+  
+  .classic-header {
+    padding: 1.5rem;
+  }
+  
+  .classic-header h1 {
+    font-size: 1.875rem;
+  }
+  
+  .classic-academy-logo {
+    width: 50px;
+    height: 50px;
+    font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .classic-dashboard-container {
+    padding: 0.75rem;
+  }
+  
+  .classic-nav-links {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .classic-nav-link {
+    text-align: center;
+  }
+  
+  .classic-stat-card {
+    padding: 1rem;
+  }
+  
+  .classic-card-header,
+  .classic-card-body,
+  .classic-card-footer {
+    padding: 1rem;
+  }
+  
+  .classic-auth-container {
+    margin: 1rem;
+    padding: 1.5rem;
+  }
+  
+  .classic-student-info {
+    flex-direction: column;
+    text-align: center;
+  }
+}
