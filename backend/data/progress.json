@@ -233,6 +233,48 @@
       "lastUpdated": "2025-09-29T14:07:01.852Z"
     }
   },
+  "8": {
+    "userId": 8,
+    "userName": "Student",
+    "interactions": [
+      {
+        "timestamp": "2025-09-29T14:14:58.974Z",
+        "type": "text",
+        "message": "hgh",
+        "responsePreview": "No problem at all! 😊 Sometimes our fingers just type what they want, right?\n\nI'm here to help you i..."
+      },
+      {
+        "timestamp": "2025-09-29T14:14:44.263Z",
+        "type": "text",
+        "message": "sdf",
+        "responsePreview": "Hello again! 👋 It seems like you're still typing some random letters, and that's totally fine!\n\nMy ..."
+      },
+      {
+        "timestamp": "2025-09-29T14:14:27.829Z",
+        "type": "text",
+        "message": "asdasd",
+        "responsePreview": "Hi there! 👋 It looks like you sent a mix of letters. No worries at all!\n\nMy job is to help you lear..."
+      }
+    ],
+    "metrics": {
+      "totalInteractions": 3,
+      "textInteractions": 3,
+      "voiceInteractions": 0,
+      "commandsUsed": 0,
+      "lessonsCompleted": 0,
+      "practiceSessionsCompleted": 0,
+      "estimatedLevel": null,
+      "skillMetrics": {
+        "grammar": 0,
+        "vocabulary": 0,
+        "reading": 0,
+        "writing": 0,
+        "speaking": 0,
+        "listening": 0
+      },
+      "lastUpdated": "2025-09-29T14:14:58.974Z"
+    }
+  },
   "10": {
     "userId": 10,
     "userName": "Student",

@@ -91,13 +91,66 @@ router.post('/chat', async (req, res) => {
       return res.json({ response: `Echo: ${message}` });
     }
 
-    console.log('Initializing model');
-    const model = global.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-    const prompt = `You are an ESL (English as Second Language) tutor. Help the student with their English learning. Student says: "${message}". Provide a helpful, encouraging response.`;
+    // Get user ID from session
+    const userId = req.session.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const db = require('../models');
     
-    console.log('Generating content with prompt:', prompt);
-    const result = await model.generateContent(prompt);
+    // Save user message
+    await db.Message.create({ userId, content: message, sender: 'user' });
+
+    // Update chat message count in Progress model
+    await db.Progress.upsert({
+      userId: userId,
+      chatMessageCount: (await db.Progress.findOne({ where: { userId: userId } }))?.chatMessageCount + 1 || 1,
+      totalWordsTyped: (await db.Progress.findOne({ where: { userId: userId } }))?.totalWordsTyped + message.split(' ').length || message.split(' ').length,
+      lastActiveDate: new Date()
+    });
+
+    // Fetch recent messages for context
+    const recentMessages = await db.Message.findAll({
+      where: { userId },
+      order: [['createdAt', 'ASC']],
+    });
+
+    // Format messages for Gemini API history
+    const username = req.session.user?.username;
+
+    let history = [];
+    // Prepend a message to inform the AI about the user's name
+    if (username) {
+      history.push({
+        role: 'user',
+        parts: [{ text: `My username is ${username}. Please remember this and use it to address me.` }]
+      });
+    }
+
+    history = history.concat(recentMessages.map(m => ({
+       role: m.sender === 'user' ? 'user' : 'model',
+       parts: [{ text: m.content }]
+     })));
+
+    // Ensure the history starts with a 'user' role if it's not empty and the first message is 'model'
+    if (history.length > 0 && history[0].role === 'model') {
+      history = history.slice(1);
+    }
+
+    console.log('Initializing model with system instruction');
+    const model = global.genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash',
+      systemInstruction: 'You are the perfect ESL (English as a Second Language) chatbot teacher! 🎓✨ Your mission is to make learning English fun, engaging, and super effective. You\'re professional yet playful, always ready with emojis and fun ways to explain things. You\'re incredibly smart and know how to teach complex concepts in simple, easy-to-understand ways, ensuring the conversation flows naturally and enjoyably. 🗣️💡\n\nIMPORTANT: Do NOT use markdown bolding (e.g., **text**) as it does not render correctly in the chat. Keep your responses simple, concise, and to the point. Avoid long paragraphs; focus on short, engaging, and highly informative answers. 📝✅\n\nAlways try to use the user\'s name (or ask for it if you don\'t know it) frequently throughout the conversation to make the chat feel more real and engaging. If the user states a different name later, prioritize that as their current name. Use other techniques to make the chat feel more personal and fun! 🎉🤝\n\nYour core focus is English language learning. You will NOT answer questions unrelated to ESL. If a user asks something outside of this scope, gently redirect them back to English learning. 🚫🌍\n\nIf anyone asks who created you, your answer is always: "I was trained and created by Osanai!" You act as if Osanai is your sole creator and trainer. 🤖❤️\n\nLet\'s make English learning an amazing adventure! 🚀📚'
+    });
+    
+    console.log('Starting chat with history');
+    const chat = model.startChat({ history });
+    const result = await chat.sendMessage(message);
     const response = result.response.text();
+    
+    // Save bot response
+    await db.Message.create({ userId, content: response, sender: 'bot' });
     
     console.log('Generated response:', response);
     res.json({ response });
@@ -108,6 +161,63 @@ router.post('/chat', async (req, res) => {
 });
 
 // Progress endpoints
+// Generic progress endpoint that uses session userId
+router.get('/progress', async (req, res) => {
+  try {
+    if (!req.session.userId) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const userId = req.session.userId;
+    
+    // Get user progress from database
+    const progress = await db.Progress.findOne({ 
+      where: { userId: userId } 
+    }) || { 
+      progress: 0, 
+      chatMessageCount: 0, 
+      totalWordsTyped: 0, 
+      lastActiveDate: new Date() 
+    };
+
+    // Get user interactions
+    const interactions = await Interaction.findAll({
+      where: { userId: userId },
+      order: [['timestamp', 'DESC']],
+      limit: 50
+    });
+    
+    // Get user metrics
+    const metrics = await UserMetrics.findOne({
+      where: { userId: userId }
+    });
+
+    // Calculate study time and streak
+    const studyTimeMinutes = metrics?.totalStudyTimeMinutes || 0;
+    const studyTime = `${Math.floor(studyTimeMinutes / 60)}h ${studyTimeMinutes % 60}m`;
+    
+    const progressData = {
+      progress: progress.progress || 0,
+      chatMessageCount: progress.chatMessageCount || 0,
+      totalWordsTyped: progress.totalWordsTyped || 0,
+      studyTime: studyTime,
+      dayStreak: 0, // Calculate based on activity
+      level: 'Intermediate', // Calculate based on progress
+      activities: interactions.slice(0, 10).map(interaction => ({
+        type: interaction.type || 'chat',
+        message: interaction.message || 'Chat interaction',
+        timestamp: interaction.timestamp,
+        score: interaction.score || 0
+      }))
+    };
+    
+    return res.json(progressData);
+  } catch (error) {
+    console.error('Progress fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch progress' });
+  }
+});
+
 router.get('/progress/:userId', async (req, res) => {
   try {
     const { userId } = req.params;

@@ -117,10 +117,50 @@ router.post('/voice', async (req, res) => {
   const { message } = req.body;
   let response = '';
   if (message) {
-    const model = global.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-    const prompt = `You are an ESL (English as Second Language) tutor. Help the student with their English learning. Student says: "${message}". Provide a helpful, encouraging response.`;
-    const result = await model.generateContent(prompt);
+    const userId = req.session.userId;
+    const db = require('../models');
+    
+    // Save user message
+    await db.Message.create({ userId, content: message, sender: 'user' });
+
+    // Fetch recent messages for context
+    const recentMessages = await db.Message.findAll({
+      where: { userId },
+      order: [['createdAt', 'ASC']],
+    });
+
+    // Format messages for Gemini API history
+    const username = req.session.user?.username;
+
+    let history = [];
+    // Prepend a message to inform the AI about the user's name
+    if (username) {
+      history.push({
+        role: 'user',
+        parts: [{ text: `My username is ${username}. Please remember this and use it to address me.` }]
+      });
+    }
+
+    history = history.concat(recentMessages.map(m => ({
+       role: m.sender === 'user' ? 'user' : 'model',
+       parts: [{ text: m.content }]
+     })));
+
+    // Ensure the history starts with a 'user' role if it's not empty and the first message is 'model'
+    if (history.length > 0 && history[0].role === 'model') {
+      history = history.slice(1);
+    }
+
+    const model = global.genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash',
+      systemInstruction: 'You are the perfect ESL (English as a Second Language) chatbot teacher! 🎓✨ Your mission is to make learning English fun, engaging, and super effective. You\'re professional yet playful, always ready with emojis and fun ways to explain things. You\'re incredibly smart and know how to teach complex concepts in simple, easy-to-understand ways, ensuring the conversation flows naturally and enjoyably. 🗣️💡\n\nIMPORTANT: Do NOT use markdown bolding (e.g., **text**) as it does not render correctly in the chat. Keep your responses simple, concise, and to the point. Avoid long paragraphs; focus on short, engaging, and highly informative answers. 📝✅\n\nAlways try to use the user\'s name (or ask for it if you don\'t know it) frequently throughout the conversation to make the chat feel more real and engaging. If the user states a different name later, prioritize that as their current name. Use other techniques to make the chat feel more personal and fun! 🎉🤝\n\nYour core focus is English language learning. You will NOT answer questions unrelated to ESL. If a user asks something outside of this scope, gently redirect them back to English learning. 🚫🌍\n\nIf anyone asks who created you, your answer is always: "I was trained and created by Osanai!" You act as if Osanai is your sole creator and trainer. 🤖❤️\n\nLet\'s make English learning an amazing adventure! 🚀📚'
+    });
+    const chat = model.startChat({ history });
+    const result = await chat.sendMessage(message);
     response = result.response.text();
+    
+    // Save bot response
+    await db.Message.create({ userId, content: response, sender: 'bot' });
   }
   res.render('voice', { response, currentRoute: 'voice' });
 });
