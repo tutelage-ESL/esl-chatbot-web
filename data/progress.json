@@ -4,6 +4,24 @@
     "userName": "Student",
     "interactions": [
       {
+        "timestamp": "2025-09-29T13:09:16.771Z",
+        "type": "text",
+        "message": "hi",
+        "responsePreview": "Hihi back at you! 👋 I love your energy!\n\nI'm so excited to help you learn English! This is going to..."
+      },
+      {
+        "timestamp": "2025-09-14T16:50:28.292Z",
+        "type": "text",
+        "message": "tawawwwwwwww",
+        "responsePreview": "Hmm, that's an interesting series of letters! It sounds like you're having some fun typing! 😄\n\nMy f..."
+      },
+      {
+        "timestamp": "2025-09-14T16:47:03.555Z",
+        "type": "text",
+        "message": "hello",
+        "responsePreview": "Hello hello! 👋 It's wonderful to hear from you again!\n\nI'm super excited to help you learn English!..."
+      },
+      {
         "timestamp": "2025-08-06T18:23:08.360Z",
         "type": "text",
         "message": "hey",
@@ -29,8 +47,8 @@
       }
     ],
     "metrics": {
-      "totalInteractions": 4,
-      "textInteractions": 4,
+      "totalInteractions": 7,
+      "textInteractions": 7,
       "voiceInteractions": 0,
       "commandsUsed": 0,
       "lessonsCompleted": 0,
@@ -44,7 +62,7 @@
         "speaking": 0,
         "listening": 0
       },
-      "lastUpdated": "2025-08-06T18:23:08.360Z"
+      "lastUpdated": "2025-09-29T13:09:16.771Z"
     }
   },
   "3": {
@@ -119,15 +137,15 @@
       "lastUpdated": "2025-08-06T19:09:30.188Z"
     }
   },
-  "7": {
-    "userId": 7,
+  "5": {
+    "userId": 5,
     "userName": "Student",
     "interactions": [
       {
-        "timestamp": "2025-08-04T13:40:02.224Z",
+        "timestamp": "2025-09-29T13:27:44.879Z",
         "type": "text",
-        "message": "hello",
-        "responsePreview": "Hello hello, Redyar! 👋 Sounds like you're very excited to say hello!\n\nRemember, Redyar, my job is t..."
+        "message": "helllo",
+        "responsePreview": "Hello there! 👋 It's wonderful to meet you!\n\nI noticed you typed \"helllohelllo.\" The correct spellin..."
       }
     ],
     "metrics": {
@@ -146,7 +164,73 @@
         "speaking": 0,
         "listening": 0
       },
-      "lastUpdated": "2025-08-04T13:40:02.224Z"
+      "lastUpdated": "2025-09-29T13:27:44.879Z"
+    }
+  },
+  "7": {
+    "userId": 7,
+    "userName": "Student",
+    "interactions": [
+      {
+        "timestamp": "2025-09-29T14:07:01.852Z",
+        "type": "text",
+        "message": "hi",
+        "responsePreview": "Haha, \"hihi\" back to you, Daddad! 👋 That's a fun way to say hello! 😊\n\nIt reminds me of how people ..."
+      },
+      {
+        "timestamp": "2025-09-29T13:55:24.739Z",
+        "type": "text",
+        "message": "gfg",
+        "responsePreview": "Hmm, \"gfggfg\" doesn't seem to be an English word, Daddad! 😉 It looks like a fun mix of letters!\n\nSo..."
+      },
+      {
+        "timestamp": "2025-09-29T13:55:04.777Z",
+        "type": "text",
+        "message": "sooooo how many minutes of you do i get tts?",
+        "responsePreview": "That's a great question, Daddad! 😊 As an AI, I don't have a timer or a limit on how many minutes yo..."
+      },
+      {
+        "timestamp": "2025-09-29T13:52:08.775Z",
+        "type": "text",
+        "message": "soo whats up",
+        "responsePreview": "Hey Daddad! Not much, just super excited to help you with your English adventure! 🥳\n\n\"What's up?\" i..."
+      },
+      {
+        "timestamp": "2025-09-29T13:51:26.599Z",
+        "type": "text",
+        "message": "dad",
+        "responsePreview": "Hi Daddad! It's fantastic to meet you! 😄 I'm so excited to help you learn and improve your English...."
+      },
+      {
+        "timestamp": "2025-09-29T13:47:30.972Z",
+        "type": "text",
+        "message": "hello",
+        "responsePreview": "Hello there! 👋 I'm your friendly ESL chatbot teacher, ready to help you master English! ✨ What's yo..."
+      },
+      {
+        "timestamp": "2025-08-04T13:40:02.224Z",
+        "type": "text",
+        "message": "hello",
+        "responsePreview": "Hello hello, Redyar! 👋 Sounds like you're very excited to say hello!\n\nRemember, Redyar, my job is t..."
+      }
+    ],
+    "metrics": {
+      "totalInteractions": 7,
+      "textInteractions": 7,
+      "voiceInteractions": 0,
+      "commandsUsed": 0,
+      "lessonsCompleted": 0,
+      "practiceSessionsCompleted": 0,
+      "estimatedLevel": null,
+      "skillMetrics": {
+        "grammar": 0,
+        "vocabulary": 0,
+        "reading": 0,
+        "writing": 0,
+        "speaking": 0,
+        "listening": 0
+      },
+      "lastUpdated": "2025-09-29T14:07:01.852Z"
     }
   },
   "10": {

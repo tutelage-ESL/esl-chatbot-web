@@ -8,14 +8,19 @@ exports.signup = async (req, res) => {
     return res.render('signup', { errors: errors.array(), oldInput: req.body });
   }
 
-  const { username, email, password } = req.body;
+  const { username, email, password, subscriptionTier } = req.body;
 
   try {
+    // Validate subscription tier
+    const validTiers = ['standard', 'gold', 'diamond'];
+    const selectedTier = validTiers.includes(subscriptionTier) ? subscriptionTier : 'standard';
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await db.User.create({
       username,
       email,
       password: hashedPassword,
+      subscriptionTier: selectedTier,
     });
     req.session.userId = user.id; // Store user ID in session
     res.redirect('/dashboard'); // Redirect to dashboard after signup

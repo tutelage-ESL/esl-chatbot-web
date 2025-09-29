@@ -92,7 +92,7 @@ router.post('/chat', async (req, res) => {
     }
 
     console.log('Initializing model');
-    const model = global.genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
+    const model = global.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
     const prompt = `You are an ESL (English as Second Language) tutor. Help the student with their English learning. Student says: "${message}". Provide a helpful, encouraging response.`;
     
     console.log('Generating content with prompt:', prompt);
@@ -305,9 +305,16 @@ router.post('/text-to-speech', async (req, res) => {
       });
     }
 
-    // Generate audio buffer
+    // Get user from session for usage tracking
+    let user = null;
+    if (req.session && req.session.userId) {
+      user = await User.findByPk(req.session.userId);
+    }
+
+    // Generate audio buffer with user tracking
     const audioBuffer = await elevenLabsService.textToSpeech(text, {
       voiceId,
+      user: user, // Pass user for usage tracking
       ...options
     });
 
@@ -321,6 +328,16 @@ router.post('/text-to-speech', async (req, res) => {
     res.send(audioBuffer);
   } catch (error) {
     console.error('Text-to-speech error:', error);
+    
+    // Check if it's a usage limit error
+    if (error.message.includes('TTS usage limit exceeded')) {
+      return res.status(429).json({ 
+        error: 'Usage limit exceeded',
+        message: error.message,
+        limitExceeded: true
+      });
+    }
+    
     res.status(500).json({ 
       error: 'Failed to generate speech',
       message: error.message
@@ -2532,5 +2549,147 @@ function getPhoneticTips(word) {
   
   return tips;
 }
+
+// ===== SUBSCRIPTION TIER MANAGEMENT ENDPOINTS =====
+
+// Get user's current subscription tier and usage
+router.get('/subscription/status', async (req, res) => {
+  try {
+    if (!req.session || !req.session.userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const user = await User.findByPk(req.session.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check if monthly usage needs to be reset
+    if (user.shouldResetUsage()) {
+      await user.resetMonthlyUsage();
+    }
+
+    const tierLimits = user.getTierLimits();
+    const remainingUsage = user.getRemainingUsage();
+    const usagePercentage = (user.monthlyTtsUsage / tierLimits) * 100;
+
+    res.json({
+      subscriptionTier: user.subscriptionTier,
+      monthlyLimit: tierLimits,
+      monthlyUsage: user.monthlyTtsUsage,
+      remainingUsage: remainingUsage,
+      usagePercentage: Math.round(usagePercentage),
+      lastReset: user.lastUsageReset,
+      warningThreshold: tierLimits * 0.8, // 80% warning
+      nearLimit: usagePercentage >= 80
+    });
+  } catch (error) {
+    console.error('Error fetching subscription status:', error);
+    res.status(500).json({ error: 'Failed to fetch subscription status' });
+  }
+});
+
+// Update user's subscription tier
+router.post('/subscription/tier', async (req, res) => {
+  try {
+    if (!req.session || !req.session.userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const { tier } = req.body;
+    const validTiers = ['Standard', 'Gold', 'Diamond'];
+
+    if (!tier || !validTiers.includes(tier)) {
+      return res.status(400).json({ 
+        error: 'Invalid tier', 
+        validTiers: validTiers 
+      });
+    }
+
+    const user = await User.findByPk(req.session.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const oldTier = user.subscriptionTier;
+    user.subscriptionTier = tier;
+    await user.save();
+
+    // Log tier change
+    console.log(`User ${user.id} tier changed from ${oldTier} to ${tier}`);
+
+    const tierLimits = user.getTierLimits();
+    const remainingUsage = user.getRemainingUsage();
+
+    res.json({
+      message: 'Subscription tier updated successfully',
+      subscriptionTier: user.subscriptionTier,
+      monthlyLimit: tierLimits.monthlyLimit,
+      remainingUsage: remainingUsage,
+      upgraded: tierLimits.monthlyLimit > user.getTierLimits(oldTier).monthlyLimit
+    });
+  } catch (error) {
+    console.error('Error updating subscription tier:', error);
+    res.status(500).json({ error: 'Failed to update subscription tier' });
+  }
+});
+
+// Get usage history and statistics
+router.get('/subscription/usage-history', async (req, res) => {
+  try {
+    if (!req.session || !req.session.userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const user = await User.findByPk(req.session.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // For now, return current month's data
+    // In a full implementation, you'd store historical usage data
+    const tierLimits = user.getTierLimits();
+    const usagePercentage = (user.monthlyTtsUsage / tierLimits.monthlyLimit) * 100;
+
+    res.json({
+      currentMonth: {
+        usage: user.monthlyTtsUsage,
+        limit: tierLimits.monthlyLimit,
+        percentage: Math.round(usagePercentage),
+        tier: user.subscriptionTier
+      },
+      resetDate: user.lastUsageReset,
+      nextResetDate: new Date(user.lastUsageReset.getFullYear(), user.lastUsageReset.getMonth() + 1, 1)
+    });
+  } catch (error) {
+    console.error('Error fetching usage history:', error);
+    res.status(500).json({ error: 'Failed to fetch usage history' });
+  }
+});
+
+// Reset monthly usage (admin endpoint or for testing)
+router.post('/subscription/reset-usage', async (req, res) => {
+  try {
+    if (!req.session || !req.session.userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const user = await User.findByPk(req.session.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    await user.resetMonthlyUsage();
+
+    res.json({
+      message: 'Monthly usage reset successfully',
+      monthlyUsage: user.monthlyTtsUsage,
+      lastReset: user.lastUsageReset
+    });
+  } catch (error) {
+    console.error('Error resetting usage:', error);
+    res.status(500).json({ error: 'Failed to reset usage' });
+  }
+});
 
 module.exports = router;

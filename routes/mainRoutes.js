@@ -117,7 +117,7 @@ router.post('/voice', async (req, res) => {
   const { message } = req.body;
   let response = '';
   if (message) {
-    const model = global.genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
+    const model = global.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
     const prompt = `You are an ESL (English as Second Language) tutor. Help the student with their English learning. Student says: "${message}". Provide a helpful, encouraging response.`;
     const result = await model.generateContent(prompt);
     response = result.response.text();
@@ -306,6 +306,21 @@ router.get('/goals', async (req, res) => {
   }
   
   res.render('goals', { goals: goalsData, currentRoute: 'goals' });
+});
+
+// Usage dashboard route
+router.get('/usage', async (req, res) => {
+  if (!req.session.userId) return res.redirect('/login');
+  
+  try {
+    const user = await models.User.findByPk(req.session.userId);
+    if (!user) return res.redirect('/login');
+    
+    res.render('usage-dashboard', { user, currentRoute: 'usage' });
+  } catch (error) {
+    console.error('Error rendering usage dashboard:', error);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 // Pronunciation practice page

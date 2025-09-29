@@ -27,6 +27,53 @@
                 <input type="text" id="signup-username" name="username" placeholder="👤 Choose Username" value="<%= typeof oldInput !== 'undefined' ? oldInput.username : '' %>" required>
                 <input type="email" id="signup-email" name="email" placeholder="📧 Email Address" value="<%= typeof oldInput !== 'undefined' ? oldInput.email : '' %>" required>
                 <input type="password" id="signup-password" name="password" placeholder="🔒 Create Password" required>
+                
+                <div class="subscription-tier-section">
+                    <label for="subscription-tier">Choose Your Learning Plan:</label>
+                    <select id="subscription-tier" name="subscriptionTier" required>
+                        <option value="standard" <%= (typeof oldInput !== 'undefined' && oldInput.subscriptionTier === 'standard') ? 'selected' : '' %>>
+                            🥉 Standard - 20 minutes/month TTS (Free)
+                        </option>
+                        <option value="gold" <%= (typeof oldInput !== 'undefined' && oldInput.subscriptionTier === 'gold') ? 'selected' : '' %>>
+                            🥈 Gold - 1 hour/month TTS ($9.99/month)
+                        </option>
+                        <option value="diamond" <%= (typeof oldInput !== 'undefined' && oldInput.subscriptionTier === 'diamond') ? 'selected' : '' %>>
+                            💎 Diamond - 2 hours/month TTS ($19.99/month)
+                        </option>
+                    </select>
+                    
+                    <div class="tier-benefits">
+                        <div class="tier-benefit standard-benefit active">
+                            <h4>🥉 Standard Plan</h4>
+                            <ul>
+                                <li>✅ 20 minutes of AI voice synthesis per month</li>
+                                <li>✅ Access to all learning features</li>
+                                <li>✅ Progress tracking</li>
+                                <li>✅ Vocabulary builder</li>
+                            </ul>
+                        </div>
+                        <div class="tier-benefit gold-benefit">
+                            <h4>🥈 Gold Plan</h4>
+                            <ul>
+                                <li>✅ 1 hour of AI voice synthesis per month</li>
+                                <li>✅ All Standard features</li>
+                                <li>✅ Priority voice processing</li>
+                                <li>✅ Advanced pronunciation feedback</li>
+                            </ul>
+                        </div>
+                        <div class="tier-benefit diamond-benefit">
+                            <h4>💎 Diamond Plan</h4>
+                            <ul>
+                                <li>✅ 2 hours of AI voice synthesis per month</li>
+                                <li>✅ All Gold features</li>
+                                <li>✅ Premium voice selection</li>
+                                <li>✅ Personalized learning paths</li>
+                                <li>✅ Priority customer support</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
                 <button type="submit">Create Academy Account</button>
             </form>
             <p>Already a student? <a href="/login" id="show-login">Sign In</a></p>
@@ -34,6 +81,22 @@
     </div>
 
 
+    <script>
+        // Handle tier selection changes
+        document.getElementById('subscription-tier').addEventListener('change', function() {
+            const selectedTier = this.value;
+            const benefits = document.querySelectorAll('.tier-benefit');
+            
+            benefits.forEach(benefit => {
+                benefit.classList.remove('active');
+            });
+            
+            const activeBenefit = document.querySelector(`.${selectedTier}-benefit`);
+            if (activeBenefit) {
+                activeBenefit.classList.add('active');
+            }
+        });
+    </script>
     
 </body>
 </html>

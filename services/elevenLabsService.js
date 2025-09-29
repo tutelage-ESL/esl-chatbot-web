@@ -10,6 +10,19 @@ class ElevenLabsService {
         this.init();
     }
 
+    // Estimate TTS duration based on text length and speaking rate
+    estimateTtsDuration(text) {
+        // Average speaking rate: ~150 words per minute
+        // Average word length: ~5 characters
+        // Add buffer for pauses and processing
+        const wordsPerMinute = 150;
+        const avgWordLength = 5;
+        const estimatedWords = text.length / avgWordLength;
+        const estimatedMinutes = estimatedWords / wordsPerMinute;
+        const estimatedSeconds = Math.ceil(estimatedMinutes * 60 * 1.2); // 20% buffer
+        return Math.max(1, estimatedSeconds); // Minimum 1 second
+    }
+
     async init() {
         try {
             const apiKey = process.env.ELEVENLABS_API_KEY;
@@ -82,6 +95,26 @@ class ElevenLabsService {
                 throw new Error('ElevenLabs service not initialized');
             }
 
+            // Check user usage limits if user is provided
+            if (options.user) {
+                const user = options.user;
+                
+                // Reset usage if it's a new month
+                if (user.shouldResetUsage()) {
+                    await user.resetMonthlyUsage();
+                }
+
+                // Estimate duration for this request
+                const estimatedDuration = this.estimateTtsDuration(text);
+                
+                // Check if user can use the service
+                if (!user.canUseService(estimatedDuration)) {
+                    const remaining = user.getRemainingUsage();
+                    const tierLimits = user.getTierLimits();
+                    throw new Error(`TTS usage limit exceeded. You have ${Math.floor(remaining / 60)} minutes and ${remaining % 60} seconds remaining out of ${Math.floor(tierLimits / 60)} minutes for your ${user.subscriptionTier} tier.`);
+                }
+            }
+
             const voiceId = options.voiceId || this.getBestVoice();
             if (!voiceId) {
                 throw new Error('No voice available');
@@ -103,17 +136,22 @@ class ElevenLabsService {
             console.log('ElevenLabs TTS request:', {
                 voiceId,
                 outputFormat: requestOptions.outputFormat,
-                modelId: requestOptions.modelId
+                modelId: requestOptions.modelId,
+                userId: options.user ? options.user.id : 'anonymous'
             });
-            
+
+            const startTime = Date.now();
             const audioStream = await this.client.textToSpeech.convert(voiceId, requestOptions);
+            const processingTime = Date.now() - startTime;
             
             console.log('ElevenLabs TTS response:', {
                 bufferLength: audioStream.length,
-                bufferType: audioStream.constructor.name
+                bufferType: audioStream.constructor.name,
+                processingTime: `${processingTime}ms`
             });
             
             // Convert ReadableStream to Buffer
+            let audioBuffer;
             if (audioStream instanceof ReadableStream) {
                 const reader = audioStream.getReader();
                 const chunks = [];
@@ -124,16 +162,23 @@ class ElevenLabsService {
                     chunks.push(value);
                 }
                 
-                const audioBuffer = Buffer.concat(chunks);
+                audioBuffer = Buffer.concat(chunks);
                 console.log('Converted stream to buffer:', {
                     bufferLength: audioBuffer.length,
                     bufferType: audioBuffer.constructor.name
                 });
-                
-                return audioBuffer;
+            } else {
+                audioBuffer = audioStream;
+            }
+
+            // Track usage if user is provided
+            if (options.user) {
+                const actualDuration = this.estimateTtsDuration(text);
+                await options.user.addUsage(actualDuration);
+                console.log(`Added ${actualDuration} seconds of TTS usage for user ${options.user.id}`);
             }
             
-            return audioStream;
+            return audioBuffer;
         } catch (error) {
             console.error('ElevenLabs TTS error:', error.message);
             throw error;

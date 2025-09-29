@@ -48,6 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateConnectionStatus(true);
     socket.emit('load history');
     showWelcomeMessage();
+    loadTTSUsage(); // Load TTS usage when connected
   });
 
   socket.on('disconnect', () => {
@@ -630,4 +631,56 @@ document.addEventListener('DOMContentLoaded', () => {
   updateSendButtonState();
   initializeVoiceRecognition();
   checkElevenLabsStatus();
+  
+  // TTS Usage Loading Function
+  async function loadTTSUsage() {
+    try {
+      const response = await fetch('/api/subscription/status');
+      if (response.ok) {
+        const data = await response.json();
+        console.log('TTS Usage data received:', data); // Debug log
+        
+        const ttsRemainingElement = document.getElementById('tts-remaining');
+        if (ttsRemainingElement) {
+          // Convert seconds to minutes for display
+          const remainingMinutes = Math.floor(data.remainingUsage / 60);
+          const totalMinutes = Math.floor(data.monthlyLimit / 60);
+          
+          ttsRemainingElement.textContent = `${remainingMinutes}/${totalMinutes} min`;
+          
+          // Add warning styling if usage is high
+          const usageDisplay = document.getElementById('tts-usage-display');
+          if (usageDisplay) {
+            // Clear existing classes
+            usageDisplay.classList.remove('usage-warning', 'usage-caution');
+            
+            if (data.remainingUsage <= 600) { // 10 minutes or less
+              usageDisplay.classList.add('usage-warning');
+            } else if (data.remainingUsage <= 3000) { // 50 minutes or less
+              usageDisplay.classList.add('usage-caution');
+            }
+          }
+        }
+      } else {
+        console.error('Failed to load TTS usage, status:', response.status);
+        const ttsRemainingElement = document.getElementById('tts-remaining');
+        if (ttsRemainingElement) {
+          ttsRemainingElement.textContent = 'Error';
+        }
+      }
+    } catch (error) {
+      console.error('Error loading TTS usage:', error);
+      const ttsRemainingElement = document.getElementById('tts-remaining');
+      if (ttsRemainingElement) {
+        ttsRemainingElement.textContent = 'Error';
+      }
+    }
+  }
+  
+  // Update TTS usage after each TTS request
+  socket.on('tts response', (data) => {
+    if (data.audio) {
+      loadTTSUsage(); // Refresh usage after TTS
+    }
+  });
 });

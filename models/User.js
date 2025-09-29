@@ -21,10 +21,62 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: false,
     },
+    subscriptionTier: {
+      type: DataTypes.ENUM('standard', 'gold', 'diamond'),
+      allowNull: false,
+      defaultValue: 'standard',
+    },
+    monthlyTtsUsage: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      comment: 'TTS usage in seconds for current month'
+    },
+    lastUsageReset: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: DataTypes.NOW,
+      comment: 'Last time monthly usage was reset'
+    },
   }, {
     tableName: 'users',
     timestamps: true
   });
+
+  // Instance methods for subscription management
+  User.prototype.getTierLimits = function() {
+    const limits = {
+      standard: 20 * 60, // 20 minutes in seconds
+      gold: 60 * 60,     // 1 hour in seconds
+      diamond: 120 * 60  // 2 hours in seconds
+    };
+    return limits[this.subscriptionTier] || limits.standard;
+  };
+
+  User.prototype.getRemainingUsage = function() {
+    return Math.max(0, this.getTierLimits() - this.monthlyTtsUsage);
+  };
+
+  User.prototype.canUseService = function(requestedSeconds = 0) {
+    return this.getRemainingUsage() >= requestedSeconds;
+  };
+
+  User.prototype.shouldResetUsage = function() {
+    const now = new Date();
+    const lastReset = new Date(this.lastUsageReset);
+    return now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear();
+  };
+
+  User.prototype.resetMonthlyUsage = function() {
+    this.monthlyTtsUsage = 0;
+    this.lastUsageReset = new Date();
+    return this.save();
+  };
+
+  User.prototype.addUsage = function(seconds) {
+    this.monthlyTtsUsage += seconds;
+    return this.save();
+  };
 
   // Define associations
   User.associate = function(models) {
