@@ -49,8 +49,29 @@ class ElevenLabsService {
         try {
             if (!this.client) return;
             
-            const voices = await this.client.voices.getAll();
-            this.availableVoices = voices.voices || [];
+            const voicesResp = await this.client.voices.getAll();
+            let voices = voicesResp.voices || [];
+
+            // Fallback: if SDK returns voices without voice_id, query HTTP API directly
+            if (voices.length && !voices[0].voice_id) {
+                console.warn('ElevenLabs SDK returned voices without voice_id, falling back to HTTP API');
+                const apiKey = process.env.ELEVENLABS_API_KEY;
+                try {
+                    const resp = await fetch('https://api.elevenlabs.io/v1/voices', {
+                        headers: { 'xi-api-key': apiKey }
+                    });
+                    if (resp.ok) {
+                        const json = await resp.json();
+                        voices = json.voices || voices;
+                    } else {
+                        console.warn('HTTP voices API failed:', resp.status);
+                    }
+                } catch (httpErr) {
+                    console.warn('HTTP voices API error:', httpErr.message);
+                }
+            }
+
+            this.availableVoices = voices;
             console.log(`Loaded ${this.availableVoices.length} ElevenLabs voices`);
         } catch (error) {
             console.error('Failed to load voices:', error.message);
@@ -58,8 +79,21 @@ class ElevenLabsService {
     }
 
     getAvailableVoices() {
+        if (!this.availableVoices || this.availableVoices.length === 0) {
+            const defId = process.env.ELEVENLABS_DEFAULT_VOICE_ID;
+            if (defId) {
+                return [{
+                    id: defId,
+                    name: 'Default Voice',
+                    category: 'default',
+                    description: 'Configured default ElevenLabs voice (env)',
+                    preview_url: null
+                }];
+            }
+            return [];
+        }
         return this.availableVoices.map(voice => ({
-            id: voice.voice_id,
+            id: voice.voice_id || voice.id || null,
             name: voice.name,
             category: voice.category,
             description: voice.description || '',
@@ -68,25 +102,24 @@ class ElevenLabsService {
     }
 
     getBestVoice(language = 'en') {
-        if (!this.availableVoices.length) return null;
-
+        if (!this.availableVoices || this.availableVoices.length === 0) {
+            return process.env.ELEVENLABS_DEFAULT_VOICE_ID || null;
+        }
+    
         // Priority order for English voices
         const preferredVoices = [
             'Rachel', 'Adam', 'Domi', 'Fin', 'Sarah', 'Antoni', 'Thomas', 'Charlie', 'Emily', 'Elli', 'Callum', 'Patrick', 'Harry', 'Liam', 'Dorothy', 'Josh', 'Arnold', 'Charlotte', 'Matilda', 'Matthew', 'James', 'Joseph', 'Jeremy', 'Michael', 'Ethan', 'Gigi', 'Freya', 'Grace', 'Daniel', 'Lily'
         ];
-
-        // Find the first available preferred voice
+    
         for (const preferredName of preferredVoices) {
-            const voice = this.availableVoices.find(v => 
-                v.name.toLowerCase() === preferredName.toLowerCase()
-            );
-            if (voice) {
-                return voice.voice_id;
+            const voice = this.availableVoices.find(v => v.name.toLowerCase() === preferredName.toLowerCase());
+            if (voice && (voice.voice_id || voice.id)) {
+                return voice.voice_id || voice.id;
             }
         }
-
-        // Fallback to first available voice
-        return this.availableVoices[0]?.voice_id || null;
+    
+        const first = this.availableVoices[0];
+        return first?.voice_id || first?.id || null;
     }
 
     async textToSpeech(text, options = {}) {
