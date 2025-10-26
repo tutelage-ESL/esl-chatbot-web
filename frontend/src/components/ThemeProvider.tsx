@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useOptimizedRouter } from '@/lib/routing';
 
-type Theme = 'classic' | 'enhanced';
+type Theme = 'light' | 'dark';
 
 interface ThemeContextType {
   theme: Theme;
@@ -18,7 +18,7 @@ interface ThemeProviderProps {
   defaultTheme?: Theme;
 }
 
-export function ThemeProvider({ children, defaultTheme = 'enhanced' }: ThemeProviderProps) {
+export function ThemeProvider({ children, defaultTheme = 'light' }: ThemeProviderProps) {
   const [theme, setThemeState] = useState<Theme>(defaultTheme);
   const [isLoading, setIsLoading] = useState(true);
   const { prefetch } = useOptimizedRouter();
@@ -26,27 +26,14 @@ export function ThemeProvider({ children, defaultTheme = 'enhanced' }: ThemeProv
   // Load theme from localStorage on mount
   useEffect(() => {
     const savedTheme = localStorage.getItem('esl-theme') as Theme;
-    if (savedTheme && (savedTheme === 'classic' || savedTheme === 'enhanced')) {
+    if (savedTheme && (savedTheme === 'light' || savedTheme === 'dark')) {
       setThemeState(savedTheme);
     }
     setIsLoading(false);
   }, []);
 
-  // Preload theme CSS files for instant switching
+  // Prefetch common routes for better performance
   useEffect(() => {
-    const preloadCSS = (href: string) => {
-      const link = document.createElement('link');
-      link.rel = 'preload';
-      link.as = 'style';
-      link.href = href;
-      document.head.appendChild(link);
-    };
-
-    // Preload both theme CSS files
-    preloadCSS('/styles/classic-theme.css');
-    preloadCSS('/styles/enhanced-theme.css');
-
-    // Prefetch common routes for better performance
     prefetch('/dashboard');
     prefetch('/chat');
   }, [prefetch]);
@@ -55,36 +42,22 @@ export function ThemeProvider({ children, defaultTheme = 'enhanced' }: ThemeProv
     setThemeState(newTheme);
     localStorage.setItem('esl-theme', newTheme);
     
-    // Remove existing theme classes
-    document.body.className = document.body.className.replace(/\b(classic|enhanced)-theme\b/g, '');
-    document.body.classList.add(`${newTheme}-theme`);
-    
-    // Load the corresponding CSS file
-    loadThemeCSS(newTheme);
-    
-    // Performance: Force repaint for smooth transition
-    document.body.offsetHeight;
+    // Apply dark mode class to document
+    if (newTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
   };
 
-  // Function to dynamically load theme CSS
-  const loadThemeCSS = (themeName: Theme) => {
-    // Remove existing theme stylesheets
-    const existingLinks = document.querySelectorAll('link[data-theme]');
-    existingLinks.forEach(link => link.remove());
-    
-    // Add new theme stylesheet
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = `/styles/${themeName}-theme.css`;
-    link.setAttribute('data-theme', themeName);
-    document.head.appendChild(link);
-  };
-
-  // Apply initial theme class and load CSS
+  // Apply initial theme
   useEffect(() => {
     if (!isLoading) {
-      document.body.classList.add(`${theme}-theme`);
-      loadThemeCSS(theme);
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
     }
   }, [theme, isLoading]);
 
@@ -116,7 +89,7 @@ interface ThemedComponentProps {
 }
 
 export function ThemedComponent({ children, className = '' }: ThemedComponentProps) {
-  const { theme, isLoading } = useTheme();
+  const { isLoading } = useTheme();
   
   if (isLoading) {
     return (
@@ -127,38 +100,9 @@ export function ThemedComponent({ children, className = '' }: ThemedComponentPro
     );
   }
 
-  const themeClass = theme === 'classic' ? 'classic-theme' : 'enhanced-theme';
-  
   return (
-    <div className={`${themeClass} ${className}`}>
+    <div className={className}>
       {children}
     </div>
   );
-}
-
-// Performance monitoring hook for theme switching
-export function useThemePerformance() {
-  const { theme } = useTheme();
-  
-  useEffect(() => {
-    const startTime = performance.now();
-    
-    const measureThemeSwitch = () => {
-      const endTime = performance.now();
-      const switchTime = endTime - startTime;
-      
-      console.log(`Theme switch to ${theme} completed in ${switchTime.toFixed(2)}ms`);
-      
-      // Report to analytics if available
-      if (typeof window !== 'undefined' && (window as any).gtag) {
-        (window as any).gtag('event', 'theme_switch', {
-          theme_name: theme,
-          switch_duration: switchTime
-        });
-      }
-    };
-
-    // Use requestAnimationFrame to measure after paint
-    requestAnimationFrame(measureThemeSwitch);
-  }, [theme]);
 }

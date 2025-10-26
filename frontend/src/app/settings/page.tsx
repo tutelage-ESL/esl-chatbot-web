@@ -1,8 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ThemedComponent, useTheme } from '@/components/ThemeProvider';
 import { useOptimizedRouter } from '@/lib/routing';
+import Layout from '@/components/ui/Layout';
+import { Card, CardBody } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import api from '@/lib/api';
 
 interface StudentProfile {
@@ -27,7 +30,6 @@ interface StudentProfile {
 }
 
 export default function SettingsPage() {
-  const { theme, setTheme } = useTheme();
   const router = useOptimizedRouter();
   const [profile, setProfile] = useState<StudentProfile>({
     firstName: '',
@@ -120,11 +122,6 @@ export default function SettingsPage() {
         ...prev,
         [section]: false
       }));
-      
-      // Apply theme change immediately if theme section was saved
-      if (section === 'settings' && profile.theme !== theme) {
-        setTheme(profile.theme.toLowerCase() as 'classic' | 'enhanced');
-      }
     } catch (error) {
       console.error('Error saving profile:', error);
       alert('Error saving changes. Please try again.');
@@ -159,186 +156,180 @@ export default function SettingsPage() {
     }));
   };
 
-  const navigateToPage = (path: string) => {
-    router.navigate(path);
-  };
-
   if (loading) {
     return (
-      <ThemedComponent>
-        <div className="app-container">
-          <header className="auth-header">
-            <div className="academy-brand">
-              <div className="academy-logo">🎓</div>
-              <h1>ESL Academy</h1>
-              <div className="academy-tagline">Excellence in English Learning</div>
-            </div>
-            <nav className="app-nav">
-              <button onClick={() => navigateToPage('/dashboard')} className="btn btn-nav">
-                <i className="fas fa-home"></i>
-                <span>Dashboard</span>
-              </button>
-              <button className="btn btn-nav active">
-                <i className="fas fa-cog"></i>
-                <span>Settings</span>
-              </button>
-            </nav>
-          </header>
-          <main className="app-main">
-            <div className="loading-container">
-              <div className="loading-spinner"></div>
-              <div className="loading-text">Loading profile...</div>
-            </div>
-          </main>
+      <Layout>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+            <p className="text-gray-600 dark:text-gray-400">Loading profile...</p>
+          </div>
         </div>
-      </ThemedComponent>
+      </Layout>
     );
   }
 
   return (
-    <ThemedComponent>
-      <div className="app-container">
-        <header className="auth-header">
-          <div className="academy-brand">
-            <div className="academy-logo">🎓</div>
-            <h1>ESL Academy</h1>
-            <div className="academy-tagline">Excellence in English Learning</div>
+    <Layout>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header Section */}
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-2">
+            <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Student Profile</h1>
           </div>
-          <nav className="app-nav">
-            <button onClick={() => navigateToPage('/dashboard')} className="btn btn-nav">
-              <i className="fas fa-home"></i>
-              <span>Dashboard</span>
-            </button>
-            <button onClick={() => navigateToPage('/chat')} className="btn btn-nav">
-              <i className="fas fa-comments"></i>
-              <span>Chat</span>
-            </button>
-            <button className="btn btn-nav active">
-              <i className="fas fa-cog"></i>
-              <span>Settings</span>
-            </button>
-            <button onClick={() => navigateToPage('/progress')} className="btn btn-nav">
-              <i className="fas fa-chart-line"></i>
-              <span>Progress</span>
-            </button>
-          </nav>
-        </header>
+          <p className="text-gray-600 dark:text-gray-400">Manage your account information and learning preferences</p>
+        </div>
 
-        <main className="app-main">
-          <div className="settings-container">
-            <div className="profile-header">
-              <h2><i className="fas fa-user-circle"></i> Student Profile</h2>
-              <p className="profile-subtitle">Manage your account information and learning preferences</p>
-            </div>
-
-            <div className="profile-container">
-              {/* Personal Information Card */}
-              <div className="profile-card">
-                <div className="card-header">
-                  <h3><i className="fas fa-user"></i> Personal Information</h3>
-                  <button 
-                    type="button" 
-                    className="btn btn-secondary"
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Personal Information Card */}
+          <Card>
+            <CardBody>
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Personal Information</h3>
+                  </div>
+                  <Button
+                    variant={editingSections.personal ? "secondary" : "primary"}
                     onClick={() => toggleEdit('personal')}
                   >
-                    <i className="fas fa-edit"></i> Edit
-                  </button>
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    {editingSections.personal ? 'Cancel' : 'Edit'}
+                  </Button>
                 </div>
-                <form className="profile-form">
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label htmlFor="first-name">First Name</label>
-                      <input
+
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="first-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        First Name
+                      </label>
+                      <Input
                         type="text"
                         id="first-name"
                         value={profile.firstName}
                         onChange={(e) => updateProfile('firstName', e.target.value)}
-                        readOnly={!editingSections.personal}
+                        disabled={!editingSections.personal}
                       />
                     </div>
-                    <div className="form-group">
-                      <label htmlFor="last-name">Last Name</label>
-                      <input
+                    <div>
+                      <label htmlFor="last-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Last Name
+                      </label>
+                      <Input
                         type="text"
                         id="last-name"
                         value={profile.lastName}
                         onChange={(e) => updateProfile('lastName', e.target.value)}
-                        readOnly={!editingSections.personal}
+                        disabled={!editingSections.personal}
                       />
                     </div>
                   </div>
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label htmlFor="email">Email Address</label>
-                      <input
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Email Address
+                      </label>
+                      <Input
                         type="email"
                         id="email"
                         value={profile.email}
                         onChange={(e) => updateProfile('email', e.target.value)}
-                        readOnly={!editingSections.personal}
+                        disabled={!editingSections.personal}
                       />
                     </div>
-                    <div className="form-group">
-                      <label htmlFor="phone">Phone Number</label>
-                      <input
+                    <div>
+                      <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Phone Number
+                      </label>
+                      <Input
                         type="tel"
                         id="phone"
                         value={profile.phone}
                         onChange={(e) => updateProfile('phone', e.target.value)}
-                        readOnly={!editingSections.personal}
+                        disabled={!editingSections.personal}
                       />
                     </div>
                   </div>
-                  <div className="form-group">
-                    <label htmlFor="date-of-birth">Date of Birth</label>
-                    <input
+                  <div>
+                    <label htmlFor="date-of-birth" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Date of Birth
+                    </label>
+                    <Input
                       type="date"
                       id="date-of-birth"
                       value={profile.dateOfBirth}
                       onChange={(e) => updateProfile('dateOfBirth', e.target.value)}
-                      readOnly={!editingSections.personal}
+                      disabled={!editingSections.personal}
                     />
                   </div>
                   {editingSections.personal && (
-                    <div className="form-actions">
-                      <button 
-                        type="button" 
-                        className="btn btn-save"
+                    <div className="flex gap-3 pt-4">
+                      <Button
+                        variant="primary"
                         onClick={() => saveSection('personal')}
                         disabled={saving}
                       >
-                        <i className="fas fa-save"></i> Save Changes
-                      </button>
-                      <button 
-                        type="button" 
-                        className="btn btn-cancel"
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Save Changes
+                      </Button>
+                      <Button
+                        variant="secondary"
                         onClick={() => cancelEdit('personal')}
                       >
-                        <i className="fas fa-times"></i> Cancel
-                      </button>
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Cancel
+                      </Button>
                     </div>
                   )}
-                </form>
+                </div>
               </div>
+            </CardBody>
+          </Card>
 
-              {/* Learning Profile Card */}
-              <div className="profile-card">
-                <div className="card-header">
-                  <h3><i className="fas fa-graduation-cap"></i> Learning Profile</h3>
-                  <button 
-                    type="button" 
-                    className="edit-btn"
+          {/* Learning Profile Card */}
+          <Card>
+            <CardBody>
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Learning Profile</h3>
+                  </div>
+                  <Button
+                    variant={editingSections.learning ? "secondary" : "primary"}
                     onClick={() => toggleEdit('learning')}
                   >
-                    <i className="fas fa-edit"></i> Edit
-                  </button>
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    {editingSections.learning ? 'Cancel' : 'Edit'}
+                  </Button>
                 </div>
-                <form className="profile-form">
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label htmlFor="current-level">Current English Level</label>
+
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="current-level" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Current English Level
+                      </label>
                       <select
                         id="current-level"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         value={profile.currentLevel}
                         onChange={(e) => updateProfile('currentLevel', e.target.value)}
                         disabled={!editingSections.learning}
@@ -351,10 +342,13 @@ export default function SettingsPage() {
                         <option value="Proficient">Proficient (C2)</option>
                       </select>
                     </div>
-                    <div className="form-group">
-                      <label htmlFor="target-level">Target Level</label>
+                    <div>
+                      <label htmlFor="target-level" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Target Level
+                      </label>
                       <select
                         id="target-level"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         value={profile.targetLevel}
                         onChange={(e) => updateProfile('targetLevel', e.target.value)}
                         disabled={!editingSections.learning}
@@ -368,73 +362,98 @@ export default function SettingsPage() {
                       </select>
                     </div>
                   </div>
-                  <div className="form-group">
-                    <label htmlFor="learning-goals">Learning Goals</label>
+                  <div>
+                    <label htmlFor="learning-goals" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Learning Goals
+                    </label>
                     <textarea
                       id="learning-goals"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       rows={3}
                       value={profile.learningGoals.join(', ')}
                       onChange={(e) => updateProfile('learningGoals', e.target.value.split(', ').filter(g => g.trim()))}
-                      readOnly={!editingSections.learning}
+                      disabled={!editingSections.learning}
                     />
                   </div>
-                  <div className="form-group">
-                    <label>Focus Areas</label>
-                    <div className="checkbox-group">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                      Focus Areas
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
                       {['Grammar', 'Vocabulary', 'Pronunciation', 'Listening', 'Writing', 'Reading'].map(area => (
-                        <label key={area} className="checkbox-label">
+                        <label key={area} className="flex items-center space-x-3 cursor-pointer">
                           <input
                             type="checkbox"
+                            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
                             checked={profile.focusAreas.includes(area)}
                             onChange={() => toggleFocusArea(area)}
                             disabled={!editingSections.learning}
                           />
-                          <span className="checkmark"></span>
-                          {area}
+                          <span className="text-sm text-gray-700 dark:text-gray-300">{area}</span>
                         </label>
                       ))}
                     </div>
                   </div>
                   {editingSections.learning && (
-                    <div className="form-actions">
-                      <button 
-                        type="button" 
-                        className="btn btn-save"
+                    <div className="flex gap-3 pt-4">
+                      <Button
+                        variant="primary"
                         onClick={() => saveSection('learning')}
                         disabled={saving}
                       >
-                        <i className="fas fa-save"></i> Save Changes
-                      </button>
-                      <button 
-                        type="button" 
-                        className="btn btn-cancel"
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Save Changes
+                      </Button>
+                      <Button
+                        variant="secondary"
                         onClick={() => cancelEdit('learning')}
                       >
-                        <i className="fas fa-times"></i> Cancel
-                      </button>
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Cancel
+                      </Button>
                     </div>
                   )}
-                </form>
+                </div>
               </div>
+            </CardBody>
+          </Card>
 
-              {/* App Settings Card */}
-              <div className="profile-card">
-                <div className="card-header">
-                  <h3><i className="fas fa-cog"></i> App Settings</h3>
-                  <button 
-                    type="button" 
-                    className="edit-btn"
+          {/* App Settings Card */}
+          <Card className="lg:col-span-2">
+            <CardBody>
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <svg className="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white">App Settings</h3>
+                  </div>
+                  <Button
+                    variant={editingSections.settings ? "secondary" : "primary"}
                     onClick={() => toggleEdit('settings')}
                   >
-                    <i className="fas fa-edit"></i> Edit
-                  </button>
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    {editingSections.settings ? 'Cancel' : 'Edit'}
+                  </Button>
                 </div>
-                <form className="profile-form">
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label htmlFor="language-select">Interface Language</label>
+
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                      <label htmlFor="language-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Interface Language
+                      </label>
                       <select
                         id="language-select"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         value={profile.interfaceLanguage}
                         onChange={(e) => updateProfile('interfaceLanguage', e.target.value)}
                         disabled={!editingSections.settings}
@@ -447,10 +466,13 @@ export default function SettingsPage() {
                         <option value="Portuguese">Portuguese</option>
                       </select>
                     </div>
-                    <div className="form-group">
-                      <label htmlFor="timezone">Timezone</label>
+                    <div>
+                      <label htmlFor="timezone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Timezone
+                      </label>
                       <select
                         id="timezone"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         value={profile.timezone}
                         onChange={(e) => updateProfile('timezone', e.target.value)}
                         disabled={!editingSections.settings}
@@ -462,28 +484,13 @@ export default function SettingsPage() {
                         <option value="UTC-8">Pacific Time (UTC-8)</option>
                       </select>
                     </div>
-                  </div>
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label htmlFor="voice-speed">Voice Speed</label>
-                      <div className="range-input">
-                        <input
-                          type="range"
-                          id="voice-speed"
-                          min="0.5"
-                          max="2"
-                          step="0.1"
-                          value={profile.voiceSpeed}
-                          onChange={(e) => updateProfile('voiceSpeed', parseFloat(e.target.value))}
-                          disabled={!editingSections.settings}
-                        />
-                        <span className="speed-value">{profile.voiceSpeed}x</span>
-                      </div>
-                    </div>
-                    <div className="form-group">
-                      <label htmlFor="theme-select">Theme</label>
+                    <div>
+                      <label htmlFor="theme-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Theme
+                      </label>
                       <select
                         id="theme-select"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         value={profile.theme}
                         onChange={(e) => updateProfile('theme', e.target.value)}
                         disabled={!editingSections.settings}
@@ -494,67 +501,109 @@ export default function SettingsPage() {
                         <option value="Enhanced">Enhanced</option>
                       </select>
                     </div>
-                  </div>
-                  <div className="form-group">
-                    <label>Notifications</label>
-                    <div className="checkbox-group">
-                      <label className="checkbox-label">
-                        <input
-                          type="checkbox"
-                          checked={profile.notifications.email}
-                          onChange={(e) => updateNestedProfile('notifications', 'email', e.target.checked)}
-                          disabled={!editingSections.settings}
-                        />
-                        <span className="checkmark"></span>
-                        Email Notifications
+                    <div>
+                      <label htmlFor="voice-speed" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Voice Speed: {profile.voiceSpeed}x
                       </label>
-                      <label className="checkbox-label">
-                        <input
-                          type="checkbox"
-                          checked={profile.notifications.push}
-                          onChange={(e) => updateNestedProfile('notifications', 'push', e.target.checked)}
-                          disabled={!editingSections.settings}
-                        />
-                        <span className="checkmark"></span>
-                        Push Notifications
-                      </label>
-                      <label className="checkbox-label">
-                        <input
-                          type="checkbox"
-                          checked={profile.notifications.reminders}
-                          onChange={(e) => updateNestedProfile('notifications', 'reminders', e.target.checked)}
-                          disabled={!editingSections.settings}
-                        />
-                        <span className="checkmark"></span>
-                        Study Reminders
-                      </label>
+                      <input
+                        type="range"
+                        id="voice-speed"
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                        min="0.5"
+                        max="2"
+                        step="0.1"
+                        value={profile.voiceSpeed}
+                        onChange={(e) => updateProfile('voiceSpeed', parseFloat(e.target.value))}
+                        disabled={!editingSections.settings}
+                      />
                     </div>
                   </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
+                      Notifications
+                    </label>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div>
+                          <div className="font-medium text-gray-900 dark:text-white">Email Notifications</div>
+                          <div className="text-sm text-gray-600 dark:text-gray-400">Receive updates via email</div>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={profile.notifications.email}
+                            onChange={(e) => updateNestedProfile('notifications', 'email', e.target.checked)}
+                            disabled={!editingSections.settings}
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                        </label>
+                      </div>
+                      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div>
+                          <div className="font-medium text-gray-900 dark:text-white">Push Notifications</div>
+                          <div className="text-sm text-gray-600 dark:text-gray-400">Receive browser notifications</div>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={profile.notifications.push}
+                            onChange={(e) => updateNestedProfile('notifications', 'push', e.target.checked)}
+                            disabled={!editingSections.settings}
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                        </label>
+                      </div>
+                      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div>
+                          <div className="font-medium text-gray-900 dark:text-white">Study Reminders</div>
+                          <div className="text-sm text-gray-600 dark:text-gray-400">Get reminded to practice</div>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={profile.notifications.reminders}
+                            onChange={(e) => updateNestedProfile('notifications', 'reminders', e.target.checked)}
+                            disabled={!editingSections.settings}
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
                   {editingSections.settings && (
-                    <div className="form-actions">
-                      <button 
-                        type="button" 
-                        className="btn btn-save"
+                    <div className="flex gap-3 pt-4">
+                      <Button
+                        variant="primary"
                         onClick={() => saveSection('settings')}
                         disabled={saving}
                       >
-                        <i className="fas fa-save"></i> Save Changes
-                      </button>
-                      <button 
-                        type="button" 
-                        className="btn btn-cancel"
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Save Changes
+                      </Button>
+                      <Button
+                        variant="secondary"
                         onClick={() => cancelEdit('settings')}
                       >
-                        <i className="fas fa-times"></i> Cancel
-                      </button>
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Cancel
+                      </Button>
                     </div>
                   )}
-                </form>
+                </div>
               </div>
-            </div>
-          </div>
-        </main>
+            </CardBody>
+          </Card>
+        </div>
       </div>
-    </ThemedComponent>
+    </Layout>
   );
 }

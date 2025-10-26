@@ -1,15 +1,18 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useTheme, ThemedComponent } from '@/components/ThemeProvider';
-import { useOptimizedRouter } from '@/lib/routing';
+import { useOptimizedRouter } from '@/hooks/useOptimizedRouter';
+import Layout from '@/components/ui/Layout';
+import { Card, CardBody } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import api from '@/lib/api';
 
 interface UsageData {
-  subscriptionTier: 'Standard' | 'Gold' | 'Diamond';
-  monthlyLimit: number; // in seconds
-  monthlyUsage: number; // in seconds
-  remainingUsage: number; // in seconds
+  subscriptionTier: string;
+  monthlyLimit: number;
+  monthlyUsage: number;
+  remainingUsage: number;
   lastReset: string;
   nextReset: string;
   usagePercentage: number;
@@ -17,81 +20,63 @@ interface UsageData {
 
 interface TierOption {
   name: string;
-  limit: number; // in minutes
+  limit: string;
   price: string;
   features: string[];
 }
 
-export default function UsageDashboardPage() {
+export default function UsageDashboard() {
   const router = useOptimizedRouter();
   const [usageData, setUsageData] = useState<UsageData>({
     subscriptionTier: 'Standard',
-    monthlyLimit: 1200, // 20 minutes in seconds
+    monthlyLimit: 0,
     monthlyUsage: 0,
-    remainingUsage: 1200,
+    remainingUsage: 0,
     lastReset: '',
     nextReset: '',
     usagePercentage: 0
   });
   const [loading, setLoading] = useState(true);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const tierOptions: TierOption[] = [
     {
       name: 'Standard',
-      limit: 20,
+      limit: '300',
       price: 'Free',
-      features: ['20 minutes/month', 'Basic TTS quality', 'Standard support']
+      features: ['300 minutes/month', 'Basic voice options', 'Standard support']
     },
     {
       name: 'Gold',
-      limit: 60,
+      limit: '1000',
       price: '$9.99/month',
-      features: ['60 minutes/month', 'High-quality TTS', 'Priority support', 'Advanced features']
+      features: ['1000 minutes/month', 'Premium voices', 'Priority support', 'Advanced features']
     },
     {
       name: 'Diamond',
-      limit: 120,
+      limit: '3000',
       price: '$19.99/month',
-      features: ['120 minutes/month', 'Premium TTS quality', '24/7 support', 'All features', 'Custom voices']
+      features: ['3000 minutes/month', 'All premium voices', '24/7 support', 'Custom voice training', 'API access']
     }
   ];
 
-  // Prefetch likely routes
   useEffect(() => {
     router.prefetch('/dashboard');
-    router.prefetch('/chat');
-    router.prefetch('/settings');
-  }, [router]);
-
-  useEffect(() => {
+    router.prefetch('/progress');
     loadUsageData();
-    // Refresh usage data every 30 seconds
-    const interval = setInterval(loadUsageData, 30000);
-    return () => clearInterval(interval);
-  }, []);
+  }, [router]);
 
   const loadUsageData = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/api/subscription/status');
-      const data = response.data;
-      
-      setUsageData({
-        subscriptionTier: data.subscriptionTier || 'Standard',
-        monthlyLimit: data.monthlyLimit || 1200,
-        monthlyUsage: data.monthlyUsage || 0,
-        remainingUsage: data.remainingUsage || 1200,
-        lastReset: data.lastReset || new Date().toISOString(),
-        nextReset: data.nextReset || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        usagePercentage: data.usagePercentage || 0
-      });
+      const response = await api.get('/api/usage');
+      setUsageData(response.data);
     } catch (error) {
       console.error('Error loading usage data:', error);
-      // Set mock data for demo
-      const mockUsage = Math.floor(Math.random() * 800); // Random usage up to ~13 minutes
-      const mockLimit = 1200; // 20 minutes
+      // Mock data for demo
+      const mockUsage = 180 * 60; // 180 minutes in seconds
+      const mockLimit = 300 * 60; // 300 minutes in seconds
       setUsageData({
         subscriptionTier: 'Standard',
         monthlyLimit: mockLimit,
@@ -125,7 +110,7 @@ export default function UsageDashboardPage() {
   };
 
   const navigateToPage = (path: string) => {
-    router.navigate(path);
+    router.push(path);
   };
 
   const formatTime = (seconds: number) => {
@@ -139,11 +124,11 @@ export default function UsageDashboardPage() {
 
   const getTierColor = (tier: string) => {
     const colors = {
-      Standard: '#6c757d',
-      Gold: '#ffc107',
-      Diamond: '#17a2b8'
+      Standard: 'bg-gray-500',
+      Gold: 'bg-yellow-500',
+      Diamond: 'bg-blue-500'
     };
-    return colors[tier as keyof typeof colors] || '#6c757d';
+    return colors[tier as keyof typeof colors] || 'bg-gray-500';
   };
 
   const getUsageWarning = () => {
@@ -167,238 +152,305 @@ export default function UsageDashboardPage() {
 
   if (loading) {
     return (
-      <ThemedComponent>
-        <div className="app-container">
-          <header className="auth-header">
-            <div className="academy-brand">
-              <div className="academy-logo">🎓</div>
-              <h1>ESL Academy</h1>
-              <div className="academy-tagline">Excellence in English Learning</div>
+      <Layout>
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800">
+          <div className="flex items-center justify-center min-h-screen">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <div className="text-slate-600 dark:text-slate-300">Loading usage data...</div>
             </div>
-            <nav className="app-nav">
-              <button onClick={() => navigateToPage('/dashboard')} className="btn btn-nav">
-                <i className="fas fa-home"></i>
-                <span>Dashboard</span>
-              </button>
-              <button className="btn btn-nav active">
-                <i className="fas fa-chart-pie"></i>
-                <span>Usage</span>
-              </button>
-            </nav>
-          </header>
-          <main className="app-main">
-            <div className="loading-container">
-              <div className="loading-spinner"></div>
-              <div className="loading-text">Loading usage data...</div>
-            </div>
-          </main>
+          </div>
         </div>
-      </ThemedComponent>
+      </Layout>
     );
   }
 
   return (
-    <ThemedComponent>
-      <div className="app-container">
-        <header className="auth-header">
-          <div className="academy-brand">
-            <div className="academy-logo">🎓</div>
-            <h1>ESL Academy</h1>
-            <div className="academy-tagline">Excellence in English Learning</div>
-          </div>
-          <nav className="app-nav">
-            <button onClick={() => navigateToPage('/dashboard')} className="btn btn-nav">
-              <i className="fas fa-home"></i>
-              <span>Dashboard</span>
-            </button>
-            <button onClick={() => navigateToPage('/chat')} className="btn btn-nav">
-              <i className="fas fa-comments"></i>
-              <span>Chat</span>
-            </button>
-            <button className="btn btn-nav active">
-              <i className="fas fa-chart-pie"></i>
-              <span>Usage</span>
-            </button>
-            <button onClick={() => navigateToPage('/settings')} className="btn btn-nav">
-              <i className="fas fa-cog"></i>
-              <span>Settings</span>
-            </button>
-          </nav>
-        </header>
-
-        <main className="app-main">
-          <div className="usage-container">
-            <div className="usage-header">
-              <h2><i className="fas fa-chart-pie"></i> Usage Dashboard</h2>
-              <p className="usage-subtitle">Monitor your TTS usage and subscription benefits</p>
-            </div>
-
-            <div className="usage-grid">
-              {/* Current Subscription Card */}
-              <div className="usage-card subscription-card">
-                <div className="card-header">
-                  <h3><i className="fas fa-crown"></i> Current Subscription</h3>
-                  <div 
-                    className="tier-badge"
-                    style={{ backgroundColor: getTierColor(usageData.subscriptionTier) }}
-                  >
-                    {usageData.subscriptionTier}
-                  </div>
-                </div>
-                <div className="subscription-info">
-                  <div className="tier-benefits">
-                    <div className="benefit-item">
-                      <i className="fas fa-clock"></i>
-                      <span>{formatTime(usageData.monthlyLimit)}/month</span>
-                    </div>
-                    <div className="benefit-item">
-                      <i className="fas fa-calendar-alt"></i>
-                      <span>Monthly reset</span>
-                    </div>
-                    <div className="benefit-item">
-                      <i className="fas fa-microphone"></i>
-                      <span>High-quality TTS</span>
-                    </div>
-                  </div>
-                  <div className="upgrade-section">
-                    <button 
-                      className="btn btn-upgrade"
-                      onClick={() => setShowUpgradeModal(true)}
-                    >
-                      <i className="fas fa-arrow-up"></i> Upgrade Plan
-                    </button>
-                  </div>
-                </div>
+    <Layout>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800">
+        {/* Header */}
+        <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700 sticky top-0 z-40">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-16">
+              <div className="flex items-center space-x-4">
+                <Button
+                  variant="ghost"
+                  onClick={() => navigateToPage('/dashboard')}
+                  className="flex items-center space-x-2 text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  <span>Back to Dashboard</span>
+                </Button>
               </div>
-
-              {/* Usage Statistics Card */}
-              <div className="usage-card stats-card">
-                <div className="card-header">
-                  <h3><i className="fas fa-chart-bar"></i> This Month's Usage</h3>
-                  <div className="usage-percentage">{usageData.usagePercentage}%</div>
-                </div>
-                <div className="usage-stats">
-                  <div className="usage-progress">
-                    <div className="progress-bar">
-                      <div 
-                        className="progress-fill"
-                        style={{ width: `${usageData.usagePercentage}%` }}
-                      ></div>
-                    </div>
-                    <div className="usage-labels">
-                      <span>{formatTime(usageData.monthlyUsage)}</span>
-                      <span>{formatTime(usageData.monthlyLimit)}</span>
-                    </div>
-                  </div>
-                  <div className="usage-details">
-                    <div className="detail-item">
-                      <span className="detail-label">Remaining:</span>
-                      <span className="detail-value">{formatTime(usageData.remainingUsage)}</span>
-                    </div>
-                    <div className="detail-item">
-                      <span className="detail-label">Last Reset:</span>
-                      <span className="detail-value">{formatDate(usageData.lastReset)}</span>
-                    </div>
-                    <div className="detail-item">
-                      <span className="detail-label">Next Reset:</span>
-                      <span className="detail-value">{formatDate(usageData.nextReset)}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Usage Warning Card */}
-              {warning && (
-                <div className={`usage-card warnings-card ${warning.type}`}>
-                  <div className="card-header">
-                    <h3><i className={`fas ${warning.icon}`}></i> Usage Alert</h3>
-                  </div>
-                  <div className="warning-content">
-                    <p>{warning.message}</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Quick Actions Card */}
-              <div className="usage-card actions-card">
-                <div className="card-header">
-                  <h3><i className="fas fa-bolt"></i> Quick Actions</h3>
-                </div>
-                <div className="action-buttons">
-                  <button 
-                    className="action-btn"
-                    onClick={refreshUsage}
-                    disabled={refreshing}
-                  >
-                    <i className={`fas fa-sync-alt ${refreshing ? 'fa-spin' : ''}`}></i>
-                    <span>Refresh Usage</span>
-                  </button>
-                  <button 
-                    className="action-btn"
-                    onClick={() => navigateToPage('/progress')}
-                  >
-                    <i className="fas fa-history"></i>
-                    <span>View History</span>
-                  </button>
-                  <button 
-                    className="action-btn"
-                    onClick={() => setShowUpgradeModal(true)}
-                  >
-                    <i className="fas fa-cog"></i>
-                    <span>Manage Plan</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </main>
-      </div>
-
-      {/* Upgrade Modal */}
-      {showUpgradeModal && (
-        <div className="modal-overlay" onClick={() => setShowUpgradeModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Upgrade Your Plan</h3>
-              <button 
-                className="modal-close"
-                onClick={() => setShowUpgradeModal(false)}
-              >
-                &times;
-              </button>
-            </div>
-            <div className="modal-body">
-              <div className="tier-options">
-                {tierOptions.map((tier) => (
-                  <div 
-                    key={tier.name}
-                    className={`tier-option ${usageData.subscriptionTier === tier.name ? 'current' : ''}`}
-                  >
-                    <div className="tier-name">{tier.name}</div>
-                    <div className="tier-limit">{tier.limit} minutes/month</div>
-                    <div className="tier-price">{tier.price}</div>
-                    <div className="tier-features">
-                      {tier.features.map((feature, index) => (
-                        <div key={index} className="feature-item">
-                          <i className="fas fa-check"></i>
-                          <span>{feature}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <button 
-                      className={`btn ${usageData.subscriptionTier === tier.name ? 'btn-current' : 'btn-select'}`}
-                      onClick={() => selectTier(tier.name)}
-                      disabled={usageData.subscriptionTier === tier.name}
-                    >
-                      {usageData.subscriptionTier === tier.name ? 'Current Plan' : `Select ${tier.name}`}
-                    </button>
-                  </div>
-                ))}
+              <div className="flex items-center space-x-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={refreshUsage}
+                  disabled={refreshing}
+                  className="p-2"
+                  title="Refresh Usage Data"
+                >
+                  <svg className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </Button>
               </div>
             </div>
           </div>
         </div>
-      )}
-    </ThemedComponent>
+
+        {/* Main Content */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Page Header */}
+          <div className="mb-8">
+            <div className="flex items-center space-x-3 mb-2">
+              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Usage Dashboard</h1>
+                <p className="text-slate-600 dark:text-slate-300">Monitor your TTS usage and subscription benefits</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Usage Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {/* Current Subscription Card */}
+            <Card className="hover:shadow-lg transition-all duration-200 lg:col-span-1">
+              <CardBody>
+                <div className="border-b border-slate-200 dark:border-slate-700 pb-4 mb-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center">
+                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3l14 9-14 9V3z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Current Subscription</h3>
+                    </div>
+                    <Badge className={`${getTierColor(usageData.subscriptionTier)} text-white`}>
+                      {usageData.subscriptionTier}
+                    </Badge>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
+                      {formatTime(usageData.monthlyLimit)}
+                    </div>
+                    <div className="text-sm text-slate-600 dark:text-slate-300">Monthly Limit</div>
+                  </div>
+                  <Button
+                    onClick={() => setShowUpgradeModal(true)}
+                    className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+                  >
+                    Upgrade Plan
+                  </Button>
+                </div>
+              </CardBody>
+            </Card>
+
+            {/* Usage Statistics Card */}
+            <Card className="hover:shadow-lg transition-all duration-200 lg:col-span-1 xl:col-span-2">
+              <CardBody>
+                <div className="border-b border-slate-200 dark:border-slate-700 pb-4 mb-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-teal-500 rounded-lg flex items-center justify-center">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Usage Statistics</h3>
+                  </div>
+                </div>
+                <div className="space-y-6">
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Monthly Usage</span>
+                      <span className="text-sm font-bold text-slate-900 dark:text-white">{usageData.usagePercentage}%</span>
+                    </div>
+                    <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-3 mb-2">
+                      <div 
+                        className="bg-gradient-to-r from-blue-500 to-cyan-500 h-3 rounded-full transition-all duration-500"
+                        style={{ width: `${usageData.usagePercentage}%` }}
+                      ></div>
+                    </div>
+                    <div className="flex justify-between text-sm text-slate-600 dark:text-slate-300">
+                      <span>{formatTime(usageData.monthlyUsage)}</span>
+                      <span>{formatTime(usageData.monthlyLimit)}</span>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-600 dark:text-slate-300">Remaining:</span>
+                      <span className="font-medium text-slate-900 dark:text-white">{formatTime(usageData.remainingUsage)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-600 dark:text-slate-300">Last Reset:</span>
+                      <span className="font-medium text-slate-900 dark:text-white">{formatDate(usageData.lastReset)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-600 dark:text-slate-300">Next Reset:</span>
+                      <span className="font-medium text-slate-900 dark:text-white">{formatDate(usageData.nextReset)}</span>
+                    </div>
+                  </div>
+                </div>
+              </CardBody>
+            </Card>
+
+            {/* Usage Warning Card */}
+            {warning && (
+              <Card className={`hover:shadow-lg transition-all duration-200 ${
+                warning.type === 'danger' 
+                  ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20' 
+                  : 'border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20'
+              }`}>
+                <CardBody>
+                  <div className="border-b border-slate-200 dark:border-slate-700 pb-4 mb-4">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                        warning.type === 'danger' 
+                          ? 'bg-red-100 dark:bg-red-900/30' 
+                          : 'bg-yellow-100 dark:bg-yellow-900/30'
+                      }`}>
+                        <svg className={`w-4 h-4 ${
+                          warning.type === 'danger' 
+                            ? 'text-red-600 dark:text-red-400' 
+                            : 'text-yellow-600 dark:text-yellow-400'
+                        }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Usage Alert</h3>
+                    </div>
+                  </div>
+                  <p className="text-slate-700 dark:text-slate-300">{warning.message}</p>
+                </CardBody>
+              </Card>
+            )}
+
+            {/* Quick Actions Card */}
+            <Card className="hover:shadow-lg transition-all duration-200 lg:col-span-1 xl:col-span-1">
+              <CardBody>
+                <div className="border-b border-slate-200 dark:border-slate-700 pb-4 mb-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Quick Actions</h3>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <Button 
+                    variant="secondary"
+                    onClick={refreshUsage}
+                    disabled={refreshing}
+                    className="w-full justify-start"
+                  >
+                    <svg className={`w-4 h-4 mr-3 ${refreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Refresh Usage
+                  </Button>
+                  <Button 
+                    variant="secondary"
+                    onClick={() => navigateToPage('/progress')}
+                    className="w-full justify-start"
+                  >
+                    <svg className="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    View History
+                  </Button>
+                  <Button 
+                    variant="secondary"
+                    onClick={() => setShowUpgradeModal(true)}
+                    className="w-full justify-start"
+                  >
+                    <svg className="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Manage Plan
+                  </Button>
+                </div>
+              </CardBody>
+            </Card>
+          </div>
+        </div>
+
+        {/* Upgrade Modal */}
+        {showUpgradeModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700">
+                <h3 className="text-xl font-semibold text-slate-900 dark:text-white">Upgrade Your Plan</h3>
+                <Button 
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowUpgradeModal(false)}
+                  className="p-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </Button>
+              </div>
+              <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {tierOptions.map((tier) => (
+                    <Card 
+                      key={tier.name}
+                      className={`transition-all duration-200 ${
+                        usageData.subscriptionTier === tier.name 
+                          ? 'ring-2 ring-blue-500 dark:ring-blue-400' 
+                          : 'hover:shadow-lg'
+                      }`}
+                    >
+                      <CardBody>
+                        <div className="text-center mb-4">
+                          <h4 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">{tier.name}</h4>
+                          <div className="text-sm text-slate-600 dark:text-slate-300 mb-2">{tier.limit} minutes/month</div>
+                          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{tier.price}</div>
+                        </div>
+                        <div className="space-y-2 mb-6">
+                          {tier.features.map((feature, index) => (
+                            <div key={index} className="flex items-center space-x-2 text-sm text-slate-600 dark:text-slate-300">
+                              <svg className="w-3 h-3 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              <span>{feature}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <Button 
+                          onClick={() => selectTier(tier.name)}
+                          disabled={usageData.subscriptionTier === tier.name}
+                          className={`w-full ${
+                            usageData.subscriptionTier === tier.name 
+                              ? 'bg-gray-400 cursor-not-allowed' 
+                              : 'bg-blue-600 hover:bg-blue-700'
+                          } text-white`}
+                        >
+                          {usageData.subscriptionTier === tier.name ? 'Current Plan' : `Select ${tier.name}`}
+                        </Button>
+                      </CardBody>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </Layout>
   );
 }

@@ -42,11 +42,23 @@ export default function ModernNavigation() {
     
     // Handle scroll effect
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
+      const scrolled = window.scrollY > 20;
+      setIsScrolled(scrolled);
+      
+      // Add/remove body class for CSS styling
+      if (scrolled) {
+        document.body.classList.add('nav-scrolled');
+      } else {
+        document.body.classList.remove('nav-scrolled');
+      }
     };
     
     window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      // Clean up body class on unmount
+      document.body.classList.remove('nav-scrolled');
+    };
   }, []);
 
   const checkAuthStatus = async () => {
@@ -84,9 +96,9 @@ export default function ModernNavigation() {
 
   const getTierColor = (tier: string) => {
     switch (tier?.toLowerCase()) {
-      case 'premium': return 'text-yellow-400';
-      case 'pro': return 'text-purple-400';
-      default: return 'text-blue-400';
+      case 'premium': return 'tier-premium';
+      case 'pro': return 'tier-pro';
+      default: return 'tier-basic';
     }
   };
 
@@ -100,15 +112,15 @@ export default function ModernNavigation() {
 
   if (isLoading) {
     return (
-      <nav className={`modern-nav loading ${isScrolled ? 'scrolled' : ''}`}>
-        <div className="modern-nav-container">
-          <div className="modern-nav-brand">
+      <nav className={`navbar loading ${isScrolled ? 'scrolled' : ''}`}>
+        <div className="navbar-container">
+          <div className="navbar-brand">
             <div className="brand-logo">
               <div className="logo-icon">E</div>
             </div>
             <span className="brand-text">ESL Academy</span>
           </div>
-          <div className="loading-spinner-nav"></div>
+          <div className="loading-spinner"></div>
         </div>
       </nav>
     );
@@ -116,27 +128,27 @@ export default function ModernNavigation() {
 
   if (!user) {
     return (
-      <nav className={`modern-nav guest ${isScrolled ? 'scrolled' : ''}`}>
-        <div className="modern-nav-container">
-          <Link href="/" className="modern-nav-brand">
+      <nav className={`navbar guest ${isScrolled ? 'scrolled' : ''}`}>
+        <div className="navbar-container">
+          <Link href="/" className="navbar-brand">
             <div className="brand-logo">
               <div className="logo-icon">E</div>
             </div>
             <span className="brand-text">ESL Academy</span>
           </Link>
           
-          <div className="nav-actions">
-            <Link href="/login" className="nav-action-btn login-btn">
+          <div className="navbar-actions">
+            <Link href="/login" className="nav-btn login-btn">
               <i className="fas fa-sign-in-alt"></i>
               <span>Sign In</span>
             </Link>
-            <Link href="/signup" className="nav-action-btn signup-btn">
+            <Link href="/signup" className="nav-btn signup-btn">
               <i className="fas fa-user-plus"></i>
               <span>Join Now</span>
             </Link>
             <button 
               onClick={toggleTheme}
-              className="theme-toggle-btn"
+              className="theme-toggle"
               aria-label="Toggle theme"
             >
               <i className={`fas ${theme === 'enhanced' ? 'fa-moon' : 'fa-sun'}`}></i>
@@ -148,7 +160,7 @@ export default function ModernNavigation() {
   }
 
   return (
-    <nav className={`modern-nav authenticated ${isScrolled ? 'scrolled' : ''}`}>
+    <nav className={`modern-nav ${isScrolled ? 'scrolled' : ''}`}>
       <div className="modern-nav-container">
         {/* Brand Section */}
         <Link href="/dashboard" className="modern-nav-brand">
@@ -178,7 +190,7 @@ export default function ModernNavigation() {
                       <span className="nav-badge">{item.badge}</span>
                     )}
                   </div>
-                  <div className="nav-link-indicator"></div>
+                  <div className="nav-indicator"></div>
                 </Link>
               </li>
             ))}
@@ -220,7 +232,7 @@ export default function ModernNavigation() {
 
         {/* Mobile Menu Button */}
         <button 
-          className={`mobile-menu-btn ${isMobileMenuOpen ? 'active' : ''}`}
+          className={`mobile-menu-toggle ${isMobileMenuOpen ? 'active' : ''}`}
           onClick={toggleMobileMenu}
           aria-label="Toggle mobile menu"
         >
@@ -231,7 +243,7 @@ export default function ModernNavigation() {
       </div>
 
       {/* Mobile Navigation Overlay */}
-      <div className={`mobile-nav-overlay ${isMobileMenuOpen ? 'active' : ''}`}>
+      <div className={`mobile-nav ${isMobileMenuOpen ? 'active' : ''}`}>
         <div className="mobile-nav-content">
           <div className="mobile-user-section">
             <div className="mobile-user-info">

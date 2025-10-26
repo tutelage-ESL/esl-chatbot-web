@@ -2707,12 +2707,14 @@ router.post('/subscription/tier', async (req, res) => {
     }
 
     const { tier } = req.body;
-    const validTiers = ['Standard', 'Gold', 'Diamond'];
+    const validTiersDisplay = ['Standard', 'Gold', 'Diamond'];
+    const validTiers = ['standard', 'gold', 'diamond'];
+    const normalizedTier = (tier || '').toLowerCase();
 
-    if (!tier || !validTiers.includes(tier)) {
+    if (!normalizedTier || !validTiers.includes(normalizedTier)) {
       return res.status(400).json({ 
         error: 'Invalid tier', 
-        validTiers: validTiers 
+        validTiers: validTiersDisplay 
       });
     }
 
@@ -2722,21 +2724,23 @@ router.post('/subscription/tier', async (req, res) => {
     }
 
     const oldTier = user.subscriptionTier;
-    user.subscriptionTier = tier;
+    user.subscriptionTier = normalizedTier;
     await user.save();
 
     // Log tier change
-    console.log(`User ${user.id} tier changed from ${oldTier} to ${tier}`);
+    console.log(`User ${user.id} tier changed from ${oldTier} to ${normalizedTier}`);
 
-    const tierLimits = user.getTierLimits();
+    const limitsMap = { standard: 20 * 60, gold: 60 * 60, diamond: 120 * 60 };
+    const newLimit = user.getTierLimits();
+    const oldLimit = limitsMap[oldTier] || limitsMap.standard;
     const remainingUsage = user.getRemainingUsage();
 
     res.json({
       message: 'Subscription tier updated successfully',
       subscriptionTier: user.subscriptionTier,
-      monthlyLimit: tierLimits.monthlyLimit,
+      monthlyLimit: newLimit,
       remainingUsage: remainingUsage,
-      upgraded: tierLimits.monthlyLimit > user.getTierLimits(oldTier).monthlyLimit
+      upgraded: newLimit > oldLimit
     });
   } catch (error) {
     console.error('Error updating subscription tier:', error);
@@ -2758,13 +2762,13 @@ router.get('/subscription/usage-history', async (req, res) => {
 
     // For now, return current month's data
     // In a full implementation, you'd store historical usage data
-    const tierLimits = user.getTierLimits();
-    const usagePercentage = (user.monthlyTtsUsage / tierLimits.monthlyLimit) * 100;
+    const tierLimits = user.getTierLimits(); // seconds
+    const usagePercentage = (user.monthlyTtsUsage / tierLimits) * 100;
 
     res.json({
       currentMonth: {
         usage: user.monthlyTtsUsage,
-        limit: tierLimits.monthlyLimit,
+        limit: tierLimits,
         percentage: Math.round(usagePercentage),
         tier: user.subscriptionTier
       },

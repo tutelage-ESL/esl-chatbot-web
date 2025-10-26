@@ -236,15 +236,18 @@
             const warningsCard = document.getElementById('warnings-card');
             const warningContent = document.getElementById('warning-content');
             
-            if (data.nearLimit || data.usagePercentage >= 90) {
+            const usagePct = Math.round(data.usagePercentage || 0);
+            const remainingMinutes = Math.max(0, Math.floor((data.remainingUsage || 0) / 60));
+            
+            if (data.nearLimit || usagePct >= 90) {
                 let warningMessage = '';
                 let warningClass = '';
                 
-                if (data.usagePercentage >= 95) {
-                    warningMessage = `<strong>Critical:</strong> You've used ${data.usagePercentage}% of your monthly TTS quota. Consider upgrading your plan to avoid service interruption.`;
+                if (usagePct >= 95) {
+                    warningMessage = `<strong>Critical:</strong> You've used ${usagePct}% of your monthly TTS quota. Consider upgrading your plan to avoid service interruption. You have ${remainingMinutes} minutes remaining.`;
                     warningClass = 'critical';
-                } else if (data.usagePercentage >= 80) {
-                    warningMessage = `<strong>Warning:</strong> You've used ${data.usagePercentage}% of your monthly TTS quota. You have ${Math.round(data.remainingUsage)} minutes remaining.`;
+                } else if (usagePct >= 80) {
+                    warningMessage = `<strong>Warning:</strong> You've used ${usagePct}% of your monthly TTS quota. You have ${remainingMinutes} minutes remaining.`;
                     warningClass = 'warning';
                 }
                 
@@ -286,8 +289,9 @@
             tierOptions.forEach(option => {
                 const tier = option.dataset.tier;
                 const button = option.querySelector('.btn-select');
+                const normalizedCurrentTier = (currentUsageData?.subscriptionTier || 'standard').toLowerCase();
                 
-                if (currentUsageData && tier === currentUsageData.subscriptionTier) {
+                if (tier.toLowerCase() === normalizedCurrentTier) {
                     button.textContent = 'Current Plan';
                     button.disabled = true;
                     option.classList.add('current');
@@ -300,7 +304,8 @@
         }
 
         async function selectTier(tier) {
-            if (currentUsageData && tier === currentUsageData.subscriptionTier) {
+            const normalizedCurrentTier = (currentUsageData?.subscriptionTier || '').toLowerCase();
+            if (tier.toLowerCase() === normalizedCurrentTier) {
                 return;
             }
             

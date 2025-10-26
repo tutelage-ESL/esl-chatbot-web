@@ -12,6 +12,7 @@ require('dotenv').config();
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
+
 const PORT = process.env.PORT || 3000;
 global.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const sessionMiddleware = session({
@@ -196,18 +197,17 @@ io.on('connection', (socket) => {
 const db = require('./models');
 const elevenLabsService = require('./services/elevenLabsService');
 
-db.sequelize.sync({ alter: false })
+server.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}/`);
+});
+db.sequelize.authenticate()
   .then(async () => {
+    console.log('Database connected successfully.');
+    await db.sequelize.sync({ alter: false });
     console.log('Database synchronized successfully.');
-    
-    // Initialize ElevenLabs service
     await elevenLabsService.init();
-    
-    server.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
-    });
   })
   .catch(err => {
-    console.error('Unable to synchronize the database:', err);
+    console.error('Database connection failed; continuing without DB:', err.message);
   });
 module.exports = app;

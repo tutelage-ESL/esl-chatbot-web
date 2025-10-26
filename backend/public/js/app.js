@@ -9,13 +9,15 @@ document.addEventListener('DOMContentLoaded', () => {
   // Voice elements
   const voiceInputBtn = document.getElementById('voice-btn');
   const voiceStatusMini = document.getElementById('voice-status-mini');
-  const voiceSettingsToggle = document.getElementById('voice-settings-toggle');
+  const voiceSettingsBtn = document.getElementById('voice-settings-btn');
   const voiceSettingsPanel = document.getElementById('voice-settings-panel');
   const autoSpeakChat = document.getElementById('auto-speak-chat');
   const voiceSpeedChat = document.getElementById('voice-speed-chat');
   const speedValueChat = document.getElementById('speed-value-chat');
   const autoSpeakIndicatorChat = document.getElementById('auto-speak-indicator-chat');
   const testVoiceChat = document.getElementById('test-voice-chat');
+  
+
   
   let isConnected = false;
   let messageCount = 0;
@@ -377,6 +379,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  async function ensureElevenLabsReady() {
+    if (!elevenLabsAvailable) return false;
+    if (!selectedVoiceId) {
+      await loadElevenLabsVoices();
+      await new Promise(r => setTimeout(r, 50));
+    }
+    return !!selectedVoiceId;
+  }
+
   async function speakWithElevenLabs(text) {
     try {
       const speed = voiceSpeedChat ? parseFloat(voiceSpeedChat.value) : 1.0;
@@ -571,8 +582,8 @@ document.addEventListener('DOMContentLoaded', () => {
   async function speakText(text) {
     console.log('Starting speech synthesis...');
     
-    // Try ElevenLabs first if available
-    if (elevenLabsAvailable) {
+    // Try ElevenLabs first if available and ready
+    if (await ensureElevenLabsReady()) {
       const success = await speakWithElevenLabs(text);
       if (success) {
         return; // Successfully used ElevenLabs
@@ -594,8 +605,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  if (voiceSettingsToggle && voiceSettingsPanel) {
-    voiceSettingsToggle.addEventListener('click', () => {
+  if (voiceSettingsBtn && voiceSettingsPanel) {
+    voiceSettingsBtn.addEventListener('click', () => {
       const isVisible = voiceSettingsPanel.style.display !== 'none';
       voiceSettingsPanel.style.display = isVisible ? 'none' : 'block';
     });

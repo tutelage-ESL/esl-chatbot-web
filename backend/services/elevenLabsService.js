@@ -59,11 +59,11 @@ class ElevenLabsService {
 
     getAvailableVoices() {
         return this.availableVoices.map(voice => ({
-            id: voice.voiceId,
+            id: voice.voice_id,
             name: voice.name,
             category: voice.category,
             description: voice.description || '',
-            preview_url: voice.previewUrl || null
+            preview_url: voice.preview_url || null
         }));
     }
 
@@ -72,7 +72,7 @@ class ElevenLabsService {
 
         // Priority order for English voices
         const preferredVoices = [
-            'Rachel', 'Adam', 'Domi', 'Fin', 'Sarah', 'Antoni', 'Thomas', 'Charlie', 'Emily', 'Elli', 'Callum', 'Patrick', 'Harry', 'Liam', 'Dorothy', 'Josh', 'Arnold', 'Charlotte', 'Matilda', 'Matthew', 'James', 'Joseph', 'Jeremy', 'Michael', 'Ethan', 'Gigi', 'Freya', 'Grace', 'Daniel', 'Lily', 'Serena', 'Adam', 'Nicole', 'Jessie', 'Ryan', 'Sam', 'Glinda', 'Giovanni', 'Mimi'
+            'Rachel', 'Adam', 'Domi', 'Fin', 'Sarah', 'Antoni', 'Thomas', 'Charlie', 'Emily', 'Elli', 'Callum', 'Patrick', 'Harry', 'Liam', 'Dorothy', 'Josh', 'Arnold', 'Charlotte', 'Matilda', 'Matthew', 'James', 'Joseph', 'Jeremy', 'Michael', 'Ethan', 'Gigi', 'Freya', 'Grace', 'Daniel', 'Lily'
         ];
 
         // Find the first available preferred voice
@@ -81,12 +81,12 @@ class ElevenLabsService {
                 v.name.toLowerCase() === preferredName.toLowerCase()
             );
             if (voice) {
-                return voice.voiceId;
+                return voice.voice_id;
             }
         }
 
         // Fallback to first available voice
-        return this.availableVoices[0]?.voiceId || null;
+        return this.availableVoices[0]?.voice_id || null;
     }
 
     async textToSpeech(text, options = {}) {

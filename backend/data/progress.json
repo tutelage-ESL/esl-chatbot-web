@@ -172,6 +172,12 @@
     "userName": "Student",
     "interactions": [
       {
+        "timestamp": "2025-10-26T14:21:38.227Z",
+        "type": "text",
+        "message": "dsd",
+        "responsePreview": "It looks like you're having some fun with the keyboard again, Daddad! 😉 \"dsddsd\" isn't an English w..."
+      },
+      {
         "timestamp": "2025-09-29T14:07:01.852Z",
         "type": "text",
         "message": "hi",
@@ -215,8 +221,8 @@
       }
     ],
     "metrics": {
-      "totalInteractions": 7,
-      "textInteractions": 7,
+      "totalInteractions": 8,
+      "textInteractions": 8,
       "voiceInteractions": 0,
       "commandsUsed": 0,
       "lessonsCompleted": 0,
@@ -230,13 +236,31 @@
         "speaking": 0,
         "listening": 0
       },
-      "lastUpdated": "2025-09-29T14:07:01.852Z"
+      "lastUpdated": "2025-10-26T14:21:38.227Z"
     }
   },
   "8": {
     "userId": 8,
     "userName": "Student",
     "interactions": [
+      {
+        "timestamp": "2025-10-26T14:38:59.062Z",
+        "type": "text",
+        "message": "ds",
+        "responsePreview": "No problem at all, testuser_1min! 😊 It looks like those letters are just having a little dance!\n\nLe..."
+      },
+      {
+        "timestamp": "2025-10-26T14:34:22.670Z",
+        "type": "text",
+        "message": "hi",
+        "responsePreview": "Hihi, testuser_1min! 👋 So glad to hear from you!\n\nLet's jump back into our grammar adventure, testu..."
+      },
+      {
+        "timestamp": "2025-10-26T14:22:28.462Z",
+        "type": "text",
+        "message": "dfdf",
+        "responsePreview": "No worries at all, testuser_1min! 😊 It looks like you sent some random letters again, and that's pe..."
+      },
       {
         "timestamp": "2025-09-29T14:14:58.974Z",
         "type": "text",
@@ -257,8 +281,8 @@
       }
     ],
     "metrics": {
-      "totalInteractions": 3,
-      "textInteractions": 3,
+      "totalInteractions": 6,
+      "textInteractions": 6,
       "voiceInteractions": 0,
       "commandsUsed": 0,
       "lessonsCompleted": 0,
@@ -272,7 +296,7 @@
         "speaking": 0,
         "listening": 0
       },
-      "lastUpdated": "2025-09-29T14:14:58.974Z"
+      "lastUpdated": "2025-10-26T14:38:59.062Z"
     }
   },
   "10": {

@@ -147,6 +147,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize voice status
     updateVoiceStatus('Ready to listen', 'ready');
 
+    // Check ElevenLabs availability and load voices on page load
+    checkElevenLabsStatus();
+
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
         recognition = new (window.webkitSpeechRecognition || window.SpeechRecognition)();
         recognition.continuous = false;
