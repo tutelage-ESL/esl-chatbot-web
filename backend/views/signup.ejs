@@ -8,29 +8,29 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎓</text></svg>">
 </head>
-<body>
-    <div id="auth-container">
-        <div id="signup-form-container">
-            <div class="auth-logo">
+<body class="bg-gray-100 font-sans antialiased">
+    <div id="auth-container" class="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+        <div id="signup-form-container" class="bg-white p-8 rounded-lg shadow-md w-full max-w-md text-center">
+            <div class="auth-logo text-5xl mb-4">
                 🎓
             </div>
-            <h2>Join ESL Academy</h2>
-            <p class="auth-subtitle">Start your personalized English learning journey today</p>
+            <h2 class="text-3xl font-bold text-gray-800 mb-2">Join ESL Academy</h2>
+            <p class="auth-subtitle text-gray-600 mb-6">Start your personalized English learning journey today</p>
             <% if (typeof errors !== 'undefined' && errors.length > 0) { %>
-                <div class="error-messages">
+                <div class="error-messages bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
                     <% errors.forEach(function(error) { %>
-                        <p style="color: #ef4444; margin: 0.5rem 0; font-size: 0.9rem;"><%= error.msg %></p>
+                        <p class="text-red-700 text-sm"><%= error.msg %></p>
                     <% }); %>
                 </div>
             <% } %>
-            <form id="signup-form" action="/api/auth/signup" method="POST">
-                <input type="text" id="signup-username" name="username" placeholder="👤 Choose Username" value="<%= typeof oldInput !== 'undefined' ? oldInput.username : '' %>" required>
-                <input type="email" id="signup-email" name="email" placeholder="📧 Email Address" value="<%= typeof oldInput !== 'undefined' ? oldInput.email : '' %>" required>
-                <input type="password" id="signup-password" name="password" placeholder="🔒 Create Password" required>
+            <form id="signup-form" action="/api/auth/signup" method="POST" class="space-y-4">
+                <input type="text" id="signup-username" name="username" placeholder="👤 Choose Username" value="<%= typeof oldInput !== 'undefined' ? oldInput.username : '' %>" required class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
+                <input type="email" id="signup-email" name="email" placeholder="📧 Email Address" value="<%= typeof oldInput !== 'undefined' ? oldInput.email : '' %>" required class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
+                <input type="password" id="signup-password" name="password" placeholder="🔒 Create Password" required class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
                 
-                <div class="subscription-tier-section">
-                    <label for="subscription-tier">Choose Your Learning Plan:</label>
-                    <select id="subscription-tier" name="subscriptionTier" required>
+                <div class="subscription-tier-section mt-6 p-4 border border-gray-200 rounded-md bg-gray-50">
+                    <label for="subscription-tier" class="block text-gray-700 text-sm font-bold mb-2">Choose Your Learning Plan:</label>
+                    <select id="subscription-tier" name="subscriptionTier" required class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white">
                         <option value="standard" <%= (typeof oldInput !== 'undefined' && oldInput.subscriptionTier === 'standard') ? 'selected' : '' %>>
                             🥉 Standard - 20 minutes/month TTS (Free)
                         </option>
@@ -42,28 +42,28 @@
                         </option>
                     </select>
                     
-                    <div class="tier-benefits">
-                        <div class="tier-benefit standard-benefit active">
-                            <h4>🥉 Standard Plan</h4>
-                            <ul>
+                    <div class="tier-benefits mt-4 space-y-4">
+                        <div class="tier-benefit standard-benefit active p-4 border border-gray-300 rounded-md bg-white shadow-sm">
+                            <h4 class="font-bold text-lg mb-2">🥉 Standard Plan</h4>
+                            <ul class="list-disc list-inside text-left text-gray-700 space-y-1">
                                 <li>✅ 20 minutes of AI voice synthesis per month</li>
                                 <li>✅ Access to all learning features</li>
                                 <li>✅ Progress tracking</li>
                                 <li>✅ Vocabulary builder</li>
                             </ul>
                         </div>
-                        <div class="tier-benefit gold-benefit">
-                            <h4>🥈 Gold Plan</h4>
-                            <ul>
+                        <div class="tier-benefit gold-benefit p-4 border border-gray-300 rounded-md bg-white shadow-sm">
+                            <h4 class="font-bold text-lg mb-2">🥈 Gold Plan</h4>
+                            <ul class="list-disc list-inside text-left text-gray-700 space-y-1">
                                 <li>✅ 1 hour of AI voice synthesis per month</li>
                                 <li>✅ All Standard features</li>
                                 <li>✅ Priority voice processing</li>
                                 <li>✅ Advanced pronunciation feedback</li>
                             </ul>
                         </div>
-                        <div class="tier-benefit diamond-benefit">
-                            <h4>💎 Diamond Plan</h4>
-                            <ul>
+                        <div class="tier-benefit diamond-benefit p-4 border border-gray-300 rounded-md bg-white shadow-sm">
+                            <h4 class="font-bold text-lg mb-2">💎 Diamond Plan</h4>
+                            <ul class="list-disc list-inside text-left text-gray-700 space-y-1">
                                 <li>✅ 2 hours of AI voice synthesis per month</li>
                                 <li>✅ All Gold features</li>
                                 <li>✅ Premium voice selection</li>
@@ -74,9 +74,9 @@
                     </div>
                 </div>
                 
-                <button type="submit">Create Academy Account</button>
+                <button type="submit" class="w-full bg-primary text-white p-3 rounded-md hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50 transition duration-200 mt-6">Create Academy Account</button>
             </form>
-            <p>Already a student? <a href="/login" id="show-login">Sign In</a></p>
+            <p class="mt-6 text-gray-600">Already a student? <a href="/login" id="show-login" class="text-primary hover:underline">Sign In</a></p>
         </div>
     </div>
 

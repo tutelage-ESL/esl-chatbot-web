@@ -1,61 +1,14 @@
-<div class="nav-tabs">
-    <a class="nav-btn" href="/dashboard" data-page="dashboard">
-      <i class="fas fa-home"></i>
-      <span>Dashboard</span>
-    </a>
-    <a class="nav-btn" href="/chat" data-page="chat">
-      <i class="fas fa-comments"></i>
-      <span>AI Tutor</span>
-    </a>
-    <a class="nav-btn" href="/voice" data-page="voice">
-      <i class="fas fa-microphone"></i>
-      <span>Speaking</span>
-    </a>
-    <a class="nav-btn" href="/pronunciation" data-page="pronunciation">
-      <i class="fas fa-volume-up"></i>
-      <span>Pronunciation</span>
-      <span class="nav-badge">New</span>
-    </a>
-    <a class="nav-btn" href="/vocabulary" data-page="vocabulary">
-      <i class="fas fa-book"></i>
-      <span>Vocabulary</span>
-      <span class="nav-badge">New</span>
-    </a>
-    <a class="nav-btn" href="/goals" data-page="goals">
-      <i class="fas fa-target"></i>
-      <span>Goals</span>
-      <span class="nav-badge">New</span>
-    </a>
-    <a class="nav-btn" href="/progress" data-page="progress">
-      <i class="fas fa-chart-line"></i>
-      <span>Progress</span>
-    </a>
-    <a class="nav-btn" href="/usage" data-page="usage">
-      <i class="fas fa-chart-pie"></i>
-      <span>Usage</span>
-      <span class="nav-badge">New</span>
-    </a>
-    <a class="nav-btn" href="/settings" data-page="settings">
-      <i class="fas fa-user-cog"></i>
-      <span>Profile</span>
-    </a>
-    <a href="/api/auth/logout" class="nav-btn logout-btn">
-      <i class="fas fa-sign-out-alt"></i>
-      <span>Logout</span>
-    </a>
-</div>
-
-<script>
-// Add active state to current page
-document.addEventListener('DOMContentLoaded', () => {
-  const currentPath = window.location.pathname;
-  const navBtns = document.querySelectorAll('.nav-btn[data-page]');
-  
-  navBtns.forEach(btn => {
-    const page = btn.getAttribute('data-page');
-    if (currentPath.includes(page)) {
-      btn.classList.add('active');
-    }
-  });
-});
-</script>
+<link href="/css/style.css" rel="stylesheet">
+<nav class="bg-secondary text-foreground p-4 shadow-sm">
+  <div class="container mx-auto flex justify-between items-center">
+    <a href="/" class="text-accent text-lg font-bold">Tutelage Chatbot</a>
+    <div>
+      <a href="/chat" class="text-muted-foreground hover:text-primary px-3">Chat</a>
+      <a href="/vocabulary" class="text-muted-foreground hover:text-primary px-3">Vocabulary</a>
+      <a href="/pronunciation" class="text-muted-foreground hover:text-primary px-3">Pronunciation</a>
+      <a href="/progress" class="text-muted-foreground hover:text-primary px-3">Progress</a>
+      <a href="/settings" class="text-muted-foreground hover:text-primary px-3">Settings</a>
+      <a href="/logout" class="text-muted-foreground hover:text-primary px-3">Logout</a>
+    </div>
+  </div>
+</nav>

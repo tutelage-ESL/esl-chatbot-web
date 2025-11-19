@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const chatInputContainer = document.getElementById('chat-input-container');
   const chatInput = document.getElementById('chat-input');
   const chatMessages = document.getElementById('chat-messages');
+  const chatContainer = document.querySelector('.chat-container');
   const sendBtn = document.getElementById('send-btn');
   
   // Voice elements
@@ -51,6 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.emit('load history');
     showWelcomeMessage();
     loadTTSUsage(); // Load TTS usage when connected
+    ensureInputVisible();
   });
 
   socket.on('disconnect', () => {
@@ -72,6 +74,8 @@ document.addEventListener('DOMContentLoaded', () => {
         addMessage(msg.content, msg.sender, msg.createdAt);
         messageCount++;
       });
+      // After rendering history, keep input bar in view
+      ensureInputVisible();
     }
   });
 
@@ -143,7 +147,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function addMessage(text, type, timestamp = new Date(), id = null) {
     const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${type}-message`;
+    // Align user messages to the right
+    messageDiv.className = `message ${type}-message flex items-start gap-3 ${type === 'user' ? 'ml-auto' : ''}`;
     if (id) {
       messageDiv.id = id;
     }
@@ -160,11 +165,32 @@ document.addEventListener('DOMContentLoaded', () => {
       avatarIcon = '<i class="fas fa-exclamation-triangle"></i>';
     }
 
+    const avatarClasses =
+      type === 'user'
+        ? 'message-avatar w-8 h-8 flex items-center justify-center rounded-full bg-gray-200 text-gray-600'
+        : type === 'bot'
+        ? 'message-avatar w-8 h-8 flex items-center justify-center rounded-full bg-primary text-primary-foreground'
+        : 'message-avatar w-8 h-8 flex items-center justify-center rounded-full bg-red-500 text-white';
+
+    const contentClasses =
+      type === 'user'
+        ? 'message-content flex flex-col items-end max-w-[75%]'
+        : 'message-content flex flex-col max-w-[75%]';
+
+    const bubbleClasses =
+      type === 'user'
+        ? 'message-bubble bg-primary text-primary-foreground px-4 py-2 rounded-2xl rounded-br-none shadow-sm'
+        : type === 'bot'
+        ? 'message-bubble bg-gray-100 text-gray-800 px-4 py-2 rounded-2xl rounded-bl-none shadow-sm border border-gray-200'
+        : 'message-bubble bg-red-100 text-red-700 px-4 py-2 rounded-2xl shadow-sm';
+
+    const timeClasses = `message-time text-xs text-gray-500 mt-1 ${type === 'user' ? 'text-right' : ''}`;
+
     messageDiv.innerHTML = `
-      <div class="message-avatar">${avatarIcon}</div>
-      <div class="message-content">
-        <div class="message-bubble">${text}</div>
-        <div class="message-time">${timeString}</div>
+      <div class="${avatarClasses}">${avatarIcon}</div>
+      <div class="${contentClasses}">
+        <div class="${bubbleClasses}">${text}</div>
+        <div class="${timeClasses}">${timeString}</div>
       </div>
     `;
     
@@ -179,17 +205,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function addTypingIndicator(id) {
     const typingDiv = document.createElement('div');
-    typingDiv.className = 'message bot-message typing-indicator';
+    typingDiv.className = 'message bot-message typing-indicator flex items-start gap-3';
     typingDiv.id = id;
     
     typingDiv.innerHTML = `
-      <div class="message-avatar"><i class="fas fa-robot"></i></div>
-      <div class="message-content">
-        <div class="message-bubble">
-          <div class="typing-animation">
-            <span></span><span></span><span></span>
+      <div class="message-avatar w-8 h-8 flex items-center justify-center rounded-full bg-primary text-primary-foreground"><i class="fas fa-robot"></i></div>
+      <div class="message-content flex flex-col max-w-[75%]">
+        <div class="message-bubble bg-gray-100 text-gray-800 px-4 py-2 rounded-2xl rounded-bl-none shadow-sm border border-gray-200">
+          <div class="typing-animation flex items-center space-x-1">
+            <span class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
+            <span class="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150"></span>
+            <span class="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-300"></span>
           </div>
-          <span class="typing-text">AI is thinking...</span>
+          <span class="typing-text text-gray-500 text-sm ml-2">AI is thinking...</span>
         </div>
       </div>
     `;
@@ -204,10 +232,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function addSystemMessage(text) {
     const systemDiv = document.createElement('div');
-    systemDiv.className = 'message system-message';
+    systemDiv.className = 'message system-message flex justify-center';
     
     systemDiv.innerHTML = `
-      <div class="system-content">
+      <div class="system-content bg-blue-50 text-blue-700 px-3 py-2 rounded-md text-sm flex items-center gap-2 border border-blue-200">
         <i class="fas fa-info-circle"></i>
         <span>${text}</span>
       </div>
@@ -259,25 +287,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function updateConnectionStatus(connected) {
     const statusIndicator = document.querySelector('.connection-status') || createConnectionStatus();
-    statusIndicator.className = `connection-status ${connected ? 'connected' : 'disconnected'}`;
+    statusIndicator.className = `connection-status ${connected ? 'connected' : 'disconnected'} text-center text-gray-500 text-sm`;
     statusIndicator.innerHTML = connected 
-      ? '<i class="fas fa-wifi"></i> Connected' 
-      : '<i class="fas fa-wifi"></i> Disconnected';
+      ? '<i class="fas fa-wifi text-green-500"></i> Connected' 
+      : '<i class="fas fa-wifi text-red-500"></i> Disconnected';
   }
 
   function createConnectionStatus() {
     const statusDiv = document.createElement('div');
-    statusDiv.className = 'connection-status';
+    statusDiv.className = 'connection-status text-center text-gray-500 text-sm';
     statusDiv.id = 'connection-status';
     chatMessages.appendChild(statusDiv);
     return statusDiv;
   }
 
   function smoothScrollToBottom() {
-    chatMessages.scrollTo({
-      top: chatMessages.scrollHeight,
+    const target = chatContainer || chatMessages;
+    target.scrollTo({
+      top: target.scrollHeight,
       behavior: 'smooth'
     });
+  }
+
+  // Ensure input bar is visible and focused
+  function ensureInputVisible() {
+    try {
+      if (chatInput) {
+        chatInput.focus({ preventScroll: false });
+      }
+      if (chatInputContainer && typeof chatInputContainer.scrollIntoView === 'function') {
+        chatInputContainer.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }
+      // Nudge the chat container to bottom as well
+      setTimeout(() => smoothScrollToBottom(), 50);
+    } catch (e) {
+      console.warn('ensureInputVisible failed:', e);
+    }
   }
 
   // Voice functionality
@@ -642,6 +687,7 @@ document.addEventListener('DOMContentLoaded', () => {
   updateSendButtonState();
   initializeVoiceRecognition();
   checkElevenLabsStatus();
+  ensureInputVisible();
   
   // TTS Usage Loading Function
   async function loadTTSUsage() {

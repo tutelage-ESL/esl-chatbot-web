@@ -7,27 +7,27 @@
     <link rel="stylesheet" href="/css/styles.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
 </head>
-<body>
-    <div id="auth-container">
-        <div id="login-form-container">
-            <div class="auth-logo">
+<body class="bg-gray-100 font-sans antialiased">
+    <div id="auth-container" class="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+        <div id="login-form-container" class="bg-white p-8 rounded-lg shadow-md w-full max-w-md text-center">
+            <div class="auth-logo text-5xl mb-4">
                 🎓
             </div>
-            <h2>Welcome Back</h2>
-            <p class="auth-subtitle">Sign in to continue your English learning journey</p>
+            <h2 class="text-3xl font-bold text-gray-800 mb-2">Welcome Back</h2>
+            <p class="auth-subtitle text-gray-600 mb-6">Sign in to continue your English learning journey</p>
             <% if (typeof errors !== 'undefined' && errors.length > 0) { %>
-                <div class="error-messages">
+                <div class="error-messages bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
                     <% errors.forEach(function(error) { %>
-                        <p style="color: #ef4444; margin: 0.5rem 0; font-size: 0.9rem;"><%= error.msg %></p>
+                        <p class="text-red-700 text-sm"><%= error.msg %></p>
                     <% }); %>
                 </div>
             <% } %>
-            <form id="login-form" action="/api/auth/login" method="POST">
-                <input type="email" id="login-email" name="email" placeholder="📧 Email Address" value="<%= typeof oldInput !== 'undefined' ? oldInput.email : '' %>" required>
-                <input type="password" id="login-password" name="password" placeholder="🔒 Password" required>
-                <button type="submit">Sign In to Academy</button>
+            <form id="login-form" action="/api/auth/login" method="POST" class="space-y-4">
+                <input type="email" id="login-email" name="email" placeholder="📧 Email Address" value="<%= typeof oldInput !== 'undefined' ? oldInput.email : '' %>" required class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
+                <input type="password" id="login-password" name="password" placeholder="🔒 Password" required class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
+                <button type="submit" class="w-full bg-primary text-white p-3 rounded-md hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50 transition duration-200">Sign In to Academy</button>
             </form>
-            <p>New to ESL Academy? <a href="/signup" id="show-signup">Create Account</a></p>
+            <p class="mt-6 text-gray-600">New to ESL Academy? <a href="/signup" id="show-signup" class="text-primary hover:underline">Create Account</a></p>
         </div>
     </div>
 

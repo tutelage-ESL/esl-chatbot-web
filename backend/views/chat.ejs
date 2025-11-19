@@ -8,122 +8,115 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎓</text></svg>">
 </head>
-<body>
-    <div class="app-container">
-        <header class="app-header">
-            <div class="academy-brand">
-                <div class="academy-logo">🎓</div>
+<body class="bg-gray-100 font-sans antialiased h-screen flex flex-col">
+    <div class="app-container flex flex-col h-full">
+        <header class="app-header bg-white shadow-md p-4 flex justify-between items-center">
+            <div class="academy-brand flex items-center space-x-3">
+                <div class="academy-logo text-4xl">🎓</div>
                 <div>
-                    <h1>ESL Academy</h1>
-                    <p class="academy-tagline">Master English with AI-Powered Learning</p>
+                    <h1 class="text-2xl font-bold text-gray-800">ESL Academy</h1>
+                    <p class="academy-tagline text-gray-600 text-sm">Master English with AI-Powered Learning</p>
                 </div>
             </div>
             <%- include('partials/nav', { currentRoute: currentRoute }) %>
         </header>
 
-        <main class="app-main">
-            <section id="chat-section" class="section active">
-                <div class="chat-header">
-                    <div class="tutor-info">
-                        <div class="tutor-avatar">
+        <main class="app-main flex-1 flex overflow-visible">
+            <section id="chat-section" class="section active flex-1 flex flex-col bg-white shadow-lg rounded-lg m-4 min-h-0">
+                <div class="chat-header bg-gray-50 p-4 border-b border-gray-200 flex justify-between items-center rounded-t-lg">
+                    <div class="tutor-info flex items-center space-x-3">
+                        <div class="tutor-avatar text-3xl text-primary">
                             <i class="fas fa-robot"></i>
                         </div>
                         <div class="tutor-details">
-                            <h3>AI English Tutor</h3>
-                            <span class="tutor-status"><i class="fas fa-circle online"></i> Online & Ready to Help</span>
+                            <h3 class="text-lg font-semibold text-gray-800">AI English Tutor</h3>
+                            <span class="tutor-status text-sm text-gray-600"><i class="fas fa-circle text-green-500 text-xs mr-1"></i> Online & Ready to Help</span>
                         </div>
                     </div>
-                    <div class="chat-actions">
-                        <div class="tts-usage-display" id="tts-usage-display">
-                            <div class="usage-info">
-                                <i class="fas fa-volume-up"></i>
-                                <span id="tts-remaining">Loading...</span>
-                                <small>TTS remaining</small>
+                    <div class="chat-actions flex items-center space-x-3">
+                        <div class="tts-usage-display flex items-center space-x-2 text-gray-700 text-sm" id="tts-usage-display">
+                            <div class="usage-info flex items-center space-x-1">
+                                <i class="fas fa-volume-up text-primary"></i>
+                                <span id="tts-remaining" class="font-medium">Loading...</span>
+                                <small class="text-gray-500">TTS remaining</small>
                             </div>
                         </div>
-                        <button id="voice-settings-btn" class="btn btn-outline-light" type="button" title="Voice Settings">
+                        <button id="voice-settings-btn" class="btn p-2 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-700 transition duration-200" type="button" title="Voice Settings">
                             <i class="fas fa-cog"></i>
                         </button>
-                        <button class="btn btn-outline-light" type="button" title="Clear Chat">
+                        <button class="btn p-2 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-700 transition duration-200" type="button" title="Clear Chat">
                             <i class="fas fa-trash-alt"></i>
                         </button>
                     </div>
                 </div>
                 
-                <div class="chat-container">
-                    <div class="chat-messages" id="chat-messages">
+                <div class="chat-container flex-1 overflow-y-auto p-4 space-y-4">
+                    <div class="chat-messages flex flex-col space-y-3" id="chat-messages">
                         <!-- Connection status indicator -->
-                        <div class="connection-status" id="connection-status">
-                            <i class="fas fa-circle"></i>
+                        <div class="connection-status text-center text-gray-500 text-sm" id="connection-status">
+                            <i class="fas fa-circle animate-pulse mr-1"></i>
                             <span>Connecting...</span>
                         </div>
                         <!-- Messages will be dynamically added here -->
                     </div>
                     
-                    <div class="typing-indicator" id="typing-indicator" style="display: none;">
-                        <div class="typing-dots">
-                            <span></span>
-                            <span></span>
-                            <span></span>
-                        </div>
-                        <span class="typing-text">AI Tutor is typing...</span>
-                    </div>
+                    <!-- dynamic typing indicator is appended via JS -->
                 </div>
                 
-                <div id="chat-input-container">
+                <div id="chat-input-container" class="sticky bottom-0 z-10 p-4 border-t border-gray-200 bg-white rounded-b-lg">
                     <div class="input-wrapper">
-                        <div class="input-group">
-                            <div class="input-icon">
+                        <div class="input-group flex items-center border border-gray-300 rounded-full p-1 bg-white shadow-sm">
+                            <div class="input-icon p-2 text-gray-400">
                                 <i class="fas fa-comment-dots"></i>
                             </div>
-                            <input type="text" id="chat-input" placeholder="Ask me anything about English..." class="form-control">
-                            <div class="input-actions">
-                                <button id="voice-btn" class="btn btn-voice" type="button" title="Voice Input">
+                            <input type="text" id="chat-input" placeholder="Ask me anything about English..." class="flex-1 p-2 border-none focus:outline-none rounded-full">
+                            <div class="input-actions flex items-center space-x-2 pr-1">
+                                <button id="voice-btn" class="btn p-2 rounded-full bg-blue-500 text-white hover:bg-blue-600 transition duration-200" type="button" title="Voice Input">
                                     <i class="fas fa-microphone"></i>
                                 </button>
-                                <button id="send-btn" class="btn btn-send" type="button" title="Send Message">
+                                <button id="send-btn" class="btn p-2 rounded-full bg-primary text-white hover:bg-yellow-600 transition duration-200" type="button" title="Send Message">
                                     <i class="fas fa-paper-plane"></i>
                                 </button>
                             </div>
                         </div>
-                        <div class="quick-suggestions">
-                            <button class="suggestion-btn" data-text="Help me with grammar">
-                                <i class="fas fa-spell-check"></i> Grammar Help
+                        <div class="quick-suggestions flex flex-wrap justify-center gap-2 mt-3">
+                            <button class="suggestion-btn bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm hover:bg-gray-300 transition duration-200" data-text="Help me with grammar">
+                                <i class="fas fa-spell-check mr-1"></i> Grammar Help
                             </button>
-                            <button class="suggestion-btn" data-text="Practice conversation">
-                                <i class="fas fa-comments"></i> Conversation
+                            <button class="suggestion-btn bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm hover:bg-gray-300 transition duration-200" data-text="Practice conversation">
+                                <i class="fas fa-comments mr-1"></i> Conversation
                             </button>
-                            <button class="suggestion-btn" data-text="Explain vocabulary">
-                                <i class="fas fa-book"></i> Vocabulary
+                            <button class="suggestion-btn bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm hover:bg-gray-300 transition duration-200" data-text="Explain vocabulary">
+                                <i class="fas fa-book mr-1"></i> Vocabulary
                             </button>
-                            <button class="suggestion-btn" data-text="Check pronunciation">
-                                <i class="fas fa-volume-up"></i> Pronunciation
+                            <button class="suggestion-btn bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm hover:bg-gray-300 transition duration-200" data-text="Check pronunciation">
+                                <i class="fas fa-volume-up mr-1"></i> Pronunciation
                             </button>
                         </div>
-                        <div class="voice-controls-mini">
+                        <div class="voice-controls-mini text-center mt-2 text-sm text-gray-600">
                             <div class="voice-status-mini" id="voice-status-mini">Ready</div>
                         </div>
                     </div>
                     
                     <!-- Voice Settings Panel -->
-                    <div class="voice-settings-panel" id="voice-settings-panel" style="display: none;">
+                    <div class="voice-settings-panel absolute bottom-full right-0 mb-2 w-64 bg-white p-4 rounded-lg shadow-lg border border-gray-200" id="voice-settings-panel" style="display: none;">
                         <div class="settings-content">
-                            <h6><i class="fas fa-volume-up"></i> Voice Settings</h6>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="auto-speak-chat" checked>
-                                <label class="form-check-label" for="auto-speak-chat">
+                            <h6 class="text-lg font-semibold text-gray-800 mb-3"><i class="fas fa-volume-up mr-2 text-primary"></i> Voice Settings</h6>
+                            <div class="form-check flex items-center mb-3">
+                                <input class="form-check-input h-4 w-4 text-primary rounded focus:ring-primary border-gray-300" type="checkbox" id="auto-speak-chat" checked>
+                                <label class="form-check-label ml-2 text-gray-700" for="auto-speak-chat">
                                     Auto-speak AI responses
-                                    <small class="text-success" id="auto-speak-indicator-chat"> (Enabled)</small>
+                                    <small class="text-green-600 ml-1" id="auto-speak-indicator-chat"> (Enabled)</small>
                                 </label>
                             </div>
-                            <div class="form-group" style="margin-top: 10px;">
-                                <label for="voice-speed-chat">Speech Speed:</label>
-                                <input type="range" id="voice-speed-chat" min="0.5" max="2" step="0.1" value="1" class="form-control-range">
-                                <small class="form-text text-muted">Speed: <span id="speed-value-chat">1.0</span>x</small>
+                            <div class="form-group mb-3">
+                                <label for="voice-speed-chat" class="block text-gray-700 text-sm font-bold mb-2">Speech Speed:</label>
+                                <input type="range" id="voice-speed-chat" min="0.5" max="2" step="0.1" value="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary">
+                                <small class="form-text text-gray-500 mt-1 block">Speed: <span id="speed-value-chat">1.0</span>x</small>
                             </div>
-                            <div class="form-group" style="margin-top: 10px;">
-                                <button type="button" id="test-voice-chat" class="btn btn-sm btn-outline-primary">
-                                    <i class="fas fa-volume-up"></i> Test Voice
+                            <div class="form-group">
+                                <button type="button" id="test-voice-chat" class="w-full bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600 transition duration-200">
+                                    <i class="fas fa-volume-up mr-2"></i> Test Voice
                                 </button>
                             </div>
                         </div>
