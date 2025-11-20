@@ -390,6 +390,12 @@
     "userName": "Student",
     "interactions": [
       {
+        "timestamp": "2025-11-20T17:59:50.224Z",
+        "type": "text",
+        "message": "hello",
+        "responsePreview": "Awesome! You got it right with \"hellohello\"! That's two \"hellos\" in a row! Great job! 👋😊\n\nIt seems..."
+      },
+      {
         "timestamp": "2025-11-20T17:55:07.161Z",
         "type": "text",
         "message": "helo",
@@ -409,8 +415,8 @@
       }
     ],
     "metrics": {
-      "totalInteractions": 3,
-      "textInteractions": 3,
+      "totalInteractions": 4,
+      "textInteractions": 4,
       "voiceInteractions": 0,
       "commandsUsed": 0,
       "lessonsCompleted": 0,
@@ -424,7 +430,7 @@
         "speaking": 0,
         "listening": 0
       },
-      "lastUpdated": "2025-11-20T17:55:07.161Z"
+      "lastUpdated": "2025-11-20T17:59:50.224Z"
     }
   },
   "user_hehxzwj55vhmd0u2mriz1": {

@@ -60,6 +60,12 @@
 
 /* Messages built by app.js */
 .message { display:flex; gap: 0.75rem; align-items:flex-start; }
+.message { width: 100%; }
+.bot-message { justify-content: flex-start; }
+.user-message { justify-content: flex-end; }
+.user-message .message-avatar { order: 2; }
+.user-message .message-content { align-items: flex-end; }
+.bot-message .message-content { align-items: flex-start; }
 .message-avatar { width: 32px; height: 32px; border-radius: 999px; display:flex; align-items:center; justify-content:center; box-shadow: var(--brand-shadow-sm); }
 .user-message .message-avatar { background: rgba(245, 158, 11, 0.25); color: #fff; }
 .bot-message .message-avatar { background: rgba(15, 23, 42, 0.08); color: var(--brand-secondary); }
