@@ -6,6 +6,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const chatMessages = document.getElementById('chat-messages');
   const chatContainer = document.querySelector('.chat-container');
   const sendBtn = document.getElementById('send-btn');
+  // Quick actions
+  const suggestionBtns = document.querySelectorAll('.suggestion-btn');
+  const clearChatBtn = document.getElementById('clear-chat');
+  const downloadChatBtn = document.getElementById('download-chat');
   
   // Voice elements
   const voiceInputBtn = document.getElementById('voice-btn');
@@ -107,6 +111,83 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   sendBtn.addEventListener('click', sendMessage);
+  // Quick suggestion chips → populate input
+  if (suggestionBtns && suggestionBtns.length) {
+    suggestionBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const text = e.currentTarget?.dataset?.text || e.currentTarget.textContent.trim();
+        if (!text) return;
+        chatInput.value = text;
+        autoResizeTextarea();
+        updateSendButtonState();
+        chatInput.focus();
+      });
+    });
+  }
+
+  // Clear chat messages (client-side)
+  if (clearChatBtn) {
+    clearChatBtn.addEventListener('click', () => {
+      try {
+        const confirmed = window.confirm('Clear chat messages? This won\'t delete server history.');
+        if (!confirmed) return;
+        if (chatMessages) {
+          chatMessages.innerHTML = '';
+          messageCount = 0;
+          addSystemMessage('Chat cleared.');
+          ensureInputVisible();
+        }
+      } catch (err) {
+        console.warn('Clear chat failed:', err);
+      }
+    });
+  }
+
+  // Download transcript as text file
+  if (downloadChatBtn) {
+    downloadChatBtn.addEventListener('click', () => {
+      try {
+        if (!chatMessages) return;
+        const rows = Array.from(chatMessages.querySelectorAll('.message'))
+          .filter(row => !row.classList.contains('typing-indicator'));
+
+        const lines = [];
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        const ymd = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+        const hms = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+        lines.push(`AI English Tutor — Transcript`);
+        lines.push(`Date: ${ymd} ${hms}`);
+        lines.push('');
+
+        rows.forEach(row => {
+          const isUser = row.classList.contains('user-message');
+          const isBot = row.classList.contains('bot-message');
+          const isSystem = row.classList.contains('system-message');
+          const isError = row.classList.contains('error');
+          const role = isUser ? 'User' : isBot ? 'Tutor' : isSystem ? 'System' : isError ? 'Error' : 'Message';
+          const textEl = row.querySelector('.message-bubble') || row.querySelector('.system-content');
+          const text = (textEl ? textEl.textContent : row.textContent || '').trim();
+          const timeEl = row.querySelector('.message-time');
+          const time = timeEl ? timeEl.textContent.trim() : '';
+          lines.push(`${time ? '['+time+'] ' : ''}${role}: ${text}`);
+        });
+
+        const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const ts = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `chat-transcript-${ts}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        console.warn('Download transcript failed:', err);
+      }
+    });
+  }
 
   chatInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {

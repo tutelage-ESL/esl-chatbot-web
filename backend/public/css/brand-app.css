@@ -476,6 +476,65 @@ img {
   font-size: 0.78rem;
   color: var(--brand-muted-light);
 }
+/* Chat message styles compatible with app.js DOM */
+.message {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.message-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--brand-shadow-sm);
+}
+
+.user-message .message-avatar {
+  background: rgba(245, 158, 11, 0.25);
+  color: #fff;
+}
+
+.bot-message .message-avatar {
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--brand-secondary);
+}
+
+.message-content {
+  display: flex;
+  flex-direction: column;
+  max-width: 75%;
+}
+
+.message-bubble {
+  border-radius: 1.2rem;
+  box-shadow: var(--brand-shadow-sm);
+}
+
+.user-message .message-bubble {
+  background: rgba(245, 158, 11, 0.12);
+  color: #111;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.bot-message .message-bubble {
+  background: var(--brand-card);
+  color: var(--brand-secondary);
+  border: 1px solid var(--brand-border);
+}
+
+.system-message .system-content {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  color: var(--brand-secondary);
+}
+
+.message-time {
+  color: var(--brand-muted);
+}
 
 .input-bar {
   padding: 1.25rem;

@@ -25,138 +25,111 @@
                     </div>
                 </div>
             </section>
-            <section class="panel">
-            <section id="chat-section"
-                class="section active flex-1 flex flex-col bg-background soft-shadow rounded-xl m-4 min-h-0 border border-border">
-                <div
-                    class="chat-header bg-background/70 p-4 border-b border-border flex justify-between items-center rounded-t-xl">
-                    <div class="tutor-info flex items-center space-x-3">
-                        <div class="tutor-avatar text-3xl text-primary">
-                            <i class="fas fa-robot"></i>
-                        </div>
-                        <div class="tutor-details">
-                            <h3 class="text-lg font-semibold text-foreground">AI English Tutor</h3>
-                            <span class="tutor-status text-sm text-muted-foreground"><i
-                                    class="fas fa-circle text-green-500 text-xs mr-1"></i> Online & Ready to Help</span>
-                        </div>
+            <section class="chat-shell">
+              <!-- Left: Chat -->
+              <div id="chat-section" class="chat-panel soft-shadow rounded-xl border border-border">
+                <div class="chat-header">
+                  <div class="tutor-profile">
+                    <div class="avatar"><i class="fas fa-robot"></i></div>
+                    <div class="info">
+                      <h3>AI English Tutor</h3>
+                      <span class="status"><i class="fas fa-circle"></i> Online & Ready</span>
                     </div>
-                    <div class="chat-actions flex items-center space-x-3">
-                        <div class="tts-usage-display flex items-center space-x-2 text-muted-foreground text-sm"
-                            id="tts-usage-display">
-                            <div class="usage-info flex items-center space-x-1">
-                                <i class="fas fa-volume-up text-primary"></i>
-                                <span id="tts-remaining" class="font-medium">Loading...</span>
-                                <small class="text-muted-foreground">TTS remaining</small>
-                            </div>
-                        </div>
-                        <button id="voice-settings-btn"
-                            class="btn p-2 rounded-full border border-border bg-background text-foreground hover:bg-primary/10 hover:text-primary transition duration-200"
-                            type="button" title="Voice Settings">
-                            <i class="fas fa-cog"></i>
+                  </div>
+                  <div class="chat-actions">
+                    <div class="tts-usage-display" id="tts-usage-display">
+                      <i class="fas fa-volume-up"></i>
+                      <span id="tts-remaining">Loading...</span>
+                      <small>TTS remaining</small>
+                    </div>
+                    <button id="voice-settings-btn" class="icon-btn" type="button" title="Voice Settings">
+                      <i class="fas fa-cog"></i>
+                    </button>
+                    <button id="download-chat" class="icon-btn" type="button" title="Download Transcript">
+                      <i class="fas fa-download"></i>
+                    </button>
+                    <button id="clear-chat" class="icon-btn danger" type="button" title="Clear Chat">
+                      <i class="fas fa-trash-alt"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Conversation mode chips -->
+                <div class="quick-suggestions" aria-label="Conversation modes">
+                  <button class="quick-chip suggestion-btn" data-text="Practice conversation">Conversation</button>
+                  <button class="quick-chip suggestion-btn" data-text="Help me with grammar">Grammar</button>
+                  <button class="quick-chip suggestion-btn" data-text="Explain vocabulary">Vocabulary</button>
+                  <button class="quick-chip suggestion-btn" data-text="Check pronunciation">Pronunciation</button>
+                </div>
+
+                <div class="chat-container chat-stream">
+                  <div class="chat-messages" id="chat-messages">
+                    <!-- Connection status indicator -->
+                    <div class="connection-status" id="connection-status">
+                      <i class="fas fa-circle"></i>
+                      <span>Connecting...</span>
+                    </div>
+                    <!-- Messages will be dynamically added here -->
+                  </div>
+                  <!-- typing indicator appended via JS -->
+                </div>
+
+                <div id="chat-input-container" class="input-bar">
+                  <div class="input-pill">
+                    <i class="fas fa-comment-dots"></i>
+                    <textarea id="chat-input" rows="1" placeholder="Ask anything about English…"></textarea>
+                    <div class="actions">
+                      <button id="voice-btn" class="icon-btn primary" type="button" title="Voice Input">
+                        <i class="fas fa-microphone"></i>
+                      </button>
+                      <button id="send-btn" class="icon-btn primary" type="button" title="Send Message">
+                        <i class="fas fa-paper-plane"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="voice-status" id="voice-status-mini">Ready</div>
+
+                  <!-- Voice Settings Panel -->
+                  <div class="voice-settings-panel" id="voice-settings-panel" style="display: none;">
+                    <div class="settings-content">
+                      <h6><i class="fas fa-volume-up"></i> Voice Settings</h6>
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="auto-speak-chat" checked>
+                        <label class="form-check-label" for="auto-speak-chat">
+                          Auto-speak AI responses
+                          <small id="auto-speak-indicator-chat"> (Enabled)</small>
+                        </label>
+                      </div>
+                      <div class="form-group">
+                        <label for="voice-speed-chat">Speech Speed:</label>
+                        <input type="range" id="voice-speed-chat" min="0.5" max="2" step="0.1" value="1">
+                        <small>Speed: <span id="speed-value-chat">1.0</span>x</small>
+                      </div>
+                      <div class="form-group">
+                        <button type="button" id="test-voice-chat" class="btn btn-primary w-full">
+                          <i class="fas fa-volume-up"></i> Test Voice
                         </button>
-                        <button
-                            class="btn p-2 rounded-full border border-border bg-background text-foreground hover:bg-primary/10 hover:text-primary transition duration-200"
-                            type="button" title="Clear Chat">
-                            <i class="fas fa-trash-alt"></i>
-                        </button>
+                      </div>
                     </div>
+                  </div>
                 </div>
+              </div>
 
-                <div class="chat-container flex-1 overflow-y-auto p-4 space-y-4">
-                    <div class="chat-messages flex flex-col space-y-3" id="chat-messages">
-                        <!-- Connection status indicator -->
-                        <div class="connection-status text-center text-muted-foreground text-sm" id="connection-status">
-                            <i class="fas fa-circle animate-pulse mr-1"></i>
-                            <span>Connecting...</span>
-                        </div>
-                        <!-- Messages will be dynamically added here -->
-                    </div>
-
-                    <!-- dynamic typing indicator is appended via JS -->
+              <!-- Right: Insights -->
+              <aside class="insight-panel">
+                <div class="insight-card">
+                  <div class="card-header">
+                    <h3>Tips</h3>
+                  </div>
+                  <div class="card-body">
+                    <ul class="insight-list">
+                      <li>Press Enter to send, Shift+Enter for newline.</li>
+                      <li>Use the mic to dictate faster.</li>
+                      <li>Toggle auto-speak in voice settings.</li>
+                    </ul>
+                  </div>
                 </div>
-
-                <div id="chat-input-container"
-                    class="sticky bottom-0 z-10 p-4 border-t border-border bg-background rounded-b-xl">
-                    <div class="input-wrapper">
-                        <div
-                            class="input-group flex items-center border border-border rounded-full p-1 bg-background shadow-sm">
-                            <div class="input-icon p-2 text-gray-400">
-                                <i class="fas fa-comment-dots text-muted-foreground"></i>
-                            </div>
-                            <input type="text" id="chat-input" placeholder="Ask me anything about English..."
-                                class="flex-1 p-2 border-none focus:outline-none rounded-full text-foreground">
-                            <div class="input-actions flex items-center space-x-2 pr-1">
-                                <button id="voice-btn"
-                                    class="btn p-2 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition duration-200"
-                                    type="button" title="Voice Input">
-                                    <i class="fas fa-microphone"></i>
-                                </button>
-                                <button id="send-btn"
-                                    class="btn p-2 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition duration-200"
-                                    type="button" title="Send Message">
-                                    <i class="fas fa-paper-plane"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="quick-suggestions flex flex-wrap justify-center gap-2 mt-3">
-                            <button
-                                class="suggestion-btn bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm hover:bg-primary/10 hover:text-primary transition duration-200"
-                                data-text="Help me with grammar">
-                                <i class="fas fa-spell-check mr-1"></i> Grammar Help
-                            </button>
-                            <button
-                                class="suggestion-btn bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm hover:bg-primary/10 hover:text-primary transition duration-200"
-                                data-text="Practice conversation">
-                                <i class="fas fa-comments mr-1"></i> Conversation
-                            </button>
-                            <button
-                                class="suggestion-btn bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm hover:bg-primary/10 hover:text-primary transition duration-200"
-                                data-text="Explain vocabulary">
-                                <i class="fas fa-book mr-1"></i> Vocabulary
-                            </button>
-                            <button
-                                class="suggestion-btn bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm hover:bg-primary/10 hover:text-primary transition duration-200"
-                                data-text="Check pronunciation">
-                                <i class="fas fa-volume-up mr-1"></i> Pronunciation
-                            </button>
-                        </div>
-                        <div class="voice-controls-mini text-center mt-2 text-sm text-muted-foreground">
-                            <div class="voice-status-mini" id="voice-status-mini">Ready</div>
-                        </div>
-                    </div>
-
-                    <!-- Voice Settings Panel -->
-                    <div class="voice-settings-panel absolute bottom-full right-0 mb-2 w-64 bg-background p-4 rounded-lg shadow-lg border border-border"
-                        id="voice-settings-panel" style="display: none;">
-                        <div class="settings-content">
-                            <h6 class="text-lg font-semibold text-foreground mb-3"><i
-                                    class="fas fa-volume-up mr-2 text-primary"></i> Voice Settings</h6>
-                            <div class="form-check flex items-center mb-3">
-                                <input
-                                    class="form-check-input h-4 w-4 text-primary rounded focus:ring-primary border-border"
-                                    type="checkbox" id="auto-speak-chat" checked>
-                                <label class="form-check-label ml-2 text-foreground" for="auto-speak-chat">
-                                    Auto-speak AI responses
-                                    <small class="text-green-600 ml-1" id="auto-speak-indicator-chat"> (Enabled)</small>
-                                </label>
-                            </div>
-                            <div class="form-group mb-3">
-                                <label for="voice-speed-chat"
-                                    class="block text-foreground text-sm font-bold mb-2">Speech Speed:</label>
-                                <input type="range" id="voice-speed-chat" min="0.5" max="2" step="0.1" value="1"
-                                    class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary">
-                                <small class="form-text text-muted-foreground mt-1 block">Speed: <span
-                                        id="speed-value-chat">1.0</span>x</small>
-                            </div>
-                            <div class="form-group">
-                                <button type="button" id="test-voice-chat"
-                                    class="w-full bg-primary text-primary-foreground p-2 rounded-md hover:bg-primary/90 transition duration-200">
-                                    <i class="fas fa-volume-up mr-2"></i> Test Voice
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+              </aside>
             </section>
         </main>
 
