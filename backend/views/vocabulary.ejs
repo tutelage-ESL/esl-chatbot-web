@@ -6,6 +6,7 @@
     <title>Vocabulary Builder - ESL Academy</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎓</text></svg>">
     <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/css/brand-app.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         .vocabulary-container {
@@ -541,8 +542,18 @@
             background: #c82333;
         }
     </style>
-</head>
-<body>
+ </head>
+ <body class="brand-surface">
+    <%- include('partials/nav', { currentRoute: currentRoute }) %>
+    <section class="hero-banner">
+        <div class="hero-content">
+            <div class="hero-copy">
+                <p class="tag">Vocabulary</p>
+                <h1>Build your word bank.</h1>
+                <p>Add, review, and master vocabulary with spaced repetition.</p>
+            </div>
+        </div>
+    </section>
     <div class="app-container">
         <header class="app-header">
             <div class="academy-brand">

@@ -6,25 +6,23 @@
     <title>Usage Dashboard - ESL Academy</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎓</text></svg>">
     <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/css/brand-app.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-</head>
-<body>
-    <div class="app-container">
-        <header class="app-header">
-            <div class="academy-brand">
-                <div class="academy-logo">🎓</div>
-                <h1>ESL Academy</h1>
-                <div class="academy-tagline">Excellence in English Learning</div>
-            </div>
-            <%- include('partials/nav', { currentRoute: currentRoute }) %>
-        </header>
+ </head>
+ <body class="brand-surface">
+    <%- include('partials/nav', { currentRoute: currentRoute }) %>
 
-        <main class="app-main">
-            <section id="usage-section" class="section active">
-                <div class="usage-header">
-                    <h2><i class="fas fa-chart-pie"></i> Usage Dashboard</h2>
-                    <p class="usage-subtitle">Monitor your TTS usage and subscription benefits</p>
+        <main class="page-shell">
+            <section class="hero-banner">
+                <div class="hero-content">
+                    <div class="hero-copy">
+                        <p class="tag">Subscription</p>
+                        <h1><i class="fas fa-chart-pie"></i> Usage Dashboard</h1>
+                        <p>Monitor your TTS usage and subscription benefits.</p>
+                    </div>
                 </div>
+            </section>
+            <section class="panel">
                 
                 <div class="usage-container">
                     <!-- Current Subscription Card -->

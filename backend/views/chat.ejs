@@ -6,26 +6,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Tutor - ESL Academy</title>
     <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/brand-app.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="icon"
         href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎓</text></svg>">
-</head>
+ </head>
 
-<body class="bg-gradient-to-b from-primary/5 to-background font-sans antialiased h-screen flex flex-col">
-    <div class="app-container flex flex-col h-full max-w-5xl mx-auto">
-        <header
-            class="app-header bg-gradient-to-r from-primary to-accent text-primary-foreground soft-shadow p-4 flex justify-between items-center rounded-b-lg">
-            <div class="academy-brand flex items-center space-x-3">
-                <div class="academy-logo text-4xl">🎓</div>
-                <div>
-                    <h1 class="text-2xl font-bold">ESL Academy</h1>
-                    <p class="academy-tagline opacity-90 text-sm">Master English with AI-Powered Learning</p>
+ <body class="brand-surface">
+    <%- include('partials/nav', { currentRoute: currentRoute }) %>
+
+        <main class="page-shell">
+            <section class="hero-banner">
+                <div class="hero-content">
+                    <div class="hero-copy">
+                        <p class="tag">Tutor</p>
+                        <h1><i class="fas fa-robot"></i> AI English Tutor</h1>
+                        <p>Converse naturally and improve fluency with guided feedback.</p>
+                    </div>
                 </div>
-            </div>
-            <%- include('partials/nav', { currentRoute: currentRoute }) %>
-        </header>
-
-        <main class="app-main flex-1 flex overflow-visible bg-muted/50">
+            </section>
+            <section class="panel">
             <section id="chat-section"
                 class="section active flex-1 flex flex-col bg-background soft-shadow rounded-xl m-4 min-h-0 border border-border">
                 <div
@@ -159,7 +159,6 @@
                 </div>
             </section>
         </main>
-    </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="/js/app.js"></script>

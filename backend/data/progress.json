@@ -390,6 +390,12 @@
     "userName": "Student",
     "interactions": [
       {
+        "timestamp": "2025-11-20T15:22:15.603Z",
+        "type": "text",
+        "message": "c",
+        "responsePreview": "Hi there! Looks like you're practicing typing \"cc\"! That's a great start to getting comfortable with..."
+      },
+      {
         "timestamp": "2025-11-20T14:42:39.232Z",
         "type": "text",
         "message": "asdasd",
@@ -397,8 +403,8 @@
       }
     ],
     "metrics": {
-      "totalInteractions": 1,
-      "textInteractions": 1,
+      "totalInteractions": 2,
+      "textInteractions": 2,
       "voiceInteractions": 0,
       "commandsUsed": 0,
       "lessonsCompleted": 0,
@@ -412,7 +418,7 @@
         "speaking": 0,
         "listening": 0
       },
-      "lastUpdated": "2025-11-20T14:42:39.232Z"
+      "lastUpdated": "2025-11-20T15:22:15.603Z"
     }
   },
   "user_hehxzwj55vhmd0u2mriz1": {

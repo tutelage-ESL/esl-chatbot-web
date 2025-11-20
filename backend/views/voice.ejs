@@ -5,22 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ESL Chatbot - Voice</title>
     <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/css/brand-app.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
-</head>
-<body>
-    <div class="app-container">
-        <header class="app-header">
-            <h1>🤖 ESL Learning Assistant</h1>
-            <%- include('partials/nav', { currentRoute: currentRoute }) %>
-        </header>
+ </head>
+ <body class="brand-surface">
+    <%- include('partials/nav', { currentRoute: currentRoute }) %>
 
-        <main class="app-main">
-            <section id="voice-section" class="section active">
-                <div class="voice-container">
-                    <div class="voice-header">
-                        <h2><i class="fas fa-microphone"></i> Voice Learning Assistant</h2>
-                        <p class="voice-description">Practice your English speaking skills with our AI tutor. Click "Start Speaking" and have a natural conversation!</p>
+        <main class="page-shell">
+            <section class="hero-banner">
+                <div class="hero-content">
+                    <div class="hero-copy">
+                        <p class="tag">Practice</p>
+                        <h1><i class="fas fa-microphone"></i> Voice Learning Assistant</h1>
+                        <p>Practice your English speaking skills with our AI tutor.</p>
                     </div>
+                </div>
+            </section>
+            <section class="panel">
+                <div class="voice-container">
                     
                     <div class="voice-status-container">
                         <div id="voice-status" class="voice-status ready">Ready to listen</div>
@@ -99,7 +101,6 @@
                 </div>
             </section>
         </main>
-    </div>
 
     <script src="/js/voice.js"></script>
 </body>
