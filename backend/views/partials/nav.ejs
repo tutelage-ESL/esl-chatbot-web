@@ -1,52 +1,47 @@
-<nav class="app-nav">
-  <a href="/dashboard" class="nav-brand">
-    <div>í¾“ ESL Academy</div>
-    <span>AI English Lab</span>
-  </a>
-  <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false" data-nav-toggle>
-    <i class="fas fa-bars"></i>
-  </button>
-  <div class="nav-links" data-nav-links data-nav-open="false">
-    <a href="/dashboard" class="<%= currentRoute === '/dashboard' ? 'is-active' : '' %>">Dashboard</a>
-    <a href="/chat" class="<%= currentRoute === '/chat' ? 'is-active' : '' %>">Chat</a>
-    <a href="/vocabulary" class="<%= currentRoute === '/vocabulary' ? 'is-active' : '' %>">Vocabulary</a>
-    <a href="/pronunciation" class="<%= currentRoute === '/pronunciation' ? 'is-active' : '' %>">Pronunciation</a>
-    <a href="/progress" class="<%= currentRoute === '/progress' ? 'is-active' : '' %>">Progress</a>
-    <a href="/voice" class="<%= currentRoute === '/voice' ? 'is-active' : '' %>">Voice</a>
-    <a href="/goals" class="<%= currentRoute === '/goals' ? 'is-active' : '' %>">Goals</a>
-    <a href="/usage-dashboard" class="<%= currentRoute === '/usage-dashboard' ? 'is-active' : '' %>">Usage</a>
-    <a href="/settings" class="<%= currentRoute === '/settings' ? 'is-active' : '' %>">Settings</a>
-    <a href="/logout">Logout</a>
+<nav class="site-nav" aria-label="Primary">
+  <div class="nav-inner">
+    <a class="brand-mark" href="/">
+      <span class="brand-icon">ðŸŽ“</span>
+      <span class="brand-copy">
+        <strong>ESL Academy</strong>
+        <small>AI Tutor Platform</small>
+      </span>
+    </a>
+
+    <button class="nav-toggle" aria-expanded="false" aria-controls="nav-menu">
+      <span class="sr-only">Toggle menu</span>
+      <span class="bar"></span>
+      <span class="bar"></span>
+    </button>
+
+    <div id="nav-menu" class="nav-links" data-mobile="false">
+      <a href="/chat" class="nav-link <%= currentRoute === 'chat' ? 'is-active' : '' %>">Chat</a>
+      <a href="/vocabulary" class="nav-link <%= currentRoute === 'vocabulary' ? 'is-active' : '' %>">Vocabulary</a>
+      <a href="/pronunciation"
+        class="nav-link <%= currentRoute === 'pronunciation' ? 'is-active' : '' %>">Pronunciation</a>
+      <a href="/progress" class="nav-link <%= currentRoute === 'progress' ? 'is-active' : '' %>">Progress</a>
+      <a href="/settings" class="nav-link <%= currentRoute === 'settings' ? 'is-active' : '' %>">Settings</a>
+      <a href="/voice" class="nav-link <%= currentRoute === 'voice' ? 'is-active' : '' %>">Voice Lab</a>
+    </div>
+
+    <div class="nav-cta">
+      <a href="/dashboard" class="ghost-link <%= currentRoute === 'dashboard' ? 'is-active' : '' %>">Dashboard</a>
+      <a href="/logout" class="btn btn-primary">Sign out</a>
+    </div>
   </div>
 </nav>
 <script>
   (() => {
-    const nav = document.currentScript?.previousElementSibling;
-    const toggle = nav?.querySelector('[data-nav-toggle]') || document.querySelector('[data-nav-toggle]');
-    const links = nav?.querySelector('[data-nav-links]') || document.querySelector('[data-nav-links]');
-    if (!toggle || !links) return;
+    const toggle = document.currentScript?.previousElementSibling?.querySelector?.('.nav-toggle') ||
+      document.querySelector('.nav-toggle');
+    const menu = document.querySelector('#nav-menu');
 
-    const setState = (open) => {
-      links.dataset.navOpen = open.toString();
-      toggle.setAttribute('aria-expanded', open.toString());
-    };
+    if (!toggle || !menu) return;
 
-    const handleToggle = () => {
-      const open = links.dataset.navOpen === 'true';
-      setState(!open);
-    };
-
-    toggle.addEventListener('click', handleToggle);
-    window.addEventListener('resize', () => {
-      if (window.innerWidth > 960) {
-        setState(true);
-      } else {
-        setState(false);
-      }
+    toggle.addEventListener('click', () => {
+      const isOpen = toggle.getAttribute('aria-expanded') === 'true';
+      toggle.setAttribute('aria-expanded', String(!isOpen));
+      menu.dataset.mobile = String(!isOpen);
     });
-
-    if (window.innerWidth > 960) {
-      setState(true);
-    }
   })();
 </script>

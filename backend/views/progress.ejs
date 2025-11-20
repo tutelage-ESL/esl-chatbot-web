@@ -3,214 +3,160 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Learning Progress - ESL Academy</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎓</text></svg>">
+    <title>Progress Tracker · ESL Academy</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/css/styles.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/brand-app.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>���</text></svg>">
 </head>
-<body>
-    <div class="app-container">
-        <header class="app-header">
-            <div class="academy-brand">
-                <div class="academy-logo">🎓</div>
-                <h1>ESL Academy</h1>
-                <div class="academy-tagline">Excellence in English Learning</div>
+<body class="brand-surface">
+    <%- include('partials/nav', { currentRoute: currentRoute }) %>
+
+    <main class="page-shell">
+        <section class="hero-banner">
+            <div class="hero-content">
+                <div class="hero-copy">
+                    <p class="tag">Progress tracker</p>
+                    <h1>Keep your English streak alive.</h1>
+                    <p>Every chat, drill, and pronunciation check strengthens your fluency. Here's a snapshot of how you're improving this week.</p>
+                    <div class="hero-actions">
+                        <a href="/chat" class="btn btn-primary">Start a live session</a>
+                        <a href="/goals" class="ghost-link">Review goals</a>
+                    </div>
+                </div>
+                <div class="stat-grid">
+                    <div class="stat-card">
+                        <strong><%= stats.studyTime %></strong>
+                        <span>Active study time</span>
+                    </div>
+                    <div class="stat-card">
+                        <strong><%= stats.dayStreak %></strong>
+                        <span>Day streak</span>
+                    </div>
+                    <div class="stat-card">
+                        <strong><%= stats.weeklyGoal %>%</strong>
+                        <span>Weekly goal</span>
+                    </div>
+                    <div class="stat-card">
+                        <strong><%= stats.completionRate %>%</strong>
+                        <span>Session completion</span>
+                    </div>
+                </div>
             </div>
-            <%- include('partials/nav', { currentRoute: currentRoute }) %>
-        </header>
+        </section>
 
-        <main class="app-main">
-            <section id="progress-section" class="section active">
-                <div class="progress-header">
-                    <div class="progress-title">
-                        <h2><i class="fas fa-chart-line"></i> Learning Analytics</h2>
-                        <p class="progress-subtitle">Track your English learning journey and achievements</p>
+        <section class="panel-grid double">
+            <article class="panel">
+                <div class="section-heading">
+                    <h2>Learning metrics</h2>
+                    <span class="badge"><i class="fas fa-chart-line"></i> Updated <%= (progress && progress.updatedAt) ? new Date(progress.updatedAt).toLocaleDateString() : 'today' %></span>
+                </div>
+                <div class="data-stack">
+                    <div class="data-row">
+                        <span>Overall progress</span>
+                        <strong><%= progress && progress.progress ? progress.progress + '%' : 'Tracking' %></strong>
                     </div>
-                    <div class="progress-level">
-                        <div class="level-badge">
-                            <span class="level-text">Intermediate</span>
-                            <div class="level-progress">
-                                <div class="level-fill" style="width: <%= progress.progress %>%;"></div>
+                    <div class="data-row">
+                        <span>Average session time</span>
+                        <strong><%= stats.averageSessionTime %></strong>
+                    </div>
+                    <div class="data-row">
+                        <span>Total sessions logged</span>
+                        <strong><%= stats.totalSessions %></strong>
+                    </div>
+                    <div class="data-row">
+                        <span>Messages sent to coach</span>
+                        <strong><%= (progress && progress.chatMessageCount) || 0 %></strong>
+                    </div>
+                    <div class="data-row">
+                        <span>Words typed this week</span>
+                        <strong><%= (progress && progress.totalWordsTyped) || 0 %></strong>
+                    </div>
+                </div>
+            </article>
+
+            <article class="panel">
+                <div class="section-heading">
+                    <h2>Focus this week</h2>
+                    <span class="badge"><i class="fas fa-bullseye"></i> Tiny steps matter</span>
+                </div>
+                <div class="data-stack">
+                    <div class="data-row" style="flex-direction: column; align-items: flex-start; gap:0.5rem;">
+                        <div style="width:100%; display:flex; justify-content: space-between; align-items:center;">
+                            <strong>Goal completion</strong>
+                            <small><%= stats.weeklyGoal %>% of target sessions</small>
+                        </div>
+                        <div class="progress-track">
+                            <small>Weekly cadence</small>
+                            <div class="progress-bar-track">
+                                <div class="progress-bar-fill" style="width:<%= stats.weeklyGoal %>%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="data-row" style="flex-direction: column; align-items: flex-start; gap:0.5rem;">
+                        <div style="width:100%; display:flex; justify-content: space-between; align-items:center;">
+                            <strong>Completion rate</strong>
+                            <small><%= stats.completionRate %>% successful sessions</small>
+                        </div>
+                        <div class="progress-track">
+                            <small>Quality sessions</small>
+                            <div class="progress-bar-track">
+                                <div class="progress-bar-fill" style="width:<%= stats.completionRate %>%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="data-row" style="flex-direction: column; align-items: flex-start; gap:0.5rem;">
+                        <div style="width:100%; display:flex; justify-content: space-between; align-items:center;">
+                            <strong>Voice practice</strong>
+                            <small><%= (progress && progress.voiceSessions) || 0 %> mini labs logged</small>
+                        </div>
+                        <div class="progress-track">
+                            <small>Confidence curve</small>
+                            <div class="progress-bar-track">
+                                <div class="progress-bar-fill" style="width:<%= Math.min(100, ((progress && progress.voiceSessions) || 0) * 10) %>%"></div>
                             </div>
                         </div>
                     </div>
                 </div>
+            </article>
+        </section>
 
-                <!-- Overall Progress Card -->
-                <div class="analytics-grid">
-                    <div class="analytics-card main-progress">
-                        <div class="card-header">
-                            <h3><i class="fas fa-trophy"></i> Overall Progress</h3>
-                            <span class="progress-percentage"><%= progress.progress %>%</span>
-                        </div>
-                        <div class="progress-circle">
-                            <svg class="progress-ring" width="120" height="120">
-                                <circle class="progress-ring-bg" cx="60" cy="60" r="50"></circle>
-                                <circle class="progress-ring-fill" cx="60" cy="60" r="50" 
-                                        style="stroke-dasharray: <%= (progress.progress / 100) * 314 %> 314;"></circle>
-                            </svg>
-                            <div class="progress-text">
-                                <span class="progress-number"><%= progress.progress %>%</span>
-                                <span class="progress-label">Complete</span>
+        <section class="panel">
+            <div class="section-heading">
+                <h2>Recent activity</h2>
+                <a href="/usage" class="ghost-link">See detailed usage</a>
+            </div>
+            <% const activities = (progress && progress.activities) || []; %>
+            <% if (activities.length > 0) { %>
+                <div class="timeline">
+                    <% activities.slice(0, 6).forEach(function(activity) { %>
+                        <div class="timeline-item">
+                            <span class="timeline-dot"></span>
+                            <div class="timeline-content">
+                                <div class="section-heading" style="margin-bottom:0.35rem;">
+                                    <strong><%= activity.title || activity.type || 'Learning moment' %></strong>
+                                    <small class="muted"><%= activity.date || activity.timestamp || '' %></small>
+                                </div>
+                                <p class="muted"><%= activity.description || activity.detail || activity.summary || 'Progress captured during your session.' %></p>
+                                <% if (activity.score || activity.points) { %>
+                                    <span class="badge">
+                                        <i class="fas fa-star"></i>
+                                        +<%= activity.score || activity.points %> pts
+                                    </span>
+                                <% } %>
                             </div>
                         </div>
-                        <div class="progress-details">
-                            <p>🎯 Next milestone: <strong>Advanced Level</strong></p>
-                            <p>📈 <strong><%= 100 - progress.progress %>%</strong> more to go!</p>
-                        </div>
-                    </div>
-                    <!-- Learning Statistics Cards -->
-                    <div class="analytics-card stats-card">
-                        <div class="card-header">
-                            <h3><i class="fas fa-chart-bar"></i> Learning Statistics</h3>
-                        </div>
-                        <div class="stats-grid">
-                            <div class="stat-item">
-                                <div class="stat-icon">
-                                    <i class="fas fa-comments"></i>
-                                </div>
-                                <div class="stat-info">
-                                    <span class="stat-number"><%= progress.chatMessageCount || 0 %></span>
-                                    <span class="stat-label">Messages Sent</span>
-                                </div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-icon">
-                                    <i class="fas fa-keyboard"></i>
-                                </div>
-                                <div class="stat-info">
-                                    <span class="stat-number"><%= progress.totalWordsTyped || 0 %></span>
-                                    <span class="stat-label">Words Typed</span>
-                                </div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-icon">
-                                    <i class="fas fa-clock"></i>
-                                </div>
-                                <div class="stat-info">
-                                    <span class="stat-number"><%= stats.studyTime %></span>
-                                    <span class="stat-label">Study Time</span>
-                                </div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-icon">
-                                    <i class="fas fa-fire"></i>
-                                </div>
-                                <div class="stat-info">
-                                    <span class="stat-number"><%= stats.dayStreak %></span>
-                                    <span class="stat-label">Day Streak</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Skills Progress Card -->
-                    <div class="analytics-card skills-card">
-                        <div class="card-header">
-                            <h3><i class="fas fa-brain"></i> Skills Development</h3>
-                        </div>
-                        <div class="skills-list">
-                            <div class="skill-item">
-                                <div class="skill-info">
-                                    <span class="skill-name">📝 Grammar</span>
-                                    <span class="skill-percentage">85%</span>
-                                </div>
-                                <div class="skill-bar">
-                                    <div class="skill-fill" style="width: 85%;"></div>
-                                </div>
-                            </div>
-                            <div class="skill-item">
-                                <div class="skill-info">
-                                    <span class="skill-name">📚 Vocabulary</span>
-                                    <span class="skill-percentage">72%</span>
-                                </div>
-                                <div class="skill-bar">
-                                    <div class="skill-fill" style="width: 72%;"></div>
-                                </div>
-                            </div>
-                            <div class="skill-item">
-                                <div class="skill-info">
-                                    <span class="skill-name">🗣️ Speaking</span>
-                                    <span class="skill-percentage">68%</span>
-                                </div>
-                                <div class="skill-bar">
-                                    <div class="skill-fill" style="width: 68%;"></div>
-                                </div>
-                            </div>
-                            <div class="skill-item">
-                                <div class="skill-info">
-                                    <span class="skill-name">👂 Listening</span>
-                                    <span class="skill-percentage">79%</span>
-                                </div>
-                                <div class="skill-bar">
-                                    <div class="skill-fill" style="width: 79%;"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <% }) %>
                 </div>
-
-                <!-- Recent Activities Section -->
-                <div class="activities-section">
-                    <div class="section-header">
-                        <h3><i class="fas fa-history"></i> Recent Learning Activities</h3>
-                        <span class="last-updated">Last updated: <%= progress.updatedAt ? progress.updatedAt.toLocaleDateString() : new Date().toLocaleDateString() %></span>
-                    </div>
-                    
-                    <% if (progress.activities && progress.activities.length > 0) { %>
-                        <div class="activity-timeline">
-                            <% progress.activities.forEach((activity, index) => { %>
-                                <div class="activity-item <%= index === 0 ? 'latest' : '' %>">
-                                    <div class="activity-icon">
-                                        <i class="fas fa-<%= activity.type === 'chat' ? 'comments' : activity.type === 'voice' ? 'microphone' : 'book' %>"></i>
-                                    </div>
-                                    <div class="activity-content">
-                                        <div class="activity-header">
-                                            <h4><%= activity.description %></h4>
-                                            <span class="activity-score">Score: <%= activity.score %>%</span>
-                                        </div>
-                                        <div class="activity-meta">
-                                            <span class="activity-date">
-                                                <i class="fas fa-calendar"></i>
-                                                <%= new Date(activity.date).toLocaleDateString() %>
-                                            </span>
-                                            <span class="activity-time">
-                                                <i class="fas fa-clock"></i>
-                                                <%= new Date(activity.date).toLocaleTimeString() %>
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            <% }); %>
-                        </div>
-                    <% } else { %>
-                        <div class="no-activities">
-                            <div class="no-activities-icon">
-                                <i class="fas fa-chart-line"></i>
-                            </div>
-                            <h4>Start Your Learning Journey!</h4>
-                            <p>No recent activities to display. Begin chatting with your AI tutor to see your progress here.</p>
-                            <a href="/chat" class="btn btn-primary">
-                                <i class="fas fa-comments"></i> Start Learning
-                            </a>
-                        </div>
-                    <% } %>
+            <% } else { %>
+                <div class="empty-state">
+                    <p>No activity recorded yet. Start a chat or a practice session to see your journey fill in.</p>
                 </div>
-
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const progressBar = document.getElementById('progressBar');
-        const progressValue = <%= progress.progress %>;
-        progressBar.style.width = progressValue + '%';
-        progressBar.textContent = progressValue + '%';
-    });
-</script>
-</div>
-                </div>
-            </section>
-        </main>
-    </div>
-
-    
+            <% } %>
+        </section>
+    </main>
 </body>
 </html>
