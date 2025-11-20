@@ -390,6 +390,12 @@
     "userName": "Student",
     "interactions": [
       {
+        "timestamp": "2025-11-20T17:55:07.161Z",
+        "type": "text",
+        "message": "helo",
+        "responsePreview": "\"Helohelo\"! Aw, you're almost there! It's actually spelled \"hello\"! 👋 So close!\n\nSpeaking of \"hello..."
+      },
+      {
         "timestamp": "2025-11-20T15:22:15.603Z",
         "type": "text",
         "message": "c",
@@ -403,8 +409,8 @@
       }
     ],
     "metrics": {
-      "totalInteractions": 2,
-      "textInteractions": 2,
+      "totalInteractions": 3,
+      "textInteractions": 3,
       "voiceInteractions": 0,
       "commandsUsed": 0,
       "lessonsCompleted": 0,
@@ -418,7 +424,7 @@
         "speaking": 0,
         "listening": 0
       },
-      "lastUpdated": "2025-11-20T15:22:15.603Z"
+      "lastUpdated": "2025-11-20T17:55:07.161Z"
     }
   },
   "user_hehxzwj55vhmd0u2mriz1": {

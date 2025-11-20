@@ -9,8 +9,8 @@
 /* Layout shell: wider chat column, tips on the right */
 .chat-shell {
   display: grid;
-  grid-template-columns: minmax(0, 2.2fr) minmax(280px, 1fr);
-  gap: 1.5rem;
+  grid-template-columns: 1fr; /* single-column layout */
+  gap: 0; /* no horizontal gap since aside is removed */
 }
 
 @media (max-width: 1020px) {

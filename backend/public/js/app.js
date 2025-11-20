@@ -735,6 +735,7 @@ document.addEventListener('DOMContentLoaded', () => {
     voiceSettingsBtn.addEventListener('click', () => {
       const isVisible = voiceSettingsPanel.style.display !== 'none';
       voiceSettingsPanel.style.display = isVisible ? 'none' : 'block';
+      voiceSettingsBtn.setAttribute('aria-expanded', (!isVisible).toString());
     });
   }
 
