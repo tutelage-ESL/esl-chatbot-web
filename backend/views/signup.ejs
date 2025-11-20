@@ -10,12 +10,12 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/css/styles.css">
     <link rel="stylesheet" href="/css/brand-app.css">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>í¾“</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>ï¿½ï¿½ï¿½</text></svg>">
 </head>
 <body class="brand-surface">
     <div class="auth-shell">
         <div class="auth-card" id="auth-container">
-            <div class="brand-icon" style="margin:0 auto 1rem;">í¾“</div>
+            <div class="brand-icon" style="margin:0 auto 1rem;"><img src="/brand-icons/ai-esl-logo.svg" alt="ESL Academy logo"></div>
             <h2>Join ESL Academy</h2>
             <p>Create your personalized AI-powered English workspace in seconds.</p>
 
@@ -44,15 +44,15 @@
                 <div>
                     <label for="subscription-tier">Choose your learning plan</label>
                     <select id="subscription-tier" name="subscriptionTier" required>
-                        <option value="standard" <%= (typeof oldInput !== 'undefined' && oldInput.subscriptionTier === 'standard') ? 'selected' : '' %>>íµ‰ Standard Â· 20 min/month (Free)</option>
-                        <option value="gold" <%= (typeof oldInput !== 'undefined' && oldInput.subscriptionTier === 'gold') ? 'selected' : '' %>>íµˆ Gold Â· 1 hr/month ($9.99)</option>
-                        <option value="diamond" <%= (typeof oldInput !== 'undefined' && oldInput.subscriptionTier === 'diamond') ? 'selected' : '' %>>í²Ž Diamond Â· 2 hr/month ($19.99)</option>
+                        <option value="standard" <%= (typeof oldInput !== 'undefined' && oldInput.subscriptionTier === 'standard') ? 'selected' : '' %>>ï¿½ï¿½ï¿½ Standard Â· 20 min/month (Free)</option>
+                        <option value="gold" <%= (typeof oldInput !== 'undefined' && oldInput.subscriptionTier === 'gold') ? 'selected' : '' %>>ï¿½ï¿½ï¿½ Gold Â· 1 hr/month ($9.99)</option>
+                        <option value="diamond" <%= (typeof oldInput !== 'undefined' && oldInput.subscriptionTier === 'diamond') ? 'selected' : '' %>>ï¿½ï¿½ï¿½ Diamond Â· 2 hr/month ($19.99)</option>
                     </select>
                 </div>
 
                 <div class="tier-grid">
                     <div class="tier-card standard-benefit <%= (typeof oldInput === 'undefined' || oldInput.subscriptionTier === 'standard') ? 'active' : '' %>">
-                        <h4>íµ‰ Standard plan</h4>
+                        <h4>ï¿½ï¿½ï¿½ Standard plan</h4>
                         <ul>
                             <li>20 minutes of AI voice per month</li>
                             <li>Full chat + vocabulary access</li>
@@ -60,7 +60,7 @@
                         </ul>
                     </div>
                     <div class="tier-card gold-benefit <%= (typeof oldInput !== 'undefined' && oldInput.subscriptionTier === 'gold') ? 'active' : '' %>">
-                        <h4>íµˆ Gold plan</h4>
+                        <h4>ï¿½ï¿½ï¿½ Gold plan</h4>
                         <ul>
                             <li>1 hour of AI voice per month</li>
                             <li>Priority processing + drills</li>
@@ -68,7 +68,7 @@
                         </ul>
                     </div>
                     <div class="tier-card diamond-benefit <%= (typeof oldInput !== 'undefined' && oldInput.subscriptionTier === 'diamond') ? 'active' : '' %>">
-                        <h4>í²Ž Diamond plan</h4>
+                        <h4>ï¿½ï¿½ï¿½ Diamond plan</h4>
                             <ul>
                                 <li>2 hours of AI voice per month</li>
                                 <li>Premium voice selection</li>

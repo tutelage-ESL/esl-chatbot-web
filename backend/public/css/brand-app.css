@@ -99,6 +99,15 @@ img {
   height: 32px;
 }
 
+/* Signup page: optional larger icon for emphasis */
+.tier-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+.tier-card h4 {
+  margin: 0 0 0.35rem 0;
+}
+
 .brand-copy small {
   display: block;
   font-size: 0.75rem;
