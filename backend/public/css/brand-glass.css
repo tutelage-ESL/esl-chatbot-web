@@ -1,0 +1,411 @@
+/* Brand Glassmorphism Theme — ESL Academy / Tutelage Tokens (Tutelage20 refresh) */
+
+/*
+  Purpose: Provide a brand-aligned glassmorphism + gradient style layer
+  that preserves the original aesthetic (blurred glass, gradient transitions)
+  while mapping colors to official brand tokens and ensuring accessible contrast.
+*/
+
+:root {
+  /* Brand tokens (from docs/brand/brand-theme.md) */
+  --background: #ffffff;
+  --foreground: #111111;
+  --primary: #f59e0b; /* dim yellow */
+  --accent: #fec016;  /* brand/logo yellow */
+  --secondary: #111111; /* deep neutral */
+  --muted: #f2f2f2;
+  --muted-foreground: #4a4a50;
+  --border: #e5e7eb;
+  --radius: 0.625rem; /* 10px base */
+
+  /* Transparency & blur tuned for readability */
+  --glass-bg-alpha: 0.86;     /* panels: slightly more solid for premium clarity */
+  --glass-nav-alpha: 0.58;    /* navigation: gentle translucency */
+  --glass-chip-alpha: 0.92;   /* chips: crisp accent surfaces */
+  --glass-border-alpha: 0.12; /* softer borders to avoid harsh edges */
+  --glass-blur: 18px;         /* deeper frost for a pleasant, smooth feel */
+
+  /* Derived colors for gradients/shadows */
+  --secondary-900: #0d0d0d;
+  --secondary-700: #232323;
+  --primary-700: #d97706;
+  --accent-600: #fdbe10;
+
+  /* Shadows tuned for glass surfaces */
+  --shadow-sm: 0 6px 16px rgba(17, 17, 17, 0.08);
+  --shadow-md: 0 10px 30px rgba(17, 17, 17, 0.12);
+  --shadow-lg: 0 16px 44px rgba(17, 17, 17, 0.16);
+
+  /* Gradient recipes using brand tokens */
+  /* Polished: softer, layered gradients with subtle accent warmth */
+  --gradient-header: 
+    radial-gradient(900px 320px at 8% -10%, rgba(252, 211, 77, 0.14), transparent 55%),
+    linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.88));
+  --gradient-primary: linear-gradient(135deg, #FDE68A 0%, #FCD34D 55%, #F59E0B 100%);
+  --gradient-surface:
+    radial-gradient(1000px 380px at 10% 0%, rgba(252, 211, 77, 0.08), transparent 60%),
+    linear-gradient(135deg, #fcfcfc 0%, #f7f7fb 100%);
+  --gradient-muted: linear-gradient(135deg, #fdfdfd 0%, #f2f2f5 100%);
+}
+
+/* Dark theme support (optional; respects brand tokens) */
+.dark {
+  --background: #111111;
+  --foreground: #ffffff;
+  --secondary: #232323;
+  --muted: #1e1e1e;
+  --muted-foreground: #a1a1aa;
+  --border: #232323;
+  --glass-bg-alpha: 0.55;
+  --glass-nav-alpha: 0.50;
+  --glass-chip-alpha: 0.70;
+  --shadow-sm: 0 6px 16px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 16px 44px rgba(0, 0, 0, 0.45);
+}
+
+/* Base page surfaces */
+body.brand-surface {
+  background: var(--gradient-surface);
+  color: var(--foreground);
+}
+
+.brand-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header with brand gradient and logo block */
+.brand-header {
+  background: var(--gradient-header);
+  color: var(--foreground);
+  padding: 1.25rem 1.25rem 0.75rem;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.25);
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+}
+
+.brand-header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(1200px 400px at 5% -10%, rgba(255,255,255,0.12), transparent),
+              radial-gradient(1200px 400px at 100% 0%, rgba(255,255,255,0.12), transparent);
+  pointer-events: none;
+}
+
+.brand-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.brand-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.75rem;
+  color: var(--secondary);
+  background: rgba(255, 255, 255, var(--glass-chip-alpha));
+  backdrop-filter: blur(var(--glass-blur));
+  border: 2px solid rgba(17, 17, 17, var(--glass-border-alpha));
+  box-shadow: var(--shadow-sm);
+}
+
+.brand-heading {
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  font-size: 1.75rem;
+  margin: 0;
+  color: var(--secondary);
+}
+
+.brand-tagline {
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Helvetica, Arial;
+  color: var(--muted-foreground);
+  opacity: 0.9;
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+/* Navigation using tokenized colors with glass effect */
+.brand-nav {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem 1rem;
+}
+
+.nav-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, var(--glass-nav-alpha));
+  backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid rgba(17, 17, 17, var(--glass-border-alpha));
+  color: var(--foreground);
+  text-decoration: none;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+}
+
+.nav-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.nav-chip.is-active {
+  background: #fff;
+  color: var(--secondary);
+  border-color: rgba(17, 17, 17, 0.18);
+  box-shadow: 0 0 0 2px rgba(254, 192, 22, 0.35); /* accent ring */
+}
+
+/* Main content wrapper */
+.brand-main {
+  flex: 1;
+  padding: 2rem 1.25rem;
+  background: var(--gradient-surface);
+}
+
+/* Glass cards (panels) */
+.glass-card {
+  background: rgba(255, 255, 255, var(--glass-bg-alpha));
+  backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid rgba(17, 17, 17, var(--glass-border-alpha));
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.card-content { padding: 1rem; }
+
+.card-title {
+  font-weight: 700;
+  color: var(--secondary);
+  margin: 0 0 0.25rem 0;
+}
+
+.card-meta { color: var(--muted-foreground); font-size: 0.9rem; }
+
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #111;
+  margin-bottom: 0.5rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.stat-icon.primary { background: var(--gradient-primary); color: #111; }
+.stat-value { font-size: 1.8rem; font-weight: 800; color: var(--secondary); }
+.stat-label { color: var(--muted-foreground); }
+
+/* Buttons with gradient emphasis and accessible text contrast */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 999px;
+  padding: 0.6rem 1rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  border: 1px solid rgba(17, 17, 17, var(--glass-border-alpha));
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+
+.btn:focus { outline: 2px solid rgba(245, 158, 11, 0.4); outline-offset: 2px; }
+.btn:active { transform: translateY(0.5px); }
+
+.btn-primary {
+  background: var(--gradient-primary);
+  color: #111; /* black text on yellow gradient meets contrast */
+  box-shadow: var(--shadow-sm);
+}
+.btn-primary:hover { box-shadow: var(--shadow-md); filter: brightness(1.02); }
+
+.btn-secondary {
+  background: rgba(255, 255, 255, var(--glass-chip-alpha));
+  color: var(--secondary);
+  backdrop-filter: blur(var(--glass-blur));
+}
+.btn-secondary:hover { box-shadow: var(--shadow-md); }
+
+.btn-ghost { background: transparent; color: var(--secondary); border-color: rgba(17,17,17,0.12); }
+
+/* Menus */
+.glass-menu {
+  display: inline-flex;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, var(--glass-nav-alpha));
+  backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid rgba(17, 17, 17, var(--glass-border-alpha));
+}
+
+.menu-item { padding: 0.5rem 0.9rem; border-radius: 999px; color: var(--secondary); text-decoration: none; }
+.menu-item:hover { background: rgba(255,255,255,0.9); }
+.menu-item.active { background: #fff; font-weight: 700; }
+
+/* Accessibility helpers */
+.muted { color: var(--muted-foreground); }
+.a11y-note { font-size: 0.85rem; color: var(--muted-foreground); }
+
+/* Reduce motion if user prefers */
+@media (prefers-reduced-motion: reduce) {
+  .btn, .nav-chip { transition: none; }
+}
+
+/* Demo layout spacing */
+.demo-section { margin: 1rem 0 1.25rem; }
+.demo-section h3 { margin: 0 0 0.5rem 0; font-weight: 700; color: var(--secondary); }
+
+/* ===== Tutelage20-style sections ===== */
+.brand-hero {
+  padding: 2.5rem 1.25rem;
+  border-radius: var(--radius);
+  background: var(--gradient-muted);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+.hero-title {
+  font-weight: 800;
+  font-size: 2rem;
+  color: var(--secondary);
+  margin: 0 0 0.5rem 0;
+}
+.hero-subtitle { color: var(--muted-foreground); margin: 0 0 1rem 0; }
+.hero-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+.services-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+.service-card { background: rgba(255,255,255,var(--glass-bg-alpha)); backdrop-filter: blur(var(--glass-blur)); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
+.service-card .card-content { padding: 1rem; }
+.service-icon { width: 44px; height: 44px; border-radius: 50%; display:flex; align-items:center; justify-content:center; background: rgba(254,192,22,0.18); color: var(--secondary); margin-bottom: 0.5rem; }
+
+.timeline { position: relative; padding: 0.5rem 0; }
+.timeline::before { content: ''; position: absolute; left: 12px; top: 0; bottom: 0; width: 2px; background: rgba(17,17,17,0.08); }
+.t-item { position: relative; padding-left: 2rem; margin: 0.5rem 0; }
+.t-dot { position: absolute; left: 6px; top: 0.45rem; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); border: 2px solid #fff; box-shadow: var(--shadow-sm); }
+.t-title { font-weight: 700; color: var(--secondary); }
+.t-meta { color: var(--muted-foreground); font-size: 0.9rem; }
+/* Tutelage brand alignment */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&display=swap');
+
+:root {
+  /* Accent and neutrals inspired by Tutelage site */
+  --t-accent: #FCD34D;           /* warm yellow */
+  --t-accent-hover: #FDE68A;     /* lighter hover */
+  --t-accent-press: #F59E0B;     /* deeper press */
+  --t-black: #0A0A0A;            /* headings */
+  --t-white: #FFFFFF;            /* surfaces */
+  --t-muted: #4B5563;            /* secondary */
+
+  /* Typography */
+  --font-heading: "Poppins", Inter, Segoe UI, Roboto, system-ui, -apple-system, sans-serif;
+}
+
+/* Override heading/tagline tokens to match site vibe */
+.brand-heading { color: var(--t-black); font-family: var(--font-heading); font-weight: 700; }
+.brand-tagline { color: var(--t-muted); }
+
+/* Buttons tuned to Tutelage accent */
+.btn.btn-primary {
+  background: var(--t-accent);
+  color: var(--t-black);
+  border: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 8px 20px rgba(252, 211, 77, 0.25);
+}
+.btn.btn-primary:hover { background: var(--t-accent-hover); box-shadow: 0 10px 24px rgba(252, 211, 77, 0.35); }
+.btn.btn-primary:active { background: var(--t-accent-press); }
+
+/* Hero section */
+.brand-hero {
+  margin-top: 1rem;
+  padding: 2rem 1.5rem;
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(252, 211, 77, 0.14), rgba(255,255,255,0.65));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(17,17,17,0.06);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.08);
+}
+.brand-hero .hero-title {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 2.25rem;
+  line-height: 1.15;
+  color: var(--t-black);
+}
+.brand-hero .hero-subtitle {
+  margin-top: 0.5rem;
+  font-size: 1.05rem;
+  color: var(--t-muted);
+}
+.brand-hero .hero-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem; }
+
+/* Services grid */
+.services-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+@media (min-width: 900px) { .services-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+.service-card {
+  border-radius: 18px;
+  background: rgba(255,255,255, 0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(17,17,17,0.06);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+}
+.service-card .service-icon {
+  width: 40px; height: 40px; border-radius: 12px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, var(--t-accent-hover), var(--t-accent));
+  color: var(--t-black);
+}
+.service-card .card-title { margin-top: 0.5rem; font-weight: 600; color: var(--t-black); }
+.service-card .card-meta { color: var(--t-muted); }
+
+/* Timeline */
+.timeline { position: relative; display: grid; gap: 0.75rem; padding-left: 1rem; }
+.timeline:before {
+  content: ""; position: absolute; left: 0.4rem; top: 0.2rem; bottom: 0.2rem;
+  width: 2px; background: rgba(0,0,0,0.08);
+}
+.t-item { position: relative; padding-left: 0.75rem; }
+.t-dot {
+  position: absolute; left: -0.1rem; top: 0.4rem;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--t-accent);
+  box-shadow: 0 0 0 3px rgba(252, 211, 77, 0.25);
+}
+.t-title { font-weight: 600; color: var(--t-black); }
+.t-meta { color: var(--t-muted); }
+
+/* Section spacing harmony */
+.demo-section { margin-top: 1rem; }

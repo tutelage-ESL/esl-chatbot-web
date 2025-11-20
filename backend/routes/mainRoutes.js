@@ -323,6 +323,17 @@ router.get('/vocabulary', async (req, res) => {
   res.render('vocabulary', { vocabulary: vocabularyData, currentRoute: 'vocabulary' });
 });
 
+// Theme preview (mockups) route
+router.get('/theme-preview', async (req, res) => {
+  // Public preview; no auth gate so stakeholders can review quickly
+  try {
+    res.render('theme-preview', { currentRoute: 'theme-preview' });
+  } catch (err) {
+    console.error('Error rendering theme preview:', err);
+    res.status(500).send('Preview unavailable');
+  }
+});
+
 // Goals page route
 router.get('/goals', async (req, res) => {
   if (!req.session.userId) return res.redirect('/login');
