@@ -1,14 +1,52 @@
-<link href="/css/style.css" rel="stylesheet">
-<nav class="bg-secondary text-foreground p-4 shadow-sm">
-  <div class="container mx-auto flex justify-between items-center">
-    <a href="/" class="text-accent text-lg font-bold">Tutelage Chatbot</a>
-    <div>
-      <a href="/chat" class="text-muted-foreground hover:text-primary px-3">Chat</a>
-      <a href="/vocabulary" class="text-muted-foreground hover:text-primary px-3">Vocabulary</a>
-      <a href="/pronunciation" class="text-muted-foreground hover:text-primary px-3">Pronunciation</a>
-      <a href="/progress" class="text-muted-foreground hover:text-primary px-3">Progress</a>
-      <a href="/settings" class="text-muted-foreground hover:text-primary px-3">Settings</a>
-      <a href="/logout" class="text-muted-foreground hover:text-primary px-3">Logout</a>
-    </div>
+<nav class="app-nav">
+  <a href="/dashboard" class="nav-brand">
+    <div>í¾“ ESL Academy</div>
+    <span>AI English Lab</span>
+  </a>
+  <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false" data-nav-toggle>
+    <i class="fas fa-bars"></i>
+  </button>
+  <div class="nav-links" data-nav-links data-nav-open="false">
+    <a href="/dashboard" class="<%= currentRoute === '/dashboard' ? 'is-active' : '' %>">Dashboard</a>
+    <a href="/chat" class="<%= currentRoute === '/chat' ? 'is-active' : '' %>">Chat</a>
+    <a href="/vocabulary" class="<%= currentRoute === '/vocabulary' ? 'is-active' : '' %>">Vocabulary</a>
+    <a href="/pronunciation" class="<%= currentRoute === '/pronunciation' ? 'is-active' : '' %>">Pronunciation</a>
+    <a href="/progress" class="<%= currentRoute === '/progress' ? 'is-active' : '' %>">Progress</a>
+    <a href="/voice" class="<%= currentRoute === '/voice' ? 'is-active' : '' %>">Voice</a>
+    <a href="/goals" class="<%= currentRoute === '/goals' ? 'is-active' : '' %>">Goals</a>
+    <a href="/usage-dashboard" class="<%= currentRoute === '/usage-dashboard' ? 'is-active' : '' %>">Usage</a>
+    <a href="/settings" class="<%= currentRoute === '/settings' ? 'is-active' : '' %>">Settings</a>
+    <a href="/logout">Logout</a>
   </div>
 </nav>
+<script>
+  (() => {
+    const nav = document.currentScript?.previousElementSibling;
+    const toggle = nav?.querySelector('[data-nav-toggle]') || document.querySelector('[data-nav-toggle]');
+    const links = nav?.querySelector('[data-nav-links]') || document.querySelector('[data-nav-links]');
+    if (!toggle || !links) return;
+
+    const setState = (open) => {
+      links.dataset.navOpen = open.toString();
+      toggle.setAttribute('aria-expanded', open.toString());
+    };
+
+    const handleToggle = () => {
+      const open = links.dataset.navOpen === 'true';
+      setState(!open);
+    };
+
+    toggle.addEventListener('click', handleToggle);
+    window.addEventListener('resize', () => {
+      if (window.innerWidth > 960) {
+        setState(true);
+      } else {
+        setState(false);
+      }
+    });
+
+    if (window.innerWidth > 960) {
+      setState(true);
+    }
+  })();
+</script>

@@ -3,114 +3,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student Dashboard - ESL Academy</title>
-    <link rel="stylesheet" href="/css/styles.css">
+    <title>Learning Dashboard · ESL Academy</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎓</text></svg>">
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/css/brand-app.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>���</text></svg>">
 </head>
-<body>
-    <div class="app-container">
-        <header class="app-header">
-            <div class="academy-brand">
-                <div class="academy-logo">🎓</div>
-                <div>
-                    <h1>ESL Academy</h1>
-                    <p class="academy-tagline">Master English with AI-Powered Learning</p>
+<body class="brand-surface">
+    <%- include('partials/nav', { currentRoute: currentRoute }) %>
+
+    <main class="page-shell">
+        <section class="hero-banner">
+            <div class="hero-content">
+                <div class="hero-copy">
+                    <p class="tag">Welcome back</p>
+                    <h1>Hi <%= user.username %>, your English streak is alive.</h1>
+                    <p>Keep growing your vocabulary, speaking confidence, and listening precision with a daily mix of live chat, drills, and AI feedback.</p>
+                    <div class="hero-actions">
+                        <a href="/chat" class="btn btn-primary">Jump into chat</a>
+                        <a href="/progress" class="ghost-link">Review analytics</a>
+                    </div>
+                </div>
+                <div class="stat-grid">
+                    <div class="stat-card">
+                        <strong><%= stats.lessonsCompleted %></strong>
+                        <span>Lessons completed</span>
+                    </div>
+                    <div class="stat-card">
+                        <strong><%= stats.studyTime %></strong>
+                        <span>Active study time</span>
+                    </div>
+                    <div class="stat-card">
+                        <strong><%= stats.dayStreak %>���</strong>
+                        <span>Day streak</span>
+                    </div>
+                    <div class="stat-card">
+                        <strong><%= stats.achievements %></strong>
+                        <span>Milestones unlocked</span>
+                    </div>
                 </div>
             </div>
-            <%- include('partials/nav', { currentRoute: currentRoute }) %>
-        </header>
+        </section>
 
-        <main class="app-main">
-            <section id="dashboard-section" class="section active">
-                <div class="student-welcome">
-                    <div class="student-info">
-                        <div class="student-avatar">
-                            <%= user.username.charAt(0).toUpperCase() %>
-                        </div>
-                        <div class="student-details">
-                            <h2>Welcome back, <%= user.username %>!</h2>
-                            <div class="student-level">Intermediate Level</div>
-                            <p class="student-progress">You're making great progress! Keep up the excellent work.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="dashboard-stats">
-                    <div class="stat-card">
-                        <div class="stat-icon lessons"><i class="fas fa-book-open"></i></div>
-                        <div class="stat-number"><%= stats.lessonsCompleted %></div>
-                        <div class="stat-label">Lessons Completed</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon time"><i class="fas fa-clock"></i></div>
-                        <div class="stat-number"><%= stats.studyTime %></div>
-                        <div class="stat-label">Study Time</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon streak"><i class="fas fa-fire"></i></div>
-                        <div class="stat-number"><%= stats.dayStreak %></div>
-                        <div class="stat-label">Day Streak</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon achievements"><i class="fas fa-trophy"></i></div>
-                        <div class="stat-number"><%= stats.achievements %></div>
-                        <div class="stat-label">Achievements</div>
-                    </div>
-                </div>
-
-                <div class="quick-actions">
-                    <a href="/chat" class="action-card">
-                        <div class="action-icon" style="background: linear-gradient(135deg, #1e40af, #3b82f6);">
-                            <i class="fas fa-comments"></i>
-                        </div>
-                        <h3>Practice Conversation</h3>
-                        <p>Chat with your AI tutor to improve speaking and comprehension skills</p>
-                    </a>
-                    <a href="/voice" class="action-card">
-                        <div class="action-icon" style="background: linear-gradient(135deg, #0891b2, #06b6d4);">
-                            <i class="fas fa-microphone"></i>
-                        </div>
-                        <h3>Voice Training</h3>
-                        <p>Practice pronunciation and speaking with real-time feedback</p>
-                    </a>
-                    <a href="/pronunciation" class="action-card">
-                        <div class="action-icon" style="background: linear-gradient(135deg, #dc2626, #ef4444);">
-                            <i class="fas fa-volume-up"></i>
-                        </div>
-                        <h3>Pronunciation Practice</h3>
-                        <p>Perfect your pronunciation with AI-powered analysis and feedback</p>
-                        <span class="new-badge">New!</span>
-                    </a>
-                    <a href="/vocabulary" class="action-card">
-                        <div class="action-icon" style="background: linear-gradient(135deg, #ea580c, #f97316);">
-                            <i class="fas fa-book"></i>
-                        </div>
-                        <h3>Vocabulary Builder</h3>
-                        <p>Expand your vocabulary with personalized word tracking and practice</p>
-                        <span class="new-badge">New!</span>
-                    </a>
-                    <a href="/goals" class="action-card">
-                        <div class="action-icon" style="background: linear-gradient(135deg, #059669, #10b981);">
-                            <i class="fas fa-target"></i>
-                        </div>
-                        <h3>Learning Goals</h3>
-                        <p>Set and track your learning objectives to stay motivated</p>
-                        <span class="new-badge">New!</span>
-                    </a>
-                    <a href="/progress" class="action-card">
-                        <div class="action-icon" style="background: linear-gradient(135deg, #7c3aed, #a855f7);">
-                            <i class="fas fa-chart-line"></i>
-                        </div>
-                        <h3>Track Progress</h3>
-                        <p>Monitor your learning journey and celebrate achievements</p>
-                    </a>
-                </div>
-            </section>
-        </main>
-    </div>
-
-
-    
+        <section class="panel">
+            <h2>Today's focus</h2>
+            <p class="muted">Pick a quick action to keep the momentum going.</p>
+            <div class="card-grid" style="margin-top:1rem;">
+                <a href="/chat" class="insight-card">
+                    <h3><i class="fas fa-comments"></i> Practice conversation</h3>
+                    <p>10-minute guided dialogue with instant grammar cues.</p>
+                </a>
+                <a href="/voice" class="insight-card">
+                    <h3><i class="fas fa-microphone"></i> Voice lab</h3>
+                    <p>Warm up with pronunciation drills and TTS playback.</p>
+                </a>
+                <a href="/vocabulary" class="insight-card">
+                    <h3><i class="fas fa-book"></i> Vocabulary builder</h3>
+                    <p>Review saved words and unlock fresh phrases.</p>
+                </a>
+                <a href="/goals" class="insight-card">
+                    <h3><i class="fas fa-bullseye"></i> Learning goals</h3>
+                    <p>Update targets and celebrate completed milestones.</p>
+                </a>
+                <a href="/progress" class="insight-card">
+                    <h3><i class="fas fa-chart-line"></i> Track progress</h3>
+                    <p>See growth across speaking, listening, and vocabulary.</p>
+                </a>
+                <a href="/pronunciation" class="insight-card">
+                    <h3><i class="fas fa-volume-up"></i> Pronunciation coach</h3>
+                    <p>Upload phrases and get phonetic corrections.</p>
+                </a>
+            </div>
+        </section>
+    </main>
 </body>
 </html>

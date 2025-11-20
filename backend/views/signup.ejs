@@ -3,100 +3,100 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Join ESL Academy - Start Your English Learning Journey</title>
-    <link rel="stylesheet" href="/css/styles.css">
+    <title>Create account Â· ESL Academy</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>ðŸŽ“</text></svg>">
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/css/brand-app.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>í¾“</text></svg>">
 </head>
-<body class="bg-gray-100 font-sans antialiased">
-    <div id="auth-container" class="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-        <div id="signup-form-container" class="bg-white p-8 rounded-lg shadow-md w-full max-w-md text-center">
-            <div class="auth-logo text-5xl mb-4">
-                ðŸŽ“
-            </div>
-            <h2 class="text-3xl font-bold text-gray-800 mb-2">Join ESL Academy</h2>
-            <p class="auth-subtitle text-gray-600 mb-6">Start your personalized English learning journey today</p>
+<body class="brand-surface">
+    <div class="auth-shell">
+        <div class="auth-card" id="auth-container">
+            <div class="brand-icon" style="margin:0 auto 1rem;">í¾“</div>
+            <h2>Join ESL Academy</h2>
+            <p>Create your personalized AI-powered English workspace in seconds.</p>
+
             <% if (typeof errors !== 'undefined' && errors.length > 0) { %>
-                <div class="error-messages bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
+                <div class="insight-card" style="border-color: #fecaca; background: #fff5f5;">
                     <% errors.forEach(function(error) { %>
-                        <p class="text-red-700 text-sm"><%= error.msg %></p>
+                        <p style="margin:0; color:#b91c1c;"><%= error.msg %></p>
                     <% }); %>
                 </div>
             <% } %>
-            <form id="signup-form" action="/api/auth/signup" method="POST" class="space-y-4">
-                <input type="text" id="signup-username" name="username" placeholder="ðŸ‘¤ Choose Username" value="<%= typeof oldInput !== 'undefined' ? oldInput.username : '' %>" required class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
-                <input type="email" id="signup-email" name="email" placeholder="ðŸ“§ Email Address" value="<%= typeof oldInput !== 'undefined' ? oldInput.email : '' %>" required class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
-                <input type="password" id="signup-password" name="password" placeholder="ðŸ”’ Create Password" required class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
-                
-                <div class="subscription-tier-section mt-6 p-4 border border-gray-200 rounded-md bg-gray-50">
-                    <label for="subscription-tier" class="block text-gray-700 text-sm font-bold mb-2">Choose Your Learning Plan:</label>
-                    <select id="subscription-tier" name="subscriptionTier" required class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white">
-                        <option value="standard" <%= (typeof oldInput !== 'undefined' && oldInput.subscriptionTier === 'standard') ? 'selected' : '' %>>
-                            ðŸ¥‰ Standard - 20 minutes/month TTS (Free)
-                        </option>
-                        <option value="gold" <%= (typeof oldInput !== 'undefined' && oldInput.subscriptionTier === 'gold') ? 'selected' : '' %>>
-                            ðŸ¥ˆ Gold - 1 hour/month TTS ($9.99/month)
-                        </option>
-                        <option value="diamond" <%= (typeof oldInput !== 'undefined' && oldInput.subscriptionTier === 'diamond') ? 'selected' : '' %>>
-                            ðŸ’Ž Diamond - 2 hours/month TTS ($19.99/month)
-                        </option>
+
+            <form id="signup-form" action="/api/auth/signup" method="POST" class="form-stack">
+                <div>
+                    <label for="signup-username">Username</label>
+                    <input type="text" id="signup-username" name="username" placeholder="Your name" value="<%= typeof oldInput !== 'undefined' ? oldInput.username : '' %>" required>
+                </div>
+                <div>
+                    <label for="signup-email">Email address</label>
+                    <input type="email" id="signup-email" name="email" placeholder="name@email.com" value="<%= typeof oldInput !== 'undefined' ? oldInput.email : '' %>" required>
+                </div>
+                <div>
+                    <label for="signup-password">Password</label>
+                    <input type="password" id="signup-password" name="password" placeholder="Create a strong password" required>
+                </div>
+
+                <div>
+                    <label for="subscription-tier">Choose your learning plan</label>
+                    <select id="subscription-tier" name="subscriptionTier" required>
+                        <option value="standard" <%= (typeof oldInput !== 'undefined' && oldInput.subscriptionTier === 'standard') ? 'selected' : '' %>>íµ‰ Standard Â· 20 min/month (Free)</option>
+                        <option value="gold" <%= (typeof oldInput !== 'undefined' && oldInput.subscriptionTier === 'gold') ? 'selected' : '' %>>íµˆ Gold Â· 1 hr/month ($9.99)</option>
+                        <option value="diamond" <%= (typeof oldInput !== 'undefined' && oldInput.subscriptionTier === 'diamond') ? 'selected' : '' %>>í²Ž Diamond Â· 2 hr/month ($19.99)</option>
                     </select>
-                    
-                    <div class="tier-benefits mt-4 space-y-4">
-                        <div class="tier-benefit standard-benefit active p-4 border border-gray-300 rounded-md bg-white shadow-sm">
-                            <h4 class="font-bold text-lg mb-2">ðŸ¥‰ Standard Plan</h4>
-                            <ul class="list-disc list-inside text-left text-gray-700 space-y-1">
-                                <li>âœ… 20 minutes of AI voice synthesis per month</li>
-                                <li>âœ… Access to all learning features</li>
-                                <li>âœ… Progress tracking</li>
-                                <li>âœ… Vocabulary builder</li>
+                </div>
+
+                <div class="tier-grid">
+                    <div class="tier-card standard-benefit <%= (typeof oldInput === 'undefined' || oldInput.subscriptionTier === 'standard') ? 'active' : '' %>">
+                        <h4>íµ‰ Standard plan</h4>
+                        <ul>
+                            <li>20 minutes of AI voice per month</li>
+                            <li>Full chat + vocabulary access</li>
+                            <li>Progress tracking</li>
+                        </ul>
+                    </div>
+                    <div class="tier-card gold-benefit <%= (typeof oldInput !== 'undefined' && oldInput.subscriptionTier === 'gold') ? 'active' : '' %>">
+                        <h4>íµˆ Gold plan</h4>
+                        <ul>
+                            <li>1 hour of AI voice per month</li>
+                            <li>Priority processing + drills</li>
+                            <li>Advanced pronunciation feedback</li>
+                        </ul>
+                    </div>
+                    <div class="tier-card diamond-benefit <%= (typeof oldInput !== 'undefined' && oldInput.subscriptionTier === 'diamond') ? 'active' : '' %>">
+                        <h4>í²Ž Diamond plan</h4>
+                            <ul>
+                                <li>2 hours of AI voice per month</li>
+                                <li>Premium voice selection</li>
+                                <li>Personalized learning paths</li>
+                                <li>Priority support</li>
                             </ul>
-                        </div>
-                        <div class="tier-benefit gold-benefit p-4 border border-gray-300 rounded-md bg-white shadow-sm">
-                            <h4 class="font-bold text-lg mb-2">ðŸ¥ˆ Gold Plan</h4>
-                            <ul class="list-disc list-inside text-left text-gray-700 space-y-1">
-                                <li>âœ… 1 hour of AI voice synthesis per month</li>
-                                <li>âœ… All Standard features</li>
-                                <li>âœ… Priority voice processing</li>
-                                <li>âœ… Advanced pronunciation feedback</li>
-                            </ul>
-                        </div>
-                        <div class="tier-benefit diamond-benefit p-4 border border-gray-300 rounded-md bg-white shadow-sm">
-                            <h4 class="font-bold text-lg mb-2">ðŸ’Ž Diamond Plan</h4>
-                            <ul class="list-disc list-inside text-left text-gray-700 space-y-1">
-                                <li>âœ… 2 hours of AI voice synthesis per month</li>
-                                <li>âœ… All Gold features</li>
-                                <li>âœ… Premium voice selection</li>
-                                <li>âœ… Personalized learning paths</li>
-                                <li>âœ… Priority customer support</li>
-                            </ul>
-                        </div>
                     </div>
                 </div>
-                
-                <button type="submit" class="w-full bg-primary text-white p-3 rounded-md hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50 transition duration-200 mt-6">Create Academy Account</button>
+
+                <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center;">Create account</button>
             </form>
-            <p class="mt-6 text-gray-600">Already a student? <a href="/login" id="show-login" class="text-primary hover:underline">Sign In</a></p>
+
+            <p style="margin-top:1.5rem;">Already a student? <a href="/login" class="link-muted">Sign in</a></p>
         </div>
     </div>
 
-
     <script>
-        // Handle tier selection changes
-        document.getElementById('subscription-tier').addEventListener('change', function() {
-            const selectedTier = this.value;
-            const benefits = document.querySelectorAll('.tier-benefit');
-            
-            benefits.forEach(benefit => {
-                benefit.classList.remove('active');
+        const tierSelect = document.getElementById('subscription-tier');
+        const toggleBenefits = () => {
+            ['standard', 'gold', 'diamond'].forEach(tier => {
+                const card = document.querySelector(`.${tier}-benefit`);
+                if (card) {
+                    card.classList.toggle('active', tierSelect.value === tier);
+                }
             });
-            
-            const activeBenefit = document.querySelector(`.${selectedTier}-benefit`);
-            if (activeBenefit) {
-                activeBenefit.classList.add('active');
-            }
-        });
+        };
+        tierSelect?.addEventListener('change', toggleBenefits);
+        toggleBenefits();
     </script>
-    
 </body>
 </html>
