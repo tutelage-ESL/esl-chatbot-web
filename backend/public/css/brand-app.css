@@ -84,6 +84,21 @@ img {
   background: rgba(245, 158, 11, 0.16);
 }
 
+/* Ensure SVG/icon fits nicely inside brand-icon container */
+.brand-icon img,
+.brand-icon svg {
+  width: 28px;
+  height: 28px;
+  display: block;
+}
+
+/* Slightly larger logo inside auth card header */
+.auth-card .brand-icon img,
+.auth-card .brand-icon svg {
+  width: 32px;
+  height: 32px;
+}
+
 .brand-copy small {
   display: block;
   font-size: 0.75rem;
