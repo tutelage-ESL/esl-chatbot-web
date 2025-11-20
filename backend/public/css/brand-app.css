@@ -56,6 +56,8 @@ img {
   border-bottom: 1px solid var(--brand-border);
   box-shadow: var(--brand-shadow-sm);
   min-height: var(--nav-height);
+  /* Force brand typography in the navbar regardless of page-level styles */
+  font-family: var(--brand-font);
 }
 
 .nav-inner {
@@ -129,6 +131,7 @@ img {
   text-decoration: none;
   color: var(--brand-muted);
   font-weight: 500;
+  font-size: 0.95rem;
   transition: color 0.2s ease, background-color 0.2s ease;
 }
 
@@ -142,10 +145,36 @@ img {
   background: rgba(245, 158, 11, 0.16);
 }
 
+/* Ensure navbar styling is consistent across pages even if other CSS defines generic nav rules */
+.site-nav .nav-links a {
+  padding: 0.55rem 1rem;
+  border-radius: 999px;
+  text-decoration: none;
+  color: var(--brand-muted);
+  font-weight: 500;
+  font-size: 0.95rem;
+  border: none;
+  background: transparent;
+}
+.site-nav .nav-links a:hover {
+  color: var(--brand-secondary);
+  background: rgba(15, 23, 42, 0.06);
+}
+.site-nav .nav-links .is-active {
+  color: var(--brand-secondary);
+  background: rgba(245, 158, 11, 0.16);
+  box-shadow: none;
+}
+
 .nav-cta {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+/* Keep CTA button typography consistent across pages */
+.site-nav .nav-cta .btn {
+  font-size: 0.9rem;
 }
 
 .ghost-link {

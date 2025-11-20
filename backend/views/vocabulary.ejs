@@ -296,7 +296,7 @@
             gap: 10px;
         }
         
-        .btn-small {
+        .vocabulary-container .btn-small {
             padding: 6px 12px;
             font-size: 12px;
         }
@@ -490,8 +490,8 @@
             margin-bottom: 5px;
         }
         
-        /* Button Styles */
-        .btn {
+        /* Button Styles (scoped to vocabulary container to avoid global overrides) */
+        .vocabulary-container .btn {
             padding: 12px 24px;
             border: none;
             border-radius: 8px;
@@ -503,42 +503,42 @@
             display: inline-block;
             text-align: center;
         }
-        
-        .btn-primary {
+
+        .vocabulary-container .btn-primary {
             background: linear-gradient(135deg, #3498db, #2980b9);
             color: white;
         }
-        
-        .btn-primary:hover {
+
+        .vocabulary-container .btn-primary:hover {
             background: linear-gradient(135deg, #2980b9, #1f5f8b);
             transform: translateY(-2px);
             box-shadow: 0 6px 12px rgba(52, 152, 219, 0.3);
         }
-        
-        .btn-secondary {
+
+        .vocabulary-container .btn-secondary {
             background: #6c757d;
             color: white;
         }
-        
-        .btn-secondary:hover {
+
+        .vocabulary-container .btn-secondary:hover {
             background: #545b62;
         }
-        
-        .btn-success {
+
+        .vocabulary-container .btn-success {
             background: #28a745;
             color: white;
         }
-        
-        .btn-success:hover {
+
+        .vocabulary-container .btn-success:hover {
             background: #218838;
         }
-        
-        .btn-danger {
+
+        .vocabulary-container .btn-danger {
             background: #dc3545;
             color: white;
         }
         
-        .btn-danger:hover {
+        .vocabulary-container .btn-danger:hover {
             background: #c82333;
         }
     </style>
