@@ -26,6 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
   
   let isConnected = false;
   let messageCount = 0;
+  let lastMessageType = null;
+  let lastUserMessageEl = null;
   
   // Voice variables
   let recognition;
@@ -90,6 +92,8 @@ document.addEventListener('DOMContentLoaded', () => {
       typingIndicator.remove();
     }
     addMessage(data.bot, 'bot', new Date());
+    // Mark the most recent user message as delivered when a bot reply arrives
+    markLastUserMessageDelivered();
     messageCount++;
     
     // Auto-speak AI response if enabled
@@ -228,8 +232,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function addMessage(text, type, timestamp = new Date(), id = null) {
     const messageDiv = document.createElement('div');
-    // Align user messages to the right
-    messageDiv.className = `message ${type}-message flex items-start gap-3 ${type === 'user' ? 'ml-auto' : ''}`;
+    // Align user messages to the right; compact consecutive messages
+    const isContinued = lastMessageType === type;
+    messageDiv.className = `message ${type}-message flex items-start gap-3 ${type === 'user' ? 'ml-auto' : ''} ${isContinued ? 'message-continued' : ''}`;
     if (id) {
       messageDiv.id = id;
     }
@@ -266,12 +271,18 @@ document.addEventListener('DOMContentLoaded', () => {
         : 'message-bubble bg-red-100 text-red-700 px-4 py-2 rounded-2xl shadow-sm';
 
     const timeClasses = `message-time text-xs text-muted-foreground mt-1 ${type === 'user' ? 'text-right' : ''}`;
+    const metaHtml = `
+      <div class="message-meta">
+        <div class="${timeClasses}">${timeString}</div>
+        ${type === 'user' ? '<div class="message-status" aria-live="polite"><i class="fas fa-check"></i> Sent</div>' : ''}
+      </div>
+    `;
 
     messageDiv.innerHTML = `
       <div class="${avatarClasses}">${avatarIcon}</div>
       <div class="${contentClasses}">
         <div class="${bubbleClasses}">${text}</div>
-        <div class="${timeClasses}">${timeString}</div>
+        ${metaHtml}
       </div>
     `;
     
@@ -282,6 +293,12 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
       messageDiv.classList.add('message-entered');
     }, 10);
+
+    // Track last sender and last user message for status updates
+    lastMessageType = type;
+    if (type === 'user') {
+      lastUserMessageEl = messageDiv;
+    }
   }
 
   function addTypingIndicator(id) {
@@ -324,6 +341,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     chatMessages.appendChild(systemDiv);
     smoothScrollToBottom();
+  }
+
+  function markLastUserMessageDelivered() {
+    try {
+      if (!lastUserMessageEl) return;
+      const statusEl = lastUserMessageEl.querySelector('.message-status');
+      if (!statusEl) return;
+      statusEl.innerHTML = '<i class="fas fa-check-double"></i> Delivered';
+      lastUserMessageEl.classList.add('delivered');
+    } catch (e) {
+      console.warn('Failed to mark delivered:', e);
+    }
   }
 
   function showWelcomeMessage() {
