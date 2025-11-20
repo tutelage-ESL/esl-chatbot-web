@@ -7,6 +7,7 @@
     <title>AI Tutor - ESL Academy</title>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/brand-app.css">
+    <link rel="stylesheet" href="/css/chat.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="icon"
         href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎓</text></svg>">
@@ -42,13 +43,13 @@
                       <span id="tts-remaining">Loading...</span>
                       <small>TTS remaining</small>
                     </div>
-                    <button id="voice-settings-btn" class="icon-btn" type="button" title="Voice Settings">
+                    <button id="voice-settings-btn" class="icon-btn" type="button" title="Voice Settings" aria-label="Voice Settings" aria-controls="voice-settings-panel" aria-expanded="false">
                       <i class="fas fa-cog"></i>
                     </button>
-                    <button id="download-chat" class="icon-btn" type="button" title="Download Transcript">
+                    <button id="download-chat" class="icon-btn" type="button" title="Download Transcript" aria-label="Download Transcript">
                       <i class="fas fa-download"></i>
                     </button>
-                    <button id="clear-chat" class="icon-btn danger" type="button" title="Clear Chat">
+                    <button id="clear-chat" class="icon-btn danger" type="button" title="Clear Chat" aria-label="Clear Chat">
                       <i class="fas fa-trash-alt"></i>
                     </button>
                   </div>
@@ -63,7 +64,7 @@
                 </div>
 
                 <div class="chat-container chat-stream">
-                  <div class="chat-messages" id="chat-messages">
+                  <div class="chat-messages" id="chat-messages" role="log" aria-live="polite" aria-relevant="additions text" aria-atomic="false" aria-label="Chat messages">
                     <!-- Connection status indicator -->
                     <div class="connection-status" id="connection-status">
                       <i class="fas fa-circle"></i>
@@ -77,12 +78,12 @@
                 <div id="chat-input-container" class="input-bar">
                   <div class="input-pill">
                     <i class="fas fa-comment-dots"></i>
-                    <textarea id="chat-input" rows="1" placeholder="Ask anything about English…"></textarea>
+                    <textarea id="chat-input" rows="1" placeholder="Ask anything about English…" aria-label="Message input" aria-multiline="true"></textarea>
                     <div class="actions">
-                      <button id="voice-btn" class="icon-btn primary" type="button" title="Voice Input">
+                      <button id="voice-btn" class="icon-btn primary" type="button" title="Voice Input" aria-label="Voice Input">
                         <i class="fas fa-microphone"></i>
                       </button>
-                      <button id="send-btn" class="icon-btn primary" type="button" title="Send Message">
+                      <button id="send-btn" class="icon-btn primary" type="button" title="Send Message" aria-label="Send Message">
                         <i class="fas fa-paper-plane"></i>
                       </button>
                     </div>
