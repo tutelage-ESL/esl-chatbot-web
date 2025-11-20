@@ -15,9 +15,9 @@ module.exports = {
         secondary: '#111111',
         muted: '#f2f2f2',
         'muted-foreground': '#4a4a50',
-        border: 'light neutral',
-        input: 'light neutral',
-        ring: 'neutral',
+        border: '#e5e7eb', // neutral-200
+        input: '#e5e7eb',
+        ring: '#f59e0b',
         'primary-foreground': 'white', // Assuming primary text is white on primary background
       },
       borderRadius: {

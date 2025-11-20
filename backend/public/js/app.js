@@ -167,7 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const avatarClasses =
       type === 'user'
-        ? 'message-avatar w-8 h-8 flex items-center justify-center rounded-full bg-gray-200 text-gray-600'
+        ? 'message-avatar w-8 h-8 flex items-center justify-center rounded-full bg-muted text-muted-foreground'
         : type === 'bot'
         ? 'message-avatar w-8 h-8 flex items-center justify-center rounded-full bg-primary text-primary-foreground'
         : 'message-avatar w-8 h-8 flex items-center justify-center rounded-full bg-red-500 text-white';
@@ -181,10 +181,10 @@ document.addEventListener('DOMContentLoaded', () => {
       type === 'user'
         ? 'message-bubble bg-primary text-primary-foreground px-4 py-2 rounded-2xl rounded-br-none shadow-sm'
         : type === 'bot'
-        ? 'message-bubble bg-gray-100 text-gray-800 px-4 py-2 rounded-2xl rounded-bl-none shadow-sm border border-gray-200'
+        ? 'message-bubble bg-muted text-foreground px-4 py-2 rounded-2xl rounded-bl-none shadow-sm border border-border'
         : 'message-bubble bg-red-100 text-red-700 px-4 py-2 rounded-2xl shadow-sm';
 
-    const timeClasses = `message-time text-xs text-gray-500 mt-1 ${type === 'user' ? 'text-right' : ''}`;
+    const timeClasses = `message-time text-xs text-muted-foreground mt-1 ${type === 'user' ? 'text-right' : ''}`;
 
     messageDiv.innerHTML = `
       <div class="${avatarClasses}">${avatarIcon}</div>
@@ -211,13 +211,13 @@ document.addEventListener('DOMContentLoaded', () => {
     typingDiv.innerHTML = `
       <div class="message-avatar w-8 h-8 flex items-center justify-center rounded-full bg-primary text-primary-foreground"><i class="fas fa-robot"></i></div>
       <div class="message-content flex flex-col max-w-[75%]">
-        <div class="message-bubble bg-gray-100 text-gray-800 px-4 py-2 rounded-2xl rounded-bl-none shadow-sm border border-gray-200">
+        <div class="message-bubble bg-muted text-foreground px-4 py-2 rounded-2xl rounded-bl-none shadow-sm border border-border">
           <div class="typing-animation flex items-center space-x-1">
-            <span class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
-            <span class="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150"></span>
-            <span class="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-300"></span>
+            <span class="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"></span>
+            <span class="w-2 h-2 bg-muted-foreground rounded-full animate-bounce delay-150"></span>
+            <span class="w-2 h-2 bg-muted-foreground rounded-full animate-bounce delay-300"></span>
           </div>
-          <span class="typing-text text-gray-500 text-sm ml-2">AI is thinking...</span>
+          <span class="typing-text text-muted-foreground text-sm ml-2">AI is thinking...</span>
         </div>
       </div>
     `;
@@ -235,12 +235,12 @@ document.addEventListener('DOMContentLoaded', () => {
     systemDiv.className = 'message system-message flex justify-center';
     
     systemDiv.innerHTML = `
-      <div class="system-content bg-blue-50 text-blue-700 px-3 py-2 rounded-md text-sm flex items-center gap-2 border border-blue-200">
+      <div class="system-content bg-primary/10 text-primary px-3 py-2 rounded-md text-sm flex items-center gap-2 border border-primary/20">
         <i class="fas fa-info-circle"></i>
         <span>${text}</span>
       </div>
     `;
-    
+
     chatMessages.appendChild(systemDiv);
     smoothScrollToBottom();
   }
