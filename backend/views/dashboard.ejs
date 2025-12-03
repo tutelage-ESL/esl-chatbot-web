@@ -18,19 +18,23 @@
     <main class="page-shell">
         <section class="interactive-3d parallax-hero">
             <div class="interactive-3d__content">
-                <h2 class="interactive-3d__title">TUTELAGE AI 3D</h2>
-                <p class="interactive-3d__copy">WELCOME TO THE FUTURE OF EDUCATION</p>
+                <h2 class="interactive-3d__title">TUTELAGE A.I</h2>
+                <p class="interactive-3d__copy">THE FUTURE OF EDUCATION NOW AVALIBLE AT THE CLICK OF A BUTTON , ENHANCING LEARNING AND IMPROVING RESULTS.</p>
             </div>
             <div class="interactive-3d__scene">
                 <canvas id="spline-canvas"></canvas>
             </div>
-            <div class="interactive-3d__spotlight" aria-hidden="true"></div>
+            <div class="interactive-3d__spotlight" aria-hidden="true"><canvas id="spotlight-overlay"></canvas></div>
         </section>
         <script type="module">
             import { Application } from 'https://unpkg.com/@splinetool/runtime@1.9.20/build/runtime.js';
             const canvas = document.getElementById('spline-canvas');
             const scene = document.querySelector('.interactive-3d__scene');
             const section = document.querySelector('.interactive-3d');
+            const spotCanvas = document.getElementById('spotlight-overlay');
+            const spotCtx = spotCanvas.getContext('2d');
+            spotCtx.imageSmoothingEnabled = true
+            spotCtx.imageSmoothingQuality = 'high'
             const app = new Application(canvas);
 
             function resizeCanvas() {
@@ -40,6 +44,13 @@
               const dpr = Math.min(window.devicePixelRatio || 1, 2);
               canvas.width = Math.floor(rect.width * dpr);
               canvas.height = Math.floor(rect.height * dpr);
+              const sRect = section.getBoundingClientRect();
+              spotCanvas.style.width = sRect.width + 'px';
+              spotCanvas.style.height = sRect.height + 'px';
+              const sdpr = Math.min(window.devicePixelRatio || 1, 2);
+              spotCanvas.width = Math.floor(sRect.width * sdpr);
+              spotCanvas.height = Math.floor(sRect.height * sdpr);
+              spotCtx.setTransform(sdpr, 0, 0, sdpr, 0, 0);
             }
             resizeCanvas();
             window.addEventListener('resize', resizeCanvas);
@@ -67,10 +78,42 @@
               targetY = clamp(y, 8, 92)
             })
             function animateSpotlight() {
-              currentX += (targetX - currentX) * 0.12
-              currentY += (targetY - currentY) * 0.12
-              section.style.setProperty('--spot-x', currentX + '%')
-              section.style.setProperty('--spot-y', currentY + '%')
+              currentX += (targetX - currentX) * 0.20
+              currentY += (targetY - currentY) * 0.20
+              const sRect = section.getBoundingClientRect()
+              const x = (currentX / 100) * sRect.width
+              const y = (currentY / 100) * sRect.height
+              spotCtx.clearRect(0, 0, spotCanvas.width, spotCanvas.height)
+              spotCtx.save()
+              spotCtx.globalCompositeOperation = 'screen'
+
+              const coreRadius = Math.min(sRect.width, sRect.height) * 0.22
+              spotCtx.translate(x, y)
+              spotCtx.rotate(-24 * Math.PI / 180)
+              spotCtx.scale(0.42, 1.85)
+              const core = spotCtx.createRadialGradient(0, 0, 0, 0, 0, coreRadius)
+              core.addColorStop(0.0, 'rgba(255,255,255,0.35)')
+              core.addColorStop(0.10, 'rgba(255,255,255,0.20)')
+              core.addColorStop(0.25, 'rgba(255,255,255,0.08)')
+              core.addColorStop(1.0, 'rgba(255,255,255,0.0)')
+              spotCtx.fillStyle = core
+              spotCtx.beginPath()
+              spotCtx.arc(0, 0, coreRadius, 0, Math.PI * 2)
+              spotCtx.fill()
+
+              const spillRadius = Math.max(sRect.width, sRect.height) * 0.58
+              spotCtx.globalAlpha = 0.7
+              spotCtx.scale(0.95, 2.2)
+              const spill = spotCtx.createRadialGradient(0, 0, 0, 0, 0, spillRadius)
+              spill.addColorStop(0.0, 'rgba(255,255,255,0.09)')
+              spill.addColorStop(0.20, 'rgba(255,255,255,0.045)')
+              spill.addColorStop(1.0, 'rgba(255,255,255,0.0)')
+              spotCtx.fillStyle = spill
+              spotCtx.beginPath()
+              spotCtx.arc(0, 0, spillRadius, 0, Math.PI * 2)
+              spotCtx.fill()
+
+              spotCtx.restore()
               requestAnimationFrame(animateSpotlight)
             }
             animateSpotlight()
