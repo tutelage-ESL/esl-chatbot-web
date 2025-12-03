@@ -18,8 +18,8 @@
     <main class="page-shell">
         <section class="interactive-3d parallax-hero">
             <div class="interactive-3d__content">
-                <h2 class="interactive-3d__title">Interactive 3D</h2>
-                <p class="interactive-3d__copy">Bring your UI to life with beautiful 3D scenes. Create immersive experiences that capture attention and enhance your design.</p>
+                <h2 class="interactive-3d__title">TUTELAGE AI 3D</h2>
+                <p class="interactive-3d__copy">WELCOME TO THE FUTURE OF EDUCATION</p>
             </div>
             <div class="interactive-3d__scene">
                 <canvas id="spline-canvas"></canvas>
@@ -35,29 +35,45 @@
 
             function resizeCanvas() {
               const rect = scene.getBoundingClientRect();
-              canvas.width = rect.width;
-              canvas.height = rect.height;
+              canvas.style.width = rect.width + 'px';
+              canvas.style.height = rect.height + 'px';
+              const dpr = Math.min(window.devicePixelRatio || 1, 2);
+              canvas.width = Math.floor(rect.width * dpr);
+              canvas.height = Math.floor(rect.height * dpr);
             }
             resizeCanvas();
             window.addEventListener('resize', resizeCanvas);
 
             app.load('https://prod.spline.design/kZDDjO5HuC9GJUM2/scene.splinecode');
 
-            let hover = false;
+            let hover = false
+            let targetX = 28
+            let targetY = 22
+            let currentX = 28
+            let currentY = 22
+            const clamp = (v, min, max) => Math.max(min, Math.min(max, v))
             section.addEventListener('mouseenter', () => { hover = true })
             section.addEventListener('mouseleave', () => {
               hover = false
-              section.style.setProperty('--spot-x', '28%')
-              section.style.setProperty('--spot-y', '22%')
+              targetX = 28
+              targetY = 22
             })
             section.addEventListener('mousemove', (e) => {
               if (!hover) return
               const rect = section.getBoundingClientRect()
               const x = ((e.clientX - rect.left) / rect.width) * 100
               const y = ((e.clientY - rect.top) / rect.height) * 100
-              section.style.setProperty('--spot-x', `${x}%`)
-              section.style.setProperty('--spot-y', `${y}%`)
+              targetX = clamp(x, 6, 94)
+              targetY = clamp(y, 8, 92)
             })
+            function animateSpotlight() {
+              currentX += (targetX - currentX) * 0.12
+              currentY += (targetY - currentY) * 0.12
+              section.style.setProperty('--spot-x', currentX + '%')
+              section.style.setProperty('--spot-y', currentY + '%')
+              requestAnimationFrame(animateSpotlight)
+            }
+            animateSpotlight()
 
             let ticking = false
             function onScroll() {

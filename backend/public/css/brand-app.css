@@ -517,13 +517,14 @@ body.dark-theme .tag { background: rgba(255, 255, 255, 0.08); color: #e5e7eb; }
 
 .interactive-3d__spotlight {
   position: absolute;
-  inset: -40% -10% auto auto;
-  width: 80%;
-  height: 120%;
-  background: radial-gradient(ellipse at var(--spot-x) var(--spot-y), rgba(255, 255, 255, 0.14), transparent 46%);
-  filter: blur(8px);
+  inset: 0;
   pointer-events: none;
-  transition: background 120ms ease-out;
+  z-index: 2;
+}
+.interactive-3d__spotlight canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .panel.panel-muted {
