@@ -12,15 +12,85 @@
     <link rel="stylesheet" href="/css/brand-app.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>���</text></svg>">
 </head>
-<body class="brand-surface">
+<body class="brand-surface dark-theme">
     <%- include('partials/nav', { currentRoute: currentRoute }) %>
 
     <main class="page-shell">
-        <section class="hero-banner">
+        <section class="interactive-3d parallax-hero">
+            <div class="interactive-3d__content">
+                <h2 class="interactive-3d__title">Interactive 3D</h2>
+                <p class="interactive-3d__copy">Bring your UI to life with beautiful 3D scenes. Create immersive experiences that capture attention and enhance your design.</p>
+            </div>
+            <div class="interactive-3d__scene">
+                <canvas id="spline-canvas"></canvas>
+            </div>
+            <div class="interactive-3d__spotlight" aria-hidden="true"></div>
+        </section>
+        <script type="module">
+            import { Application } from 'https://unpkg.com/@splinetool/runtime@1.9.20/build/runtime.js';
+            const canvas = document.getElementById('spline-canvas');
+            const scene = document.querySelector('.interactive-3d__scene');
+            const section = document.querySelector('.interactive-3d');
+            const app = new Application(canvas);
+
+            function resizeCanvas() {
+              const rect = scene.getBoundingClientRect();
+              canvas.width = rect.width;
+              canvas.height = rect.height;
+            }
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            app.load('https://prod.spline.design/kZDDjO5HuC9GJUM2/scene.splinecode');
+
+            let hover = false;
+            section.addEventListener('mouseenter', () => { hover = true })
+            section.addEventListener('mouseleave', () => {
+              hover = false
+              section.style.setProperty('--spot-x', '28%')
+              section.style.setProperty('--spot-y', '22%')
+            })
+            section.addEventListener('mousemove', (e) => {
+              if (!hover) return
+              const rect = section.getBoundingClientRect()
+              const x = ((e.clientX - rect.left) / rect.width) * 100
+              const y = ((e.clientY - rect.top) / rect.height) * 100
+              section.style.setProperty('--spot-x', `${x}%`)
+              section.style.setProperty('--spot-y', `${y}%`)
+            })
+
+            let ticking = false
+            function onScroll() {
+              if (!ticking) {
+                window.requestAnimationFrame(() => {
+                  const y = window.scrollY * 0.12
+                  section.style.setProperty('--parallax', `${y}px`)
+                  ticking = false
+                })
+                ticking = true
+              }
+            }
+            window.addEventListener('scroll', onScroll, { passive: true })
+            onScroll()
+
+            const lazySections = document.querySelectorAll('.lazy-section')
+            const io = new IntersectionObserver((entries) => {
+              entries.forEach((entry) => {
+                if (entry.isIntersecting) {
+                  entry.target.classList.add('is-visible')
+                  io.unobserve(entry.target)
+                }
+              })
+            }, { rootMargin: '0px 0px -10% 0px', threshold: 0.15 })
+
+            lazySections.forEach((el) => io.observe(el))
+        </script>
+
+        <section class="hero-banner hero-secondary lazy-section">
             <div class="hero-content">
                 <div class="hero-copy">
                     <p class="tag">Welcome back</p>
-                    <h1>Hi <%= user.username %>, your English streak is alive.</h1>
+                    <h1 class="gradient-title">Hi <%= user.username %>, your English streak is alive.</h1>
                     <p>Keep growing your vocabulary, speaking confidence, and listening precision with a daily mix of live chat, drills, and AI feedback.</p>
                     <div class="hero-actions">
                         <a href="/chat" class="btn btn-primary">Jump into chat</a>
@@ -28,19 +98,19 @@
                     </div>
                 </div>
                 <div class="stat-grid">
-                    <div class="stat-card">
+                    <div class="stat-card stat-3d">
                         <strong><%= stats.lessonsCompleted %></strong>
                         <span>Lessons completed</span>
                     </div>
-                    <div class="stat-card">
+                    <div class="stat-card stat-3d">
                         <strong><%= stats.studyTime %></strong>
                         <span>Active study time</span>
                     </div>
-                    <div class="stat-card">
+                    <div class="stat-card stat-3d">
                         <strong><%= stats.dayStreak %>���</strong>
                         <span>Day streak</span>
                     </div>
-                    <div class="stat-card">
+                    <div class="stat-card stat-3d">
                         <strong><%= stats.achievements %></strong>
                         <span>Milestones unlocked</span>
                     </div>
@@ -48,31 +118,31 @@
             </div>
         </section>
 
-        <section class="panel">
+        <section class="panel panel-muted lazy-section">
             <h2>Today's focus</h2>
             <p class="muted">Pick a quick action to keep the momentum going.</p>
             <div class="card-grid" style="margin-top:1rem;">
-                <a href="/chat" class="insight-card">
+                <a href="/chat" class="insight-card insight-muted">
                     <h3><i class="fas fa-comments"></i> Practice conversation</h3>
                     <p>10-minute guided dialogue with instant grammar cues.</p>
                 </a>
-                <a href="/voice" class="insight-card">
+                <a href="/voice" class="insight-card insight-muted">
                     <h3><i class="fas fa-microphone"></i> Voice lab</h3>
                     <p>Warm up with pronunciation drills and TTS playback.</p>
                 </a>
-                <a href="/vocabulary" class="insight-card">
+                <a href="/vocabulary" class="insight-card insight-muted">
                     <h3><i class="fas fa-book"></i> Vocabulary builder</h3>
                     <p>Review saved words and unlock fresh phrases.</p>
                 </a>
-                <a href="/goals" class="insight-card">
+                <a href="/goals" class="insight-card insight-muted">
                     <h3><i class="fas fa-bullseye"></i> Learning goals</h3>
                     <p>Update targets and celebrate completed milestones.</p>
                 </a>
-                <a href="/progress" class="insight-card">
+                <a href="/progress" class="insight-card insight-muted">
                     <h3><i class="fas fa-chart-line"></i> Track progress</h3>
                     <p>See growth across speaking, listening, and vocabulary.</p>
                 </a>
-                <a href="/pronunciation" class="insight-card">
+                <a href="/pronunciation" class="insight-card insight-muted">
                     <h3><i class="fas fa-volume-up"></i> Pronunciation coach</h3>
                     <p>Upload phrases and get phonetic corrections.</p>
                 </a>

@@ -4,8 +4,10 @@ const models = require('../models');
 const fs = require('fs');
 const path = require('path');
 
+// Frontend SPA homepage
 router.get('/', (req, res) => {
-  res.render('login');
+  const indexPath = path.join(__dirname, '..', '..', 'frontend', 'dist', 'index.html');
+  res.sendFile(indexPath);
 });
 
 router.get('/login', (req, res) => {
@@ -14,6 +16,12 @@ router.get('/login', (req, res) => {
 
 router.get('/signup', (req, res) => {
   res.render('signup');
+});
+
+// Standalone Spline demo page for embedding in dashboard
+router.get('/spline-demo', (req, res) => {
+  const indexPath = path.join(__dirname, '..', '..', 'frontend', 'dist', 'index.html');
+  res.sendFile(indexPath);
 });
 
 router.get('/dashboard', async (req, res) => {
