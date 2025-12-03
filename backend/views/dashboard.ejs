@@ -18,13 +18,13 @@
     <main class="page-shell">
         <section class="interactive-3d parallax-hero">
             <div class="interactive-3d__content">
-                <h2 class="interactive-3d__title">TUTELAGE A.I</h2>
-                <p class="interactive-3d__copy">THE FUTURE OF EDUCATION NOW AVALIBLE AT THE CLICK OF A BUTTON , ENHANCING LEARNING AND IMPROVING RESULTS.</p>
+                <h2 class="interactive-3d__title">Tutelage ESL AI</h2>
+                <p class="interactive-3d__copy">AI‑powered English learning that adapts to you — guided practice, instant feedback, and immersive 3D experiences.</p>
             </div>
             <div class="interactive-3d__scene">
                 <canvas id="spline-canvas"></canvas>
+                <div class="interactive-3d__spotlight" aria-hidden="true"><canvas id="spotlight-overlay"></canvas></div>
             </div>
-            <div class="interactive-3d__spotlight" aria-hidden="true"><canvas id="spotlight-overlay"></canvas></div>
         </section>
         <script type="module">
             import { Application } from 'https://unpkg.com/@splinetool/runtime@1.9.20/build/runtime.js';
@@ -44,7 +44,7 @@
               const dpr = Math.min(window.devicePixelRatio || 1, 2);
               canvas.width = Math.floor(rect.width * dpr);
               canvas.height = Math.floor(rect.height * dpr);
-              const sRect = section.getBoundingClientRect();
+              const sRect = scene.getBoundingClientRect();
               spotCanvas.style.width = sRect.width + 'px';
               spotCanvas.style.height = sRect.height + 'px';
               const sdpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -62,52 +62,56 @@
             let targetY = 22
             let currentX = 28
             let currentY = 22
+            let alphaTarget = 0
+            let alpha = 0
             const clamp = (v, min, max) => Math.max(min, Math.min(max, v))
-            section.addEventListener('mouseenter', () => { hover = true })
-            section.addEventListener('mouseleave', () => {
+            scene.addEventListener('mouseenter', () => { hover = true; alphaTarget = 1 })
+            scene.addEventListener('mouseleave', () => {
               hover = false
+              alphaTarget = 0
               targetX = 28
               targetY = 22
             })
-            section.addEventListener('mousemove', (e) => {
+            scene.addEventListener('mousemove', (e) => {
               if (!hover) return
-              const rect = section.getBoundingClientRect()
+              const rect = scene.getBoundingClientRect()
               const x = ((e.clientX - rect.left) / rect.width) * 100
               const y = ((e.clientY - rect.top) / rect.height) * 100
               targetX = clamp(x, 6, 94)
               targetY = clamp(y, 8, 92)
             })
             function animateSpotlight() {
-              currentX += (targetX - currentX) * 0.20
-              currentY += (targetY - currentY) * 0.20
-              const sRect = section.getBoundingClientRect()
+              currentX += (targetX - currentX) * 0.28
+              currentY += (targetY - currentY) * 0.28
+              alpha += (alphaTarget - alpha) * 0.12
+              const sRect = scene.getBoundingClientRect()
               const x = (currentX / 100) * sRect.width
               const y = (currentY / 100) * sRect.height
+              spotCtx.setTransform(1,0,0,1,0,0)
               spotCtx.clearRect(0, 0, spotCanvas.width, spotCanvas.height)
+              const sdpr = Math.min(window.devicePixelRatio || 1, 2)
+              spotCtx.setTransform(sdpr, 0, 0, sdpr, 0, 0)
               spotCtx.save()
               spotCtx.globalCompositeOperation = 'screen'
-
-              const coreRadius = Math.min(sRect.width, sRect.height) * 0.22
+              const coreRadius = Math.min(sRect.width, sRect.height) * 0.26
               spotCtx.translate(x, y)
-              spotCtx.rotate(-24 * Math.PI / 180)
-              spotCtx.scale(0.42, 1.85)
               const core = spotCtx.createRadialGradient(0, 0, 0, 0, 0, coreRadius)
-              core.addColorStop(0.0, 'rgba(255,255,255,0.35)')
-              core.addColorStop(0.10, 'rgba(255,255,255,0.20)')
-              core.addColorStop(0.25, 'rgba(255,255,255,0.08)')
-              core.addColorStop(1.0, 'rgba(255,255,255,0.0)')
+              core.addColorStop(0.0, 'rgba(255,255,255,1)')
+              core.addColorStop(0.15, 'rgba(255,255,255,0.55)')
+              core.addColorStop(0.30, 'rgba(255,255,255,0.22)')
+              core.addColorStop(0.60, 'rgba(255,255,255,0.10)')
+              core.addColorStop(1.0, 'rgba(255,255,255,0)')
+              spotCtx.globalAlpha = alpha
               spotCtx.fillStyle = core
               spotCtx.beginPath()
               spotCtx.arc(0, 0, coreRadius, 0, Math.PI * 2)
               spotCtx.fill()
-
-              const spillRadius = Math.max(sRect.width, sRect.height) * 0.58
-              spotCtx.globalAlpha = 0.7
-              spotCtx.scale(0.95, 2.2)
+              const spillRadius = coreRadius * 1.35
               const spill = spotCtx.createRadialGradient(0, 0, 0, 0, 0, spillRadius)
-              spill.addColorStop(0.0, 'rgba(255,255,255,0.09)')
-              spill.addColorStop(0.20, 'rgba(255,255,255,0.045)')
-              spill.addColorStop(1.0, 'rgba(255,255,255,0.0)')
+              spill.addColorStop(0.0, 'rgba(255,255,255,0.12)')
+              spill.addColorStop(0.40, 'rgba(255,255,255,0.06)')
+              spill.addColorStop(1.0, 'rgba(255,255,255,0)')
+              spotCtx.globalAlpha = alpha * 0.6
               spotCtx.fillStyle = spill
               spotCtx.beginPath()
               spotCtx.arc(0, 0, spillRadius, 0, Math.PI * 2)
@@ -149,8 +153,8 @@
             <div class="hero-content">
                 <div class="hero-copy">
                     <p class="tag">Welcome back</p>
-                    <h1 class="gradient-title">Hi <%= user.username %>, your English streak is alive.</h1>
-                    <p>Keep growing your vocabulary, speaking confidence, and listening precision with a daily mix of live chat, drills, and AI feedback.</p>
+                    <h1 class="gradient-title">Hi <%= user.username %>, keep advancing your English.</h1>
+                    <p>Practice purposefully with guided conversations, targeted drills, and clear feedback—designed to build confidence and measurable progress.</p>
                     <div class="hero-actions">
                         <a href="/chat" class="btn btn-primary">Jump into chat</a>
                         <a href="/progress" class="ghost-link">Review analytics</a>
@@ -178,8 +182,8 @@
         </section>
 
         <section class="panel panel-muted lazy-section">
-            <h2>Today's focus</h2>
-            <p class="muted">Pick a quick action to keep the momentum going.</p>
+            <h2>Today’s Focus</h2>
+            <p class="muted">Choose a quick action to build momentum.</p>
             <div class="card-grid" style="margin-top:1rem;">
                 <a href="/chat" class="insight-card insight-muted">
                     <h3><i class="fas fa-comments"></i> Practice conversation</h3>
@@ -190,20 +194,20 @@
                     <p>Warm up with pronunciation drills and TTS playback.</p>
                 </a>
                 <a href="/vocabulary" class="insight-card insight-muted">
-                    <h3><i class="fas fa-book"></i> Vocabulary builder</h3>
-                    <p>Review saved words and unlock fresh phrases.</p>
+                    <h3><i class="fas fa-book"></i> Vocabulary Builder</h3>
+                    <p>Review saved words and discover new phrases.</p>
                 </a>
                 <a href="/goals" class="insight-card insight-muted">
-                    <h3><i class="fas fa-bullseye"></i> Learning goals</h3>
-                    <p>Update targets and celebrate completed milestones.</p>
+                    <h3><i class="fas fa-bullseye"></i> Learning Goals</h3>
+                    <p>Set clear targets and track meaningful milestones.</p>
                 </a>
                 <a href="/progress" class="insight-card insight-muted">
                     <h3><i class="fas fa-chart-line"></i> Track progress</h3>
                     <p>See growth across speaking, listening, and vocabulary.</p>
                 </a>
                 <a href="/pronunciation" class="insight-card insight-muted">
-                    <h3><i class="fas fa-volume-up"></i> Pronunciation coach</h3>
-                    <p>Upload phrases and get phonetic corrections.</p>
+                    <h3><i class="fas fa-volume-up"></i> Pronunciation Coach</h3>
+                    <p>Upload phrases and receive precise phonetic feedback.</p>
                 </a>
             </div>
         </section>

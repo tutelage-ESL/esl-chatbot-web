@@ -515,12 +515,7 @@ body.dark-theme .tag { background: rgba(255, 255, 255, 0.08); color: #e5e7eb; }
   display: block;
 }
 
-.interactive-3d__spotlight {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 2;
-}
+.interactive-3d__spotlight { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
 .interactive-3d__spotlight canvas {
   display: block;
   width: 100%;
