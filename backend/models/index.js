@@ -8,10 +8,30 @@ const config = require(__dirname + '/../config/config.json')[env];
 const db = {};
 
 let sequelize;
-if (config.use_env_variable) {
+
+const pgUrl = process.env.DATABASE_URL || (
+  process.env.PGHOST && process.env.PGUSER && process.env.PGDATABASE
+    ? `postgres://${encodeURIComponent(process.env.PGUSER)}:${encodeURIComponent(process.env.PGPASSWORD || '')}@${process.env.PGHOST}:${process.env.PGPORT || 5432}/${process.env.PGDATABASE}?sslmode=require`
+    : null
+);
+
+const sanitizedUrl = pgUrl ? pgUrl.replace(/channel_binding=require/gi, 'channel_binding=disable') : null;
+
+if (sanitizedUrl) {
+  sequelize = new Sequelize(sanitizedUrl, {
+    dialect: 'postgres',
+    protocol: 'postgres',
+    dialectOptions: { ssl: { require: true, rejectUnauthorized: false } },
+    logging: false,
+  });
+} else if (config.use_env_variable && process.env[config.use_env_variable]) {
   sequelize = new Sequelize(process.env[config.use_env_variable], config);
 } else {
-  sequelize = new Sequelize(config.database, config.username, config.password, config);
+  if (config.database && config.username) {
+    sequelize = new Sequelize(config.database, config.username, config.password, config);
+  } else {
+    sequelize = new Sequelize('sqlite::memory:');
+  }
 }
 
 // Import and initialize models with sequelize instance
