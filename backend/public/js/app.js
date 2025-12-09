@@ -535,12 +535,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function ensureElevenLabsReady() {
-    if (!elevenLabsAvailable) return false;
+    if (!elevenLabsAvailable) {
+      await checkElevenLabsStatus();
+      await new Promise(r => setTimeout(r, 50));
+    }
     if (!selectedVoiceId) {
       await loadElevenLabsVoices();
       await new Promise(r => setTimeout(r, 50));
     }
-    return !!selectedVoiceId;
+    return elevenLabsAvailable && !!selectedVoiceId;
   }
 
   async function speakWithElevenLabs(text) {

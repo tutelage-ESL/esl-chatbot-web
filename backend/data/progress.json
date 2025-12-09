@@ -65,6 +65,66 @@
       "lastUpdated": "2025-09-29T13:09:16.771Z"
     }
   },
+  "2": {
+    "userId": 2,
+    "userName": "Student",
+    "interactions": [
+      {
+        "timestamp": "2025-12-09T18:27:12.384Z",
+        "type": "text",
+        "message": "nothing",
+        "responsePreview": "Oh, K.K., are you trying to say \"nothing nothing\" in English? That's a great start! You used an actu..."
+      },
+      {
+        "timestamp": "2025-12-09T18:26:44.011Z",
+        "type": "text",
+        "message": "g",
+        "responsePreview": "You're really good at typing different letters, K.K.! 😄 That's great for getting comfortable with t..."
+      },
+      {
+        "timestamp": "2025-12-09T18:23:08.652Z",
+        "type": "text",
+        "message": "nn",
+        "responsePreview": "Haha, K.K., you're full of mystery today! 😉 That's another interesting combination of letters.\n\nIt ..."
+      },
+      {
+        "timestamp": "2025-12-09T18:22:34.380Z",
+        "type": "text",
+        "message": "fgfg",
+        "responsePreview": "Hmm, K.K., that looks like a fun set of letters! 🤩 But it doesn't quite look like an English word.\n..."
+      },
+      {
+        "timestamp": "2025-12-09T18:11:15.605Z",
+        "type": "text",
+        "message": "k",
+        "responsePreview": "Nice to meet you, K.K.! 😄 What a cool name!\n\nSo, K.K., are you ready to dive into the wonderful wor..."
+      },
+      {
+        "timestamp": "2025-12-09T18:08:07.829Z",
+        "type": "text",
+        "message": "hi",
+        "responsePreview": "Hello there! 👋 So happy to see you! I'm your friendly ESL chatbot teacher, ready to make learning E..."
+      }
+    ],
+    "metrics": {
+      "totalInteractions": 6,
+      "textInteractions": 6,
+      "voiceInteractions": 0,
+      "commandsUsed": 0,
+      "lessonsCompleted": 0,
+      "practiceSessionsCompleted": 0,
+      "estimatedLevel": null,
+      "skillMetrics": {
+        "grammar": 0,
+        "vocabulary": 0,
+        "reading": 0,
+        "writing": 0,
+        "speaking": 0,
+        "listening": 0
+      },
+      "lastUpdated": "2025-12-09T18:27:12.384Z"
+    }
+  },
   "3": {
     "userId": 3,
     "userName": "Student",

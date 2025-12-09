@@ -486,6 +486,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    async function ensureElevenLabsReady() {
+        if (!elevenLabsAvailable) {
+            await checkElevenLabsStatus();
+        }
+        if (!selectedVoiceId) {
+            await loadElevenLabsVoices();
+        }
+        return elevenLabsAvailable && !!selectedVoiceId;
+    }
+
     async function speakText(text) {
         console.log('Starting speech synthesis...');
         
@@ -496,7 +506,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         // Try ElevenLabs first if available
-        if (elevenLabsAvailable) {
+        if (await ensureElevenLabsReady()) {
             const success = await speakWithElevenLabs(text);
             if (success) {
                 return; // Successfully used ElevenLabs

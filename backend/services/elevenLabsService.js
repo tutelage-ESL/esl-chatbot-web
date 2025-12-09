@@ -52,9 +52,8 @@ class ElevenLabsService {
             const voicesResp = await this.client.voices.getAll();
             let voices = voicesResp.voices || [];
 
-            // Fallback: if SDK returns voices without voice_id, query HTTP API directly
-            if (voices.length && !voices[0].voice_id) {
-                console.warn('ElevenLabs SDK returned voices without voice_id, falling back to HTTP API');
+            const hasId = (v) => !!(v && (v.voice_id || v.voiceId || v.id));
+            if (voices.length && !hasId(voices[0])) {
                 const apiKey = process.env.ELEVENLABS_API_KEY;
                 try {
                     const resp = await fetch('https://api.elevenlabs.io/v1/voices', {
@@ -63,12 +62,8 @@ class ElevenLabsService {
                     if (resp.ok) {
                         const json = await resp.json();
                         voices = json.voices || voices;
-                    } else {
-                        console.warn('HTTP voices API failed:', resp.status);
                     }
-                } catch (httpErr) {
-                    console.warn('HTTP voices API error:', httpErr.message);
-                }
+                } catch (_) {}
             }
 
             this.availableVoices = voices;
@@ -93,7 +88,7 @@ class ElevenLabsService {
             return [];
         }
         return this.availableVoices.map(voice => ({
-            id: voice.voice_id || voice.id || null,
+            id: voice.voice_id || voice.voiceId || voice.id || null,
             name: voice.name,
             category: voice.category,
             description: voice.description || '',
@@ -113,13 +108,13 @@ class ElevenLabsService {
     
         for (const preferredName of preferredVoices) {
             const voice = this.availableVoices.find(v => v.name.toLowerCase() === preferredName.toLowerCase());
-            if (voice && (voice.voice_id || voice.id)) {
-                return voice.voice_id || voice.id;
+            if (voice && (voice.voice_id || voice.voiceId || voice.id)) {
+                return voice.voice_id || voice.voiceId || voice.id;
             }
         }
     
         const first = this.availableVoices[0];
-        return first?.voice_id || first?.id || null;
+        return first?.voice_id || first?.voiceId || first?.id || null;
     }
 
     async textToSpeech(text, options = {}) {

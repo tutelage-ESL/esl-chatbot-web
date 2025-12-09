@@ -205,7 +205,6 @@ db.sequelize.authenticate()
     console.log('Database connected successfully.');
     await db.sequelize.sync({ alter: false });
     console.log('Database synchronized successfully.');
-    await elevenLabsService.init();
   })
   .catch(err => {
     console.error('Database connection failed; continuing without DB:', err.message);
