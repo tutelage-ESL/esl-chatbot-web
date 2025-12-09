@@ -1,5 +1,5 @@
 <nav class="site-nav" aria-label="Primary">
-  <div class="nav-inner">
+  <div class="nav-inner centered">
     <a class="brand-mark" href="/">
       <span class="brand-icon"><img src="/brand-icons/ai-esl-logo.svg" alt="ESL Academy logo"></span>
       <span class="brand-copy">
@@ -7,41 +7,5 @@
         <small>AI Tutor Platform</small>
       </span>
     </a>
-
-    <button class="nav-toggle" aria-expanded="false" aria-controls="nav-menu">
-      <span class="sr-only">Toggle menu</span>
-      <span class="bar"></span>
-      <span class="bar"></span>
-    </button>
-
-    <div id="nav-menu" class="nav-links" data-mobile="false">
-      <a href="/chat" class="nav-link <%= currentRoute === 'chat' ? 'is-active' : '' %>">Chat</a>
-      <a href="/vocabulary" class="nav-link <%= currentRoute === 'vocabulary' ? 'is-active' : '' %>">Vocabulary</a>
-      <a href="/pronunciation"
-        class="nav-link <%= currentRoute === 'pronunciation' ? 'is-active' : '' %>">Pronunciation</a>
-      <a href="/progress" class="nav-link <%= currentRoute === 'progress' ? 'is-active' : '' %>">Progress</a>
-      <a href="/settings" class="nav-link <%= currentRoute === 'settings' ? 'is-active' : '' %>">Settings</a>
-      <a href="/voice" class="nav-link <%= currentRoute === 'voice' ? 'is-active' : '' %>">Voice Lab</a>
-    </div>
-
-    <div class="nav-cta">
-      <a href="/dashboard" class="ghost-link <%= currentRoute === 'dashboard' ? 'is-active' : '' %>">Dashboard</a>
-      <a href="/logout" class="btn btn-primary">Sign out</a>
-    </div>
   </div>
 </nav>
-<script>
-  (() => {
-    const toggle = document.currentScript?.previousElementSibling?.querySelector?.('.nav-toggle') ||
-      document.querySelector('.nav-toggle');
-    const menu = document.querySelector('#nav-menu');
-
-    if (!toggle || !menu) return;
-
-    toggle.addEventListener('click', () => {
-      const isOpen = toggle.getAttribute('aria-expanded') === 'true';
-      toggle.setAttribute('aria-expanded', String(!isOpen));
-      menu.dataset.mobile = String(!isOpen);
-    });
-  })();
-</script>
