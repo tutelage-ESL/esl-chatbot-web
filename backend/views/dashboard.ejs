@@ -19,30 +19,11 @@
         <section class="hero-banner">
             <div class="hero-content">
                 <div class="hero-copy">
-                    <p class="tag">Welcome back</p>
-                    <h1>Hi <%= user.username %>, your English streak is alive.</h1>
-                    <p>Keep growing your vocabulary, speaking confidence, and listening precision with a daily mix of live chat, drills, and AI feedback.</p>
+                    <p class="tag">Welcome back Tutelage</p>
+                    <h1 class="hero-title">Your Ai partner is here..</h1>
+                    <p class="hero-subtitle">start practicing your daily dose of English</p>
                     <div class="hero-actions">
                         <a href="/chat" class="btn btn-primary">Jump into chat</a>
-                        <a href="/progress" class="ghost-link">Review analytics</a>
-                    </div>
-                </div>
-                <div class="stat-grid">
-                    <div class="stat-card">
-                        <strong><%= stats.lessonsCompleted %></strong>
-                        <span>Lessons completed</span>
-                    </div>
-                    <div class="stat-card">
-                        <strong><%= stats.studyTime %></strong>
-                        <span>Active study time</span>
-                    </div>
-                    <div class="stat-card">
-                        <strong><%= stats.dayStreak %>���</strong>
-                        <span>Day streak</span>
-                    </div>
-                    <div class="stat-card">
-                        <strong><%= stats.achievements %></strong>
-                        <span>Milestones unlocked</span>
                     </div>
                 </div>
             </div>
@@ -51,30 +32,42 @@
         <section class="panel">
             <h2>Today's focus</h2>
             <p class="muted">Pick a quick action to keep the momentum going.</p>
-            <div class="card-grid" style="margin-top:1rem;">
-                <a href="/chat" class="insight-card">
-                    <h3><i class="fas fa-comments"></i> Practice conversation</h3>
-                    <p>10-minute guided dialogue with instant grammar cues.</p>
+            <div class="focus-grid" style="margin-top:1rem;">
+                <a href="/chat" class="focus-card">
+                    <div class="focus-icon"><i class="fas fa-bolt"></i></div>
+                    <div class="focus-content">
+                        <h3>Immediate feedback</h3>
+                    </div>
                 </a>
-                <a href="/voice" class="insight-card">
-                    <h3><i class="fas fa-microphone"></i> Voice lab</h3>
-                    <p>Warm up with pronunciation drills and TTS playback.</p>
+                <a href="/chat" class="focus-card">
+                    <div class="focus-icon"><i class="fas fa-comments"></i></div>
+                    <div class="focus-content">
+                        <h3>Real conversation</h3>
+                    </div>
                 </a>
-                <a href="/vocabulary" class="insight-card">
-                    <h3><i class="fas fa-book"></i> Vocabulary builder</h3>
-                    <p>Review saved words and unlock fresh phrases.</p>
+                <a href="/vocabulary" class="focus-card">
+                    <div class="focus-icon"><i class="fas fa-graduation-cap"></i></div>
+                    <div class="focus-content">
+                        <h3>Fully ESL centered</h3>
+                    </div>
                 </a>
-                <a href="/goals" class="insight-card">
-                    <h3><i class="fas fa-bullseye"></i> Learning goals</h3>
-                    <p>Update targets and celebrate completed milestones.</p>
+                <a href="/chat" class="focus-card">
+                    <div class="focus-icon"><i class="fas fa-clock"></i></div>
+                    <div class="focus-content">
+                        <h3>24/7 available, practice non stop</h3>
+                    </div>
                 </a>
-                <a href="/progress" class="insight-card">
-                    <h3><i class="fas fa-chart-line"></i> Track progress</h3>
-                    <p>See growth across speaking, listening, and vocabulary.</p>
+                <a href="/goals" class="focus-card">
+                    <div class="focus-icon"><i class="fas fa-language"></i></div>
+                    <div class="focus-content">
+                        <h3>Designed for core language purposes</h3>
+                    </div>
                 </a>
-                <a href="/pronunciation" class="insight-card">
-                    <h3><i class="fas fa-volume-up"></i> Pronunciation coach</h3>
-                    <p>Upload phrases and get phonetic corrections.</p>
+                <a href="/progress" class="focus-card">
+                    <div class="focus-icon"><i class="fas fa-chart-line"></i></div>
+                    <div class="focus-content">
+                        <h3>Tracks your learning progress</h3>
+                    </div>
                 </a>
             </div>
         </section>
