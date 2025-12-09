@@ -84,8 +84,8 @@ img {
 }
 
 .brand-icon {
-  width: 44px;
-  height: 44px;
+  width: 52px;
+  height: 52px;
   border-radius: 14px;
   display: grid;
   place-items: center;
@@ -96,16 +96,16 @@ img {
 /* Ensure SVG/icon fits nicely inside brand-icon container */
 .brand-icon img,
 .brand-icon svg {
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
   display: block;
 }
 
 /* Slightly larger logo inside auth card header */
 .auth-card .brand-icon img,
 .auth-card .brand-icon svg {
-  width: 32px;
-  height: 32px;
+  width: 38px;
+  height: 38px;
 }
 
 /* Signup page: optional larger icon for emphasis */
@@ -319,16 +319,16 @@ img {
 .page-shell {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 2rem 1.5rem 3rem;
+  padding: 1.5rem 1rem 2rem;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
 .hero-banner {
   background: var(--brand-surface);
   border-radius: calc(var(--brand-radius) + 6px);
-  padding: 2.25rem;
+  padding: 1.75rem;
   border: 1px solid var(--brand-border);
   box-shadow: var(--brand-shadow-md);
   position: relative;
@@ -455,15 +455,15 @@ img {
 }
 
 .focus-icon {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 10px;
   display: grid;
   place-items: center;
   background: rgba(245, 158, 11, 0.16);
   color: var(--brand-primary-dark);
-  flex: 0 0 32px;
-  font-size: 1rem;
+  flex: 0 0 36px;
+  font-size: 1.25rem;
 }
 
 .focus-content {
@@ -488,10 +488,10 @@ img {
     gap: 0.8rem;
   }
   .focus-icon {
-    width: 28px;
-    height: 28px;
-    flex: 0 0 28px;
-    font-size: 0.9rem;
+    width: 32px;
+    height: 32px;
+    flex: 0 0 32px;
+    font-size: 1.05rem;
   }
   .focus-content h3 {
     font-size: 1rem;
