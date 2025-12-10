@@ -24,6 +24,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const speedValueChat = document.getElementById('speed-value-chat');
   const autoSpeakIndicatorChat = document.getElementById('auto-speak-indicator-chat');
   const testVoiceChat = document.getElementById('test-voice-chat');
+  const enableTtsChat = document.getElementById('enable-tts-chat');
+  const freeTtsOnly = document.getElementById('free-tts-only');
+  const stopVoiceChat = document.getElementById('stop-voice-chat');
+  const ttsProviderSelect = document.getElementById('tts-provider');
   
 
   
@@ -36,6 +40,9 @@ document.addEventListener('DOMContentLoaded', () => {
   let recognition;
   let isRecognizing = false;
   let currentUtterance = null;
+  let currentAudioSource = null;
+  let currentAudioContext = null;
+  let currentAudioElement = null;
   let voicesLoaded = false;
   
   // Load voices when available
@@ -297,10 +304,19 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     `;
 
+    const actionsHtml = type === 'bot' 
+      ? `<div class="message-actions mt-1">
+            <button class="tts-play btn btn-ghost btn-sm" data-text="${text.replace(/"/g, '&quot;')}">
+              <i class="fas fa-volume-up"></i> Speak
+            </button>
+         </div>`
+      : '';
+
     messageDiv.innerHTML = `
       <div class="${avatarClasses}">${avatarIcon}</div>
       <div class="${contentClasses}">
         <div class="${bubbleClasses}">${text}</div>
+        ${actionsHtml}
         ${metaHtml}
       </div>
     `;
@@ -757,19 +773,112 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function getSelectedProvider() {
+    const sel = document.getElementById('tts-provider');
+    return sel ? (sel.value || 'auto') : 'auto';
+  }
+
   async function speakText(text) {
     console.log('Starting speech synthesis...');
-    
-    // Try ElevenLabs first if available and ready
+    if (enableTtsChat && !enableTtsChat.checked) {
+      return;
+    }
+    let provider = getSelectedProvider();
+    if (freeTtsOnly && freeTtsOnly.checked) {
+      provider = 'google';
+    }
+
+    if (provider === 'elevenlabs') {
+      if (await ensureElevenLabsReady()) {
+        const success = await speakWithElevenLabs(text);
+        if (success) return;
+      }
+      // If ElevenLabs unavailable, fallback to browser
+      speakWithBrowserTTS(text);
+      return;
+    }
+
+    if (provider === 'piper' || provider === 'google' || provider === 'free') {
+      const ok = await speakWithFreeTTS(text);
+      if (ok) return;
+      // fallback to browser
+      speakWithBrowserTTS(text);
+      return;
+    }
+
+    if (provider === 'browser') {
+      speakWithBrowserTTS(text);
+      return;
+    }
+
+    // Auto: ElevenLabs if ready, else browser
     if (await ensureElevenLabsReady()) {
       const success = await speakWithElevenLabs(text);
-      if (success) {
-        return; // Successfully used ElevenLabs
-      }
+      if (success) return;
     }
-    
-    // Fallback to browser TTS
+    // Try free HQ TTS if configured, then browser
+    const okFree = await speakWithFreeTTS(text);
+    if (okFree) return;
     speakWithBrowserTTS(text);
+  }
+
+  async function speakWithFreeTTS(text) {
+    try {
+      const response = await fetch('/api/free-tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+      if (!response.ok) return false;
+      const audioBuffer = await response.arrayBuffer();
+
+      // Try Web Audio first
+      try {
+        currentAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const decodedAudio = await currentAudioContext.decodeAudioData(audioBuffer.slice());
+        currentAudioSource = currentAudioContext.createBufferSource();
+        currentAudioSource.buffer = decodedAudio;
+        const speed = voiceSpeedChat ? parseFloat(voiceSpeedChat.value) : 1.0;
+        currentAudioSource.playbackRate.value = speed;
+        currentAudioSource.connect(currentAudioContext.destination);
+        currentAudioSource.start(0);
+        await new Promise((resolve) => { currentAudioSource.onended = resolve; });
+        currentAudioSource = null;
+        if (currentAudioContext) { try { currentAudioContext.close(); } catch(e){} }
+        currentAudioContext = null;
+        return true;
+      } catch (webAudioError) {
+        // Fallback to HTML5 Audio
+        const base64Audio = btoa(String.fromCharCode(...new Uint8Array(audioBuffer)));
+        currentAudioElement = new Audio(`data:audio/mpeg;base64,${base64Audio}`);
+        const speed = voiceSpeedChat ? parseFloat(voiceSpeedChat.value) : 1.0;
+        currentAudioElement.playbackRate = speed;
+        await currentAudioElement.play();
+        currentAudioElement.onended = () => { currentAudioElement = null; };
+        return true;
+      }
+    } catch (e) {
+      console.warn('Free TTS failed:', e);
+      return false;
+    }
+  }
+
+  function stopBrowserTTS() {
+    try {
+      if ('speechSynthesis' in window) {
+        speechSynthesis.cancel();
+      }
+      currentUtterance = null;
+      if (currentAudioSource) { try { currentAudioSource.stop(0); } catch(e){} currentAudioSource = null; }
+      if (currentAudioContext) { try { currentAudioContext.close(); } catch(e){} currentAudioContext = null; }
+      if (currentAudioElement) { try { currentAudioElement.pause(); currentAudioElement.src = ''; } catch(e){} currentAudioElement = null; }
+    } catch (e) {}
+  }
+
+  if (stopVoiceChat) {
+    stopVoiceChat.addEventListener('click', () => {
+      stopBrowserTTS();
+    });
   }
 
   // Voice event listeners
@@ -874,4 +983,15 @@ document.addEventListener('DOMContentLoaded', () => {
       loadTTSUsage(); // Refresh usage after TTS
     }
   });
+  if (chatMessages) {
+    chatMessages.addEventListener('click', (e) => {
+      const btn = e.target.closest('.tts-play');
+      if (btn) {
+        const text = btn.getAttribute('data-text') || '';
+        if (text) {
+          speakText(text);
+        }
+      }
+    });
+  }
 });

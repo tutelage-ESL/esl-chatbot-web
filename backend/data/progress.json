@@ -70,6 +70,36 @@
     "userName": "Student",
     "interactions": [
       {
+        "timestamp": "2025-12-10T12:19:33.216Z",
+        "type": "text",
+        "message": "ئەتوانیت پێم بڵی مانای چیە؟",
+        "responsePreview": "K.K.! 😄 \"ئەتوانیت پێم بڵی مانای چیە؟\" means \"Can you tell me what it means?\" in English!\n\nYes, I ca..."
+      },
+      {
+        "timestamp": "2025-12-10T12:19:11.100Z",
+        "type": "text",
+        "message": "سڵاو",
+        "responsePreview": "Oh, K.K.! \"سڵاوسڵاو\" is a lovely greeting in Kurdish! 👋 It means \"Hello hello!\"\n\nAre you ready to p..."
+      },
+      {
+        "timestamp": "2025-12-10T12:18:04.650Z",
+        "type": "text",
+        "message": "hey",
+        "responsePreview": "Heyhey, K.K.! 😄 You're so good at friendly greetings! It's like a super enthusiastic \"hey!\"\n\nAre yo..."
+      },
+      {
+        "timestamp": "2025-12-10T12:08:56.528Z",
+        "type": "text",
+        "message": "hau",
+        "responsePreview": "Hauhau, K.K.! 😄 That sounds like a super happy laugh! Or maybe a playful dog sound? 🐶\n\nYou're so g..."
+      },
+      {
+        "timestamp": "2025-12-10T11:49:57.542Z",
+        "type": "text",
+        "message": "hi",
+        "responsePreview": "Hihi K.K.! 😄 You're so good at saying \"hi\"! It's super friendly!\n\nReady to learn a new English gree..."
+      },
+      {
         "timestamp": "2025-12-10T09:28:03.699Z",
         "type": "text",
         "message": "d",
@@ -251,8 +281,8 @@
       }
     ],
     "metrics": {
-      "totalInteractions": 30,
-      "textInteractions": 30,
+      "totalInteractions": 35,
+      "textInteractions": 35,
       "voiceInteractions": 0,
       "commandsUsed": 0,
       "lessonsCompleted": 0,
@@ -266,7 +296,7 @@
         "speaking": 0,
         "listening": 0
       },
-      "lastUpdated": "2025-12-10T09:28:03.699Z"
+      "lastUpdated": "2025-12-10T12:19:33.216Z"
     }
   },
   "3": {

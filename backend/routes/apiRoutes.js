@@ -5,6 +5,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { HfInference } = require('@huggingface/inference');
 const https = require('https');
 const { URL } = require('url');
+const http = require('http');
 const elevenLabsService = require('../services/elevenLabsService');
 const fs = require('fs');
 const path = require('path');
@@ -575,6 +576,12 @@ router.get('/voice-status', async (req, res) => {
       browserTTS: {
         available: true, // Browser TTS is always available as fallback
         note: 'Fallback option'
+      },
+      freeTTS: {
+        available: true,
+        provider: process.env.FREE_TTS_PROVIDER || 'google',
+        voice: process.env.FREE_TTS_VOICE || null,
+        lang: process.env.FREE_TTS_LANG || 'en'
       }
     };
 
@@ -582,6 +589,93 @@ router.get('/voice-status', async (req, res) => {
   } catch (error) {
     console.error('Voice status error:', error);
     res.status(500).json({ error: 'Failed to get voice status' });
+  }
+});
+
+// Free TTS proxy (e.g., Piper HTTP server)
+router.post('/free-tts', async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text) {
+      return res.status(400).json({ error: 'Text is required' });
+    }
+
+    const baseUrl = process.env.FREE_TTS_URL;
+    const provider = process.env.FREE_TTS_PROVIDER || 'google';
+    const voice = process.env.FREE_TTS_VOICE || 'en_US-amy-medium';
+    const lang = process.env.FREE_TTS_LANG || 'en';
+    const format = process.env.FREE_TTS_FORMAT || 'mp3';
+
+    function requestAudio(u, options, body) {
+      return new Promise((resolve, reject) => {
+        const req = (u.protocol === 'https:' ? https : http).request(options, (resp) => {
+          const chunks = [];
+          const contentType = resp.headers['content-type'] || '';
+          resp.on('data', (c) => chunks.push(c));
+          resp.on('end', () => {
+            const buf = Buffer.concat(chunks);
+            resolve({ buf, contentType, statusCode: resp.statusCode });
+          });
+        });
+        req.on('error', reject);
+        req.setTimeout(5000, () => { req.destroy(new Error('Free TTS timeout')); });
+        if (body) req.write(body);
+        req.end();
+      });
+    }
+
+    let result;
+    if (provider === 'piper' && baseUrl) {
+      const primary = new URL(baseUrl.replace(/\/$/, '') + '/api/tts');
+      const isHttps = primary.protocol === 'https:';
+      const payload = JSON.stringify({ text, voice, format });
+      const opts = {
+        method: 'POST',
+        hostname: primary.hostname,
+        port: primary.port || (isHttps ? 443 : 80),
+        path: primary.pathname,
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
+      };
+      result = await requestAudio(primary, opts, payload);
+      if (!(result.contentType.includes('audio') || result.statusCode === 200)) {
+        const alt = new URL(baseUrl.replace(/\/$/, '') + '/speak');
+        alt.search = `?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voice)}&format=${encodeURIComponent(format)}`;
+        const altOpts = {
+          method: 'GET',
+          hostname: alt.hostname,
+          port: alt.port || (alt.protocol === 'https:' ? 443 : 80),
+          path: alt.pathname + alt.search,
+          headers: {}
+        };
+        result = await requestAudio(alt, altOpts);
+      }
+    } else {
+      // Google Translate TTS (unofficial)
+      const gt = new URL('https://translate.google.com/translate_tts');
+      gt.search = `?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${encodeURIComponent(lang)}&client=tw-ob`;
+      const gtOpts = {
+        method: 'GET',
+        hostname: gt.hostname,
+        port: 443,
+        path: gt.pathname + gt.search,
+        headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': '*/*' }
+      };
+      result = await requestAudio(gt, gtOpts);
+      if (result.statusCode !== 200) {
+        return res.status(502).json({ error: 'Free TTS failed', fallback: true });
+      }
+    }
+
+    if (!result || !result.buf || result.buf.length === 0) {
+      return res.status(502).json({ error: 'Free TTS failed', fallback: true });
+    }
+
+    const ct = result.contentType.includes('audio') ? result.contentType : (format === 'mp3' ? 'audio/mpeg' : 'audio/wav');
+    res.set({ 'Content-Type': ct, 'Content-Length': result.buf.length, 'Cache-Control': 'no-cache' });
+    return res.send(result.buf);
+  } catch (error) {
+    console.error('Free TTS proxy error:', error);
+    return res.status(500).json({ error: 'Failed to generate free TTS', message: error.message });
   }
 });
 
