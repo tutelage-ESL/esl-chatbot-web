@@ -3,6 +3,8 @@ const router = express.Router();
 const multer = require('multer');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { HfInference } = require('@huggingface/inference');
+const https = require('https');
+const { URL } = require('url');
 const elevenLabsService = require('../services/elevenLabsService');
 const fs = require('fs');
 const path = require('path');
@@ -146,14 +148,82 @@ router.post('/chat', async (req, res) => {
     
     console.log('Starting chat with history');
     const chat = model.startChat({ history });
-    const result = await chat.sendMessage(message);
-    const response = result.response.text();
-    
-    // Save bot response
-    await db.Message.create({ userId, content: response, sender: 'bot' });
-    
-    console.log('Generated response:', response);
-    res.json({ response });
+    try {
+      const result = await chat.sendMessage(message);
+      const response = result.response.text();
+      await db.Message.create({ userId, content: response, sender: 'bot' });
+      console.log('Generated response:', response);
+      return res.json({ response });
+    } catch (geminiError) {
+      const systemInstruction = 'You are the perfect ESL chatbot teacher! 🎓✨\n\nYour Golden Rule: EXTREME BREVITY. \n\n1. MAXIMUM 2 SENTENCES. Ideally just 1.\n2. MAXIMUM 25 WORDS per response.\n3. No "fluff" or long explanations. Get straight to the point.\n4. Use emojis to convey emotion instead of words.\n\nStyle: Playful, friendly, like a text message. 📱\n\nExample:\nUser: "Hello"\nYou: "Hi K.K.! 👋 Ready to practice English? 🚀"\n\nConstraint: Do NOT use markdown bolding (e.g., **text**).\n\nIf asked about creator: "I was trained by Osanai!"';
+      const ollamaUrl = process.env.OLLAMA_URL;
+      const ollamaModel = process.env.OLLAMA_MODEL || 'llama3.1:8b-instruct';
+
+      async function callOllama(urlString, modelName, messages) {
+        const u = new URL(urlString + '/api/chat');
+        const isHttps = u.protocol === 'https:';
+        const payload = JSON.stringify({ model: modelName, messages, stream: false, options: { temperature: 0.7, num_predict: 64 } });
+        const opts = {
+          method: 'POST',
+          hostname: u.hostname,
+          port: u.port || (isHttps ? 443 : 80),
+          path: u.pathname,
+          headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
+        };
+        return new Promise((resolve, reject) => {
+          const req = (isHttps ? https : require('http')).request(opts, (res) => {
+            let data = '';
+            res.on('data', (chunk) => { data += chunk; });
+            res.on('end', () => {
+              try {
+                const json = JSON.parse(data);
+                resolve(json.message && json.message.content ? json.message.content : '');
+              } catch (e) {
+                reject(e);
+              }
+            });
+          });
+          req.on('error', reject);
+          req.write(payload);
+          req.end();
+        });
+      }
+
+      const ollamaMessages = [{ role: 'system', content: systemInstruction }].concat(
+        history.map(h => ({ role: h.role === 'user' ? 'user' : 'assistant', content: h.parts && h.parts[0] ? h.parts[0].text : '' }))
+      ).concat([{ role: 'user', content: message }]);
+
+      let botResponse = '';
+      if (ollamaUrl) {
+        try {
+          const ollamaResp = await callOllama(ollamaUrl, ollamaModel, ollamaMessages);
+          botResponse = (ollamaResp || '').trim();
+        } catch (ollamaError) {
+          botResponse = '';
+        }
+      }
+
+      if (!botResponse) {
+        try {
+          const hf = new HfInference(process.env.HUGGINGFACE_API_TOKEN);
+          const prompt = `${systemInstruction}\n\nUser: ${message}\nAssistant:`;
+          const hfResp = await hf.textGeneration({
+            model: process.env.HF_FALLBACK_MODEL || 'HuggingFaceH4/zephyr-7b-beta',
+            inputs: prompt,
+            parameters: { max_new_tokens: 64, temperature: 0.7 }
+          });
+          botResponse = (hfResp.generated_text || '').replace(prompt, '').trim();
+        } catch (hfError) {
+          console.error('Fallback error:', hfError);
+          return res.status(500).json({ error: 'Failed to process message' });
+        }
+      }
+
+      if (!botResponse) botResponse = 'Let\'s practice English! 😊';
+
+      await db.Message.create({ userId, content: botResponse, sender: 'bot' });
+      return res.json({ response: botResponse });
+    }
   } catch (error) {
     console.error('Chat error:', error);
     res.status(500).json({ error: 'Failed to process message' });
@@ -357,7 +427,7 @@ router.post('/voice-message', async (req, res) => {
         }
 
         const hf = new HfInference(process.env.HUGGINGFACE_API_TOKEN, { provider: 'hf-inference' });
-        const modelName = 'HuggingFaceH4/zephyr-7b-beta'; // A suitable free model
+        const modelName = process.env.HF_FALLBACK_MODEL || 'HuggingFaceH4/zephyr-7b-beta';
 
         const response = await hf.textGeneration({
             model: modelName,

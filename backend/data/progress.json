@@ -70,6 +70,126 @@
     "userName": "Student",
     "interactions": [
       {
+        "timestamp": "2025-12-10T09:28:03.699Z",
+        "type": "text",
+        "message": "d",
+        "responsePreview": "Haha, K.K.! 😄 You're giving me a lot of 'd's today!\n\nReady to learn an English word that starts wit..."
+      },
+      {
+        "timestamp": "2025-12-10T09:28:00.883Z",
+        "type": "text",
+        "message": "who is osanai",
+        "responsePreview": "I was trained by Osanai, K.K.! 😄 That's my creator! ✨"
+      },
+      {
+        "timestamp": "2025-12-10T09:27:35.912Z",
+        "type": "text",
+        "message": "who created you",
+        "responsePreview": "I was trained by Osanai! 😄 Thanks for asking, K.K.! ✨"
+      },
+      {
+        "timestamp": "2025-12-10T09:27:17.262Z",
+        "type": "text",
+        "message": "tutelage",
+        "responsePreview": "Wow, K.K.! \"Tutelage\" is a fantastic English word! You said it twice! 😄 It means guidance or instru..."
+      },
+      {
+        "timestamp": "2025-12-10T09:27:11.676Z",
+        "type": "text",
+        "message": "ffff",
+        "responsePreview": "Wow, K.K.! So many 'f's! 😄 You're really exploring the keyboard!\n\nAre you having fun typing, or rea..."
+      },
+      {
+        "timestamp": "2025-12-10T09:27:07.416Z",
+        "type": "text",
+        "message": "vcvcv",
+        "responsePreview": "Wow, K.K.! That's a lot of v's and c's on your keyboard! 😄\n\nReady to learn an English word today, o..."
+      },
+      {
+        "timestamp": "2025-12-10T09:26:59.297Z",
+        "type": "text",
+        "message": "sasa",
+        "responsePreview": "Haha, K.K.! You're super fast with those keys! 😄 That's a fun rhythm you've got going!\n\nAre you rea..."
+      },
+      {
+        "timestamp": "2025-12-10T09:26:53.930Z",
+        "type": "text",
+        "message": "dfd",
+        "responsePreview": "Haha, K.K.! 😄 That's a lot of \"d\"s and \"f\"s! You're really good at typing!\n\nAre you having fun typi..."
+      },
+      {
+        "timestamp": "2025-12-10T09:26:29.976Z",
+        "type": "text",
+        "message": "hi",
+        "responsePreview": "Whihi K.K.! 😄 I'm doing great, thanks for asking! Mother Nature is super important—what about her? ..."
+      },
+      {
+        "timestamp": "2025-12-09T21:33:25.805Z",
+        "type": "text",
+        "message": "you sure sad isnt a word?",
+        "responsePreview": "Oh my goodness, K.K., you are absolutely right! My apologies! 😱 \"Sad\" IS an English word!\n\nIt means..."
+      },
+      {
+        "timestamp": "2025-12-09T21:33:06.739Z",
+        "type": "text",
+        "message": "sad",
+        "responsePreview": "Haha, K.K.! That sounds like a fun word you made up! 😄 But it's not an English word.\n\nAre you havin..."
+      },
+      {
+        "timestamp": "2025-12-09T21:30:42.069Z",
+        "type": "text",
+        "message": "what",
+        "responsePreview": "Haha, K.K., you're saying \"whatwhat\" again! 😄 It means you want to know something!\n\nSo, K.K., what ..."
+      },
+      {
+        "timestamp": "2025-12-09T21:30:27.339Z",
+        "type": "text",
+        "message": "redyar man",
+        "responsePreview": "Haha, K.K.! That sounds like a fun, rhythmic phrase! 😄 Were you trying to say \"Earth\" again? 🌍✨"
+      },
+      {
+        "timestamp": "2025-12-09T21:30:08.745Z",
+        "type": "text",
+        "message": "yo",
+        "responsePreview": "Yoyo, K.K.! 😄 That's a fun word, like the toy! It sounds like a super enthusiastic \"yes!\"\n\nSo, you ..."
+      },
+      {
+        "timestamp": "2025-12-09T21:25:36.534Z",
+        "type": "text",
+        "message": "global warming",
+        "responsePreview": "Wow, K.K.! You said \"global warming\" twice! 🌎🌡️ That's a very important topic!\n\nAre you interested..."
+      },
+      {
+        "timestamp": "2025-12-09T21:25:16.802Z",
+        "type": "text",
+        "message": "so what",
+        "responsePreview": "Haha, K.K., \"so what so what!\" You said it twice! 😄 It means \"why does that matter?\" What do you wa..."
+      },
+      {
+        "timestamp": "2025-12-09T21:24:55.754Z",
+        "type": "text",
+        "message": "what",
+        "responsePreview": "Haha, K.K.! You said \"whatwhat\"! 😄 In English, we usually just say \"what?\" once. It means you want ..."
+      },
+      {
+        "timestamp": "2025-12-09T21:22:30.597Z",
+        "type": "text",
+        "message": "hi",
+        "responsePreview": "Hihi K.K.! You really like \"hihi\"! It's so cute and friendly! 😄\n\nYou're doing a fantastic job pract..."
+      },
+      {
+        "timestamp": "2025-12-09T21:20:47.842Z",
+        "type": "text",
+        "message": "hi",
+        "responsePreview": "Hihi K.K.! You're back with the cute \"hihi\"! I love it! 😊 It's a fun, playful way to greet someone!..."
+      },
+      {
+        "timestamp": "2025-12-09T21:02:41.242Z",
+        "type": "text",
+        "message": "hello",
+        "responsePreview": "Hello hello, K.K.! You're getting so good at using English words! 🎉\n\nYou said \"hellohello\"! That's ..."
+      },
+      {
         "timestamp": "2025-12-09T19:49:07.225Z",
         "type": "text",
         "message": "j",
@@ -131,8 +251,8 @@
       }
     ],
     "metrics": {
-      "totalInteractions": 10,
-      "textInteractions": 10,
+      "totalInteractions": 30,
+      "textInteractions": 30,
       "voiceInteractions": 0,
       "commandsUsed": 0,
       "lessonsCompleted": 0,
@@ -146,7 +266,7 @@
         "speaking": 0,
         "listening": 0
       },
-      "lastUpdated": "2025-12-09T19:49:07.225Z"
+      "lastUpdated": "2025-12-10T09:28:03.699Z"
     }
   },
   "3": {

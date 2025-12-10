@@ -1,4 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
+  if (window.appInitialized) return;
+  window.appInitialized = true;
+
   const socket = io();
 
   const chatInputContainer = document.getElementById('chat-input-container');
@@ -76,6 +79,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   socket.on('chat history', (history) => {
     if (history && history.length > 0) {
+      // Clear existing messages to prevent duplicates on reconnect
+      const statusElement = document.getElementById('connection-status');
+      chatMessages.innerHTML = ''; 
+      if (statusElement) chatMessages.appendChild(statusElement);
+      messageCount = 0;
+
       history.forEach(msg => {
         addMessage(msg.content, msg.sender, msg.createdAt);
         messageCount++;
@@ -213,11 +222,16 @@ document.addEventListener('DOMContentLoaded', () => {
     chatInput.parentElement.classList.remove('focused');
   });
 
+  let isSending = false;
+
   function sendMessage(e) {
     if (e) e.preventDefault();
+    if (isSending) return;
+    
     const message = chatInput.value.trim();
     if (!message || !isConnected) return;
 
+    isSending = true;
     disableInput();
     addMessage(message, 'user', new Date());
     messageCount++;
@@ -226,8 +240,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const typingId = 'typing-' + Date.now();
     addTypingIndicator(typingId);
 
-    socket.emit('chat message', message);
+    // Generate unique ID for deduplication
+    const messageId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+    socket.emit('chat message', { content: message, id: messageId });
     clearInput();
+    
+    // Reset flag after short delay or when input enabled
+    setTimeout(() => { isSending = false; }, 500);
   }
 
   function addMessage(text, type, timestamp = new Date(), id = null) {
@@ -377,6 +396,7 @@ document.addEventListener('DOMContentLoaded', () => {
     chatInputContainer.classList.remove('sending');
     chatInput.focus();
     updateSendButtonState();
+    isSending = false;
   }
 
   function clearInput() {
