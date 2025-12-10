@@ -246,11 +246,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Add typing indicator
     const typingId = 'typing-' + Date.now();
     addTypingIndicator(typingId);
+    smoothScrollToBottom();
 
     // Generate unique ID for deduplication
     const messageId = Date.now().toString(36) + Math.random().toString(36).substr(2);
     socket.emit('chat message', { content: message, id: messageId });
     clearInput();
+    ensureInputVisible();
+    smoothScrollToBottom();
     
     // Reset flag after short delay or when input enabled
     setTimeout(() => { isSending = false; }, 500);
@@ -448,7 +451,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function smoothScrollToBottom() {
-    const target = chatContainer || chatMessages;
+    const target = document.querySelector('.chat-panel') || document.querySelector('.chat-stream') || chatContainer || chatMessages;
     target.scrollTo({
       top: target.scrollHeight,
       behavior: 'smooth'

@@ -70,6 +70,12 @@
     "userName": "Student",
     "interactions": [
       {
+        "timestamp": "2025-12-10T12:26:53.516Z",
+        "type": "text",
+        "message": "hi",
+        "responsePreview": "Hihi K.K.! You love saying \"hihi\"! 😄 It's a very cute and friendly greeting!\n\nSo, K.K., are you rea..."
+      },
+      {
         "timestamp": "2025-12-10T12:19:33.216Z",
         "type": "text",
         "message": "ئەتوانیت پێم بڵی مانای چیە؟",
@@ -281,8 +287,8 @@
       }
     ],
     "metrics": {
-      "totalInteractions": 35,
-      "textInteractions": 35,
+      "totalInteractions": 36,
+      "textInteractions": 36,
       "voiceInteractions": 0,
       "commandsUsed": 0,
       "lessonsCompleted": 0,
@@ -296,7 +302,7 @@
         "speaking": 0,
         "listening": 0
       },
-      "lastUpdated": "2025-12-10T12:19:33.216Z"
+      "lastUpdated": "2025-12-10T12:26:53.516Z"
     }
   },
   "3": {
