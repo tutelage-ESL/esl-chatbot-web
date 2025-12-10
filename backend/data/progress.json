@@ -394,6 +394,12 @@
     "userName": "Student",
     "interactions": [
       {
+        "timestamp": "2025-12-10T13:38:12.546Z",
+        "type": "text",
+        "message": "hi",
+        "responsePreview": "Hi TUTELAGE! 🌟 Ready for some fun practice?"
+      },
+      {
         "timestamp": "2025-12-10T13:20:35.151Z",
         "type": "text",
         "message": "my name is TUTELAGE",
@@ -413,8 +419,8 @@
       }
     ],
     "metrics": {
-      "totalInteractions": 3,
-      "textInteractions": 3,
+      "totalInteractions": 4,
+      "textInteractions": 4,
       "voiceInteractions": 0,
       "commandsUsed": 0,
       "lessonsCompleted": 0,
@@ -428,7 +434,7 @@
         "speaking": 0,
         "listening": 0
       },
-      "lastUpdated": "2025-12-10T13:20:35.151Z"
+      "lastUpdated": "2025-12-10T13:38:12.546Z"
     }
   },
   "4": {

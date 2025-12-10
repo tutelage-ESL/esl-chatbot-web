@@ -5,14 +5,23 @@ const fs = require('fs');
 const path = require('path');
 
 router.get('/', (req, res) => {
+  if (process.env.PUBLIC_EVENT_MODE === 'true') {
+    return res.redirect('/dashboard');
+  }
   res.render('login');
 });
 
 router.get('/login', (req, res) => {
+  if (process.env.PUBLIC_EVENT_MODE === 'true') {
+    return res.redirect('/dashboard');
+  }
   res.render('login');
 });
 
 router.get('/signup', (req, res) => {
+  if (process.env.PUBLIC_EVENT_MODE === 'true') {
+    return res.redirect('/dashboard');
+  }
   res.render('signup');
 });
 

@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const freeTtsOnly = document.getElementById('free-tts-only');
   const stopVoiceChat = document.getElementById('stop-voice-chat');
   const ttsProviderSelect = document.getElementById('tts-provider');
+  const resetTtsUsageBtn = document.getElementById('reset-tts-usage');
   
 
   
@@ -926,6 +927,24 @@ document.addEventListener('DOMContentLoaded', () => {
     testVoiceChat.addEventListener('click', () => {
       const testMessage = 'Hello! This is a test of the voice synthesis system in chat.';
       speakText(testMessage);
+    });
+  }
+
+  if (resetTtsUsageBtn) {
+    resetTtsUsageBtn.addEventListener('click', async () => {
+      try {
+        const response = await fetch('/api/subscription/reset-usage', { method: 'POST' });
+        if (response.ok) {
+          loadTTSUsage();
+          addSystemMessage('TTS usage reset successfully! 🎉');
+        } else {
+          addSystemMessage('Failed to reset TTS usage.');
+          console.error('Failed to reset TTS usage:', response.status);
+        }
+      } catch (error) {
+        console.error('Error resetting TTS usage:', error);
+        addSystemMessage('Error resetting TTS usage.');
+      }
     });
   }
 
