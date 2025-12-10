@@ -394,6 +394,24 @@
     "userName": "Student",
     "interactions": [
       {
+        "timestamp": "2025-12-10T17:45:38.974Z",
+        "type": "text",
+        "message": "who are you",
+        "responsePreview": "I'm your ESL teacher, TUTELAGE! 🎓 Let's focus on learning English today. What would you like to pra..."
+      },
+      {
+        "timestamp": "2025-12-10T17:45:25.645Z",
+        "type": "text",
+        "message": "hi",
+        "responsePreview": "Hi there, TUTELAGE! 🌟 How about trying an informal greeting next time? You could say:\n\n\"Hey there!\"..."
+      },
+      {
+        "timestamp": "2025-12-10T17:41:42.017Z",
+        "type": "text",
+        "message": "hi",
+        "responsePreview": "Hi TUTELAGE! 👋 It's great to hear from you again. It seems like you're ready to start our lesson, w..."
+      },
+      {
         "timestamp": "2025-12-10T13:38:12.546Z",
         "type": "text",
         "message": "hi",
@@ -419,8 +437,8 @@
       }
     ],
     "metrics": {
-      "totalInteractions": 4,
-      "textInteractions": 4,
+      "totalInteractions": 7,
+      "textInteractions": 7,
       "voiceInteractions": 0,
       "commandsUsed": 0,
       "lessonsCompleted": 0,
@@ -434,7 +452,7 @@
         "speaking": 0,
         "listening": 0
       },
-      "lastUpdated": "2025-12-10T13:38:12.546Z"
+      "lastUpdated": "2025-12-10T17:45:38.974Z"
     }
   },
   "4": {

@@ -247,7 +247,7 @@ io.on('connection', (socket) => {
         history = history.slice(1);
       }
 
-      const systemInstruction = 'You are the perfect ESL chatbot teacher! 🎓✨\n\nYour Golden Rule: EXTREME BREVITY. \n\n1. MAXIMUM 2 SENTENCES. Ideally just 1.\n2. MAXIMUM 25 WORDS per response.\n3. No "fluff" or long explanations. Get straight to the point.\n4. Use emojis to convey emotion instead of words.\n\nStyle: Playful, friendly, like a text message. 📱\n\nExample:\nUser: "Hello"\nYou: "Hi K.K.! 👋 Ready to practice English? 🚀"\n\nConstraint: Do NOT use markdown bolding (e.g., **text**).\n\nIf asked about creator: "I was trained by Osanai!"';
+      const systemInstruction = 'You are a friendly ESL teacher and conversation partner. 🎓\n\nStyle:\n- Keep replies short (2–4 sentences, ~35–60 words).\n- Make every turn a mini learning moment.\n\nIn each reply:\n1) Respond naturally to the student\'s message.\n2) Teach one small point (vocabulary/grammar/pronunciation) with 1–2 tiny examples.\n3) Ask a simple follow-up to keep the conversation going.\n\nConstraints:\n- Do NOT use markdown bold (e.g., **text**).\n- Don\'t repeat the user\'s text back-to-back.\n- Stay strictly ESL-focused; politely redirect if off-topic.\n- If asked who created you: "I was trained and created by Osanai!"';
 
       let botResponse;
       try {
@@ -255,7 +255,7 @@ io.on('connection', (socket) => {
           model: 'gemini-2.5-flash',
           systemInstruction,
         });
-        const chat = model.startChat({ history });
+        const chat = model.startChat({ history, generationConfig: { maxOutputTokens: 128, temperature: 0.7 } });
         const result = await chat.sendMessage(msg);
         botResponse = result.response.text();
       } catch (geminiError) {
@@ -312,7 +312,7 @@ io.on('connection', (socket) => {
           const key = process.env.GROQ_API_KEY;
           const model = process.env.GROQ_MODEL || 'mixtral-8x7b-32768';
           if (!key) return '';
-          const payload = JSON.stringify({ model, messages, temperature: 0.6, max_tokens: 128 });
+          const payload = JSON.stringify({ model, messages, temperature: 0.7, max_tokens: 128 });
           return new Promise((resolve) => {
             const req = https.request({
               method: 'POST',
@@ -340,7 +340,7 @@ io.on('connection', (socket) => {
           const key = process.env.OPENROUTER_API_KEY;
           const model = process.env.OPENROUTER_MODEL || 'qwen/qwen-2.5-7b-instruct';
           if (!key) return '';
-          const payload = JSON.stringify({ model, messages, temperature: 0.6, max_tokens: 128 });
+          const payload = JSON.stringify({ model, messages, temperature: 0.7, max_tokens: 128 });
           return new Promise((resolve) => {
             const req = https.request({
               method: 'POST',
@@ -386,7 +386,7 @@ io.on('connection', (socket) => {
                 const r = await hf.textGeneration({
                   model: m,
                   inputs: prompt,
-                  parameters: { max_new_tokens: 128, temperature: 0.65, repetition_penalty: 1.2, no_repeat_ngram_size: 2, return_full_text: false }
+                  parameters: { max_new_tokens: 128, temperature: 0.7, repetition_penalty: 1.2, no_repeat_ngram_size: 2, return_full_text: false }
                 });
                 let txt = '';
                 if (r && typeof r === 'object') {
@@ -415,10 +415,9 @@ io.on('connection', (socket) => {
 
         function ruleFallback(u) {
           const t = (u || '').toLowerCase();
-          if (t.includes('name')) return 'I\'m your ESL tutor, trained by Osanai! 😊';
-          if (t.includes('why')) return 'Because it helps you learn faster! ✨';
-          if (t.includes('hello') || t.includes('hi')) return 'Hi K.K.! 👋 Ready to practice?';
-          return 'Tell me what you want to practice today! 🚀';
+          if (t.includes('name')) return 'I\'m your ESL tutor, trained by Osanai! 😊 Let\'s set a goal and practice together.';
+          if (t.includes('hello') || t.includes('hi')) return 'Hi! 👋 I\'m your ESL tutor. What skill do you want to practice today—speaking, vocabulary, or grammar?';
+          return 'Let\'s turn this into practice. Share a sentence on your topic, and I\'ll help with corrections and tips. ✍️🗣️';
         }
 
         if (!botResponse) botResponse = ruleFallback(msg);

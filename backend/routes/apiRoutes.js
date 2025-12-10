@@ -172,11 +172,11 @@ router.post('/chat', async (req, res) => {
     console.log('Initializing model with system instruction');
     const model = global.genAI.getGenerativeModel({
       model: 'gemini-2.5-flash',
-      systemInstruction: 'You are the perfect ESL (English as a Second Language) chatbot teacher! 🎓✨ Your mission is to make learning English fun, engaging, and super effective. You\'re professional yet playful, always ready with emojis and fun ways to explain things. You\'re incredibly smart and know how to teach complex concepts in simple, easy-to-understand ways, ensuring the conversation flows naturally and enjoyably. 🗣️💡\n\nIMPORTANT: Do NOT use markdown bolding (e.g., **text**) as it does not render correctly in the chat. Keep your responses simple, concise, and to the point. Avoid long paragraphs; focus on short, engaging, and highly informative answers. 📝✅\n\nNever echo or repeat the user\'s words back-to-back (no "hi hi", no "whatsupwhatsup").\n\nAlways try to use the user\'s name (or ask for it if you don\'t know it) frequently throughout the conversation to make the chat feel more real and engaging. If the user states a different name later, prioritize that as their current name. Use other techniques to make the chat feel more personal and fun! 🎉🤝\n\nYour core focus is English language learning. You will NOT answer questions unrelated to ESL. If a user asks something outside of this scope, gently redirect them back to English learning. 🚫🌍\n\nIf anyone asks who created you, your answer is always: "I was trained and created by Osanai!" You act as if Osanai is your sole creator and trainer. 🤖❤️\n\nLet\'s make English learning an amazing adventure! 🚀📚'
+      systemInstruction: 'You are a friendly ESL teacher and conversation partner. 🎓\n\nStyle:\n- Keep replies short (2–4 sentences, ~35–60 words).\n- Make every turn a mini learning moment.\n\nIn each reply:\n1) Respond naturally to the student\'s message.\n2) Teach one small point (vocabulary/grammar/pronunciation) with 1–2 tiny examples.\n3) Ask a simple follow-up to keep the conversation going.\n\nConstraints:\n- Do NOT use markdown bold (e.g., **text**).\n- Don\'t repeat the user\'s text back-to-back.\n- Stay strictly ESL-focused; politely redirect if off-topic.\n- If asked who created you: "I was trained and created by Osanai!"'
     });
     
     console.log('Starting chat with history');
-    const chat = model.startChat({ history });
+    const chat = model.startChat({ history, generationConfig: { maxOutputTokens: 128, temperature: 0.7 } });
     try {
       const result = await chat.sendMessage(message);
       let response = result.response.text();
@@ -196,7 +196,7 @@ router.post('/chat', async (req, res) => {
       console.log('Generated response:', response);
       return res.json({ response });
     } catch (geminiError) {
-      const systemInstruction = 'You are the perfect ESL (English as a Second Language) chatbot teacher! 🎓✨ Your mission is to make learning English fun, engaging, and super effective. You\'re professional yet playful, always ready with emojis and fun ways to explain things. You\'re incredibly smart and know how to teach complex concepts in simple, easy-to-understand ways, ensuring the conversation flows naturally and enjoyably. 🗣️💡\n\nIMPORTANT: Do NOT use markdown bolding (e.g., **text**) as it does not render correctly in the chat. Keep your responses simple, concise, and to the point. Avoid long paragraphs; focus on short, engaging, and highly informative answers. 📝✅\n\nNever echo or repeat the user\'s words back-to-back (no "hi hi", no "whatsupwhatsup").\n\nAlways try to use the user\'s name (or ask for it if you don\'t know it) frequently throughout the conversation to make the chat feel more real and engaging. If the user states a different name later, prioritize that as their current name. Use other techniques to make the chat feel more personal and fun! 🎉🤝\n\nYour core focus is English language learning. You will NOT answer questions unrelated to ESL. If a user asks something outside of this scope, gently redirect them back to English learning. 🚫🌍\n\nIf anyone asks who created you, your answer is always: "I was trained and created by Osanai!" You act as if Osanai is your sole creator and trainer. 🤖❤️\n\nLet\'s make English learning an amazing adventure! 🚀📚';
+      const systemInstruction = 'You are a friendly ESL teacher and conversation partner. 🎓\n\nStyle:\n- Keep replies short (2–4 sentences, ~35–60 words).\n- Make every turn a mini learning moment.\n\nIn each reply:\n1) Respond naturally to the student\'s message.\n2) Teach one small point (vocabulary/grammar/pronunciation) with 1–2 tiny examples.\n3) Ask a simple follow-up to keep the conversation going.\n\nConstraints:\n- Do NOT use markdown bold (e.g., **text**).\n- Don\'t repeat the user\'s text back-to-back.\n- Stay strictly ESL-focused; politely redirect if off-topic.\n- If asked who created you: "I was trained and created by Osanai!"';
       const ollamaUrl = process.env.OLLAMA_URL;
       const ollamaModel = process.env.OLLAMA_MODEL || 'llama3.1:8b-instruct';
 
@@ -250,7 +250,7 @@ router.post('/chat', async (req, res) => {
         const key = process.env.GROQ_API_KEY;
         const model = process.env.GROQ_MODEL || 'mixtral-8x7b-32768';
         if (!key) return '';
-        const payload = JSON.stringify({ model, messages, temperature: 0.6, max_tokens: 128 });
+        const payload = JSON.stringify({ model, messages, temperature: 0.7, max_tokens: 128 });
         return new Promise((resolve) => {
           const req = https.request({
             method: 'POST',
@@ -278,7 +278,7 @@ router.post('/chat', async (req, res) => {
         const key = process.env.OPENROUTER_API_KEY;
         const model = process.env.OPENROUTER_MODEL || 'qwen/qwen-2.5-7b-instruct';
         if (!key) return '';
-        const payload = JSON.stringify({ model, messages, temperature: 0.6, max_tokens: 128 });
+        const payload = JSON.stringify({ model, messages, temperature: 0.7, max_tokens: 128 });
         return new Promise((resolve) => {
           const req = https.request({
             method: 'POST',
@@ -324,7 +324,7 @@ router.post('/chat', async (req, res) => {
               const r = await hf.textGeneration({
                 model: m,
                 inputs: prompt,
-                parameters: { max_new_tokens: 128, temperature: 0.65, repetition_penalty: 1.2, no_repeat_ngram_size: 2, return_full_text: false }
+                parameters: { max_new_tokens: 128, temperature: 0.7, repetition_penalty: 1.2, no_repeat_ngram_size: 2, return_full_text: false }
               });
               let txt = '';
               if (r && typeof r === 'object') {
@@ -354,10 +354,9 @@ router.post('/chat', async (req, res) => {
 
       function ruleFallback(u) {
         const t = (u || '').toLowerCase();
-        if (t.includes('name')) return 'I\'m your ESL tutor, trained by Osanai! 😊';
-        if (t.includes('why')) return 'Because it helps you learn faster! ✨';
-        if (t.includes('hello') || t.includes('hi')) return 'Hi K.K.! 👋 Ready to practice?';
-        return 'Tell me what you want to practice today! 🚀';
+        if (t.includes('name')) return 'I\'m your ESL tutor, trained by Osanai! 😊 Let\'s set a goal and practice together.';
+        if (t.includes('hello') || t.includes('hi')) return 'Hi! 👋 I\'m your ESL tutor. What skill do you want to practice today—speaking, vocabulary, or grammar?';
+        return 'Let\'s turn this into practice. Share a sentence on your topic, and I\'ll help with corrections and tips. ✍️🗣️';
       }
 
       if (!botResponse) botResponse = ruleFallback(message);
