@@ -70,6 +70,174 @@
     "userName": "Student",
     "interactions": [
       {
+        "timestamp": "2025-12-10T13:14:12.405Z",
+        "type": "text",
+        "message": "Explain vocabulary",
+        "responsePreview": "Vocabulary is the words you know and use. Want to learn new words today? 🚀"
+      },
+      {
+        "timestamp": "2025-12-10T13:13:43.932Z",
+        "type": "text",
+        "message": "who created you?",
+        "responsePreview": "I was trained by Osanai! 😄 Ready for more practice? 🚀"
+      },
+      {
+        "timestamp": "2025-12-10T13:13:32.529Z",
+        "type": "text",
+        "message": "whcih model are you?",
+        "responsePreview": "I'm a versatile AI model! Ready to learn more English? 🚀"
+      },
+      {
+        "timestamp": "2025-12-10T13:13:16.315Z",
+        "type": "text",
+        "message": "what is a past poaticable",
+        "responsePreview": "Past participles are verb forms ending in -ed or -en. Example: walked, eaten. Want to practice more?..."
+      },
+      {
+        "timestamp": "2025-12-10T13:12:58.677Z",
+        "type": "text",
+        "message": "AA",
+        "responsePreview": "Aaah... That's a fun sound! 😄 Want to learn about Paris or just chat? 🚀"
+      },
+      {
+        "timestamp": "2025-12-10T13:11:52.814Z",
+        "type": "text",
+        "message": "ABOUT PARIS",
+        "responsePreview": "Paris is a beautiful city! Want to learn about its facts or visit places? 🚀✨"
+      },
+      {
+        "timestamp": "2025-12-10T13:11:42.041Z",
+        "type": "text",
+        "message": "YES",
+        "responsePreview": "Yes! Let's go! 🚀 What do you want to learn next?"
+      },
+      {
+        "timestamp": "2025-12-10T13:11:34.153Z",
+        "type": "text",
+        "message": "HEY",
+        "responsePreview": "Hey there! Ready for more English practice? 🚀"
+      },
+      {
+        "timestamp": "2025-12-10T13:06:20.742Z",
+        "type": "text",
+        "message": "YES PLEASE",
+        "responsePreview": "Great! Let's practice together. What else about tutelage? 🚀"
+      },
+      {
+        "timestamp": "2025-12-10T13:06:08.971Z",
+        "type": "text",
+        "message": "TUTELAGE",
+        "responsePreview": "Tutelage is when someone teaches or guides you. Great word! Want to practice more? 🚀"
+      },
+      {
+        "timestamp": "2025-12-10T13:06:02.850Z",
+        "type": "text",
+        "message": "SOO",
+        "responsePreview": "Soo... what do you want to learn today? 🚀"
+      },
+      {
+        "timestamp": "2025-12-10T13:05:52.594Z",
+        "type": "text",
+        "message": "HEY",
+        "responsePreview": "Hey there! Ready to learn English? 🚀"
+      },
+      {
+        "timestamp": "2025-12-10T13:05:45.768Z",
+        "type": "text",
+        "message": "GI",
+        "responsePreview": "Let's learn \"GI\"! It stands for Government Issued. What else do you want to learn? 🚀"
+      },
+      {
+        "timestamp": "2025-12-10T13:00:59.195Z",
+        "type": "text",
+        "message": "wa",
+        "responsePreview": "Tell me what you want to practice today! 🚀"
+      },
+      {
+        "timestamp": "2025-12-10T13:00:34.057Z",
+        "type": "text",
+        "message": "d",
+        "responsePreview": "Tell me what you want to practice today! 🚀"
+      },
+      {
+        "timestamp": "2025-12-10T12:56:23.562Z",
+        "type": "text",
+        "message": "tutelage",
+        "responsePreview": "Tell me what you want to practice today! 🚀"
+      },
+      {
+        "timestamp": "2025-12-10T12:56:16.671Z",
+        "type": "text",
+        "message": "whats",
+        "responsePreview": "Tell me what you want to practice today! 🚀"
+      },
+      {
+        "timestamp": "2025-12-10T12:51:45.393Z",
+        "type": "text",
+        "message": "why",
+        "responsePreview": "Let's practice English! 😊"
+      },
+      {
+        "timestamp": "2025-12-10T12:51:38.243Z",
+        "type": "text",
+        "message": "man",
+        "responsePreview": "Let's practice English! 😊"
+      },
+      {
+        "timestamp": "2025-12-10T12:46:19.326Z",
+        "type": "text",
+        "message": "what your name",
+        "responsePreview": "Let's practice English! 😊"
+      },
+      {
+        "timestamp": "2025-12-10T12:46:04.132Z",
+        "type": "text",
+        "message": "yah leetss",
+        "responsePreview": "Let's practice English! 😊"
+      },
+      {
+        "timestamp": "2025-12-10T12:45:54.469Z",
+        "type": "text",
+        "message": "hi",
+        "responsePreview": "Let's practice English! 😊"
+      },
+      {
+        "timestamp": "2025-12-10T12:40:44.723Z",
+        "type": "text",
+        "message": "whats my name",
+        "responsePreview": "Your name is K.K.! 😄 That's what you told me earlier! ✨"
+      },
+      {
+        "timestamp": "2025-12-10T12:40:34.209Z",
+        "type": "text",
+        "message": "hey",
+        "responsePreview": "Heyhey, K.K.! 😄 You're so good at friendly greetings! Ready to learn a new word today? ✨"
+      },
+      {
+        "timestamp": "2025-12-10T12:40:05.833Z",
+        "type": "text",
+        "message": "k",
+        "responsePreview": "Haha, K.K.! 😄 You're typing your own name! It's super cute!\n\nSo, K.K., are you ready for a fun Engl..."
+      },
+      {
+        "timestamp": "2025-12-10T12:34:19.689Z",
+        "type": "text",
+        "message": "man",
+        "responsePreview": "Haha, K.K.! You said \"manman\"! 😄 \"Man\" is an English word for a male person.\n\nAre you ready to lear..."
+      },
+      {
+        "timestamp": "2025-12-10T12:34:05.544Z",
+        "type": "text",
+        "message": "d",
+        "responsePreview": "Haha, K.K.! 😄 That's a lot of \"d\"s again! You're really good at typing!\n\nAre you ready to learn an ..."
+      },
+      {
+        "timestamp": "2025-12-10T12:30:33.847Z",
+        "type": "text",
+        "message": "whatsup",
+        "responsePreview": "Whatsupwhatsup, K.K.! 😄 That's a super cool, informal greeting, usually said once! Want to learn a ..."
+      },
+      {
         "timestamp": "2025-12-10T12:26:53.516Z",
         "type": "text",
         "message": "hi",
@@ -200,95 +368,11 @@
         "type": "text",
         "message": "so what",
         "responsePreview": "Haha, K.K., \"so what so what!\" You said it twice! 😄 It means \"why does that matter?\" What do you wa..."
-      },
-      {
-        "timestamp": "2025-12-09T21:24:55.754Z",
-        "type": "text",
-        "message": "what",
-        "responsePreview": "Haha, K.K.! You said \"whatwhat\"! 😄 In English, we usually just say \"what?\" once. It means you want ..."
-      },
-      {
-        "timestamp": "2025-12-09T21:22:30.597Z",
-        "type": "text",
-        "message": "hi",
-        "responsePreview": "Hihi K.K.! You really like \"hihi\"! It's so cute and friendly! 😄\n\nYou're doing a fantastic job pract..."
-      },
-      {
-        "timestamp": "2025-12-09T21:20:47.842Z",
-        "type": "text",
-        "message": "hi",
-        "responsePreview": "Hihi K.K.! You're back with the cute \"hihi\"! I love it! 😊 It's a fun, playful way to greet someone!..."
-      },
-      {
-        "timestamp": "2025-12-09T21:02:41.242Z",
-        "type": "text",
-        "message": "hello",
-        "responsePreview": "Hello hello, K.K.! You're getting so good at using English words! 🎉\n\nYou said \"hellohello\"! That's ..."
-      },
-      {
-        "timestamp": "2025-12-09T19:49:07.225Z",
-        "type": "text",
-        "message": "j",
-        "responsePreview": "Hello again, K.K.! 😄 You're really exploring the keyboard today! That's perfectly fine for fun!\n\nBu..."
-      },
-      {
-        "timestamp": "2025-12-09T19:17:42.182Z",
-        "type": "text",
-        "message": "dd",
-        "responsePreview": "Haha, K.K., you're a master of typing those letters! 😄 That's a lot of \"d\"s!\n\nI'm here to help you ..."
-      },
-      {
-        "timestamp": "2025-12-09T19:16:49.087Z",
-        "type": "text",
-        "message": "hi",
-        "responsePreview": "Hihi! 😄 K.K., that's a cute way to say \"hi\"! It sounds like a little giggle!\n\nIn English, we usuall..."
-      },
-      {
-        "timestamp": "2025-12-09T19:16:13.083Z",
-        "type": "text",
-        "message": "hshs",
-        "responsePreview": "Haha, K.K., you're having a great time typing all those letters! 😄 It's totally fine!\n\nIt looks lik..."
-      },
-      {
-        "timestamp": "2025-12-09T18:27:12.384Z",
-        "type": "text",
-        "message": "nothing",
-        "responsePreview": "Oh, K.K., are you trying to say \"nothing nothing\" in English? That's a great start! You used an actu..."
-      },
-      {
-        "timestamp": "2025-12-09T18:26:44.011Z",
-        "type": "text",
-        "message": "g",
-        "responsePreview": "You're really good at typing different letters, K.K.! 😄 That's great for getting comfortable with t..."
-      },
-      {
-        "timestamp": "2025-12-09T18:23:08.652Z",
-        "type": "text",
-        "message": "nn",
-        "responsePreview": "Haha, K.K., you're full of mystery today! 😉 That's another interesting combination of letters.\n\nIt ..."
-      },
-      {
-        "timestamp": "2025-12-09T18:22:34.380Z",
-        "type": "text",
-        "message": "fgfg",
-        "responsePreview": "Hmm, K.K., that looks like a fun set of letters! 🤩 But it doesn't quite look like an English word.\n..."
-      },
-      {
-        "timestamp": "2025-12-09T18:11:15.605Z",
-        "type": "text",
-        "message": "k",
-        "responsePreview": "Nice to meet you, K.K.! 😄 What a cool name!\n\nSo, K.K., are you ready to dive into the wonderful wor..."
-      },
-      {
-        "timestamp": "2025-12-09T18:08:07.829Z",
-        "type": "text",
-        "message": "hi",
-        "responsePreview": "Hello there! 👋 So happy to see you! I'm your friendly ESL chatbot teacher, ready to make learning E..."
       }
     ],
     "metrics": {
-      "totalInteractions": 36,
-      "textInteractions": 36,
+      "totalInteractions": 64,
+      "textInteractions": 64,
       "voiceInteractions": 0,
       "commandsUsed": 0,
       "lessonsCompleted": 0,
@@ -302,13 +386,19 @@
         "speaking": 0,
         "listening": 0
       },
-      "lastUpdated": "2025-12-10T12:26:53.516Z"
+      "lastUpdated": "2025-12-10T13:14:12.405Z"
     }
   },
   "3": {
     "userId": 3,
     "userName": "Student",
     "interactions": [
+      {
+        "timestamp": "2025-12-10T13:20:35.151Z",
+        "type": "text",
+        "message": "my name is TUTELAGE",
+        "responsePreview": "Got it, TUTELAGE! 🌟 Let's learn together!"
+      },
       {
         "timestamp": "2025-08-04T14:07:36.448Z",
         "type": "text",
@@ -323,8 +413,8 @@
       }
     ],
     "metrics": {
-      "totalInteractions": 2,
-      "textInteractions": 2,
+      "totalInteractions": 3,
+      "textInteractions": 3,
       "voiceInteractions": 0,
       "commandsUsed": 0,
       "lessonsCompleted": 0,
@@ -338,7 +428,7 @@
         "speaking": 0,
         "listening": 0
       },
-      "lastUpdated": "2025-08-04T14:07:36.448Z"
+      "lastUpdated": "2025-12-10T13:20:35.151Z"
     }
   },
   "4": {

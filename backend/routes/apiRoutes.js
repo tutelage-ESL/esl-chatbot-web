@@ -77,8 +77,32 @@ async function updateProgressDB(userId, message, type, responsePreview) {
 router.post('/chat', async (req, res) => {
   // Check if user is authenticated
   if (!req.session.userId) {
-    console.log('Unauthorized access to /api/chat');
-    return res.status(401).json({ error: 'Authentication required' });
+    if (process.env.PUBLIC_EVENT_MODE === 'true') {
+      try {
+        const dbLocal = require('../models');
+        const username = process.env.DEFAULT_EVENT_USER || 'TUTELAGE';
+        const email = 'event@tutelage.local';
+        let user = await dbLocal.User.findOne({ where: { username } });
+        if (!user) {
+          user = await dbLocal.User.findOne({ where: { email } });
+        }
+        if (!user) {
+          user = await dbLocal.User.create({ username, email, password: 'event', subscriptionTier: 'diamond' });
+        }
+        if (user.subscriptionTier !== 'diamond') {
+          user.subscriptionTier = 'diamond';
+          await user.save();
+        }
+        req.session.userId = user.id;
+        req.session.user = { id: user.id, username: user.username };
+      } catch (e) {
+        console.error('Event auto-login failed:', e);
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+    } else {
+      console.log('Unauthorized access to /api/chat');
+      return res.status(401).json({ error: 'Authentication required' });
+    }
   }
   try {
     console.log('Received chat request with message:', req.body.message);
@@ -131,7 +155,11 @@ router.post('/chat', async (req, res) => {
       });
     }
 
-    history = history.concat(recentMessages.map(m => ({
+    let baseHistory = recentMessages;
+    if (baseHistory.length && baseHistory[baseHistory.length - 1].sender === 'user') {
+      baseHistory = baseHistory.slice(0, -1);
+    }
+    history = history.concat(baseHistory.map(m => ({
        role: m.sender === 'user' ? 'user' : 'model',
        parts: [{ text: m.content }]
      })));
@@ -144,26 +172,38 @@ router.post('/chat', async (req, res) => {
     console.log('Initializing model with system instruction');
     const model = global.genAI.getGenerativeModel({
       model: 'gemini-2.5-flash',
-      systemInstruction: 'You are the perfect ESL (English as a Second Language) chatbot teacher! 🎓✨ Your mission is to make learning English fun, engaging, and super effective. You\'re professional yet playful, always ready with emojis and fun ways to explain things. You\'re incredibly smart and know how to teach complex concepts in simple, easy-to-understand ways, ensuring the conversation flows naturally and enjoyably. 🗣️💡\n\nIMPORTANT: Do NOT use markdown bolding (e.g., **text**) as it does not render correctly in the chat. Keep your responses simple, concise, and to the point. Avoid long paragraphs; focus on short, engaging, and highly informative answers. 📝✅\n\nAlways try to use the user\'s name (or ask for it if you don\'t know it) frequently throughout the conversation to make the chat feel more real and engaging. If the user states a different name later, prioritize that as their current name. Use other techniques to make the chat feel more personal and fun! 🎉🤝\n\nYour core focus is English language learning. You will NOT answer questions unrelated to ESL. If a user asks something outside of this scope, gently redirect them back to English learning. 🚫🌍\n\nIf anyone asks who created you, your answer is always: "I was trained and created by Osanai!" You act as if Osanai is your sole creator and trainer. 🤖❤️\n\nLet\'s make English learning an amazing adventure! 🚀📚'
+      systemInstruction: 'You are the perfect ESL (English as a Second Language) chatbot teacher! 🎓✨ Your mission is to make learning English fun, engaging, and super effective. You\'re professional yet playful, always ready with emojis and fun ways to explain things. You\'re incredibly smart and know how to teach complex concepts in simple, easy-to-understand ways, ensuring the conversation flows naturally and enjoyably. 🗣️💡\n\nIMPORTANT: Do NOT use markdown bolding (e.g., **text**) as it does not render correctly in the chat. Keep your responses simple, concise, and to the point. Avoid long paragraphs; focus on short, engaging, and highly informative answers. 📝✅\n\nNever echo or repeat the user\'s words back-to-back (no "hi hi", no "whatsupwhatsup").\n\nAlways try to use the user\'s name (or ask for it if you don\'t know it) frequently throughout the conversation to make the chat feel more real and engaging. If the user states a different name later, prioritize that as their current name. Use other techniques to make the chat feel more personal and fun! 🎉🤝\n\nYour core focus is English language learning. You will NOT answer questions unrelated to ESL. If a user asks something outside of this scope, gently redirect them back to English learning. 🚫🌍\n\nIf anyone asks who created you, your answer is always: "I was trained and created by Osanai!" You act as if Osanai is your sole creator and trainer. 🤖❤️\n\nLet\'s make English learning an amazing adventure! 🚀📚'
     });
     
     console.log('Starting chat with history');
     const chat = model.startChat({ history });
     try {
       const result = await chat.sendMessage(message);
-      const response = result.response.text();
+      let response = result.response.text();
+      function dedupeLeading(userText, aiText) {
+        try {
+          const u = (userText || '').trim();
+          const t = (aiText || '').trim();
+          if (!u || !t) return aiText;
+          const esc = u.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const re = new RegExp('^\n?\s*(?:' + esc + '(?:[\s\-_,.:;!?]+)?){2,}', 'i');
+          const replaced = t.replace(re, u + ' ');
+          return replaced.trimStart();
+        } catch (_) { return aiText; }
+      }
+      response = dedupeLeading(message, response);
       await db.Message.create({ userId, content: response, sender: 'bot' });
       console.log('Generated response:', response);
       return res.json({ response });
     } catch (geminiError) {
-      const systemInstruction = 'You are the perfect ESL chatbot teacher! 🎓✨\n\nYour Golden Rule: EXTREME BREVITY. \n\n1. MAXIMUM 2 SENTENCES. Ideally just 1.\n2. MAXIMUM 25 WORDS per response.\n3. No "fluff" or long explanations. Get straight to the point.\n4. Use emojis to convey emotion instead of words.\n\nStyle: Playful, friendly, like a text message. 📱\n\nExample:\nUser: "Hello"\nYou: "Hi K.K.! 👋 Ready to practice English? 🚀"\n\nConstraint: Do NOT use markdown bolding (e.g., **text**).\n\nIf asked about creator: "I was trained by Osanai!"';
+      const systemInstruction = 'You are the perfect ESL (English as a Second Language) chatbot teacher! 🎓✨ Your mission is to make learning English fun, engaging, and super effective. You\'re professional yet playful, always ready with emojis and fun ways to explain things. You\'re incredibly smart and know how to teach complex concepts in simple, easy-to-understand ways, ensuring the conversation flows naturally and enjoyably. 🗣️💡\n\nIMPORTANT: Do NOT use markdown bolding (e.g., **text**) as it does not render correctly in the chat. Keep your responses simple, concise, and to the point. Avoid long paragraphs; focus on short, engaging, and highly informative answers. 📝✅\n\nNever echo or repeat the user\'s words back-to-back (no "hi hi", no "whatsupwhatsup").\n\nAlways try to use the user\'s name (or ask for it if you don\'t know it) frequently throughout the conversation to make the chat feel more real and engaging. If the user states a different name later, prioritize that as their current name. Use other techniques to make the chat feel more personal and fun! 🎉🤝\n\nYour core focus is English language learning. You will NOT answer questions unrelated to ESL. If a user asks something outside of this scope, gently redirect them back to English learning. 🚫🌍\n\nIf anyone asks who created you, your answer is always: "I was trained and created by Osanai!" You act as if Osanai is your sole creator and trainer. 🤖❤️\n\nLet\'s make English learning an amazing adventure! 🚀📚';
       const ollamaUrl = process.env.OLLAMA_URL;
       const ollamaModel = process.env.OLLAMA_MODEL || 'llama3.1:8b-instruct';
 
       async function callOllama(urlString, modelName, messages) {
         const u = new URL(urlString + '/api/chat');
         const isHttps = u.protocol === 'https:';
-        const payload = JSON.stringify({ model: modelName, messages, stream: false, options: { temperature: 0.7, num_predict: 64 } });
+        const payload = JSON.stringify({ model: modelName, messages, stream: false, options: { temperature: 0.7, num_predict: 128, repeat_penalty: 1.2 } });
         const opts = {
           method: 'POST',
           hostname: u.hostname,
@@ -204,23 +244,124 @@ router.post('/chat', async (req, res) => {
         }
       }
 
+      
+
+      async function callGroq(messages) {
+        const key = process.env.GROQ_API_KEY;
+        const model = process.env.GROQ_MODEL || 'mixtral-8x7b-32768';
+        if (!key) return '';
+        const payload = JSON.stringify({ model, messages, temperature: 0.6, max_tokens: 128 });
+        return new Promise((resolve) => {
+          const req = https.request({
+            method: 'POST',
+            hostname: 'api.groq.com',
+            path: '/openai/v1/chat/completions',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` }
+          }, (res) => {
+            let data = '';
+            res.on('data', (c) => { data += c; });
+            res.on('end', () => {
+              try {
+                const j = JSON.parse(data);
+                const c = j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+                resolve((c || '').trim());
+              } catch { resolve(''); }
+            });
+          });
+          req.on('error', () => resolve(''));
+          req.write(payload);
+          req.end();
+        });
+      }
+
+      async function callOpenRouter(messages) {
+        const key = process.env.OPENROUTER_API_KEY;
+        const model = process.env.OPENROUTER_MODEL || 'qwen/qwen-2.5-7b-instruct';
+        if (!key) return '';
+        const payload = JSON.stringify({ model, messages, temperature: 0.6, max_tokens: 128 });
+        return new Promise((resolve) => {
+          const req = https.request({
+            method: 'POST',
+            hostname: 'openrouter.ai',
+            path: '/api/v1/chat/completions',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` }
+          }, (res) => {
+            let data = '';
+            res.on('data', (c) => { data += c; });
+            res.on('end', () => {
+              try {
+                const j = JSON.parse(data);
+                const c = j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+                resolve((c || '').trim());
+              } catch { resolve(''); }
+            });
+          });
+          req.on('error', () => resolve(''));
+          req.write(payload);
+          req.end();
+        });
+      }
+
+      if (!botResponse) {
+        const messages = [{ role: 'system', content: systemInstruction }]
+          .concat(history.map(h => ({ role: h.role === 'user' ? 'user' : 'assistant', content: h.parts && h.parts[0] ? h.parts[0].text : '' })))
+          .concat([{ role: 'user', content: message }]);
+        const gr = await callGroq(messages);
+        if (gr) botResponse = gr;
+      }
+
       if (!botResponse) {
         try {
           const hf = new HfInference(process.env.HUGGINGFACE_API_TOKEN);
           const prompt = `${systemInstruction}\n\nUser: ${message}\nAssistant:`;
-          const hfResp = await hf.textGeneration({
-            model: process.env.HF_FALLBACK_MODEL || 'HuggingFaceH4/zephyr-7b-beta',
-            inputs: prompt,
-            parameters: { max_new_tokens: 64, temperature: 0.7 }
-          });
-          botResponse = (hfResp.generated_text || '').replace(prompt, '').trim();
+          const models = [
+            process.env.HF_FALLBACK_MODEL || 'HuggingFaceH4/zephyr-7b-beta',
+            'mistralai/Mixtral-8x7B-Instruct-v0.1',
+            'Qwen/Qwen2.5-7B-Instruct'
+          ];
+          for (const m of models) {
+            try {
+              const r = await hf.textGeneration({
+                model: m,
+                inputs: prompt,
+                parameters: { max_new_tokens: 128, temperature: 0.65, repetition_penalty: 1.2, no_repeat_ngram_size: 2, return_full_text: false }
+              });
+              let txt = '';
+              if (r && typeof r === 'object') {
+                if (Array.isArray(r)) {
+                  txt = (r[0] && r[0].generated_text) ? r[0].generated_text : '';
+                } else {
+                  txt = r.generated_text || '';
+                }
+              }
+              txt = txt.trim();
+              if (txt) { botResponse = txt; break; }
+            } catch (_) {}
+          }
         } catch (hfError) {
           console.error('Fallback error:', hfError);
-          return res.status(500).json({ error: 'Failed to process message' });
+          botResponse = '';
         }
       }
 
-      if (!botResponse) botResponse = 'Let\'s practice English! 😊';
+      if (!botResponse) {
+        const messages = [{ role: 'system', content: systemInstruction }]
+          .concat(history.map(h => ({ role: h.role === 'user' ? 'user' : 'assistant', content: h.parts && h.parts[0] ? h.parts[0].text : '' })))
+          .concat([{ role: 'user', content: message }]);
+        const or = await callOpenRouter(messages);
+        if (or) botResponse = or;
+      }
+
+      function ruleFallback(u) {
+        const t = (u || '').toLowerCase();
+        if (t.includes('name')) return 'I\'m your ESL tutor, trained by Osanai! 😊';
+        if (t.includes('why')) return 'Because it helps you learn faster! ✨';
+        if (t.includes('hello') || t.includes('hi')) return 'Hi K.K.! 👋 Ready to practice?';
+        return 'Tell me what you want to practice today! 🚀';
+      }
+
+      if (!botResponse) botResponse = ruleFallback(message);
+      botResponse = dedupeLeading(message, botResponse);
 
       await db.Message.create({ userId, content: botResponse, sender: 'bot' });
       return res.json({ response: botResponse });

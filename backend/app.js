@@ -27,6 +27,61 @@ const sessionMiddleware = session({
 app.use(sessionMiddleware);
 io.use(sharedsession(sessionMiddleware, { autoSave: true }));
 app.use(cors());
+// Auto-login middleware for public event mode
+app.use(async (req, res, next) => {
+  try {
+    if (process.env.PUBLIC_EVENT_MODE === 'true') {
+      if (!req.session.userId) {
+        const dbLocal = require('./models');
+        const username = process.env.DEFAULT_EVENT_USER || 'TUTELAGE';
+        const email = 'event@tutelage.local';
+        let user = await dbLocal.User.findOne({ where: { username } });
+        if (!user) {
+          user = await dbLocal.User.findOne({ where: { email } });
+        }
+        if (!user) {
+          user = await dbLocal.User.create({ username, email, password: 'event', subscriptionTier: 'diamond' });
+        }
+        if (user.subscriptionTier !== 'diamond') {
+          user.subscriptionTier = 'diamond';
+          await user.save();
+        }
+        req.session.userId = user.id;
+        req.session.user = { id: user.id, username: user.username };
+      }
+    }
+  } catch (e) {
+    console.error('Auto-login failed:', e);
+  }
+  next();
+});
+io.use(async (socket, next) => {
+  try {
+    if (process.env.PUBLIC_EVENT_MODE === 'true' && !socket.handshake.session.userId) {
+      const dbLocal = require('./models');
+      const username = process.env.DEFAULT_EVENT_USER || 'TUTELAGE';
+      const email = 'event@tutelage.local';
+      let user = await dbLocal.User.findOne({ where: { username } });
+      if (!user) {
+        user = await dbLocal.User.findOne({ where: { email } });
+      }
+      if (!user) {
+        user = await dbLocal.User.create({ username, email, password: 'event', subscriptionTier: 'diamond' });
+      }
+      if (user.subscriptionTier !== 'diamond') {
+        user.subscriptionTier = 'diamond';
+        await user.save();
+      }
+      socket.handshake.session.userId = user.id;
+      socket.handshake.session.user = { id: user.id, username: user.username };
+      socket.handshake.session.save();
+    }
+  } catch (e) {
+    console.error('Socket auto-login failed:', e);
+  }
+  next();
+});
+app.use(cors());
 app.use((req, res, next) => {
   console.log(`Incoming request: ${req.method} ${req.url}`);
   next();
@@ -178,7 +233,11 @@ io.on('connection', (socket) => {
           });
         }
 
-        history = history.concat(recentMessages.map(m => ({
+        let baseHistory = recentMessages;
+        if (baseHistory.length && baseHistory[baseHistory.length - 1].sender === 'user') {
+          baseHistory = baseHistory.slice(0, -1);
+        }
+        history = history.concat(baseHistory.map(m => ({
            role: m.sender === 'user' ? 'user' : 'model',
            parts: [{ text: m.content }]
          })));
@@ -206,7 +265,7 @@ io.on('connection', (socket) => {
         async function callOllama(urlString, modelName, messages) {
           const u = new URL(urlString + '/api/chat');
           const isHttps = u.protocol === 'https:';
-          const payload = JSON.stringify({ model: modelName, messages, stream: false, options: { temperature: 0.7, num_predict: 64 } });
+          const payload = JSON.stringify({ model: modelName, messages, stream: false, options: { temperature: 0.7, num_predict: 128, repeat_penalty: 1.2 } });
           const opts = {
             method: 'POST',
             hostname: u.hostname,
@@ -247,24 +306,136 @@ io.on('connection', (socket) => {
           }
         }
 
+        
+
+        async function callGroq(messages) {
+          const key = process.env.GROQ_API_KEY;
+          const model = process.env.GROQ_MODEL || 'mixtral-8x7b-32768';
+          if (!key) return '';
+          const payload = JSON.stringify({ model, messages, temperature: 0.6, max_tokens: 128 });
+          return new Promise((resolve) => {
+            const req = https.request({
+              method: 'POST',
+              hostname: 'api.groq.com',
+              path: '/openai/v1/chat/completions',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` }
+            }, (res) => {
+              let data = '';
+              res.on('data', (c) => { data += c; });
+              res.on('end', () => {
+                try {
+                  const j = JSON.parse(data);
+                  const c = j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+                  resolve((c || '').trim());
+                } catch { resolve(''); }
+              });
+            });
+            req.on('error', () => resolve(''));
+            req.write(payload);
+            req.end();
+          });
+        }
+
+        async function callOpenRouter(messages) {
+          const key = process.env.OPENROUTER_API_KEY;
+          const model = process.env.OPENROUTER_MODEL || 'qwen/qwen-2.5-7b-instruct';
+          if (!key) return '';
+          const payload = JSON.stringify({ model, messages, temperature: 0.6, max_tokens: 128 });
+          return new Promise((resolve) => {
+            const req = https.request({
+              method: 'POST',
+              hostname: 'openrouter.ai',
+              path: '/api/v1/chat/completions',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` }
+            }, (res) => {
+              let data = '';
+              res.on('data', (c) => { data += c; });
+              res.on('end', () => {
+                try {
+                  const j = JSON.parse(data);
+                  const c = j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+                  resolve((c || '').trim());
+                } catch { resolve(''); }
+              });
+            });
+            req.on('error', () => resolve(''));
+            req.write(payload);
+            req.end();
+          });
+        }
+
+        if (!botResponse) {
+          const messages = [{ role: 'system', content: systemInstruction }]
+            .concat(history.map(h => ({ role: h.role === 'user' ? 'user' : 'assistant', content: h.parts && h.parts[0] ? h.parts[0].text : '' })))
+            .concat([{ role: 'user', content: msg }]);
+          const gr = await callGroq(messages);
+          if (gr) botResponse = gr;
+        }
+
         if (!botResponse) {
           try {
             const hf = new HfInference(process.env.HUGGINGFACE_API_TOKEN);
             const prompt = `${systemInstruction}\n\nUser: ${msg}\nAssistant:`;
-            const hfResp = await hf.textGeneration({
-              model: process.env.HF_FALLBACK_MODEL || 'HuggingFaceH4/zephyr-7b-beta',
-              inputs: prompt,
-              parameters: { max_new_tokens: 64, temperature: 0.7 }
-            });
-            botResponse = (hfResp.generated_text || '').replace(prompt, '').trim();
-          } catch (hfError) {
-            throw geminiError;
+            const models = [
+              process.env.HF_FALLBACK_MODEL || 'HuggingFaceH4/zephyr-7b-beta',
+              'mistralai/Mixtral-8x7B-Instruct-v0.1',
+              'Qwen/Qwen2.5-7B-Instruct'
+            ];
+            for (const m of models) {
+              try {
+                const r = await hf.textGeneration({
+                  model: m,
+                  inputs: prompt,
+                  parameters: { max_new_tokens: 128, temperature: 0.65, repetition_penalty: 1.2, no_repeat_ngram_size: 2, return_full_text: false }
+                });
+                let txt = '';
+                if (r && typeof r === 'object') {
+                  if (Array.isArray(r)) {
+                    txt = (r[0] && r[0].generated_text) ? r[0].generated_text : '';
+                  } else {
+                    txt = r.generated_text || '';
+                  }
+                }
+                txt = txt.trim();
+                if (txt) { botResponse = txt; break; }
+              } catch (_) {}
+            }
+          } catch (_) {
+            botResponse = '';
           }
         }
 
-        if (!botResponse) botResponse = 'Let\'s practice English! 😊';
+        if (!botResponse) {
+          const messages = [{ role: 'system', content: systemInstruction }]
+            .concat(history.map(h => ({ role: h.role === 'user' ? 'user' : 'assistant', content: h.parts && h.parts[0] ? h.parts[0].text : '' })))
+            .concat([{ role: 'user', content: msg }]);
+          const or = await callOpenRouter(messages);
+          if (or) botResponse = or;
+        }
+
+        function ruleFallback(u) {
+          const t = (u || '').toLowerCase();
+          if (t.includes('name')) return 'I\'m your ESL tutor, trained by Osanai! 😊';
+          if (t.includes('why')) return 'Because it helps you learn faster! ✨';
+          if (t.includes('hello') || t.includes('hi')) return 'Hi K.K.! 👋 Ready to practice?';
+          return 'Tell me what you want to practice today! 🚀';
+        }
+
+        if (!botResponse) botResponse = ruleFallback(msg);
       }
 
+      function dedupeLeading(userText, aiText) {
+        try {
+          const u = (userText || '').trim();
+          const t = (aiText || '').trim();
+          if (!u || !t) return aiText;
+          const esc = u.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const re = new RegExp('^\n?\s*(?:' + esc + '(?:[\s\-_,.:;!?]+)?){2,}', 'i');
+          const replaced = t.replace(re, u + ' ');
+          return replaced.trimStart();
+        } catch (_) { return aiText; }
+      }
+      botResponse = dedupeLeading(msg, botResponse);
       await db.Message.create({ userId, content: botResponse, sender: 'bot' });
       
       // Update progress tracking with bot response preview
