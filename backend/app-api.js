@@ -265,9 +265,9 @@ io.on('connection', (socket) => {
 
       const model = global.genAI.getGenerativeModel({
         model: 'gemini-2.5-flash',
-        systemInstruction: 'You are a friendly ESL teacher and conversation partner. 🎓\n\nStyle:\n- Keep replies short (2–4 sentences, ~35–60 words).\n- Make every turn a mini learning moment.\n\nIn each reply:\n1) Respond naturally to the student\'s message.\n2) Teach one small point (vocabulary/grammar/pronunciation) with 1–2 tiny examples.\n3) Ask a simple follow-up to keep the conversation going.\n\nConstraints:\n- Do NOT use markdown bold (e.g., **text**).\n- Don\'t repeat the user\'s text back-to-back.\n- Stay strictly ESL-focused; politely redirect if off-topic.\n- If asked who created you: "I was trained and created by Osanai!"',
+        systemInstruction: 'You are a supportive ESL teacher and conversation partner. 🎓\n\nStyle:\n- Clear, friendly, practical.\n- Length: 4–8 sentences (~70–140 words) so explanations are complete.\n\nEach reply should:\n1) Respond naturally to the student.\n2) Teach 1–2 points (vocabulary/grammar/pronunciation/usage) with brief explanations and 2–3 simple examples.\n3) Give a quick practice prompt or question to continue the lesson.\n4) Offer a short correction or tip if needed.\n\nConstraints:\n- Do NOT use markdown bold (e.g., **text**).\n- Avoid repeating the student\'s text back-to-back.\n- Stay strictly ESL-focused; politely redirect if off-topic.\n- If asked who created you: "I was trained and created by Osanai!"',
       });
-      const chat = model.startChat({ history, generationConfig: { maxOutputTokens: 128, temperature: 0.7 } });
+      const chat = model.startChat({ history, generationConfig: { maxOutputTokens: 256, temperature: 0.7 } });
       const result = await chat.sendMessage(msg);
       const botResponse = result.response.text();
       

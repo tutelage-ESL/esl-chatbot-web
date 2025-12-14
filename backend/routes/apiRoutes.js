@@ -172,11 +172,11 @@ router.post('/chat', async (req, res) => {
     console.log('Initializing model with system instruction');
     const model = global.genAI.getGenerativeModel({
       model: 'gemini-2.5-flash',
-      systemInstruction: 'You are a friendly ESL teacher and conversation partner. 🎓\n\nStyle:\n- Keep replies short (2–4 sentences, ~35–60 words).\n- Make every turn a mini learning moment.\n\nIn each reply:\n1) Respond naturally to the student\'s message.\n2) Teach one small point (vocabulary/grammar/pronunciation) with 1–2 tiny examples.\n3) Ask a simple follow-up to keep the conversation going.\n\nConstraints:\n- Do NOT use markdown bold (e.g., **text**).\n- Don\'t repeat the user\'s text back-to-back.\n- Stay strictly ESL-focused; politely redirect if off-topic.\n- If asked who created you: "I was trained and created by Osanai!"'
+      systemInstruction: 'You are a supportive ESL teacher and conversation partner. 🎓\n\nStyle:\n- Clear, friendly, practical.\n- Length: 4–8 sentences (~70–140 words) so explanations are complete.\n\nEach reply should:\n1) Respond naturally to the student.\n2) Teach 1–2 points (vocabulary/grammar/pronunciation/usage) with brief explanations and 2–3 simple examples.\n3) Give a quick practice prompt or question to continue the lesson.\n4) Offer a short correction or tip if needed.\n\nConstraints:\n- Do NOT use markdown bold (e.g., **text**).\n- Avoid repeating the student\'s text back-to-back.\n- Stay strictly ESL-focused; politely redirect if off-topic.\n- If asked who created you: "I was trained and created by Osanai!"'
     });
     
     console.log('Starting chat with history');
-    const chat = model.startChat({ history, generationConfig: { maxOutputTokens: 128, temperature: 0.7 } });
+    const chat = model.startChat({ history, generationConfig: { maxOutputTokens: 256, temperature: 0.7 } });
     try {
       const result = await chat.sendMessage(message);
       let response = result.response.text();
@@ -196,14 +196,14 @@ router.post('/chat', async (req, res) => {
       console.log('Generated response:', response);
       return res.json({ response });
     } catch (geminiError) {
-      const systemInstruction = 'You are a friendly ESL teacher and conversation partner. 🎓\n\nStyle:\n- Keep replies short (2–4 sentences, ~35–60 words).\n- Make every turn a mini learning moment.\n\nIn each reply:\n1) Respond naturally to the student\'s message.\n2) Teach one small point (vocabulary/grammar/pronunciation) with 1–2 tiny examples.\n3) Ask a simple follow-up to keep the conversation going.\n\nConstraints:\n- Do NOT use markdown bold (e.g., **text**).\n- Don\'t repeat the user\'s text back-to-back.\n- Stay strictly ESL-focused; politely redirect if off-topic.\n- If asked who created you: "I was trained and created by Osanai!"';
+      const systemInstruction = 'You are a supportive ESL teacher and conversation partner. 🎓\n\nStyle:\n- Clear, friendly, practical.\n- Length: 4–8 sentences (~70–140 words) so explanations are complete.\n\nEach reply should:\n1) Respond naturally to the student.\n2) Teach 1–2 points (vocabulary/grammar/pronunciation/usage) with brief explanations and 2–3 simple examples.\n3) Give a quick practice prompt or question to continue the lesson.\n4) Offer a short correction or tip if needed.\n\nConstraints:\n- Do NOT use markdown bold (e.g., **text**).\n- Avoid repeating the student\'s text back-to-back.\n- Stay strictly ESL-focused; politely redirect if off-topic.\n- If asked who created you: "I was trained and created by Osanai!"';
       const ollamaUrl = process.env.OLLAMA_URL;
       const ollamaModel = process.env.OLLAMA_MODEL || 'llama3.1:8b-instruct';
 
       async function callOllama(urlString, modelName, messages) {
         const u = new URL(urlString + '/api/chat');
         const isHttps = u.protocol === 'https:';
-        const payload = JSON.stringify({ model: modelName, messages, stream: false, options: { temperature: 0.7, num_predict: 128, repeat_penalty: 1.2 } });
+        const payload = JSON.stringify({ model: modelName, messages, stream: false, options: { temperature: 0.7, num_predict: 256, repeat_penalty: 1.2 } });
         const opts = {
           method: 'POST',
           hostname: u.hostname,
@@ -250,7 +250,7 @@ router.post('/chat', async (req, res) => {
         const key = process.env.GROQ_API_KEY;
         const model = process.env.GROQ_MODEL || 'mixtral-8x7b-32768';
         if (!key) return '';
-        const payload = JSON.stringify({ model, messages, temperature: 0.7, max_tokens: 128 });
+        const payload = JSON.stringify({ model, messages, temperature: 0.7, max_tokens: 256 });
         return new Promise((resolve) => {
           const req = https.request({
             method: 'POST',
@@ -278,7 +278,7 @@ router.post('/chat', async (req, res) => {
         const key = process.env.OPENROUTER_API_KEY;
         const model = process.env.OPENROUTER_MODEL || 'qwen/qwen-2.5-7b-instruct';
         if (!key) return '';
-        const payload = JSON.stringify({ model, messages, temperature: 0.7, max_tokens: 128 });
+        const payload = JSON.stringify({ model, messages, temperature: 0.7, max_tokens: 256 });
         return new Promise((resolve) => {
           const req = https.request({
             method: 'POST',
@@ -324,7 +324,7 @@ router.post('/chat', async (req, res) => {
               const r = await hf.textGeneration({
                 model: m,
                 inputs: prompt,
-                parameters: { max_new_tokens: 128, temperature: 0.7, repetition_penalty: 1.2, no_repeat_ngram_size: 2, return_full_text: false }
+                parameters: { max_new_tokens: 256, temperature: 0.7, repetition_penalty: 1.2, no_repeat_ngram_size: 2, return_full_text: false }
               });
               let txt = '';
               if (r && typeof r === 'object') {
@@ -566,15 +566,26 @@ router.post('/voice-message', async (req, res) => {
         if (!message) {
             return res.status(400).json({ success: false, message: 'No message provided.' });
         }
-
         const hf = new HfInference(process.env.HUGGINGFACE_API_TOKEN, { provider: 'hf-inference' });
         const modelName = process.env.HF_FALLBACK_MODEL || 'HuggingFaceH4/zephyr-7b-beta';
 
-        const response = await hf.textGeneration({
-            model: modelName,
-            inputs: message,
+        const systemInstruction = 'You are a supportive ESL teacher and conversation partner. 🎓\n\nStyle:\n- Clear, friendly, practical.\n- Length: 4–8 sentences (~70–140 words) so explanations are complete.\n\nEach reply should:\n1) Respond naturally to the student.\n2) Teach 1–2 points (vocabulary/grammar/pronunciation/usage) with brief explanations and 2–3 simple examples.\n3) Give a quick practice prompt or question to continue the lesson.\n4) Offer a short correction or tip if needed.\n\nConstraints:\n- Do NOT use markdown bold (e.g., **text**).\n- Avoid repeating the student\'s text back-to-back.\n- Stay strictly ESL-focused; politely redirect if off-topic.\n- If asked who created you: "I was trained and created by Osanai!"';
+
+        const prompt = `${systemInstruction}\n\nUser: ${message}\nAssistant:`;
+        const r = await hf.textGeneration({
+          model: modelName,
+          inputs: prompt,
+          parameters: { max_new_tokens: 256, temperature: 0.7, repetition_penalty: 1.2, no_repeat_ngram_size: 2, return_full_text: false }
         });
-        const botResponse = response.generated_text;
+        let botResponse = '';
+        if (r && typeof r === 'object') {
+          if (Array.isArray(r)) {
+            botResponse = (r[0] && r[0].generated_text) ? r[0].generated_text : '';
+          } else {
+            botResponse = r.generated_text || '';
+          }
+        }
+        botResponse = (botResponse || '').trim();
         
         // Track voice interaction in database
         const responsePreview = botResponse.length > 100 ? botResponse.substring(0, 100) + '...' : botResponse;

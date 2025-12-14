@@ -394,6 +394,18 @@
     "userName": "Student",
     "interactions": [
       {
+        "timestamp": "2025-12-14T14:38:56.005Z",
+        "type": "text",
+        "message": "what a cat",
+        "responsePreview": "Hi TUTELAGE! 👋 It sounds like you're asking, \"What is a cat?\" That's a great question to clarify!\n\n..."
+      },
+      {
+        "timestamp": "2025-12-14T14:38:00.117Z",
+        "type": "text",
+        "message": "hi",
+        "responsePreview": "Hi TUTELAGE! 👋 It's great to hear from you again!\n\nSince you've said \"hi,\" let's learn a couple of ..."
+      },
+      {
         "timestamp": "2025-12-10T17:45:38.974Z",
         "type": "text",
         "message": "who are you",
@@ -437,8 +449,8 @@
       }
     ],
     "metrics": {
-      "totalInteractions": 7,
-      "textInteractions": 7,
+      "totalInteractions": 9,
+      "textInteractions": 9,
       "voiceInteractions": 0,
       "commandsUsed": 0,
       "lessonsCompleted": 0,
@@ -452,7 +464,7 @@
         "speaking": 0,
         "listening": 0
       },
-      "lastUpdated": "2025-12-10T17:45:38.974Z"
+      "lastUpdated": "2025-12-14T14:38:56.005Z"
     }
   },
   "4": {
