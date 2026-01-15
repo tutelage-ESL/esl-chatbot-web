@@ -15,6 +15,33 @@ const apiResponse = require('./utils/apiResponse');
 const { requireAuth } = require('./middleware/authMiddleware');
 const { globalErrorHandler, notFoundHandler } = require('./middleware/errorHandler');
 
+// Security middleware
+const { securityHeaders } = require('./middleware/securityHeaders');
+const { authLimiter, generalLimiter, chatLimiter, ttsLimiter } = require('./middleware/rateLimiter');
+const { sanitizeInputs } = require('./middleware/validators');
+
+// ============================================================================
+// ENVIRONMENT VALIDATION (OWASP: Fail securely)
+// ============================================================================
+const requiredEnvVars = ['SESSION_SECRET'];
+const optionalEnvVars = ['GEMINI_API_KEY', 'ELEVENLABS_API_KEY', 'HUGGINGFACE_API_TOKEN'];
+
+requiredEnvVars.forEach(varName => {
+  if (!process.env[varName]) {
+    console.error(`ERROR: Required environment variable ${varName} is not set!`);
+    process.exit(1);
+  }
+});
+
+optionalEnvVars.forEach(varName => {
+  if (!process.env[varName]) {
+    console.warn(`WARNING: Optional environment variable ${varName} is not set. Some features may be disabled.`);
+  }
+});
+
+// ============================================================================
+// APP INITIALIZATION
+// ============================================================================
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
@@ -29,18 +56,39 @@ const PORT = process.env.PORT || 3001;
 global.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const sessionMiddleware = session({
-  secret: process.env.SESSION_SECRET || 'supersecretkey',
+  secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
+    sameSite: 'lax', // CSRF protection
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 });
 
 app.use(sessionMiddleware);
 io.use(sharedsession(sessionMiddleware, { autoSave: true }));
+
+// ============================================================================
+// SECURITY MIDDLEWARE (applied first)
+// ============================================================================
+
+// Apply security headers to all responses
+app.use(securityHeaders);
+
+// Apply general rate limiting to all API requests
+app.use('/api', generalLimiter);
+
+// Sanitize all incoming request bodies
+app.use(sanitizeInputs);
+
+// Trust proxy for correct IP detection behind reverse proxies
+app.set('trust proxy', 1);
+
+// ============================================================================
+// STANDARD MIDDLEWARE
+// ============================================================================
 
 // CORS configuration for Next.js frontend
 app.use(cors({
@@ -55,22 +103,18 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json({ limit: '1mb' })); // Limit body size
+app.use(bodyParser.urlencoded({ extended: true, limit: '1mb' }));
 
-// Remove EJS view engine setup - API only
-// app.set('view engine', 'ejs');
-// app.set('views', path.join(__dirname, 'views'));
-
-// Remove static file serving - handled by Next.js
-// app.use(express.static(path.join(__dirname, 'public')));
-
-// API Routes
+// ============================================================================
+// API ROUTES
+// ============================================================================
 const authRoutes = require('./routes/authRoutes-api');
 const apiRoutes = require('./routes/apiRoutes');
 
 console.log('Applying auth routes middleware...');
-app.use('/api/auth', authRoutes);
+// Apply stricter rate limiting to auth routes
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api', apiRoutes);
 
 // Add new API endpoints for Next.js frontend

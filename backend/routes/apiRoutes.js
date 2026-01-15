@@ -18,6 +18,8 @@ const { Op } = require('sequelize');
 // Standardized API response utilities
 const apiResponse = require('../utils/apiResponse');
 const { requireAuth, optionalAuth, publicEventAuth } = require('../middleware/authMiddleware');
+const { chatLimiter, ttsLimiter } = require('../middleware/rateLimiter');
+const { validate, chatSchemas, vocabularySchemas, goalSchemas, settingsSchemas, ttsSchemas } = require('../middleware/validators');
 
 // Initialize Google Generative AI (assuming genAI is globally available or passed)
 // const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -80,7 +82,7 @@ async function updateProgressDB(userId, message, type, responsePreview) {
 }
 
 // Chat endpoint with Gemini AI
-router.post('/chat', publicEventAuth, async (req, res) => {
+router.post('/chat', chatLimiter, publicEventAuth, async (req, res) => {
   // Handle public event mode auto-login if needed
   if (!req.userId && process.env.PUBLIC_EVENT_MODE === 'true') {
     try {
