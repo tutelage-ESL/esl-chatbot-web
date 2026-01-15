@@ -107,6 +107,24 @@ app.use(bodyParser.json({ limit: '1mb' })); // Limit body size
 app.use(bodyParser.urlencoded({ extended: true, limit: '1mb' }));
 
 // ============================================================================
+// API DOCUMENTATION (Swagger UI)
+// ============================================================================
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./config/swagger');
+
+// Swagger UI available at /api/docs
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'ESL Chatbot API Docs'
+}));
+
+// JSON spec available at /api/docs.json
+app.get('/api/docs.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
+
+// ============================================================================
 // API ROUTES
 // ============================================================================
 const authRoutes = require('./routes/authRoutes-api');

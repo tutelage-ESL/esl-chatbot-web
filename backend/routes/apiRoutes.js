@@ -547,15 +547,61 @@ router.post('/upload', upload.single('file'), (req, res) => {
   }
 });
 
-// Health check endpoint
-router.get('/health', (req, res) => {
-  return apiResponse.success(res, {
-    status: 'OK',
-    timestamp: new Date().toISOString(),
-    services: {
-      gemini: !!global.genAI
+/**
+ * @swagger
+ * /api/health:
+ *   get:
+ *     summary: Health check endpoint
+ *     tags: [Health]
+ *     description: Returns status of API and connected services
+ *     responses:
+ *       200:
+ *         description: Health status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/HealthCheck'
+ */
+router.get('/health', async (req, res) => {
+  try {
+    const elevenLabsService = require('../services/elevenLabsService');
+
+    // Check database connectivity
+    let databaseOk = false;
+    try {
+      await db.sequelize.authenticate();
+      databaseOk = true;
+    } catch (dbError) {
+      console.error('Database health check failed:', dbError.message);
     }
-  });
+
+    // Get memory usage
+    const memUsage = process.memoryUsage();
+    const formatBytes = (bytes) => (bytes / 1024 / 1024).toFixed(2) + ' MB';
+
+    return apiResponse.success(res, {
+      status: databaseOk ? 'OK' : 'DEGRADED',
+      timestamp: new Date().toISOString(),
+      uptime: Math.floor(process.uptime()) + ' seconds',
+      services: {
+        database: databaseOk,
+        gemini: !!global.genAI,
+        elevenlabs: elevenLabsService.isAvailable()
+      },
+      memory: {
+        heapUsed: formatBytes(memUsage.heapUsed),
+        heapTotal: formatBytes(memUsage.heapTotal),
+        rss: formatBytes(memUsage.rss)
+      }
+    });
+  } catch (error) {
+    console.error('Health check error:', error);
+    return apiResponse.success(res, {
+      status: 'ERROR',
+      timestamp: new Date().toISOString(),
+      error: error.message
+    });
+  }
 });
 
 router.post('/voice-message', requireAuth, async (req, res) => {
