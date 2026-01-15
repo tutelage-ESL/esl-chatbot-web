@@ -1318,30 +1318,26 @@ router.get('/goals', requireAuth, async (req, res) => {
       }
     }
 
-    res.json({ goals, stats });
+    return apiResponse.success(res, { goals, stats });
   } catch (error) {
     console.error('Error fetching goals:', error);
-    res.status(500).json({ error: 'Failed to fetch goals' });
+    return apiResponse.internalError(res, 'Failed to fetch goals');
   }
 });
 
 // Update goal
-router.put('/goals/:id', async (req, res) => {
+router.put('/goals/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { description, target, timeframe, status } = req.body;
-    const userId = req.session.userId;
-
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
+    const userId = req.userId;
 
     const goal = await Goal.findOne({
       where: { id, userId }
     });
 
     if (!goal) {
-      return res.status(404).json({ error: 'Goal not found' });
+      return apiResponse.notFound(res, 'Goal not found');
     }
 
     // Update goal data
@@ -1359,60 +1355,52 @@ router.put('/goals/:id', async (req, res) => {
 
     await goal.update(updateData);
 
-    res.json({ success: true, goal });
+    return apiResponse.success(res, { goal });
   } catch (error) {
     console.error('Error updating goal:', error);
-    res.status(500).json({ error: 'Failed to update goal' });
+    return apiResponse.internalError(res, 'Failed to update goal');
   }
 });
 
 // Delete goal
-router.delete('/goals/:id', async (req, res) => {
+router.delete('/goals/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.session.userId;
-
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
+    const userId = req.userId;
 
     const goal = await Goal.findOne({
       where: { id, userId }
     });
 
     if (!goal) {
-      return res.status(404).json({ error: 'Goal not found' });
+      return apiResponse.notFound(res, 'Goal not found');
     }
 
     await goal.destroy();
-    res.json({ success: true, message: 'Goal deleted successfully' });
+    return apiResponse.success(res, null, 'Goal deleted successfully');
   } catch (error) {
     console.error('Error deleting goal:', error);
-    res.status(500).json({ error: 'Failed to delete goal' });
+    return apiResponse.internalError(res, 'Failed to delete goal');
   }
 });
 
 // Record goal progress
-router.post('/goals/:id/progress', async (req, res) => {
+router.post('/goals/:id/progress', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { activity, value, notes } = req.body;
-    const userId = req.session.userId;
-
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
+    const userId = req.userId;
 
     const goal = await Goal.findOne({
       where: { id, userId }
     });
 
     if (!goal) {
-      return res.status(404).json({ error: 'Goal not found' });
+      return apiResponse.notFound(res, 'Goal not found');
     }
 
     if (goal.status !== 'active') {
-      return res.status(400).json({ error: 'Cannot update progress for inactive goal' });
+      return apiResponse.validationError(res, 'Cannot update progress for inactive goal');
     }
 
     // Calculate new progress
@@ -1456,8 +1444,7 @@ router.post('/goals/:id/progress', async (req, res) => {
     // Update progress tracking
     await updateProgressDB(userId, activity, 'goal', `Goal progress: ${newProgress}%`);
 
-    res.json({
-      success: true,
+    return apiResponse.success(res, {
       progress: newProgress,
       streak: newStreak,
       milestoneCompleted: completedMilestones > goal.completedMilestones,
@@ -1465,27 +1452,23 @@ router.post('/goals/:id/progress', async (req, res) => {
     });
   } catch (error) {
     console.error('Error recording goal progress:', error);
-    res.status(500).json({ error: 'Failed to record progress' });
+    return apiResponse.internalError(res, 'Failed to record progress');
   }
 });
 
 // Get goal suggestions
-router.get('/goals/suggestions', async (req, res) => {
+router.get('/goals/suggestions', requireAuth, async (req, res) => {
   try {
-    const userId = req.session.userId;
-
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
+    const userId = req.userId;
 
     // Get user's current level and activity
     const userStats = await getUserLearningStats(userId);
     const suggestions = generateGoalSuggestions(userStats);
 
-    res.json({ suggestions });
+    return apiResponse.success(res, { suggestions });
   } catch (error) {
     console.error('Error generating goal suggestions:', error);
-    res.status(500).json({ error: 'Failed to generate suggestions' });
+    return apiResponse.internalError(res, 'Failed to generate suggestions');
   }
 });
 
