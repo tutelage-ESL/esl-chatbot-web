@@ -9,49 +9,96 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: false
     },
-    title: {
+    type: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: false,
+      comment: 'Goal type: vocabulary, pronunciation, conversation, etc.'
+    },
+    target: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      comment: 'Target value (e.g., 50 words, 10 conversations)'
+    },
+    timeframe: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      comment: 'week, month, quarter'
     },
     description: {
       type: DataTypes.TEXT,
       allowNull: true
     },
     category: {
-      type: DataTypes.ENUM('pronunciation', 'vocabulary', 'conversation', 'grammar', 'listening', 'reading', 'writing'),
-      allowNull: false
+      type: DataTypes.STRING,
+      allowNull: true
     },
     difficulty: {
       type: DataTypes.ENUM('beginner', 'intermediate', 'advanced'),
-      allowNull: false
+      allowNull: true,
+      defaultValue: 'intermediate'
     },
-    targetValue: {
+    progress: {
       type: DataTypes.INTEGER,
-      allowNull: false
+      allowNull: false,
+      defaultValue: 0,
+      comment: 'Progress percentage 0-100'
     },
-    currentValue: {
+    status: {
+      type: DataTypes.ENUM('active', 'completed', 'paused', 'cancelled'),
+      allowNull: false,
+      defaultValue: 'active'
+    },
+    milestones: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: [],
+      comment: 'Array of milestone objects'
+    },
+    actionPlan: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: [],
+      comment: 'Array of action plan strings'
+    },
+    startDate: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      defaultValue: DataTypes.NOW
+    },
+    targetDate: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    completedDate: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    currentStreak: {
       type: DataTypes.INTEGER,
+      allowNull: false,
       defaultValue: 0
     },
-    unit: {
-      type: DataTypes.STRING,
-      allowNull: false
+    bestStreak: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0
     },
-    isCompleted: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false
+    completedMilestones: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0
     },
-    completedAt: {
+    lastProgressUpdate: {
       type: DataTypes.DATE,
       allowNull: true
     }
   }, {
-    tableName: 'Goals',
+    tableName: 'goals',
     timestamps: true
   });
 
   // Define associations
-  Goal.associate = function(models) {
+  Goal.associate = function (models) {
     Goal.belongsTo(models.User, {
       foreignKey: 'userId',
       as: 'user',

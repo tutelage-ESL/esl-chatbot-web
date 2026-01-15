@@ -10,7 +10,7 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false
     },
     type: {
-      type: DataTypes.ENUM('text', 'voice', 'pronunciation', 'vocabulary', 'goal', 'lesson'),
+      type: DataTypes.ENUM('text', 'voice', 'pronunciation', 'vocabulary', 'goal', 'goal_progress', 'lesson'),
       allowNull: false
     },
     message: {
@@ -65,7 +65,7 @@ module.exports = (sequelize, DataTypes) => {
   });
 
   // Define associations
-  Interaction.associate = function(models) {
+  Interaction.associate = function (models) {
     Interaction.belongsTo(models.User, {
       foreignKey: 'userId',
       as: 'user',

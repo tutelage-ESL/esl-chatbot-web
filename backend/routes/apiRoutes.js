@@ -9,7 +9,10 @@ const http = require('http');
 const elevenLabsService = require('../services/elevenLabsService');
 const fs = require('fs');
 const path = require('path');
-const { User, Vocabulary, Goal, Interaction, UserMetrics } = require('../models');
+
+// Database models
+const db = require('../models');
+const { User, Vocabulary, Goal, Interaction, UserMetrics, Settings, Progress, Message } = db;
 const { Op } = require('sequelize');
 
 // Standardized API response utilities
@@ -824,12 +827,9 @@ router.post('/free-tts', async (req, res) => {
 });
 
 // Enhanced Vocabulary endpoints
-router.get('/vocabulary', async (req, res) => {
+router.get('/vocabulary', requireAuth, async (req, res) => {
   try {
-    const userId = req.session.userId;
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
+    const userId = req.userId;
 
     const { difficulty, search, limit = 50 } = req.query;
     let whereClause = { userId };
@@ -853,24 +853,20 @@ router.get('/vocabulary', async (req, res) => {
     // Calculate statistics
     const stats = await calculateVocabularyStats(userId);
 
-    res.json({ words: vocabulary, stats });
+    return apiResponse.success(res, { words: vocabulary, stats });
   } catch (error) {
     console.error('Error fetching vocabulary:', error);
-    res.status(500).json({ error: 'Failed to fetch vocabulary' });
+    return apiResponse.internalError(res, 'Failed to fetch vocabulary');
   }
 });
 
-router.post('/vocabulary', async (req, res) => {
+router.post('/vocabulary', requireAuth, async (req, res) => {
   try {
     const { word, definition, example, difficulty, category } = req.body;
-    const userId = req.session.userId;
-
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
+    const userId = req.userId;
 
     if (!word || !definition) {
-      return res.status(400).json({ error: 'Word and definition are required' });
+      return apiResponse.validationError(res, 'Word and definition are required');
     }
 
     // Check if word already exists for this user
@@ -879,7 +875,7 @@ router.post('/vocabulary', async (req, res) => {
     });
 
     if (existingWord) {
-      return res.status(400).json({ error: 'Word already exists in your vocabulary' });
+      return apiResponse.conflict(res, 'Word already exists in your vocabulary');
     }
 
     // Generate pronunciation guide and additional info
@@ -904,30 +900,26 @@ router.post('/vocabulary', async (req, res) => {
     // Update progress tracking
     await updateProgressDB(userId, word, 'vocabulary', `Added new word: ${word}`);
 
-    res.json({ success: true, vocabulary: vocabularyItem });
+    return apiResponse.created(res, { vocabulary: vocabularyItem }, 'Word added successfully');
   } catch (error) {
     console.error('Error adding vocabulary:', error);
-    res.status(500).json({ error: 'Failed to add vocabulary' });
+    return apiResponse.internalError(res, 'Failed to add vocabulary');
   }
 });
 
 // Update vocabulary item
-router.put('/vocabulary/:id', async (req, res) => {
+router.put('/vocabulary/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { definition, example, difficulty, category, masteryLevel } = req.body;
-    const userId = req.session.userId;
-
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
+    const userId = req.userId;
 
     const vocabularyItem = await Vocabulary.findOne({
       where: { id, userId }
     });
 
     if (!vocabularyItem) {
-      return res.status(404).json({ error: 'Vocabulary item not found' });
+      return apiResponse.notFound(res, 'Vocabulary item not found');
     }
 
     await vocabularyItem.update({
@@ -938,48 +930,40 @@ router.put('/vocabulary/:id', async (req, res) => {
       masteryLevel: masteryLevel !== undefined ? masteryLevel : vocabularyItem.masteryLevel
     });
 
-    res.json({ success: true, vocabulary: vocabularyItem });
+    return apiResponse.success(res, { vocabulary: vocabularyItem });
   } catch (error) {
     console.error('Error updating vocabulary:', error);
-    res.status(500).json({ error: 'Failed to update vocabulary' });
+    return apiResponse.internalError(res, 'Failed to update vocabulary');
   }
 });
 
 // Delete vocabulary item
-router.delete('/vocabulary/:id', async (req, res) => {
+router.delete('/vocabulary/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.session.userId;
-
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
+    const userId = req.userId;
 
     const vocabularyItem = await Vocabulary.findOne({
       where: { id, userId }
     });
 
     if (!vocabularyItem) {
-      return res.status(404).json({ error: 'Vocabulary item not found' });
+      return apiResponse.notFound(res, 'Vocabulary item not found');
     }
 
     await vocabularyItem.destroy();
-    res.json({ success: true, message: 'Vocabulary item deleted' });
+    return apiResponse.success(res, null, 'Vocabulary item deleted');
   } catch (error) {
     console.error('Error deleting vocabulary:', error);
-    res.status(500).json({ error: 'Failed to delete vocabulary' });
+    return apiResponse.internalError(res, 'Failed to delete vocabulary');
   }
 });
 
 // Get vocabulary for practice
-router.get('/vocabulary/practice', async (req, res) => {
+router.get('/vocabulary/practice', requireAuth, async (req, res) => {
   try {
-    const userId = req.session.userId;
+    const userId = req.userId;
     const { difficulty = 'all', count = 10 } = req.query;
-
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
 
     let whereClause = { userId };
     if (difficulty !== 'all') {
@@ -1265,17 +1249,13 @@ function shuffleArray(array) {
 }
 
 // Enhanced Learning Goals endpoints
-router.post('/goals', async (req, res) => {
+router.post('/goals', requireAuth, async (req, res) => {
   try {
     const { type, target, timeframe, description, difficulty, category } = req.body;
-    const userId = req.session.userId;
-
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
+    const userId = req.userId;
 
     if (!type || !target || !timeframe) {
-      return res.status(400).json({ error: 'Type, target, and timeframe are required' });
+      return apiResponse.validationError(res, 'Type, target, and timeframe are required');
     }
 
     // Generate goal milestones and action plan
@@ -1303,21 +1283,17 @@ router.post('/goals', async (req, res) => {
     // Update progress tracking
     await updateProgressDB(userId, `${type} goal`, 'goal', `Set new goal: ${description || goalData.description}`);
 
-    res.json({ success: true, goal });
+    return apiResponse.created(res, { goal }, 'Goal created successfully');
   } catch (error) {
     console.error('Error setting goal:', error);
-    res.status(500).json({ error: 'Failed to set goal' });
+    return apiResponse.internalError(res, 'Failed to set goal');
   }
 });
 
-router.get('/goals', async (req, res) => {
+router.get('/goals', requireAuth, async (req, res) => {
   try {
-    const userId = req.session.userId;
+    const userId = req.userId;
     const { status = 'all', type = 'all' } = req.query;
-
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
 
     let whereClause = { userId };
     if (status !== 'all') {
