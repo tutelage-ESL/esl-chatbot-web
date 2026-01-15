@@ -12,8 +12,11 @@ const path = require('path');
 const { User, Vocabulary, Goal, Interaction, UserMetrics } = require('../models');
 const { Op } = require('sequelize');
 
+// Standardized API response utilities
+const apiResponse = require('../utils/apiResponse');
+const { requireAuth, optionalAuth, publicEventAuth } = require('../middleware/authMiddleware');
+
 // Initialize Google Generative AI (assuming genAI is globally available or passed)
-// For now, we'll assume it's initialized elsewhere or handle it here if needed.
 // const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // Helper function to update progress using database
@@ -27,7 +30,7 @@ async function updateProgressDB(userId, message, type, responsePreview) {
       responsePreview: responsePreview,
       timestamp: new Date()
     });
-    
+
     // Update or create user metrics
     const [userMetrics, created] = await UserMetrics.findOrCreate({
       where: { userId: userId },
@@ -54,7 +57,7 @@ async function updateProgressDB(userId, message, type, responsePreview) {
         lastUpdated: new Date()
       }
     });
-    
+
     // Update metrics
     userMetrics.totalInteractions++;
     if (type === 'text') {
@@ -65,52 +68,48 @@ async function updateProgressDB(userId, message, type, responsePreview) {
       userMetrics.pronunciationInteractions++;
     }
     userMetrics.lastUpdated = new Date();
-    
+
     await userMetrics.save();
-    
+
   } catch (error) {
     console.error('Error updating progress in database:', error);
   }
 }
 
 // Chat endpoint with Gemini AI
-router.post('/chat', async (req, res) => {
-  // Check if user is authenticated
-  if (!req.session.userId) {
-    if (process.env.PUBLIC_EVENT_MODE === 'true') {
-      try {
-        const dbLocal = require('../models');
-        const username = process.env.DEFAULT_EVENT_USER || 'TUTELAGE';
-        const email = 'event@tutelage.local';
-        let user = await dbLocal.User.findOne({ where: { username } });
-        if (!user) {
-          user = await dbLocal.User.findOne({ where: { email } });
-        }
-        if (!user) {
-          user = await dbLocal.User.create({ username, email, password: 'event', subscriptionTier: 'diamond' });
-        }
-        if (user.subscriptionTier !== 'diamond') {
-          user.subscriptionTier = 'diamond';
-          await user.save();
-        }
-        req.session.userId = user.id;
-        req.session.user = { id: user.id, username: user.username };
-      } catch (e) {
-        console.error('Event auto-login failed:', e);
-        return res.status(401).json({ error: 'Authentication required' });
+router.post('/chat', publicEventAuth, async (req, res) => {
+  // Handle public event mode auto-login if needed
+  if (!req.userId && process.env.PUBLIC_EVENT_MODE === 'true') {
+    try {
+      const dbLocal = require('../models');
+      const username = process.env.DEFAULT_EVENT_USER || 'TUTELAGE';
+      const email = 'event@tutelage.local';
+      let user = await dbLocal.User.findOne({ where: { username } });
+      if (!user) {
+        user = await dbLocal.User.findOne({ where: { email } });
       }
-    } else {
-      console.log('Unauthorized access to /api/chat');
-      return res.status(401).json({ error: 'Authentication required' });
+      if (!user) {
+        user = await dbLocal.User.create({ username, email, password: 'event', subscriptionTier: 'diamond' });
+      }
+      if (user.subscriptionTier !== 'diamond') {
+        user.subscriptionTier = 'diamond';
+        await user.save();
+      }
+      req.session.userId = user.id;
+      req.session.user = { id: user.id, username: user.username };
+      req.userId = user.id;
+    } catch (e) {
+      console.error('Event auto-login failed:', e);
+      return apiResponse.unauthorized(res, 'Authentication required');
     }
   }
   try {
     console.log('Received chat request with message:', req.body.message);
     const { message } = req.body;
-    
+
     if (!message) {
       console.log('No message provided');
-      return res.status(400).json({ error: 'Message is required' });
+      return apiResponse.validationError(res, 'Message is required');
     }
 
     if (!global.genAI) {
@@ -125,7 +124,7 @@ router.post('/chat', async (req, res) => {
     }
 
     const db = require('../models');
-    
+
     // Save user message
     await db.Message.create({ userId, content: message, sender: 'user' });
 
@@ -160,9 +159,9 @@ router.post('/chat', async (req, res) => {
       baseHistory = baseHistory.slice(0, -1);
     }
     history = history.concat(baseHistory.map(m => ({
-       role: m.sender === 'user' ? 'user' : 'model',
-       parts: [{ text: m.content }]
-     })));
+      role: m.sender === 'user' ? 'user' : 'model',
+      parts: [{ text: m.content }]
+    })));
 
     // Ensure the history starts with a 'user' role if it's not empty and the first message is 'model'
     if (history.length > 0 && history[0].role === 'model') {
@@ -174,7 +173,7 @@ router.post('/chat', async (req, res) => {
       model: 'gemini-2.5-flash',
       systemInstruction: 'You are a supportive ESL teacher and conversation partner. 🎓\n\nStyle:\n- Clear, friendly, practical.\n- Length: 4–8 sentences (~70–140 words) so explanations are complete.\n\nEach reply should:\n1) Respond naturally to the student.\n2) Teach 1–2 points (vocabulary/grammar/pronunciation/usage) with brief explanations and 2–3 simple examples.\n3) Give a quick practice prompt or question to continue the lesson.\n4) Offer a short correction or tip if needed.\n\nConstraints:\n- Do NOT use markdown bold (e.g., **text**).\n- Avoid repeating the student\'s text back-to-back.\n- Stay strictly ESL-focused; politely redirect if off-topic.\n- If asked who created you: "I was trained and created by Osanai!"'
     });
-    
+
     console.log('Starting chat with history');
     const chat = model.startChat({ history, generationConfig: { maxOutputTokens: 256, temperature: 0.7 } });
     try {
@@ -194,7 +193,7 @@ router.post('/chat', async (req, res) => {
       response = dedupeLeading(message, response);
       await db.Message.create({ userId, content: response, sender: 'bot' });
       console.log('Generated response:', response);
-      return res.json({ response });
+      return apiResponse.success(res, { response });
     } catch (geminiError) {
       const systemInstruction = 'You are a supportive ESL teacher and conversation partner. 🎓\n\nStyle:\n- Clear, friendly, practical.\n- Length: 4–8 sentences (~70–140 words) so explanations are complete.\n\nEach reply should:\n1) Respond naturally to the student.\n2) Teach 1–2 points (vocabulary/grammar/pronunciation/usage) with brief explanations and 2–3 simple examples.\n3) Give a quick practice prompt or question to continue the lesson.\n4) Offer a short correction or tip if needed.\n\nConstraints:\n- Do NOT use markdown bold (e.g., **text**).\n- Avoid repeating the student\'s text back-to-back.\n- Stay strictly ESL-focused; politely redirect if off-topic.\n- If asked who created you: "I was trained and created by Osanai!"';
       const ollamaUrl = process.env.OLLAMA_URL;
@@ -244,7 +243,7 @@ router.post('/chat', async (req, res) => {
         }
       }
 
-      
+
 
       async function callGroq(messages) {
         const key = process.env.GROQ_API_KEY;
@@ -336,7 +335,7 @@ router.post('/chat', async (req, res) => {
               }
               txt = txt.trim();
               if (txt) { botResponse = txt; break; }
-            } catch (_) {}
+            } catch (_) { }
           }
         } catch (hfError) {
           console.error('Fallback error:', hfError);
@@ -363,32 +362,28 @@ router.post('/chat', async (req, res) => {
       botResponse = dedupeLeading(message, botResponse);
 
       await db.Message.create({ userId, content: botResponse, sender: 'bot' });
-      return res.json({ response: botResponse });
+      return apiResponse.success(res, { response: botResponse });
     }
   } catch (error) {
     console.error('Chat error:', error);
-    res.status(500).json({ error: 'Failed to process message' });
+    return apiResponse.internalError(res, 'Failed to process message');
   }
 });
 
 // Progress endpoints
 // Generic progress endpoint that uses session userId
-router.get('/progress', async (req, res) => {
+router.get('/progress', requireAuth, async (req, res) => {
   try {
-    if (!req.session.userId) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
+    const userId = req.userId;
 
-    const userId = req.session.userId;
-    
     // Get user progress from database
-    const progress = await db.Progress.findOne({ 
-      where: { userId: userId } 
-    }) || { 
-      progress: 0, 
-      chatMessageCount: 0, 
-      totalWordsTyped: 0, 
-      lastActiveDate: new Date() 
+    const progress = await db.Progress.findOne({
+      where: { userId: userId }
+    }) || {
+      progress: 0,
+      chatMessageCount: 0,
+      totalWordsTyped: 0,
+      lastActiveDate: new Date()
     };
 
     // Get user interactions
@@ -397,7 +392,7 @@ router.get('/progress', async (req, res) => {
       order: [['timestamp', 'DESC']],
       limit: 50
     });
-    
+
     // Get user metrics
     const metrics = await UserMetrics.findOne({
       where: { userId: userId }
@@ -406,7 +401,7 @@ router.get('/progress', async (req, res) => {
     // Calculate study time and streak
     const studyTimeMinutes = metrics?.totalStudyTimeMinutes || 0;
     const studyTime = `${Math.floor(studyTimeMinutes / 60)}h ${studyTimeMinutes % 60}m`;
-    
+
     const progressData = {
       progress: progress.progress || 0,
       chatMessageCount: progress.chatMessageCount || 0,
@@ -421,30 +416,30 @@ router.get('/progress', async (req, res) => {
         score: interaction.score || 0
       }))
     };
-    
-    return res.json(progressData);
+
+    return apiResponse.success(res, progressData);
   } catch (error) {
     console.error('Progress fetch error:', error);
-    res.status(500).json({ error: 'Failed to fetch progress' });
+    return apiResponse.internalError(res, 'Failed to fetch progress');
   }
 });
 
 router.get('/progress/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    
+
     // Get user interactions
     const interactions = await Interaction.findAll({
       where: { userId: userId },
       order: [['timestamp', 'DESC']],
       limit: 50
     });
-    
+
     // Get user metrics
     const metrics = await UserMetrics.findOne({
       where: { userId: userId }
     });
-    
+
     const progressData = {
       userId: userId,
       userName: 'Student',
@@ -471,28 +466,28 @@ router.get('/progress/:userId', async (req, res) => {
         lastUpdated: new Date()
       }
     };
-    
-    return res.json(progressData);
+
+    return apiResponse.success(res, progressData);
   } catch (error) {
     console.error('Progress fetch error:', error);
-    res.status(500).json({ error: 'Failed to fetch progress' });
+    return apiResponse.internalError(res, 'Failed to fetch progress');
   }
 });
 
 router.post('/progress', async (req, res) => {
   try {
     const { user_id, progress } = req.body;
-    
+
     if (!user_id || progress === undefined) {
-      return res.status(400).json({ error: 'user_id and progress are required' });
+      return apiResponse.validationError(res, 'user_id and progress are required');
     }
-    
+
     // This endpoint is kept for backward compatibility
     // In the new system, progress is updated automatically via updateProgressDB
-    return res.json({ success: true, message: 'Progress tracking is now automatic' });
+    return apiResponse.success(res, null, 'Progress tracking is now automatic');
   } catch (error) {
     console.error('Progress update error:', error);
-    res.status(500).json({ error: 'Failed to update progress' });
+    return apiResponse.internalError(res, 'Failed to update progress');
   }
 });
 
@@ -502,12 +497,12 @@ router.get('/settings/:userId', async (req, res) => {
     const { userId } = req.params;
     const settings = await models.Settings.findOne({ where: { userId } });
     if (!settings) {
-      return res.status(404).json({ error: 'Settings not found' });
+      return apiResponse.notFound(res, 'Settings not found');
     }
-    return res.json(settings);
+    return apiResponse.success(res, settings);
   } catch (error) {
     console.error('Settings fetch error:', error);
-    res.status(500).json({ error: 'Failed to fetch settings' });
+    return apiResponse.internalError(res, 'Failed to fetch settings');
   }
 });
 
@@ -515,7 +510,7 @@ router.post('/settings', async (req, res) => {
   try {
     const { user_id, language, voiceSpeed, autoSpeak } = req.body;
     if (!user_id) {
-      return res.status(400).json({ error: 'user_id is required' });
+      return apiResponse.validationError(res, 'user_id is required');
     }
     const [updatedSettings, created] = await models.Settings.upsert({
       userId: user_id,
@@ -523,10 +518,10 @@ router.post('/settings', async (req, res) => {
       voiceSpeed,
       autoSpeak
     });
-    return res.json(updatedSettings);
+    return apiResponse.success(res, updatedSettings);
   } catch (error) {
     console.error('Settings update error:', error);
-    res.status(500).json({ error: 'Failed to update settings' });
+    return apiResponse.internalError(res, 'Failed to update settings');
   }
 });
 
@@ -535,18 +530,21 @@ const upload = multer({ dest: 'uploads/' });
 router.post('/upload', upload.single('file'), (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
+      return apiResponse.validationError(res, 'No file uploaded');
     }
-    res.json({ filename: req.file.filename, originalName: req.file.originalname });
+    return apiResponse.success(res, {
+      filename: req.file.filename,
+      originalName: req.file.originalname
+    });
   } catch (error) {
     console.error('Upload error:', error);
-    res.status(500).json({ error: 'Failed to upload file' });
+    return apiResponse.internalError(res, 'Failed to upload file');
   }
 });
 
 // Health check endpoint
 router.get('/health', (req, res) => {
-  res.json({
+  return apiResponse.success(res, {
     status: 'OK',
     timestamp: new Date().toISOString(),
     services: {
@@ -555,60 +553,55 @@ router.get('/health', (req, res) => {
   });
 });
 
-router.post('/voice-message', async (req, res) => {
-    try {
-        // Check if user is authenticated
-        if (!req.session.userId) {
-            return res.status(401).json({ success: false, message: 'Authentication required' });
-        }
-        
-        const { message } = req.body;
-        if (!message) {
-            return res.status(400).json({ success: false, message: 'No message provided.' });
-        }
-        const hf = new HfInference(process.env.HUGGINGFACE_API_TOKEN, { provider: 'hf-inference' });
-        const modelName = process.env.HF_FALLBACK_MODEL || 'HuggingFaceH4/zephyr-7b-beta';
-
-        const systemInstruction = 'You are a supportive ESL teacher and conversation partner. 🎓\n\nStyle:\n- Clear, friendly, practical.\n- Length: 4–8 sentences (~70–140 words) so explanations are complete.\n\nEach reply should:\n1) Respond naturally to the student.\n2) Teach 1–2 points (vocabulary/grammar/pronunciation/usage) with brief explanations and 2–3 simple examples.\n3) Give a quick practice prompt or question to continue the lesson.\n4) Offer a short correction or tip if needed.\n\nConstraints:\n- Do NOT use markdown bold (e.g., **text**).\n- Avoid repeating the student\'s text back-to-back.\n- Stay strictly ESL-focused; politely redirect if off-topic.\n- If asked who created you: "I was trained and created by Osanai!"';
-
-        const prompt = `${systemInstruction}\n\nUser: ${message}\nAssistant:`;
-        const r = await hf.textGeneration({
-          model: modelName,
-          inputs: prompt,
-          parameters: { max_new_tokens: 256, temperature: 0.7, repetition_penalty: 1.2, no_repeat_ngram_size: 2, return_full_text: false }
-        });
-        let botResponse = '';
-        if (r && typeof r === 'object') {
-          if (Array.isArray(r)) {
-            botResponse = (r[0] && r[0].generated_text) ? r[0].generated_text : '';
-          } else {
-            botResponse = r.generated_text || '';
-          }
-        }
-        botResponse = (botResponse || '').trim();
-        
-        // Track voice interaction in database
-        const responsePreview = botResponse.length > 100 ? botResponse.substring(0, 100) + '...' : botResponse;
-        await updateProgressDB(req.session.userId, 'Voice message', 'voice', responsePreview);
-
-        res.json({ success: true, response: botResponse });
-    } catch (error) {
-        console.error('Error processing voice message:', error);
-        
-        // Track failed voice interaction
-        if (req.session.userId) {
-            await updateProgressDB(req.session.userId, 'Voice message', 'voice', 'Sorry, I encountered an error processing your voice message. Please try again.');
-        }
-        
-        res.status(500).json({ success: false, message: 'Failed to process voice message.' });
+router.post('/voice-message', requireAuth, async (req, res) => {
+  try {
+    const { message } = req.body;
+    if (!message) {
+      return apiResponse.validationError(res, 'No message provided');
     }
+    const hf = new HfInference(process.env.HUGGINGFACE_API_TOKEN, { provider: 'hf-inference' });
+    const modelName = process.env.HF_FALLBACK_MODEL || 'HuggingFaceH4/zephyr-7b-beta';
+
+    const systemInstruction = 'You are a supportive ESL teacher and conversation partner. 🎓\n\nStyle:\n- Clear, friendly, practical.\n- Length: 4–8 sentences (~70–140 words) so explanations are complete.\n\nEach reply should:\n1) Respond naturally to the student.\n2) Teach 1–2 points (vocabulary/grammar/pronunciation/usage) with brief explanations and 2–3 simple examples.\n3) Give a quick practice prompt or question to continue the lesson.\n4) Offer a short correction or tip if needed.\n\nConstraints:\n- Do NOT use markdown bold (e.g., **text**).\n- Avoid repeating the student\'s text back-to-back.\n- Stay strictly ESL-focused; politely redirect if off-topic.\n- If asked who created you: "I was trained and created by Osanai!"';
+
+    const prompt = `${systemInstruction}\n\nUser: ${message}\nAssistant:`;
+    const r = await hf.textGeneration({
+      model: modelName,
+      inputs: prompt,
+      parameters: { max_new_tokens: 256, temperature: 0.7, repetition_penalty: 1.2, no_repeat_ngram_size: 2, return_full_text: false }
+    });
+    let botResponse = '';
+    if (r && typeof r === 'object') {
+      if (Array.isArray(r)) {
+        botResponse = (r[0] && r[0].generated_text) ? r[0].generated_text : '';
+      } else {
+        botResponse = r.generated_text || '';
+      }
+    }
+    botResponse = (botResponse || '').trim();
+
+    // Track voice interaction in database
+    const responsePreview = botResponse.length > 100 ? botResponse.substring(0, 100) + '...' : botResponse;
+    await updateProgressDB(req.userId, 'Voice message', 'voice', responsePreview);
+
+    return apiResponse.success(res, { response: botResponse });
+  } catch (error) {
+    console.error('Error processing voice message:', error);
+
+    // Track failed voice interaction
+    if (req.userId) {
+      await updateProgressDB(req.userId, 'Voice message', 'voice', 'Sorry, I encountered an error processing your voice message. Please try again.');
+    }
+
+    return apiResponse.internalError(res, 'Failed to process voice message');
+  }
 });
 
 // ElevenLabs Voice Synthesis Endpoints
 router.get('/voices', async (req, res) => {
   try {
     if (!elevenLabsService.isAvailable()) {
-      return res.status(503).json({ 
+      return res.status(503).json({
         error: 'ElevenLabs service not available',
         fallback: true
       });
@@ -631,7 +624,7 @@ router.post('/text-to-speech', async (req, res) => {
     }
 
     if (!elevenLabsService.isAvailable()) {
-      return res.status(503).json({ 
+      return res.status(503).json({
         error: 'ElevenLabs service not available',
         fallback: true
       });
@@ -660,17 +653,17 @@ router.post('/text-to-speech', async (req, res) => {
     res.send(audioBuffer);
   } catch (error) {
     console.error('Text-to-speech error:', error);
-    
+
     // Check if it's a usage limit error
     if (error.message.includes('TTS usage limit exceeded')) {
-      return res.status(429).json({ 
+      return res.status(429).json({
         error: 'Usage limit exceeded',
         message: error.message,
         limitExceeded: true
       });
     }
-    
-    res.status(500).json({ 
+
+    res.status(500).json({
       error: 'Failed to generate speech',
       message: error.message
     });
@@ -686,7 +679,7 @@ router.post('/text-to-speech-stream', async (req, res) => {
     }
 
     if (!elevenLabsService.isAvailable()) {
-      return res.status(503).json({ 
+      return res.status(503).json({
         error: 'ElevenLabs service not available',
         fallback: true
       });
@@ -709,7 +702,7 @@ router.post('/text-to-speech-stream', async (req, res) => {
   } catch (error) {
     console.error('Text-to-speech stream error:', error);
     if (!res.headersSent) {
-      res.status(500).json({ 
+      res.status(500).json({
         error: 'Failed to generate speech stream',
         message: error.message
       });
@@ -840,11 +833,11 @@ router.get('/vocabulary', async (req, res) => {
 
     const { difficulty, search, limit = 50 } = req.query;
     let whereClause = { userId };
-    
+
     if (difficulty && difficulty !== 'all') {
       whereClause.difficulty = difficulty;
     }
-    
+
     if (search) {
       whereClause.word = {
         [require('sequelize').Op.iLike]: `%${search}%`
@@ -871,7 +864,7 @@ router.post('/vocabulary', async (req, res) => {
   try {
     const { word, definition, example, difficulty, category } = req.body;
     const userId = req.session.userId;
-    
+
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
@@ -924,7 +917,7 @@ router.put('/vocabulary/:id', async (req, res) => {
     const { id } = req.params;
     const { definition, example, difficulty, category, masteryLevel } = req.body;
     const userId = req.session.userId;
-    
+
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
@@ -957,7 +950,7 @@ router.delete('/vocabulary/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.session.userId;
-    
+
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
@@ -983,7 +976,7 @@ router.get('/vocabulary/practice', async (req, res) => {
   try {
     const userId = req.session.userId;
     const { difficulty = 'all', count = 10 } = req.query;
-    
+
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
@@ -1011,7 +1004,7 @@ router.post('/vocabulary/practice', async (req, res) => {
   try {
     const { wordId, correct, timeSpent } = req.body;
     const userId = req.session.userId;
-    
+
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
@@ -1027,7 +1020,7 @@ router.post('/vocabulary/practice', async (req, res) => {
     // Update practice statistics
     const newPracticeCount = vocabularyItem.practiceCount + 1;
     let newMasteryLevel = vocabularyItem.masteryLevel;
-    
+
     if (correct) {
       newMasteryLevel = Math.min(100, newMasteryLevel + 10);
     } else {
@@ -1051,11 +1044,11 @@ router.post('/vocabulary/practice', async (req, res) => {
     });
 
     // Update progress tracking
-    await updateProgressDB(userId, vocabularyItem.word, 'vocabulary', 
+    await updateProgressDB(userId, vocabularyItem.word, 'vocabulary',
       `Practiced word: ${correct ? 'Correct' : 'Incorrect'}`);
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       masteryLevel: newMasteryLevel,
       practiceCount: newPracticeCount
     });
@@ -1070,7 +1063,7 @@ router.get('/vocabulary/quiz', async (req, res) => {
   try {
     const userId = req.session.userId;
     const { difficulty = 'all', count = 10 } = req.query;
-    
+
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
@@ -1092,7 +1085,7 @@ router.get('/vocabulary/quiz', async (req, res) => {
 
     // Generate quiz questions
     const quiz = await generateVocabularyQuiz(vocabulary);
-    
+
     res.json({ questions: quiz });
   } catch (error) {
     console.error('Error generating vocabulary quiz:', error);
@@ -1112,7 +1105,7 @@ async function calculateVocabularyStats(userId) {
       ],
       group: ['difficulty']
     });
-    
+
     const masteryStats = await Vocabulary.findAll({
       where: { userId },
       attributes: [
@@ -1190,14 +1183,14 @@ function detectPartOfSpeech(definition) {
 
 async function generateVocabularyQuiz(vocabulary) {
   const quiz = [];
-  
+
   for (const word of vocabulary) {
     // Generate different types of questions
     const questionTypes = ['definition', 'example', 'synonym'];
     const questionType = questionTypes[Math.floor(Math.random() * questionTypes.length)];
-    
+
     let question, correctAnswer, options;
-    
+
     switch (questionType) {
       case 'definition':
         question = `What does "${word.word}" mean?`;
@@ -1214,7 +1207,7 @@ async function generateVocabularyQuiz(vocabulary) {
         correctAnswer = word.definition;
         options = await generateDefinitionOptions(word.definition, vocabulary);
     }
-    
+
     quiz.push({
       id: word.id,
       word: word.word,
@@ -1224,7 +1217,7 @@ async function generateVocabularyQuiz(vocabulary) {
       type: questionType
     });
   }
-  
+
   return quiz;
 }
 
@@ -1234,14 +1227,14 @@ async function generateDefinitionOptions(correctDefinition, vocabulary) {
     .filter(v => v.definition !== correctDefinition)
     .map(v => v.definition)
     .slice(0, 3);
-  
+
   options.push(...otherDefinitions);
-  
+
   // Fill with generic options if needed
   while (options.length < 4) {
     options.push(`Alternative definition ${options.length}`);
   }
-  
+
   return options;
 }
 
@@ -1251,14 +1244,14 @@ async function generateExampleOptions(correctExample, vocabulary) {
     .filter(v => v.example !== correctExample)
     .map(v => v.example)
     .slice(0, 3);
-  
+
   options.push(...otherExamples);
-  
+
   // Fill with generic options if needed
   while (options.length < 4) {
     options.push(`Example sentence ${options.length}`);
   }
-  
+
   return options;
 }
 
@@ -1276,7 +1269,7 @@ router.post('/goals', async (req, res) => {
   try {
     const { type, target, timeframe, description, difficulty, category } = req.body;
     const userId = req.session.userId;
-    
+
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
@@ -1321,7 +1314,7 @@ router.get('/goals', async (req, res) => {
   try {
     const userId = req.session.userId;
     const { status = 'all', type = 'all' } = req.query;
-    
+
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
@@ -1362,7 +1355,7 @@ router.put('/goals/:id', async (req, res) => {
     const { id } = req.params;
     const { description, target, timeframe, status } = req.body;
     const userId = req.session.userId;
-    
+
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
@@ -1402,7 +1395,7 @@ router.delete('/goals/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.session.userId;
-    
+
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
@@ -1429,7 +1422,7 @@ router.post('/goals/:id/progress', async (req, res) => {
     const { id } = req.params;
     const { activity, value, notes } = req.body;
     const userId = req.session.userId;
-    
+
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
@@ -1449,16 +1442,16 @@ router.post('/goals/:id/progress', async (req, res) => {
     // Calculate new progress
     const progressIncrement = calculateProgressIncrement(goal.type, value || 1);
     const newProgress = Math.min(100, goal.progress + progressIncrement);
-    
+
     // Update streak
     const today = new Date().toDateString();
     const lastUpdate = goal.lastProgressUpdate ? new Date(goal.lastProgressUpdate).toDateString() : null;
     let newStreak = goal.currentStreak;
-    
+
     if (lastUpdate !== today) {
       newStreak = goal.currentStreak + 1;
     }
-    
+
     const newBestStreak = Math.max(goal.bestStreak, newStreak);
 
     // Check for milestone completion
@@ -1487,8 +1480,8 @@ router.post('/goals/:id/progress', async (req, res) => {
     // Update progress tracking
     await updateProgressDB(userId, activity, 'goal', `Goal progress: ${newProgress}%`);
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       progress: newProgress,
       streak: newStreak,
       milestoneCompleted: completedMilestones > goal.completedMilestones,
@@ -1504,7 +1497,7 @@ router.post('/goals/:id/progress', async (req, res) => {
 router.get('/goals/suggestions', async (req, res) => {
   try {
     const userId = req.session.userId;
-    
+
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
@@ -1562,7 +1555,7 @@ async function enhanceGoalData(type, target, timeframe, description) {
   };
 
   const template = goalTemplates[type] || goalTemplates.vocabulary;
-  
+
   // Calculate target date based on timeframe
   const targetDate = new Date();
   switch (timeframe) {
@@ -1589,7 +1582,7 @@ async function enhanceGoalData(type, target, timeframe, description) {
 function generateVocabularyMilestones(target) {
   const milestones = [];
   const intervals = [0.25, 0.5, 0.75, 1.0];
-  
+
   intervals.forEach((interval, index) => {
     milestones.push({
       id: index + 1,
@@ -1599,14 +1592,14 @@ function generateVocabularyMilestones(target) {
       completed: false
     });
   });
-  
+
   return milestones;
 }
 
 function generatePronunciationMilestones(target) {
   const milestones = [];
   const intervals = [0.25, 0.5, 0.75, 1.0];
-  
+
   intervals.forEach((interval, index) => {
     milestones.push({
       id: index + 1,
@@ -1616,14 +1609,14 @@ function generatePronunciationMilestones(target) {
       completed: false
     });
   });
-  
+
   return milestones;
 }
 
 function generateConversationMilestones(target) {
   const milestones = [];
   const intervals = [0.25, 0.5, 0.75, 1.0];
-  
+
   intervals.forEach((interval, index) => {
     milestones.push({
       id: index + 1,
@@ -1633,7 +1626,7 @@ function generateConversationMilestones(target) {
       completed: false
     });
   });
-  
+
   return milestones;
 }
 
@@ -1642,7 +1635,7 @@ async function calculateGoalStats(userId) {
     const total = await Goal.count({ where: { userId } });
     const active = await Goal.count({ where: { userId, status: 'active' } });
     const completed = await Goal.count({ where: { userId, status: 'completed' } });
-    
+
     const avgProgress = await Goal.findAll({
       where: { userId, status: 'active' },
       attributes: [
@@ -1692,14 +1685,14 @@ function calculateProgressIncrement(goalType, value) {
 
 function checkMilestoneCompletion(goal, newProgress) {
   if (!goal.milestones) return goal.completedMilestones || 0;
-  
+
   let completed = 0;
   goal.milestones.forEach(milestone => {
     if (newProgress >= milestone.targetProgress) {
       completed++;
     }
   });
-  
+
   return completed;
 }
 
@@ -1708,7 +1701,7 @@ async function getUserLearningStats(userId) {
     const vocabularyCount = await Vocabulary.count({ where: { userId } });
     const interactionCount = await Interaction.count({ where: { userId } });
     const goalCount = await Goal.count({ where: { userId } });
-    
+
     return {
       vocabularyWords: vocabularyCount,
       totalInteractions: interactionCount,
@@ -1723,7 +1716,7 @@ async function getUserLearningStats(userId) {
 
 function calculateUserLevel(vocabularyCount, interactionCount) {
   const totalActivity = vocabularyCount + (interactionCount / 10);
-  
+
   if (totalActivity < 20) return 'beginner';
   if (totalActivity < 100) return 'intermediate';
   return 'advanced';
@@ -1731,7 +1724,7 @@ function calculateUserLevel(vocabularyCount, interactionCount) {
 
 function generateGoalSuggestions(userStats) {
   const suggestions = [];
-  
+
   // Vocabulary suggestions
   if (userStats.vocabularyWords < 50) {
     suggestions.push({
@@ -1754,7 +1747,7 @@ function generateGoalSuggestions(userStats) {
       reason: 'Expanding your vocabulary will improve your communication skills'
     });
   }
-  
+
   // Pronunciation suggestions
   suggestions.push({
     type: 'pronunciation',
@@ -1765,7 +1758,7 @@ function generateGoalSuggestions(userStats) {
     difficulty: userStats.level,
     reason: 'Clear pronunciation builds confidence in speaking'
   });
-  
+
   // Conversation suggestions
   if (userStats.totalInteractions < 50) {
     suggestions.push({
@@ -1778,7 +1771,7 @@ function generateGoalSuggestions(userStats) {
       reason: 'Regular conversation practice improves fluency and confidence'
     });
   }
-  
+
   return suggestions;
 }
 
@@ -1787,7 +1780,7 @@ router.post('/pronunciation/analyze', upload.single('audio'), async (req, res) =
   try {
     const { word } = req.body;
     const userId = req.session.userId;
-    
+
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
@@ -1798,7 +1791,7 @@ router.post('/pronunciation/analyze', upload.single('audio'), async (req, res) =
 
     // Enhanced pronunciation analysis with detailed feedback
     const analysis = await analyzePronunciationAdvanced(word, req.file);
-    
+
     // Save pronunciation practice session to database
     await Interaction.create({
       userId: userId,
@@ -1808,36 +1801,36 @@ router.post('/pronunciation/analyze', upload.single('audio'), async (req, res) =
       duration: analysis.duration || 0,
       score: analysis.overall
     });
-    
+
     // Update progress tracking
     await updateProgressDB(userId, word, 'pronunciation', `Pronunciation practice: ${analysis.overall}%`);
-    
+
     res.json({ success: true, ...analysis });
   } catch (error) {
     console.error('Error analyzing pronunciation:', error);
     res.status(500).json({ error: 'Failed to analyze pronunciation' });
   }
 });
- 
+
 // Advanced pronunciation analysis function with real speech recognition
 async function analyzePronunciationAdvanced(targetWord, audioFile) {
   try {
     // Use OpenAI Whisper API for accurate speech recognition
     const transcription = await transcribeAudioWithWhisper(audioFile);
-    
+
     // If Whisper fails, fallback to Web Speech API simulation
     if (!transcription) {
       return await basicPronunciationAnalysis(targetWord);
     }
-    
+
     // Calculate accuracy based on actual transcription
     const accuracy = calculateRealAccuracy(targetWord, transcription);
     const fluency = calculateRealFluency(targetWord, transcription, audioFile);
-    
+
     // Generate detailed feedback based on real analysis
     const feedback = generateRealFeedback(targetWord, transcription, accuracy, fluency);
     const suggestions = generateRealSuggestions(targetWord, transcription, accuracy);
-    
+
     return {
       overall: Math.round((accuracy + fluency) / 2),
       accuracy: Math.round(accuracy),
@@ -1864,20 +1857,20 @@ function generateRealisticTranscription(targetWord) {
     'through': ['trough', 'true'],
     'thank': ['tank', 'sank'],
     'thick': ['tick', 'sick'],
-    
+
     // R/L confusion (common for East Asian learners)
     'red': ['led', 'wed'],
     'right': ['light', 'wight'],
     'very': ['vely', 'wery'],
     'love': ['rove', 'lobe'],
     'light': ['right', 'lite'],
-    
+
     // V/W confusion
     'very': ['wery', 'berry'],
     'voice': ['woice', 'boys'],
     'water': ['vater', 'wader'],
     'work': ['vork', 'walk'],
-    
+
     // Complex words with syllable issues
     'beautiful': ['beautifur', 'beutiful', 'beautifu'],
     'important': ['importan', 'inportant'],
@@ -1907,7 +1900,7 @@ function generateRealisticTranscription(targetWord) {
 
   const word = targetWord.toLowerCase();
   const randomValue = Math.random();
-  
+
   // More realistic distribution:
   // 15% chance of correct pronunciation
   // 20% chance of common pronunciation error
@@ -1946,7 +1939,7 @@ function generateSlightVariation(word) {
     word.replace(/v/g, 'w'), // "very" -> "wery"
     word.replace(/w/g, 'v'), // "water" -> "vater"
   ];
-  
+
   return variations[Math.floor(Math.random() * variations.length)];
 }
 
@@ -1956,36 +1949,36 @@ async function transcribeAudioWithWhisper(audioFile) {
     if (!audioFile) {
       return null;
     }
-    
+
     // Check if ElevenLabs service is available
     if (!elevenLabsService.isAvailable()) {
       console.log('ElevenLabs service not available, using simulation');
       return await simulateRealisticSpeechRecognition(audioFile);
     }
-    
+
     console.log('Transcribing audio with ElevenLabs STT API:', {
       filename: audioFile.filename,
       originalname: audioFile.originalname,
       size: audioFile.size
     });
-    
+
     // Read the audio file
     const fs = require('fs');
     const audioBuffer = fs.readFileSync(audioFile.path);
-    
+
     // Use ElevenLabs Speech-to-Text API
-     const transcriptionResult = await elevenLabsService.speechToText(audioBuffer, {
-       model: 'scribe_v1',
-       language: 'en'
-     });
-    
+    const transcriptionResult = await elevenLabsService.speechToText(audioBuffer, {
+      model: 'scribe_v1',
+      language: 'en'
+    });
+
     // Extract the transcribed text
     const transcribedText = transcriptionResult.text || transcriptionResult.transcript;
-    
+
     console.log('ElevenLabs transcription result:', transcribedText);
-    
+
     return transcribedText;
-    
+
   } catch (error) {
     console.error('ElevenLabs transcription error:', error);
     // Fallback to realistic simulation
@@ -1997,11 +1990,11 @@ async function transcribeAudioWithWhisper(audioFile) {
 async function simulateRealisticSpeechRecognition(audioFile) {
   // Simulate audio analysis to determine speech quality
   const hasAudio = audioFile && audioFile.size > 1000; // Basic audio presence check
-  
+
   if (!hasAudio) {
     return null; // No audio detected
   }
-  
+
   // Simulate more realistic speech recognition patterns
   const recognitionPatterns = {
     // High accuracy scenarios (70% chance)
@@ -2011,13 +2004,13 @@ async function simulateRealisticSpeechRecognition(audioFile) {
     // Low accuracy scenarios (10% chance)
     low: 0.1
   };
-  
+
   const random = Math.random();
-  
+
   if (random < recognitionPatterns.high) {
     // High accuracy: return word with minor variations or correct
-    return Math.random() > 0.8 ? generateMinorVariation(audioFile.originalname || 'word') : 
-           (audioFile.originalname || 'word');
+    return Math.random() > 0.8 ? generateMinorVariation(audioFile.originalname || 'word') :
+      (audioFile.originalname || 'word');
   } else if (random < recognitionPatterns.high + recognitionPatterns.medium) {
     // Medium accuracy: return with some pronunciation errors
     return generatePronunciationError(audioFile.originalname || 'word');
@@ -2036,7 +2029,7 @@ function generateMinorVariation(word) {
     'v': ['w', 'b'],
     'w': ['v', 'u']
   };
-  
+
   let result = word.toLowerCase();
   for (const [target, replacements] of Object.entries(variations)) {
     if (result.includes(target) && Math.random() > 0.7) {
@@ -2057,7 +2050,7 @@ function generatePronunciationError(word) {
     word.slice(0, -1), // Missing final consonant
     word.replace(/^[aeiou]/i, ''), // Missing initial vowel
   ];
-  
+
   return errors[Math.floor(Math.random() * errors.length)] || word;
 }
 
@@ -2069,7 +2062,7 @@ function generateUnclearSpeech(word) {
     word.split('').join(' '), // Broken speech
     '', // No clear speech detected
   ];
-  
+
   return unclearPatterns[Math.floor(Math.random() * unclearPatterns.length)];
 }
 
@@ -2078,31 +2071,31 @@ function calculateRealAccuracy(targetWord, transcription) {
   if (!transcription || transcription.trim() === '') {
     return 5; // Very low score for no speech detected
   }
-  
+
   const target = targetWord.toLowerCase().trim();
   const detected = transcription.toLowerCase().trim();
-  
+
   // Exact match gets high score
   if (target === detected) {
     return 95;
   }
-  
+
   // Calculate similarity using Levenshtein distance
   const similarity = calculateSimilarity(target, detected);
-  
+
   // Convert similarity to accuracy score (0-100)
   let accuracy = similarity * 100;
-  
+
   // Bonus for partial matches
   if (detected.includes(target) || target.includes(detected)) {
     accuracy += 10;
   }
-  
+
   // Penalty for completely different words
   if (similarity < 0.3) {
     accuracy = Math.max(accuracy - 20, 10);
   }
-  
+
   return Math.min(Math.max(accuracy, 10), 95);
 }
 
@@ -2111,33 +2104,33 @@ function calculateRealFluency(targetWord, transcription, audioFile) {
   if (!transcription || transcription.trim() === '') {
     return 5; // Very low score for no speech
   }
-  
+
   let fluency = 70; // Base fluency score
-  
+
   // Check for speech clarity indicators
   const target = targetWord.toLowerCase();
   const detected = transcription.toLowerCase();
-  
+
   // Bonus for clear pronunciation
   if (detected === target) {
     fluency += 20;
   }
-  
+
   // Penalty for broken or unclear speech
   if (detected.includes(' ') && !target.includes(' ')) {
     fluency -= 15; // Broken speech pattern
   }
-  
+
   // Penalty for very short or incomplete words
   if (detected.length < target.length * 0.5) {
     fluency -= 20;
   }
-  
+
   // Bonus for appropriate length
   if (Math.abs(detected.length - target.length) <= 2) {
     fluency += 10;
   }
-  
+
   return Math.min(Math.max(fluency, 10), 95);
 }
 
@@ -2146,10 +2139,10 @@ function generateRealFeedback(targetWord, transcription, accuracy, fluency) {
   if (!transcription || transcription.trim() === '') {
     return "No clear speech detected. Please speak more clearly into the microphone.";
   }
-  
+
   const target = targetWord.toLowerCase();
   const detected = transcription.toLowerCase();
-  
+
   if (accuracy >= 85) {
     return "Excellent pronunciation! Your speech was clear and accurate.";
   } else if (accuracy >= 70) {
@@ -2164,40 +2157,40 @@ function generateRealFeedback(targetWord, transcription, accuracy, fluency) {
 // Generate suggestions based on real analysis
 function generateRealSuggestions(targetWord, transcription, accuracy) {
   const suggestions = [];
-  
+
   if (!transcription || transcription.trim() === '') {
     suggestions.push("Speak closer to the microphone");
     suggestions.push("Ensure your microphone is working");
     suggestions.push("Speak louder and more clearly");
     return suggestions;
   }
-  
+
   const target = targetWord.toLowerCase();
   const detected = transcription.toLowerCase();
-  
+
   if (accuracy < 70) {
     suggestions.push("Practice saying the word slowly");
     suggestions.push("Focus on each syllable");
     suggestions.push("Listen to native speaker pronunciation");
   }
-  
+
   // Specific error patterns
   if (detected.includes('d') && target.includes('th')) {
     suggestions.push("Practice the 'th' sound - put your tongue between your teeth");
   }
-  
+
   if (detected.includes('w') && target.includes('r')) {
     suggestions.push("Practice the 'r' sound - curl your tongue slightly");
   }
-  
+
   if (detected.includes('r') && target.includes('l')) {
     suggestions.push("Practice the 'l' sound - touch your tongue to the roof of your mouth");
   }
-  
+
   if (suggestions.length === 0) {
     suggestions.push("Keep practicing - you're doing well!");
   }
-  
+
   return suggestions;
 }
 
@@ -2207,7 +2200,7 @@ async function analyzeAudioFile(audioFile) {
   const hasAudio = audioFile && audioFile.size > 0;
   const duration = hasAudio ? Math.random() * 3 + 0.5 : 0; // 0.5-3.5 seconds
   const quality = hasAudio ? Math.random() * 0.4 + 0.6 : 0; // 0.6-1.0 quality score
-  
+
   return {
     hasAudio,
     duration,
@@ -2238,7 +2231,7 @@ function getPhoneticRepresentation(word) {
     'important': '/ɪmpɔrtənt/',
     'pronunciation': '/prənʌnsiˈeɪʃən/'
   };
-  
+
   return phoneticMap[word.toLowerCase()] || `/${word}/`;
 }
 
@@ -2253,7 +2246,7 @@ async function performPronunciationAnalysis(targetWord, audioAnalysis, targetPho
       confidence: 0
     };
   }
-  
+
   if (audioAnalysis.quality < 0.3 || audioAnalysis.volume < 0.2) {
     return {
       detectedSpeech: '[audio too quiet or unclear]',
@@ -2263,20 +2256,20 @@ async function performPronunciationAnalysis(targetWord, audioAnalysis, targetPho
       confidence: 0.1
     };
   }
-  
+
   // Simulate realistic speech detection based on audio quality
   const qualityFactor = audioAnalysis.quality * audioAnalysis.clarity;
   const detectedSpeech = generateRealisticDetection(targetWord, qualityFactor);
-  
+
   // Calculate phonetic accuracy based on detected speech
   const phoneticAccuracy = calculatePhoneticSimilarity(targetWord, detectedSpeech);
-  
+
   // Analyze stress patterns
   const stressPattern = analyzeStressPattern(targetWord, detectedSpeech, audioAnalysis);
-  
+
   // Identify specific pronunciation errors
   const pronunciationErrors = identifyPronunciationErrors(targetWord, detectedSpeech);
-  
+
   return {
     detectedSpeech,
     phoneticAccuracy,
@@ -2292,7 +2285,7 @@ function generateRealisticDetection(targetWord, qualityFactor) {
     const unclearOptions = ['[unclear]', '[mumbled]', '[distorted]', '[garbled]'];
     return unclearOptions[Math.floor(Math.random() * unclearOptions.length)];
   }
-  
+
   // Higher quality audio = more accurate detection
   if (qualityFactor > 0.8) {
     // 70% chance of correct detection with high quality
@@ -2304,20 +2297,20 @@ function generateRealisticDetection(targetWord, qualityFactor) {
     // 15% chance of correct detection with low quality
     if (Math.random() < 0.15) return targetWord;
   }
-  
+
   // Generate pronunciation errors based on common ESL mistakes
   const commonErrors = {
     'th': 'd', 'r': 'l', 'l': 'r', 'v': 'w', 'w': 'v',
     'p': 'b', 'b': 'p', 'f': 'p', 'ch': 'sh', 'sh': 'ch'
   };
-  
+
   let result = targetWord;
   for (const [correct, error] of Object.entries(commonErrors)) {
     if (result.includes(correct) && Math.random() < 0.3) {
       result = result.replace(correct, error);
     }
   }
-  
+
   return result;
 }
 
@@ -2326,7 +2319,7 @@ function calculatePhoneticSimilarity(target, detected) {
   if (detected.startsWith('[') && detected.endsWith(']')) {
     return 0; // No speech detected
   }
-  
+
   const similarity = calculateSimilarity(target.toLowerCase(), detected.toLowerCase());
   return Math.round(similarity * 100);
 }
@@ -2336,11 +2329,11 @@ function analyzeStressPattern(targetWord, detectedSpeech, audioAnalysis) {
   if (detectedSpeech.startsWith('[') && detectedSpeech.endsWith(']')) {
     return 'none';
   }
-  
+
   // Simulate stress pattern analysis based on audio characteristics
   const patterns = ['correct', 'weak', 'misplaced', 'unclear'];
   const qualityFactor = audioAnalysis.quality * audioAnalysis.clarity;
-  
+
   if (qualityFactor > 0.8) {
     return Math.random() < 0.6 ? 'correct' : 'weak';
   } else if (qualityFactor > 0.5) {
@@ -2353,55 +2346,55 @@ function analyzeStressPattern(targetWord, detectedSpeech, audioAnalysis) {
 // Identify specific pronunciation errors
 function identifyPronunciationErrors(targetWord, detectedSpeech) {
   const errors = [];
-  
+
   if (detectedSpeech.startsWith('[') && detectedSpeech.endsWith(']')) {
     errors.push('No clear speech detected');
     return errors;
   }
-  
+
   // Check for common pronunciation issues
   if (targetWord.includes('th') && !detectedSpeech.includes('th')) {
     errors.push('TH sound not pronounced correctly');
   }
-  
+
   if (targetWord.includes('r') && detectedSpeech.includes('l')) {
     errors.push('R/L confusion detected');
   }
-  
+
   if (targetWord.includes('v') && detectedSpeech.includes('w')) {
     errors.push('V/W confusion detected');
   }
-  
+
   if (targetWord.length !== detectedSpeech.length) {
     errors.push('Word length mismatch');
   }
-  
+
   if (errors.length === 0) {
     errors.push('Minor pronunciation variations detected');
   }
-  
+
   return errors;
 }
 
 // Advanced accuracy calculation based on pronunciation analysis
 function calculateAdvancedAccuracy(targetWord, pronunciationAnalysis, difficulty) {
   const { detectedSpeech, phoneticAccuracy, confidence } = pronunciationAnalysis;
-  
+
   // Base score from phonetic accuracy
   let score = phoneticAccuracy;
-  
+
   // Adjust based on confidence level
   score = score * confidence;
-  
+
   // Difficulty adjustments
   const difficultyMultipliers = {
     'beginner': 1.1,
     'intermediate': 1.0,
     'advanced': 0.9
   };
-  
+
   score = score * (difficultyMultipliers[difficulty] || 1.0);
-  
+
   // Ensure score is within bounds
   return Math.max(0, Math.min(100, Math.round(score)));
 }
@@ -2409,10 +2402,10 @@ function calculateAdvancedAccuracy(targetWord, pronunciationAnalysis, difficulty
 // Advanced fluency calculation based on pronunciation analysis
 function calculateAdvancedFluency(targetWord, pronunciationAnalysis, difficulty) {
   const { detectedSpeech, stressPattern, confidence, phoneticAccuracy } = pronunciationAnalysis;
-  
+
   // Base fluency from phonetic accuracy and stress pattern
   let fluency = phoneticAccuracy * 0.7;
-  
+
   // Stress pattern contribution
   const stressScores = {
     'correct': 30,
@@ -2421,21 +2414,21 @@ function calculateAdvancedFluency(targetWord, pronunciationAnalysis, difficulty)
     'unclear': 5,
     'none': 0
   };
-  
+
   fluency += stressScores[stressPattern] || 0;
-  
+
   // Confidence factor
   fluency = fluency * confidence;
-  
+
   // Difficulty adjustments
   const difficultyMultipliers = {
     'beginner': 1.1,
     'intermediate': 1.0,
     'advanced': 0.9
   };
-  
+
   fluency = fluency * (difficultyMultipliers[difficulty] || 1.0);
-  
+
   // Ensure fluency is within bounds
   return Math.max(0, Math.min(100, Math.round(fluency)));
 }
@@ -2443,21 +2436,21 @@ function calculateAdvancedFluency(targetWord, pronunciationAnalysis, difficulty)
 // Generate advanced feedback based on pronunciation analysis
 function generateAdvancedFeedback(targetWord, pronunciationAnalysis, accuracy, fluency, difficulty) {
   const { detectedSpeech, pronunciationErrors, stressPattern, confidence } = pronunciationAnalysis;
-  
+
   let feedback = [];
-  
+
   // Audio quality feedback
   if (confidence < 0.3) {
     feedback.push('Audio quality is too low for accurate analysis. Please speak closer to the microphone.');
     return feedback.join(' ');
   }
-  
+
   // No speech detected
   if (detectedSpeech.startsWith('[') && detectedSpeech.endsWith(']')) {
     feedback.push('No clear speech was detected. Please make sure to speak the word clearly.');
     return feedback.join(' ');
   }
-  
+
   // Accuracy feedback
   if (accuracy >= 90) {
     feedback.push('Excellent pronunciation!');
@@ -2468,12 +2461,12 @@ function generateAdvancedFeedback(targetWord, pronunciationAnalysis, accuracy, f
   } else {
     feedback.push('Pronunciation needs significant work.');
   }
-  
+
   // Specific error feedback
   if (pronunciationErrors.length > 0) {
     feedback.push('Issues detected: ' + pronunciationErrors.join(', '));
   }
-  
+
   // Stress pattern feedback
   if (stressPattern === 'correct') {
     feedback.push('Word stress is correct.');
@@ -2482,7 +2475,7 @@ function generateAdvancedFeedback(targetWord, pronunciationAnalysis, accuracy, f
   } else if (stressPattern === 'misplaced') {
     feedback.push('Check the stress pattern - emphasis is on the wrong syllable.');
   }
-  
+
   return feedback.join(' ');
 }
 
@@ -2490,7 +2483,7 @@ function generateAdvancedFeedback(targetWord, pronunciationAnalysis, accuracy, f
 function generateAdvancedSuggestions(targetWord, pronunciationAnalysis, accuracy, fluency) {
   const { pronunciationErrors, stressPattern } = pronunciationAnalysis;
   const suggestions = [];
-  
+
   // Error-specific suggestions
   pronunciationErrors.forEach(error => {
     if (error.includes('TH sound')) {
@@ -2501,21 +2494,21 @@ function generateAdvancedSuggestions(targetWord, pronunciationAnalysis, accuracy
       suggestions.push('For V sounds, bite your lower lip lightly. For W sounds, round your lips.');
     }
   });
-  
+
   // Stress pattern suggestions
   if (stressPattern === 'weak' || stressPattern === 'misplaced') {
     suggestions.push('Listen to native speakers and practice the word stress pattern.');
   }
-  
+
   // General suggestions based on scores
   if (accuracy < 70) {
     suggestions.push('Break the word into syllables and practice each part slowly.');
   }
-  
+
   if (fluency < 70) {
     suggestions.push('Practice speaking the word at a natural pace with proper rhythm.');
   }
-  
+
   return suggestions;
 }
 
@@ -2523,7 +2516,7 @@ function generateAdvancedSuggestions(targetWord, pronunciationAnalysis, accuracy
 function getAdvancedPhoneticTips(targetWord, pronunciationAnalysis) {
   const { pronunciationErrors } = pronunciationAnalysis;
   const tips = [];
-  
+
   // Word-specific phonetic tips
   const phoneticTips = {
     'think': 'Place tongue between teeth for /θ/ sound',
@@ -2534,11 +2527,11 @@ function getAdvancedPhoneticTips(targetWord, pronunciationAnalysis) {
     'beautiful': 'Stress on first syllable: BEAU-ti-ful',
     'pronunciation': 'Five syllables: pro-nun-ci-A-tion'
   };
-  
+
   if (phoneticTips[targetWord.toLowerCase()]) {
     tips.push(phoneticTips[targetWord.toLowerCase()]);
   }
-  
+
   // Error-specific tips
   pronunciationErrors.forEach(error => {
     if (error.includes('TH sound')) {
@@ -2547,7 +2540,7 @@ function getAdvancedPhoneticTips(targetWord, pronunciationAnalysis) {
       tips.push('R: tongue curled back, L: tongue tip up');
     }
   });
-  
+
   return tips;
 }
 
@@ -2557,7 +2550,7 @@ async function basicPronunciationAnalysis(targetWord) {
   const transcription = generateRealisticTranscription(targetWord);
   const accuracy = Math.random() * 40 + 30; // 30-70%
   const fluency = Math.random() * 40 + 30; // 30-70%
-  
+
   return {
     accuracy: Math.round(accuracy),
     fluency: Math.round(fluency),
@@ -2579,23 +2572,23 @@ async function basicPronunciationAnalysis(targetWord) {
 function calculatePronunciationAccuracy(target, transcription, difficulty) {
   const targetLower = target.toLowerCase();
   const transcriptionLower = transcription.toLowerCase();
-  
+
   // Check for silence/no input patterns first
   const silencePatterns = [
     '[silence]', '[no audio detected]', '[no speech]', '[quiet]',
     '[no input]', '[muted]', '[nothing detected]', '[empty audio]',
     '[no sound]', '[silent]', '[no voice detected]', '[audio too quiet]'
   ];
-  
+
   // If transcription indicates silence/no input, give extremely low score
-  const isSilence = silencePatterns.some(pattern => 
+  const isSilence = silencePatterns.some(pattern =>
     transcriptionLower.includes(pattern)
   );
-  
+
   if (isSilence) {
     return Math.floor(Math.random() * 10) + 0; // 0-10% for silence/no input
   }
-  
+
   // Check for gibberish/nonsense patterns
   const gibberishPatterns = [
     'blah', 'mumble', 'uhhhh', 'hmmmm', 'aaaah', 'errr', 'umm',
@@ -2605,41 +2598,41 @@ function calculatePronunciationAccuracy(target, transcription, difficulty) {
     'bla bla', 'yada yada', 'whatever', 'something else',
     'not the word', 'completely different', 'random noise'
   ];
-  
+
   // If transcription contains gibberish patterns, give very low score
-  const isGibberish = gibberishPatterns.some(pattern => 
+  const isGibberish = gibberishPatterns.some(pattern =>
     transcriptionLower.includes(pattern)
   );
-  
+
   if (isGibberish) {
     return Math.floor(Math.random() * 15) + 5; // 5-20% for gibberish
   }
-  
+
   // Perfect match
   if (targetLower === transcriptionLower) {
     return difficulty === 'beginner' ? 95 + Math.floor(Math.random() * 5) :
-           difficulty === 'intermediate' ? 90 + Math.floor(Math.random() * 8) :
-           85 + Math.floor(Math.random() * 10);
+      difficulty === 'intermediate' ? 90 + Math.floor(Math.random() * 8) :
+        85 + Math.floor(Math.random() * 10);
   }
-  
+
   // Calculate similarity using Levenshtein distance
   const similarity = calculateSimilarity(targetLower, transcriptionLower);
-  
+
   // If similarity is very low (less than 0.3), it's likely gibberish
   if (similarity < 0.3) {
     return Math.floor(Math.random() * 25) + 10; // 10-35% for very poor attempts
   }
-  
+
   // Base score on similarity
   let baseScore = Math.round(similarity * 100);
-  
+
   // Adjust for difficulty
   if (difficulty === 'beginner') {
     baseScore = Math.max(40, baseScore); // Lower minimum for more realistic feedback
   } else if (difficulty === 'advanced') {
     baseScore = Math.max(30, baseScore - 10); // Harder scoring for advanced
   }
-  
+
   return Math.min(100, Math.max(15, baseScore));
 }
 
@@ -2647,23 +2640,23 @@ function calculatePronunciationAccuracy(target, transcription, difficulty) {
 function calculateFluencyScore(target, transcription, difficulty) {
   const targetLower = target.toLowerCase();
   const transcriptionLower = transcription.toLowerCase();
-  
+
   // Check for silence/no input patterns first
   const silencePatterns = [
     '[silence]', '[no audio detected]', '[no speech]', '[quiet]',
     '[no input]', '[muted]', '[nothing detected]', '[empty audio]',
     '[no sound]', '[silent]', '[no voice detected]', '[audio too quiet]'
   ];
-  
+
   // If transcription indicates silence/no input, give extremely low score
-  const isSilence = silencePatterns.some(pattern => 
+  const isSilence = silencePatterns.some(pattern =>
     transcriptionLower.includes(pattern)
   );
-  
+
   if (isSilence) {
     return Math.floor(Math.random() * 10) + 0; // 0-10% for silence/no input
   }
-  
+
   // Check for gibberish/nonsense patterns
   const gibberishPatterns = [
     'blah', 'mumble', 'uhhhh', 'hmmmm', 'aaaah', 'errr', 'umm',
@@ -2673,42 +2666,42 @@ function calculateFluencyScore(target, transcription, difficulty) {
     'bla bla', 'yada yada', 'whatever', 'something else',
     'not the word', 'completely different', 'random noise'
   ];
-  
+
   // If transcription contains gibberish patterns, give very low score
-  const isGibberish = gibberishPatterns.some(pattern => 
+  const isGibberish = gibberishPatterns.some(pattern =>
     transcriptionLower.includes(pattern)
   );
-  
+
   if (isGibberish) {
     return Math.floor(Math.random() * 20) + 5; // 5-25% for gibberish
   }
-  
+
   // Check similarity for very poor attempts
   const similarity = calculateSimilarity(targetLower, transcriptionLower);
   if (similarity < 0.3) {
     return Math.floor(Math.random() * 30) + 10; // 10-40% for very poor attempts
   }
-  
+
   // Base fluency score
   let fluencyScore = 75 + Math.floor(Math.random() * 20);
-  
+
   // Adjust based on word length and complexity
   if (target.length > 8) {
     fluencyScore -= Math.floor(Math.random() * 10);
   }
-  
+
   // Adjust for difficulty
   if (difficulty === 'beginner') {
     fluencyScore += 10;
   } else if (difficulty === 'advanced') {
     fluencyScore -= 15;
   }
-  
+
   // Perfect pronunciation gets bonus
   if (targetLower === transcriptionLower) {
     fluencyScore += 10;
   }
-  
+
   return Math.min(100, Math.max(20, fluencyScore));
 }
 
@@ -2716,9 +2709,9 @@ function calculateFluencyScore(target, transcription, difficulty) {
 function calculateSimilarity(str1, str2) {
   const longer = str1.length > str2.length ? str1 : str2;
   const shorter = str1.length > str2.length ? str2 : str1;
-  
+
   if (longer.length === 0) return 1.0;
-  
+
   const editDistance = levenshteinDistance(longer, shorter);
   return (longer.length - editDistance) / longer.length;
 }
@@ -2726,15 +2719,15 @@ function calculateSimilarity(str1, str2) {
 // Levenshtein distance calculation
 function levenshteinDistance(str1, str2) {
   const matrix = [];
-  
+
   for (let i = 0; i <= str2.length; i++) {
     matrix[i] = [i];
   }
-  
+
   for (let j = 0; j <= str1.length; j++) {
     matrix[0][j] = j;
   }
-  
+
   for (let i = 1; i <= str2.length; i++) {
     for (let j = 1; j <= str1.length; j++) {
       if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
@@ -2748,7 +2741,7 @@ function levenshteinDistance(str1, str2) {
       }
     }
   }
-  
+
   return matrix[str2.length][str1.length];
 }
 
@@ -2756,13 +2749,13 @@ function levenshteinDistance(str1, str2) {
 function generateDetailedFeedback(word, accuracy, fluency, difficulty, transcription) {
   const targetLower = word.toLowerCase();
   const transcriptionLower = transcription.toLowerCase();
-  
+
   // Calculate overall score from accuracy and fluency
   const overall = Math.round((accuracy + fluency) / 2);
-  
+
   // Check if pronunciation was perfect
   const isPerfect = targetLower === transcriptionLower;
-  
+
   // Generate specific feedback based on transcription
   let specificFeedback = '';
   if (isPerfect) {
@@ -2775,14 +2768,14 @@ function generateDetailedFeedback(word, accuracy, fluency, difficulty, transcrip
   } else {
     // Provide specific feedback based on what was heard vs. what was expected
     specificFeedback = `I heard "${transcription}" but you were trying to say "${word}". `;
-    
+
     // Add specific pronunciation tips based on the error
     const errorTips = generateErrorSpecificTips(word, transcription);
     if (errorTips) {
       specificFeedback += errorTips;
     }
   }
-  
+
   // Add general feedback based on overall score
   let generalFeedback = '';
   if (overall >= 90) {
@@ -2794,7 +2787,7 @@ function generateDetailedFeedback(word, accuracy, fluency, difficulty, transcrip
   } else {
     generalFeedback = ' This is a challenging word. Break it down syllable by syllable.';
   }
-  
+
   return specificFeedback + generalFeedback;
 }
 
@@ -2802,7 +2795,7 @@ function generateDetailedFeedback(word, accuracy, fluency, difficulty, transcrip
 function generateErrorSpecificTips(target, transcription) {
   const targetLower = target.toLowerCase();
   const transcriptionLower = transcription.toLowerCase();
-  
+
   // Common error patterns and their tips
   const errorPatterns = {
     // TH sound errors
@@ -2821,7 +2814,7 @@ function generateErrorSpecificTips(target, transcription) {
       replacement: 'f',
       tip: 'The "th" sound uses your tongue, not your lips like "f".'
     },
-    
+
     // R/L confusion
     'r_to_l': {
       pattern: /r/g,
@@ -2833,7 +2826,7 @@ function generateErrorSpecificTips(target, transcription) {
       replacement: 'r',
       tip: 'For "l", touch the tip of your tongue to the roof of your mouth.'
     },
-    
+
     // V/W confusion
     'v_to_w': {
       pattern: /v/g,
@@ -2846,7 +2839,7 @@ function generateErrorSpecificTips(target, transcription) {
       tip: 'For "w", round your lips without touching your teeth.'
     }
   };
-  
+
   // Check for specific error patterns
   for (const [errorType, config] of Object.entries(errorPatterns)) {
     const expectedWithError = targetLower.replace(config.pattern, config.replacement);
@@ -2854,17 +2847,17 @@ function generateErrorSpecificTips(target, transcription) {
       return config.tip;
     }
   }
-  
+
   // Check for missing syllables
   if (transcriptionLower.length < targetLower.length * 0.7) {
     return 'Try to pronounce each syllable clearly. Don\'t rush through the word.';
   }
-  
+
   // Check for extra syllables
   if (transcriptionLower.length > targetLower.length * 1.3) {
     return 'Try to blend the syllables more smoothly together.';
   }
-  
+
   // Generic tip for other errors
   return 'Listen carefully to the target pronunciation and try to match the sounds.';
 }
@@ -2874,53 +2867,53 @@ function generateImprovementSuggestions(word, accuracy, fluency, transcription) 
   const suggestions = [];
   const targetLower = word.toLowerCase();
   const transcriptionLower = transcription.toLowerCase();
-  
+
   // Perfect pronunciation gets encouragement
   if (targetLower === transcriptionLower) {
     suggestions.push('Excellent work! Keep practicing to maintain this level');
     suggestions.push('Try practicing this word in different sentences');
     return suggestions;
   }
-  
+
   // Accuracy-based suggestions
   if (accuracy < 70) {
     suggestions.push(`Practice the individual sounds in "${word}" slowly`);
     suggestions.push('Use a mirror to watch your mouth movements');
   }
-  
+
   // Fluency-based suggestions
   if (fluency < 70) {
     suggestions.push('Try speaking more slowly and clearly');
     suggestions.push('Practice the word in different sentences');
   }
-  
+
   // Specific error-based suggestions
   if (hasThError(word, transcription)) {
     suggestions.push('Practice the "th" sound by placing your tongue between your teeth');
   }
-  
+
   if (hasRLConfusion(word, transcription)) {
     suggestions.push('For "r": curl your tongue back; for "l": touch tongue to roof of mouth');
   }
-  
+
   if (hasVWConfusion(word, transcription)) {
     suggestions.push('For "v": bite lower lip; for "w": round lips without touching teeth');
   }
-  
+
   // Length-based suggestions
   if (transcriptionLower.length < targetLower.length * 0.7) {
     suggestions.push('Don\'t skip syllables - pronounce each part clearly');
   }
-  
+
   if (transcriptionLower.length > targetLower.length * 1.3) {
     suggestions.push('Try to blend syllables more smoothly together');
   }
-  
+
   // Word complexity suggestions
   if (word.length > 6) {
     suggestions.push('Break the word into syllables and practice each part');
   }
-  
+
   // Always include at least one general suggestion if we don't have enough
   if (suggestions.length < 2) {
     const generalSuggestions = [
@@ -2930,35 +2923,35 @@ function generateImprovementSuggestions(word, accuracy, fluency, transcription) 
     ];
     suggestions.push(generalSuggestions[Math.floor(Math.random() * generalSuggestions.length)]);
   }
-  
+
   return suggestions.slice(0, 3); // Return max 3 suggestions
 }
 
 // Helper functions for error detection
 function hasThError(target, transcription) {
-  return target.toLowerCase().includes('th') && 
-         !transcription.toLowerCase().includes('th');
+  return target.toLowerCase().includes('th') &&
+    !transcription.toLowerCase().includes('th');
 }
 
 function hasRLConfusion(target, transcription) {
   const targetLower = target.toLowerCase();
   const transcriptionLower = transcription.toLowerCase();
   return (targetLower.includes('r') && transcriptionLower.includes('l')) ||
-         (targetLower.includes('l') && transcriptionLower.includes('r'));
+    (targetLower.includes('l') && transcriptionLower.includes('r'));
 }
 
 function hasVWConfusion(target, transcription) {
   const targetLower = target.toLowerCase();
   const transcriptionLower = transcription.toLowerCase();
   return (targetLower.includes('v') && transcriptionLower.includes('w')) ||
-         (targetLower.includes('w') && transcriptionLower.includes('v'));
+    (targetLower.includes('w') && transcriptionLower.includes('v'));
 }
 
 // Get phonetic tips for specific sounds
 function getPhoneticTips(word) {
   const tips = [];
   const lowerWord = word.toLowerCase();
-  
+
   if (lowerWord.includes('th')) {
     tips.push('For "th" sounds: Place your tongue between your teeth and blow air gently');
   }
@@ -2971,7 +2964,7 @@ function getPhoneticTips(word) {
   if (lowerWord.includes('v')) {
     tips.push('For "v" sounds: Gently bite your lower lip and vibrate your vocal cords');
   }
-  
+
   return tips;
 }
 
@@ -3027,9 +3020,9 @@ router.post('/subscription/tier', async (req, res) => {
     const normalizedTier = (tier || '').toLowerCase();
 
     if (!normalizedTier || !validTiers.includes(normalizedTier)) {
-      return res.status(400).json({ 
-        error: 'Invalid tier', 
-        validTiers: validTiersDisplay 
+      return res.status(400).json({
+        error: 'Invalid tier',
+        validTiers: validTiersDisplay
       });
     }
 

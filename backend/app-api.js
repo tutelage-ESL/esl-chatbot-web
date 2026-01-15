@@ -10,6 +10,11 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const fs = require('fs');
 require('dotenv').config();
 
+// Standardized API response utilities
+const apiResponse = require('./utils/apiResponse');
+const { requireAuth } = require('./middleware/authMiddleware');
+const { globalErrorHandler, notFoundHandler } = require('./middleware/errorHandler');
+
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
@@ -27,7 +32,7 @@ const sessionMiddleware = session({
   secret: process.env.SESSION_SECRET || 'supersecretkey',
   resave: false,
   saveUninitialized: false,
-  cookie: { 
+  cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
@@ -69,12 +74,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api', apiRoutes);
 
 // Add new API endpoints for Next.js frontend
-app.get('/api/dashboard/stats', async (req, res) => {
+app.get('/api/dashboard/stats', requireAuth, async (req, res) => {
   try {
-    if (!req.session.userId) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     // Mock stats for now - you can implement real stats later
     const stats = {
       lessonsCompleted: 12,
@@ -83,55 +84,49 @@ app.get('/api/dashboard/stats', async (req, res) => {
       streakDays: 7
     };
 
-    res.json(stats);
+    return apiResponse.success(res, stats);
   } catch (error) {
     console.error('Error fetching dashboard stats:', error);
-    res.status(500).json({ error: 'Failed to fetch stats' });
+    return apiResponse.internalError(res, 'Failed to fetch stats');
   }
 });
 
-app.get('/api/usage', async (req, res) => {
+app.get('/api/usage', requireAuth, async (req, res) => {
   try {
-    if (!req.session.userId) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     const db = require('./models');
-    const user = await db.User.findByPk(req.session.userId);
-    
+    const user = await db.User.findByPk(req.userId);
+
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return apiResponse.notFound(res, 'User not found');
     }
 
     const remainingUsage = user.getRemainingUsage();
     const tierLimits = user.getTierLimits();
     const usagePercentage = ((tierLimits.ttsMinutes * 60 - remainingUsage) / (tierLimits.ttsMinutes * 60)) * 100;
 
-    res.json({
+    return apiResponse.success(res, {
       remainingUsage,
       usagePercentage: Math.round(usagePercentage),
       tierLimits
     });
   } catch (error) {
     console.error('Error fetching usage:', error);
-    res.status(500).json({ error: 'Failed to fetch usage' });
+    return apiResponse.internalError(res, 'Failed to fetch usage');
   }
 });
 
-app.get('/api/auth/status', (req, res) => {
-  if (req.session.userId) {
-    res.json({
-      authenticated: true,
-      user: req.session.user || { id: req.session.userId }
-    });
-  } else {
-    res.json({ authenticated: false });
-  }
-});
+// Note: /api/auth/status is now handled by authRoutes-api.js
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+  return apiResponse.success(res, {
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    services: {
+      database: 'connected',
+      gemini: !!global.genAI
+    }
+  });
 });
 
 // Helper function to update progress.json file
@@ -139,18 +134,18 @@ function updateProgressJSON(userId, message, type, responsePreview) {
   try {
     const progressPath = path.join(__dirname, 'data/progress.json');
     let progressData = {};
-    
+
     // Read existing progress data
     if (fs.existsSync(progressPath)) {
       const progressFile = fs.readFileSync(progressPath, 'utf8');
       progressData = JSON.parse(progressFile);
     }
-    
+
     // Initialize user data if it doesn't exist
     if (!progressData[userId]) {
       progressData[userId] = [];
     }
-    
+
     // Add new progress entry
     const progressEntry = {
       timestamp: new Date().toISOString(),
@@ -158,17 +153,17 @@ function updateProgressJSON(userId, message, type, responsePreview) {
       type: type,
       responsePreview: responsePreview
     };
-    
+
     progressData[userId].push(progressEntry);
-    
+
     // Keep only the last 100 entries per user
     if (progressData[userId].length > 100) {
       progressData[userId] = progressData[userId].slice(-100);
     }
-    
+
     // Write back to file
     fs.writeFileSync(progressPath, JSON.stringify(progressData, null, 2));
-    
+
   } catch (error) {
     console.error('Error updating progress JSON:', error);
   }
@@ -177,7 +172,7 @@ function updateProgressJSON(userId, message, type, responsePreview) {
 // Socket.IO connection handling
 io.on('connection', (socket) => {
   console.log('New client connected');
-  
+
   socket.on('load history', async () => {
     try {
       if (!socket.handshake.session.userId) {
@@ -196,7 +191,7 @@ io.on('connection', (socket) => {
       for (let i = 0; i < messages.length; i += 2) {
         const userMsg = messages[i];
         const botMsg = messages[i + 1];
-        
+
         if (userMsg && botMsg) {
           chatHistory.push({
             user: userMsg.content,
@@ -222,7 +217,7 @@ io.on('connection', (socket) => {
 
       const userId = socket.handshake.session.userId;
       const db = require('./models');
-      
+
       // Save user message
       await db.Message.create({ userId, content: msg, sender: 'user' });
 
@@ -244,19 +239,19 @@ io.on('connection', (socket) => {
       // Format messages for Gemini API history
       const username = socket.handshake.session.user?.username; // Get the logged-in user's username, using optional chaining
 
-        let history = [];
-        // Prepend a message to inform the AI about the user's name
-        if (username) {
-          history.push({
-            role: 'user',
-            parts: [{ text: `My username is ${username}. Please remember this and use it to address me.` }]
-          });
-        }
+      let history = [];
+      // Prepend a message to inform the AI about the user's name
+      if (username) {
+        history.push({
+          role: 'user',
+          parts: [{ text: `My username is ${username}. Please remember this and use it to address me.` }]
+        });
+      }
 
-        history = history.concat(recentMessages.map(m => ({
-           role: m.sender === 'user' ? 'user' : 'model',
-           parts: [{ text: m.content }]
-         })));
+      history = history.concat(recentMessages.map(m => ({
+        role: m.sender === 'user' ? 'user' : 'model',
+        parts: [{ text: m.content }]
+      })));
 
       // Ensure the history starts with a 'user' role if it's not empty and the first message is 'model'
       if (history.length > 0 && history[0].role === 'model') {
@@ -270,14 +265,14 @@ io.on('connection', (socket) => {
       const chat = model.startChat({ history, generationConfig: { maxOutputTokens: 256, temperature: 0.7 } });
       const result = await chat.sendMessage(msg);
       const botResponse = result.response.text();
-      
+
       // Save bot response
       await db.Message.create({ userId, content: botResponse, sender: 'bot' });
-      
+
       // Update progress tracking with bot response preview
       const responsePreview = botResponse.length > 100 ? botResponse.substring(0, 100) + '...' : botResponse;
       updateProgressJSON(userId, msg, 'text', responsePreview);
-      
+
       socket.emit('chat message', { user: msg, bot: botResponse });
     } catch (error) {
       console.error('Error processing message:', error);
@@ -312,13 +307,19 @@ io.on('connection', (socket) => {
 const db = require('./models');
 const elevenLabsService = require('./services/elevenLabsService');
 
+// 404 handler for undefined routes (must come after all routes)
+app.use(notFoundHandler);
+
+// Global error handler (must be last middleware)
+app.use(globalErrorHandler);
+
 db.sequelize.sync({ alter: false })
   .then(async () => {
     console.log('Database synchronized successfully.');
-    
+
     // Initialize ElevenLabs service
     await elevenLabsService.init();
-    
+
     server.listen(PORT, () => {
       console.log(`API Server is running on port ${PORT}`);
       console.log(`Frontend should connect to: http://localhost:${PORT}`);

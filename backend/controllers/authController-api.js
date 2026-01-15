@@ -1,15 +1,16 @@
 const db = require('../models');
 const bcrypt = require('bcryptjs');
 const { check, validationResult } = require('express-validator');
+const apiResponse = require('../utils/apiResponse');
 
 exports.signup = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ 
-      success: false, 
-      errors: errors.array(),
-      message: 'Validation failed'
-    });
+    const details = errors.array().map(e => ({
+      field: e.path || e.param,
+      message: e.msg
+    }));
+    return apiResponse.validationError(res, 'Validation failed', details);
   }
 
   const { username, email, password, subscriptionTier } = req.body;
@@ -26,50 +27,40 @@ exports.signup = async (req, res) => {
       password: hashedPassword,
       subscriptionTier: selectedTier,
     });
-    
-    req.session.userId = user.id; // Store user ID in session
+
+    req.session.userId = user.id;
     req.session.user = {
       id: user.id,
       username: user.username,
       email: user.email,
       subscriptionTier: user.subscriptionTier
     };
-    
-    res.status(201).json({ 
-      success: true, 
-      message: 'User created successfully',
+
+    return apiResponse.created(res, {
       user: {
         id: user.id,
         username: user.username,
         email: user.email,
         subscriptionTier: user.subscriptionTier
       }
-    });
+    }, 'User created successfully');
   } catch (error) {
     console.error('Error during user signup:', error);
     if (error.name === 'SequelizeUniqueConstraintError') {
-      return res.status(409).json({ 
-        success: false, 
-        message: 'User with this email already exists',
-        errors: [{ msg: 'User with this email already exists' }]
-      });
+      return apiResponse.conflict(res, 'User with this email already exists');
     }
-    res.status(500).json({ 
-      success: false, 
-      message: 'Internal server error',
-      errors: [{ msg: 'Internal server error' }]
-    });
+    return apiResponse.internalError(res);
   }
 };
 
 exports.login = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ 
-      success: false, 
-      errors: errors.array(),
-      message: 'Validation failed'
-    });
+    const details = errors.array().map(e => ({
+      field: e.path || e.param,
+      message: e.msg
+    }));
+    return apiResponse.validationError(res, 'Validation failed', details);
   }
 
   const { email, password } = req.body;
@@ -78,48 +69,34 @@ exports.login = async (req, res) => {
     const user = await db.User.findOne({ where: { email } });
 
     if (!user) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Invalid email or password',
-        errors: [{ msg: 'Invalid email or password' }]
-      });
+      return apiResponse.unauthorized(res, 'Invalid email or password');
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Invalid email or password',
-        errors: [{ msg: 'Invalid email or password' }]
-      });
+      return apiResponse.unauthorized(res, 'Invalid email or password');
     }
 
-    req.session.userId = user.id; // Store user ID in session
+    req.session.userId = user.id;
     req.session.user = {
       id: user.id,
       username: user.username,
       email: user.email,
       subscriptionTier: user.subscriptionTier
     };
-    
-    res.json({ 
-      success: true, 
-      message: 'Login successful',
+
+    return apiResponse.success(res, {
       user: {
         id: user.id,
         username: user.username,
         email: user.email,
         subscriptionTier: user.subscriptionTier
       }
-    });
+    }, 'Login successful');
   } catch (error) {
     console.error('Error during user login:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Internal server error',
-      errors: [{ msg: 'Internal server error' }]
-    });
+    return apiResponse.internalError(res);
   }
 };
 
@@ -127,14 +104,22 @@ exports.logout = (req, res) => {
   req.session.destroy(err => {
     if (err) {
       console.error('Error destroying session:', err);
-      return res.status(500).json({ 
-        success: false, 
-        message: 'Error logging out'
-      });
+      return apiResponse.internalError(res, 'Error logging out');
     }
-    res.json({ 
-      success: true, 
-      message: 'Logout successful'
-    });
+    return apiResponse.success(res, null, 'Logout successful');
   });
+};
+
+exports.getStatus = (req, res) => {
+  if (req.session && req.session.userId) {
+    return apiResponse.success(res, {
+      authenticated: true,
+      user: req.session.user || { id: req.session.userId }
+    });
+  } else {
+    return apiResponse.success(res, {
+      authenticated: false,
+      user: null
+    });
+  }
 };
