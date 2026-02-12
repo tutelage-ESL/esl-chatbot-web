@@ -138,3 +138,20 @@ exports.logout = (req, res) => {
     });
   });
 };
+
+exports.refreshToken = (req, res) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ 
+      success: false, 
+      message: 'Unauthorized'
+    });
+  }
+
+  // For simplicity, we are just returning the existing session info.
+  res.json({ 
+    success: true, 
+    message: 'Session refreshed',
+    user: req.session.user
+  }); 
+
+}
