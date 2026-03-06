@@ -1,1 +1,1 @@
-export { default } from "file:///C:/Users/HOME/OneDrive/Desktop/rekar-projects/esl-chatbot-web/frontend/node_modules/@nuxt/vite-builder/dist/vite-node-entry.mjs"
+export { default } from "file:///C:/Users/HOME/OneDrive/Desktop/rekar-projects/esl-chatbot-web/frontend/node_modules/@nuxt/vite-builder/dist/runtime/vite-node.mjs"
