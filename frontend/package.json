@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+<<<<<<< Updated upstream
     "@headlessui/react": "^2.2.9",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-separator": "^1.1.7",
@@ -37,5 +38,11 @@
     "eslint-config-next": "15.5.4",
     "tailwindcss": "^4",
     "typescript": "^5"
+=======
+    "@nuxt/image": "^2.0.0",
+    "nuxt": "^4.3.1",
+    "vue": "^3.5.28",
+    "vue-router": "^4.6.4"
+>>>>>>> Stashed changes
   }
 }

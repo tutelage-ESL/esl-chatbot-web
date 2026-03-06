@@ -1,8 +1,4 @@
 
 /node_modules
-
-/frontend
-/frontend
-/frontend
 /backend/data
 backend/data/progress.json
