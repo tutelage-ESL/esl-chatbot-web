@@ -3,11 +3,134 @@
  * These annotations are picked up by swagger-jsdoc.
  */
 
+// ============================================================================
+// JWT AUTH ROUTES
+// ============================================================================
+
+/**
+ * @swagger
+ * /api/auth/jwt/signup:
+ *   post:
+ *     summary: Create a new account and receive JWT tokens
+ *     tags: [JWT Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/SignupRequest'
+ *     responses:
+ *       201:
+ *         description: Account created, tokens returned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthTokenResponse'
+ *       400:
+ *         description: Validation error
+ *       409:
+ *         description: User already exists
+ */
+
+/**
+ * @swagger
+ * /api/auth/jwt/signin:
+ *   post:
+ *     summary: Sign in and receive access + refresh tokens
+ *     tags: [JWT Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LoginRequest'
+ *     responses:
+ *       200:
+ *         description: Signed in, tokens returned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthTokenResponse'
+ *       401:
+ *         description: Invalid credentials
+ */
+
+/**
+ * @swagger
+ * /api/auth/jwt/refresh:
+ *   post:
+ *     summary: Refresh access token using a valid refresh token (rotation)
+ *     tags: [JWT Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/RefreshTokenRequest'
+ *     responses:
+ *       200:
+ *         description: New token pair returned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/RefreshTokenResponse'
+ *       401:
+ *         description: Refresh token invalid, expired, or revoked
+ */
+
+/**
+ * @swagger
+ * /api/auth/jwt/logout:
+ *   post:
+ *     summary: Logout and invalidate refresh token
+ *     tags: [JWT Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/RefreshTokenRequest'
+ *     responses:
+ *       200:
+ *         description: Logged out successfully
+ */
+
+/**
+ * @swagger
+ * /api/auth/jwt/profile:
+ *   get:
+ *     summary: Get authenticated user profile (protected)
+ *     tags: [JWT Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile returned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     user:
+ *                       $ref: '#/components/schemas/User'
+ *       401:
+ *         description: Access token missing or invalid
+ */
+
+// ============================================================================
+// SESSION AUTH ROUTES (legacy)
+// ============================================================================
+
 /**
  * @swagger
  * /api/auth/signup:
  *   post:
- *     summary: Create a new user account
+ *     summary: Create a new user account (session-based, legacy)
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -26,7 +149,7 @@
  * @swagger
  * /api/auth/login:
  *   post:
- *     summary: Login and create session
+ *     summary: Login and create session (legacy)
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -45,7 +168,7 @@
  * @swagger
  * /api/auth/logout:
  *   post:
- *     summary: Logout current user
+ *     summary: Logout current user (session-based, legacy)
  *     tags: [Auth]
  *     responses:
  *       200:
@@ -56,12 +179,16 @@
  * @swagger
  * /api/auth/status:
  *   get:
- *     summary: Get authentication/session status
+ *     summary: Get session status (legacy)
  *     tags: [Auth]
  *     responses:
  *       200:
  *         description: Session status returned
  */
+
+// ============================================================================
+// CHAT
+// ============================================================================
 
 /**
  * @swagger
@@ -70,7 +197,7 @@
  *     summary: Send chat message to AI tutor
  *     tags: [Chat]
  *     security:
- *       - sessionAuth: []
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -93,6 +220,10 @@
  *         description: Not authenticated
  */
 
+// ============================================================================
+// PROGRESS
+// ============================================================================
+
 /**
  * @swagger
  * /api/progress:
@@ -100,7 +231,7 @@
  *     summary: Get current user's progress
  *     tags: [Progress]
  *     security:
- *       - sessionAuth: []
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Progress fetched
@@ -121,6 +252,8 @@
  *   get:
  *     summary: Get progress by user id
  *     tags: [Progress]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: userId
@@ -132,12 +265,18 @@
  *         description: User progress fetched
  */
 
+// ============================================================================
+// SETTINGS
+// ============================================================================
+
 /**
  * @swagger
  * /api/settings/{userId}:
  *   get:
  *     summary: Get user settings
  *     tags: [Settings]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: userId
@@ -157,6 +296,8 @@
  *   post:
  *     summary: Create or update user settings
  *     tags: [Settings]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -168,12 +309,18 @@
  *         description: Settings updated
  */
 
+// ============================================================================
+// UPLOADS
+// ============================================================================
+
 /**
  * @swagger
  * /api/upload:
  *   post:
  *     summary: Upload a file
  *     tags: [Chat]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -190,6 +337,10 @@
  *         description: File uploaded
  */
 
+// ============================================================================
+// VOICE
+// ============================================================================
+
 /**
  * @swagger
  * /api/voice-message:
@@ -197,7 +348,7 @@
  *     summary: Process a voice message using fallback LLM route
  *     tags: [Voice]
  *     security:
- *       - sessionAuth: []
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -219,6 +370,8 @@
  *   get:
  *     summary: List available voices from ElevenLabs
  *     tags: [Voice]
+ *     security:
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Voice list returned
@@ -232,6 +385,8 @@
  *   post:
  *     summary: Convert text to speech audio buffer
  *     tags: [Voice]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -254,6 +409,8 @@
  *   post:
  *     summary: Stream text-to-speech audio
  *     tags: [Voice]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -271,6 +428,8 @@
  *   get:
  *     summary: Get status of voice providers
  *     tags: [Voice]
+ *     security:
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Voice provider status
@@ -282,6 +441,8 @@
  *   post:
  *     summary: Free TTS proxy endpoint
  *     tags: [Voice]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -297,6 +458,10 @@
  *         description: Audio returned
  */
 
+// ============================================================================
+// VOCABULARY
+// ============================================================================
+
 /**
  * @swagger
  * /api/vocabulary:
@@ -304,7 +469,7 @@
  *     summary: Get current user's vocabulary list
  *     tags: [Vocabulary]
  *     security:
- *       - sessionAuth: []
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Vocabulary list returned
@@ -312,7 +477,7 @@
  *     summary: Add vocabulary item
  *     tags: [Vocabulary]
  *     security:
- *       - sessionAuth: []
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -331,7 +496,7 @@
  *     summary: Update a vocabulary item
  *     tags: [Vocabulary]
  *     security:
- *       - sessionAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -345,7 +510,7 @@
  *     summary: Delete a vocabulary item
  *     tags: [Vocabulary]
  *     security:
- *       - sessionAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -364,13 +529,15 @@
  *     summary: Get random practice words
  *     tags: [Vocabulary]
  *     security:
- *       - sessionAuth: []
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Practice words returned
  *   post:
  *     summary: Submit vocabulary practice result
  *     tags: [Vocabulary]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -396,10 +563,16 @@
  *   get:
  *     summary: Generate a vocabulary quiz
  *     tags: [Vocabulary]
+ *     security:
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Quiz returned
  */
+
+// ============================================================================
+// GOALS
+// ============================================================================
 
 /**
  * @swagger
@@ -408,7 +581,7 @@
  *     summary: List user goals
  *     tags: [Goals]
  *     security:
- *       - sessionAuth: []
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Goals returned
@@ -416,7 +589,7 @@
  *     summary: Create a new goal
  *     tags: [Goals]
  *     security:
- *       - sessionAuth: []
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -435,7 +608,7 @@
  *     summary: Update a goal
  *     tags: [Goals]
  *     security:
- *       - sessionAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -449,7 +622,7 @@
  *     summary: Delete a goal
  *     tags: [Goals]
  *     security:
- *       - sessionAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -468,7 +641,7 @@
  *     summary: Record goal progress event
  *     tags: [Goals]
  *     security:
- *       - sessionAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -500,11 +673,15 @@
  *     summary: Get personalized goal suggestions
  *     tags: [Goals]
  *     security:
- *       - sessionAuth: []
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Suggestions returned
  */
+
+// ============================================================================
+// PRONUNCIATION
+// ============================================================================
 
 /**
  * @swagger
@@ -512,6 +689,8 @@
  *   post:
  *     summary: Analyze pronunciation from uploaded audio
  *     tags: [Pronunciation]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -530,12 +709,18 @@
  *         description: Pronunciation analysis returned
  */
 
+// ============================================================================
+// SUBSCRIPTION
+// ============================================================================
+
 /**
  * @swagger
  * /api/subscription/status:
  *   get:
  *     summary: Get current user's subscription and usage status
  *     tags: [Subscription]
+ *     security:
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Subscription status returned
@@ -547,6 +732,8 @@
  *   post:
  *     summary: Update user's subscription tier
  *     tags: [Subscription]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -569,6 +756,8 @@
  *   get:
  *     summary: Get subscription usage history
  *     tags: [Subscription]
+ *     security:
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Usage history returned
@@ -580,9 +769,45 @@
  *   post:
  *     summary: Reset monthly usage counters (admin/testing)
  *     tags: [Subscription]
+ *     security:
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Usage reset
+ */
+
+// ============================================================================
+// DASHBOARD & USAGE (defined in app-api.js)
+// ============================================================================
+
+/**
+ * @swagger
+ * /api/dashboard/stats:
+ *   get:
+ *     summary: Get dashboard statistics
+ *     tags: [Progress]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Dashboard stats returned
+ *       401:
+ *         description: Not authenticated
+ */
+
+/**
+ * @swagger
+ * /api/usage:
+ *   get:
+ *     summary: Get current user's TTS usage and limits
+ *     tags: [Subscription]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Usage info returned
+ *       401:
+ *         description: Not authenticated
  */
 
 module.exports = {};

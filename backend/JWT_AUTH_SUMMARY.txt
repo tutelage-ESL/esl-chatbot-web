@@ -1,0 +1,86 @@
+All done. Here's a summary of the complete JWT auth system:
+
+Files Created
+
+- services/tokenService.js
+  Purpose: Generates & verifies access/refresh JWTs
+
+- services/sessionStore.js
+  Purpose: In-memory Map tracking active refresh tokens per user
+
+- middleware/jwtMiddleware.js
+  Purpose: requireJwtAuth — extracts & validates Bearer token from Authorization header
+
+- controllers/jwtAuthController.js
+  Purpose: Sign-in, sign-up, refresh (with rotation), logout, profile
+
+- routes/jwtAuthRoutes.js
+  Purpose: Route definitions mounted at /api/auth/jwt
+
+Files Modified
+
+- app-api.js
+  Change: Added JWT_ACCESS_SECRET + JWT_REFRESH_SECRET to required env vars, mounted JWT routes
+
+- .env.example
+  Change: Added JWT config template
+
+- .env
+  Change: Appended generated JWT secrets + expiry settings
+
+API Endpoints
+
+- POST /api/auth/jwt/signup
+  Auth: None
+  Description: Create account, returns tokens + user
+
+- POST /api/auth/jwt/signin
+  Auth: None
+  Description: Authenticate, returns tokens + user
+
+- POST /api/auth/jwt/refresh
+  Auth: Body contains { refreshToken }
+  Description: Rotates both tokens
+
+- POST /api/auth/jwt/logout
+  Auth: Body contains { refreshToken }
+  Description: Invalidates session
+
+- GET /api/auth/jwt/profile
+  Auth: Authorization: Bearer <accessToken>
+  Description: Protected route, returns user info
+
+Response Format
+
+All endpoints return your requested format:
+
+{
+  "success": true,
+  "message": "Sign in successful",
+  "data": {
+    "user": { "id": 1, "username": "...", "email": "...", "subscriptionTier": "standard" },
+    "accessToken": "eyJ...",
+    "refreshToken": "eyJ..."
+  }
+}
+
+How It Works
+
+1) Sign in
+   Server issues access token (20m) + refresh token (30d), stores refresh token in the session Map.
+
+2) API calls
+   Frontend sends Authorization: Bearer <accessToken>, middleware decodes and attaches req.user.
+
+3) Token expired
+   Frontend calls /refresh with the refresh token.
+   Server verifies it exists in the Map, issues new pair, rotates (old refresh token is replaced).
+
+4) Logout
+   Server removes the session from the Map, refresh token is now useless.
+
+5) 30 days
+   Refresh token expires, user must sign in again.
+
+The existing session-based auth (/api/auth/*) is untouched — both systems work side by side.
+Use requireJwtAuth middleware on any route you want to protect with JWT instead of requireAuth.

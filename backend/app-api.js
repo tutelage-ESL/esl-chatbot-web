@@ -12,7 +12,7 @@ require('dotenv').config();
 
 // Standardized API response utilities
 const apiResponse = require('./utils/apiResponse');
-const { requireAuth } = require('./middleware/authMiddleware');
+const { requireJwtAuth } = require('./middleware/jwtMiddleware');
 const { globalErrorHandler, notFoundHandler } = require('./middleware/errorHandler');
 
 // Security middleware
@@ -23,7 +23,7 @@ const { sanitizeInputs } = require('./middleware/validators');
 // ============================================================================
 // ENVIRONMENT VALIDATION (OWASP: Fail securely)
 // ============================================================================
-const requiredEnvVars = ['SESSION_SECRET'];
+const requiredEnvVars = ['SESSION_SECRET', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET'];
 const optionalEnvVars = ['GEMINI_API_KEY', 'ELEVENLABS_API_KEY', 'HUGGINGFACE_API_TOKEN'];
 
 requiredEnvVars.forEach(varName => {
@@ -128,15 +128,18 @@ app.get('/api/docs.json', (req, res) => {
 // API ROUTES
 // ============================================================================
 const authRoutes = require('./routes/authRoutes-api');
+const jwtAuthRoutes = require('./routes/jwtAuthRoutes');
 const apiRoutes = require('./routes/apiRoutes');
 
 console.log('Applying auth routes middleware...');
-// Apply stricter rate limiting to auth routes
+// Session-based auth routes (legacy)
 app.use('/api/auth', authLimiter, authRoutes);
+// JWT-based auth routes
+app.use('/api/auth/jwt', authLimiter, jwtAuthRoutes);
 app.use('/api', apiRoutes);
 
 // Add new API endpoints for Next.js frontend
-app.get('/api/dashboard/stats', requireAuth, async (req, res) => {
+app.get('/api/dashboard/stats', requireJwtAuth, async (req, res) => {
   try {
     // Mock stats for now - you can implement real stats later
     const stats = {
@@ -153,7 +156,7 @@ app.get('/api/dashboard/stats', requireAuth, async (req, res) => {
   }
 });
 
-app.get('/api/usage', requireAuth, async (req, res) => {
+app.get('/api/usage', requireJwtAuth, async (req, res) => {
   try {
     const db = require('./models');
     const user = await db.User.findByPk(req.userId);

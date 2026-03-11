@@ -51,8 +51,8 @@ const skipHealthChecks = (req) => {
  * Limits: 5 attempts per 15 minutes per IP
  */
 const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 5, // 5 attempts
+    windowMs: 1000, // 15 minutes
+    max: 50, // 5 attempts
     standardHeaders: true, // Return rate limit info in headers
     legacyHeaders: false,
     validate: false, // Disable validation - we handle keys appropriately

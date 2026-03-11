@@ -26,11 +26,11 @@ const options = {
         ],
         components: {
             securitySchemes: {
-                sessionAuth: {
-                    type: 'apiKey',
-                    in: 'cookie',
-                    name: 'connect.sid',
-                    description: 'Session-based authentication'
+                bearerAuth: {
+                    type: 'http',
+                    scheme: 'bearer',
+                    bearerFormat: 'JWT',
+                    description: 'JWT access token. Obtain from POST /api/auth/jwt/signin'
                 }
             },
             schemas: {
@@ -83,6 +83,43 @@ const options = {
                         username: { type: 'string' },
                         email: { type: 'string' },
                         subscriptionTier: { type: 'string' }
+                    }
+                },
+                // JWT Auth schemas
+                AuthTokenResponse: {
+                    type: 'object',
+                    properties: {
+                        success: { type: 'boolean', example: true },
+                        message: { type: 'string', example: 'Sign in successful' },
+                        data: {
+                            type: 'object',
+                            properties: {
+                                user: { $ref: '#/components/schemas/User' },
+                                accessToken: { type: 'string', example: 'eyJhbGciOiJIUzI1NiIs...' },
+                                refreshToken: { type: 'string', example: 'eyJhbGciOiJIUzI1NiIs...' }
+                            }
+                        }
+                    }
+                },
+                RefreshTokenRequest: {
+                    type: 'object',
+                    required: ['refreshToken'],
+                    properties: {
+                        refreshToken: { type: 'string' }
+                    }
+                },
+                RefreshTokenResponse: {
+                    type: 'object',
+                    properties: {
+                        success: { type: 'boolean', example: true },
+                        message: { type: 'string', example: 'Tokens refreshed successfully' },
+                        data: {
+                            type: 'object',
+                            properties: {
+                                accessToken: { type: 'string' },
+                                refreshToken: { type: 'string' }
+                            }
+                        }
                     }
                 },
                 // Chat schemas
@@ -202,7 +239,8 @@ const options = {
             }
         },
         tags: [
-            { name: 'Auth', description: 'Authentication endpoints' },
+            { name: 'Auth', description: 'Session-based authentication (legacy)' },
+            { name: 'JWT Auth', description: 'JWT token-based authentication' },
             { name: 'Chat', description: 'AI chat endpoints' },
             { name: 'Progress', description: 'Progress and learning activity endpoints' },
             { name: 'Settings', description: 'User settings endpoints' },

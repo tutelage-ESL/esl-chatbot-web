@@ -17,7 +17,7 @@ const { Op } = require('sequelize');
 
 // Standardized API response utilities
 const apiResponse = require('../utils/apiResponse');
-const { requireAuth, optionalAuth, publicEventAuth } = require('../middleware/authMiddleware');
+const { requireJwtAuth, optionalJwtAuth } = require('../middleware/jwtMiddleware');
 const { chatLimiter, ttsLimiter } = require('../middleware/rateLimiter');
 const { validate, chatSchemas, vocabularySchemas, goalSchemas, settingsSchemas, ttsSchemas } = require('../middleware/validators');
 
@@ -82,7 +82,7 @@ async function updateProgressDB(userId, message, type, responsePreview) {
 }
 
 // Chat endpoint with Gemini AI
-router.post('/chat', chatLimiter, publicEventAuth, async (req, res) => {
+router.post('/chat', chatLimiter, requireJwtAuth, async (req, res) => {
   // Handle public event mode auto-login if needed
   if (!req.userId && process.env.PUBLIC_EVENT_MODE === 'true') {
     try {
@@ -377,7 +377,7 @@ router.post('/chat', chatLimiter, publicEventAuth, async (req, res) => {
 
 // Progress endpoints
 // Generic progress endpoint that uses session userId
-router.get('/progress', requireAuth, async (req, res) => {
+router.get('/progress', requireJwtAuth, async (req, res) => {
   try {
     const userId = req.userId;
 
@@ -604,7 +604,7 @@ router.get('/health', async (req, res) => {
   }
 });
 
-router.post('/voice-message', requireAuth, async (req, res) => {
+router.post('/voice-message', requireJwtAuth, async (req, res) => {
   try {
     const { message } = req.body;
     if (!message) {
@@ -875,7 +875,7 @@ router.post('/free-tts', async (req, res) => {
 });
 
 // Enhanced Vocabulary endpoints
-router.get('/vocabulary', requireAuth, async (req, res) => {
+router.get('/vocabulary', requireJwtAuth, async (req, res) => {
   try {
     const userId = req.userId;
 
@@ -908,7 +908,7 @@ router.get('/vocabulary', requireAuth, async (req, res) => {
   }
 });
 
-router.post('/vocabulary', requireAuth, async (req, res) => {
+router.post('/vocabulary', requireJwtAuth, async (req, res) => {
   try {
     const { word, definition, example, difficulty, category } = req.body;
     const userId = req.userId;
@@ -956,7 +956,7 @@ router.post('/vocabulary', requireAuth, async (req, res) => {
 });
 
 // Update vocabulary item
-router.put('/vocabulary/:id', requireAuth, async (req, res) => {
+router.put('/vocabulary/:id', requireJwtAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { definition, example, difficulty, category, masteryLevel } = req.body;
@@ -986,7 +986,7 @@ router.put('/vocabulary/:id', requireAuth, async (req, res) => {
 });
 
 // Delete vocabulary item
-router.delete('/vocabulary/:id', requireAuth, async (req, res) => {
+router.delete('/vocabulary/:id', requireJwtAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.userId;
@@ -1008,7 +1008,7 @@ router.delete('/vocabulary/:id', requireAuth, async (req, res) => {
 });
 
 // Get vocabulary for practice
-router.get('/vocabulary/practice', requireAuth, async (req, res) => {
+router.get('/vocabulary/practice', requireJwtAuth, async (req, res) => {
   try {
     const userId = req.userId;
     const { difficulty = 'all', count = 10 } = req.query;
@@ -1297,7 +1297,7 @@ function shuffleArray(array) {
 }
 
 // Enhanced Learning Goals endpoints
-router.post('/goals', requireAuth, async (req, res) => {
+router.post('/goals', requireJwtAuth, async (req, res) => {
   try {
     const { type, target, timeframe, description, difficulty, category } = req.body;
     const userId = req.userId;
@@ -1338,7 +1338,7 @@ router.post('/goals', requireAuth, async (req, res) => {
   }
 });
 
-router.get('/goals', requireAuth, async (req, res) => {
+router.get('/goals', requireJwtAuth, async (req, res) => {
   try {
     const userId = req.userId;
     const { status = 'all', type = 'all' } = req.query;
@@ -1374,7 +1374,7 @@ router.get('/goals', requireAuth, async (req, res) => {
 });
 
 // Update goal
-router.put('/goals/:id', requireAuth, async (req, res) => {
+router.put('/goals/:id', requireJwtAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { description, target, timeframe, status } = req.body;
@@ -1411,7 +1411,7 @@ router.put('/goals/:id', requireAuth, async (req, res) => {
 });
 
 // Delete goal
-router.delete('/goals/:id', requireAuth, async (req, res) => {
+router.delete('/goals/:id', requireJwtAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.userId;
@@ -1433,7 +1433,7 @@ router.delete('/goals/:id', requireAuth, async (req, res) => {
 });
 
 // Record goal progress
-router.post('/goals/:id/progress', requireAuth, async (req, res) => {
+router.post('/goals/:id/progress', requireJwtAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { activity, value, notes } = req.body;
@@ -1505,7 +1505,7 @@ router.post('/goals/:id/progress', requireAuth, async (req, res) => {
 });
 
 // Get goal suggestions
-router.get('/goals/suggestions', requireAuth, async (req, res) => {
+router.get('/goals/suggestions', requireJwtAuth, async (req, res) => {
   try {
     const userId = req.userId;
 
