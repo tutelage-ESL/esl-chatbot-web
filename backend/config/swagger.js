@@ -5,6 +5,7 @@
  */
 
 const swaggerJsdoc = require('swagger-jsdoc');
+const path = require('path');
 
 const options = {
     definition: {
@@ -92,6 +93,12 @@ const options = {
                         message: { type: 'string', maxLength: 2000 }
                     }
                 },
+                ChatResponse: {
+                    type: 'object',
+                    properties: {
+                        response: { type: 'string' }
+                    }
+                },
                 // Vocabulary schemas
                 VocabularyItem: {
                     type: 'object',
@@ -139,6 +146,36 @@ const options = {
                         difficulty: { type: 'string', enum: ['beginner', 'intermediate', 'advanced'] }
                     }
                 },
+                ProgressResponse: {
+                    type: 'object',
+                    properties: {
+                        progress: { type: 'integer' },
+                        chatMessageCount: { type: 'integer' },
+                        totalWordsTyped: { type: 'integer' },
+                        studyTime: { type: 'string' },
+                        dayStreak: { type: 'integer' },
+                        level: { type: 'string' }
+                    }
+                },
+                SettingsRequest: {
+                    type: 'object',
+                    required: ['user_id'],
+                    properties: {
+                        user_id: { type: 'integer' },
+                        language: { type: 'string', example: 'en' },
+                        voiceSpeed: { type: 'number', example: 1.0 },
+                        autoSpeak: { type: 'boolean', example: false }
+                    }
+                },
+                TextToSpeechRequest: {
+                    type: 'object',
+                    required: ['text'],
+                    properties: {
+                        text: { type: 'string', example: 'Hello, welcome to your ESL lesson.' },
+                        voiceId: { type: 'string' },
+                        options: { type: 'object' }
+                    }
+                },
                 // Health check
                 HealthCheck: {
                     type: 'object',
@@ -167,12 +204,21 @@ const options = {
         tags: [
             { name: 'Auth', description: 'Authentication endpoints' },
             { name: 'Chat', description: 'AI chat endpoints' },
+            { name: 'Progress', description: 'Progress and learning activity endpoints' },
+            { name: 'Settings', description: 'User settings endpoints' },
+            { name: 'Voice', description: 'Voice synthesis and voice-message endpoints' },
+            { name: 'Pronunciation', description: 'Pronunciation analysis endpoints' },
+            { name: 'Subscription', description: 'Subscription and usage endpoints' },
             { name: 'Vocabulary', description: 'Vocabulary management' },
             { name: 'Goals', description: 'Learning goals' },
             { name: 'Health', description: 'System health checks' }
         ]
     },
-    apis: ['./routes/*.js', './controllers/*.js']
+    apis: [
+        path.join(__dirname, '../routes/*.js'),
+        path.join(__dirname, '../controllers/*.js'),
+        path.join(__dirname, '../docs/*.js')
+    ]
 };
 
 const swaggerSpec = swaggerJsdoc(options);
