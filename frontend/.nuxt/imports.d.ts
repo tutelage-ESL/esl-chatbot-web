@@ -28,4 +28,7 @@ export { withCtx, withDirectives, withKeys, withMemo, withModifiers, withScopeId
 export { requestIdleCallback, cancelIdleCallback } from '#app/compat/idle-callback';
 export { setInterval } from '#app/compat/interval';
 export { defineLazyHydrationComponent } from '#app/composables/lazy-hydration';
-export { useNuxtDevTools } from '../node_modules/@nuxt/devtools/dist/runtime/use-nuxt-devtools';
+export { default as useEnv } from '../app/composables/useEnv';
+export { useHttp } from '../app/composables/useHttp';
+export { useScrollToTop } from '../app/composables/useScrollToTop';
+export { useSeo } from '../app/composables/useSeo';

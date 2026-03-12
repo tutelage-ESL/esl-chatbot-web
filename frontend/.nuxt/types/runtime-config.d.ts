@@ -10,6 +10,10 @@ import { RuntimeConfig as UserRuntimeConfig, PublicRuntimeConfig as UserPublicRu
       cdnURL: string,
    },
 
+   APP_IDENTIFIER: string,
+
+   BASE_URL: string,
+
    nitro: {
       envPrefix: string,
    },

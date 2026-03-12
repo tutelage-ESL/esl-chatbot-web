@@ -1,7 +1,24 @@
 <template>
   <div>
-    <h1 class="text-red-500">
-      test
-    </h1>
+    <NuxtLayout>
+      <main>
+        <NuxtPage />
+      </main>
+    </NuxtLayout>
   </div>
 </template>
+
+<script setup lang="ts">
+
+useHead({
+  title: 'Esl Chat Bot',
+  htmlAttrs: {
+    lang: 'en',
+  },
+  link: [{ rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
+  ],
+
+})
+
+useSeo()
+</script>
