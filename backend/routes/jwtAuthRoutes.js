@@ -6,6 +6,7 @@
 //   POST /api/auth/jwt/signin   → Authenticate & receive tokens
 //   POST /api/auth/jwt/refresh  → Rotate tokens (access + refresh)
 //   POST /api/auth/jwt/logout   → Invalidate refresh token
+//   GET  /api/auth/jwt/me        → Protected route – current user (token-only)
 //   GET  /api/auth/jwt/profile  → Protected route – returns user info
 // ============================================================================
 
@@ -42,7 +43,10 @@ router.post('/refresh', jwtAuthController.refresh);
 // ── Logout ───────────────────────────────────────────────────────────────────
 router.post('/logout', jwtAuthController.logout);
 
-// ── Profile (protected example route) ────────────────────────────────────────
+// ── Current user (protected, token-only) ─────────────────────────────────────
+router.get('/me', requireJwtAuth, jwtAuthController.getProfile);
+
+// ── Profile (protected route) ────────────────────────────────────────────────
 router.get('/profile', requireJwtAuth, jwtAuthController.getProfile);
 
 module.exports = router;
