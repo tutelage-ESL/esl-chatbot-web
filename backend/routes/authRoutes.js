@@ -1,3 +1,11 @@
+// =============================================================================
+// LEGACY AUTH ROUTES — FOR REFERENCE ONLY
+// =============================================================================
+// Session-based auth with EJS redirects (login → /dashboard).
+// Used only by server-legacy.js. The active server uses sessionAuthRoutes.js
+// and jwtAuthRoutes.js instead.
+// =============================================================================
+
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');

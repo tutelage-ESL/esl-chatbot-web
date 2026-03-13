@@ -2,8 +2,14 @@
 
 This document outlines the standard REST API endpoints available in the backend and provides the TypeScript interfaces for both frontend consumption and backend development.
 
+> **Active server:** `server.js` — JWT-based REST API, used by the React frontend.
+> **Legacy server:** `server-legacy.js` — EJS/session-based server (not in active use).
+
+All endpoints below are served by `server.js` unless otherwise noted.
+
 ## Base URL
 - Local: `http://localhost:3001`
+- Swagger UI: `http://localhost:3001/api/docs`
 
 ---
 

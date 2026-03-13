@@ -1,3 +1,13 @@
+// =============================================================================
+// LEGACY SERVER — FOR REFERENCE ONLY
+// =============================================================================
+// This is the original EJS/session-based server (server-legacy.js).
+// It renders HTML views using EJS templates from /views and handles
+// auth with express-session (no JWT). It is NOT the active server.
+//
+// The ACTIVE server is: server.js (JWT + REST API)
+// =============================================================================
+
 const express = require('express');
 const path = require('path');
 const http = require('http');
