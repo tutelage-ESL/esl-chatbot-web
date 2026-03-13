@@ -1,6 +1,6 @@
 const { Sequelize } = require('sequelize');
-const config = require('./config/config.json');
-const migration = require('./migrations/add-subscription-tiers');
+const config = require('../config/config.json');
+const migration = require('../migrations/add-subscription-tiers');
 
 // Database configuration
 const sequelize = new Sequelize(

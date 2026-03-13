@@ -12,6 +12,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { HfInference } = require('@huggingface/inference');
 const fs = require('fs');
 require('dotenv').config();
+const db = require('./models');
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
@@ -81,7 +82,7 @@ io.use(async (socket, next) => {
   }
   next();
 });
-app.use(cors());
+
 app.use((req, res, next) => {
   console.log(`Incoming request: ${req.method} ${req.url}`);
   next();
@@ -451,8 +452,7 @@ io.on('connection', (socket) => {
     console.log('Client disconnected');
   });
 });
-const db = require('./models');
-const elevenLabsService = require('./services/elevenLabsService');
+
 
 server.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}/`);
