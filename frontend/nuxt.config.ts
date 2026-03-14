@@ -5,7 +5,9 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
   css: ['~/assets/css/main.css'],
-
+  runtimeConfig: {
+      BASE_URL: import.meta.env.BASE_URL
+  },
   devServer: {
     port: 3020,
   },
