@@ -1,3 +1,11 @@
+// =============================================================================
+// LEGACY AUTH CONTROLLER — FOR REFERENCE ONLY
+// =============================================================================
+// Handles auth by rendering EJS views (signup/login pages) and redirecting
+// the browser. Used only by the legacy EJS server (server-legacy.js).
+// The active server uses sessionAuthController.js and jwtAuthController.js.
+// =============================================================================
+
 const db = require('../models');
 const bcrypt = require('bcryptjs');
 const { check, validationResult } = require('express-validator');

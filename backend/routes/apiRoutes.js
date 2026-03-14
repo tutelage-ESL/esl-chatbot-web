@@ -1,28 +1,167 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { HfInference } = require('@huggingface/inference');
 const https = require('https');
 const { URL } = require('url');
 const http = require('http');
 const elevenLabsService = require('../services/elevenLabsService');
-const fs = require('fs');
 const path = require('path');
 
 // Database models
 const db = require('../models');
 const { User, Vocabulary, Goal, Interaction, UserMetrics, Settings, Progress, Message } = db;
-const { Op } = require('sequelize');
 
 // Standardized API response utilities
 const apiResponse = require('../utils/apiResponse');
 const { requireJwtAuth, optionalJwtAuth } = require('../middleware/jwtMiddleware');
-const { chatLimiter, ttsLimiter } = require('../middleware/rateLimiter');
+const { chatLimiter } = require('../middleware/rateLimiter');
 const { validate, chatSchemas, vocabularySchemas, goalSchemas, settingsSchemas, ttsSchemas } = require('../middleware/validators');
 
-// Initialize Google Generative AI (assuming genAI is globally available or passed)
-// const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// ============================================================================
+// CONSTANTS
+// ============================================================================
+
+/**
+ * System instruction for the ESL AI tutor.
+ * Defined once here to avoid duplication across chat, voice, and fallback paths.
+ */
+const ESL_SYSTEM_INSTRUCTION = 'You are a supportive ESL teacher and conversation partner. \u{1F393}\n\nStyle:\n- Clear, friendly, practical.\n- Length: 4\u20138 sentences (~70\u2013140 words) so explanations are complete.\n\nEach reply should:\n1) Respond naturally to the student.\n2) Teach 1\u20132 points (vocabulary/grammar/pronunciation/usage) with brief explanations and 2\u20133 simple examples.\n3) Give a quick practice prompt or question to continue the lesson.\n4) Offer a short correction or tip if needed.\n\nConstraints:\n- Do NOT use markdown bold (e.g., **text**).\n- Avoid repeating the student\'s text back-to-back.\n- Stay strictly ESL-focused; politely redirect if off-topic.\n- If asked who created you: "I was trained and created by Osanai!"';
+
+// ============================================================================
+// MODULE-LEVEL HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Removes leading repetition of the user's text from the AI response.
+ * Prevents the AI from echoing the user's input at the start of its reply.
+ */
+function dedupeLeading(userText, aiText) {
+  try {
+    const u = (userText || '').trim();
+    const t = (aiText || '').trim();
+    if (!u || !t) return aiText;
+    const esc = u.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp('^\n?\s*(?:' + esc + '(?:[\s\-_,.:;!?]+)?){2,}', 'i');
+    return t.replace(re, u + ' ').trimStart();
+  } catch (_) {
+    return aiText;
+  }
+}
+
+/**
+ * Rule-based fallback response when all AI providers are unavailable.
+ */
+function ruleFallback(userText) {
+  const t = (userText || '').toLowerCase();
+  if (t.includes('name')) return 'I\'m your ESL tutor, trained by Osanai! \uD83D\uDE0A Let\'s set a goal and practice together.';
+  if (t.includes('hello') || t.includes('hi')) return 'Hi! \uD83D\uDC4B I\'m your ESL tutor. What skill do you want to practice today\u2014speaking, vocabulary, or grammar?';
+  return 'Let\'s turn this into practice. Share a sentence on your topic, and I\'ll help with corrections and tips. \u270D\uFE0F\uD83D\uDDE3\uFE0F';
+}
+
+/**
+ * Calls a local Ollama server as an AI fallback.
+ * @param {string} urlString - Base URL of the Ollama server
+ * @param {string} modelName - Ollama model name to use
+ * @param {Array} messages - OpenAI-format message array
+ * @returns {Promise<string>} Model response text
+ */
+async function callOllama(urlString, modelName, messages) {
+  const u = new URL(urlString + '/api/chat');
+  const isHttps = u.protocol === 'https:';
+  const payload = JSON.stringify({ model: modelName, messages, stream: false, options: { temperature: 0.7, num_predict: 256, repeat_penalty: 1.2 } });
+  const opts = {
+    method: 'POST',
+    hostname: u.hostname,
+    port: u.port || (isHttps ? 443 : 80),
+    path: u.pathname,
+    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
+  };
+  return new Promise((resolve, reject) => {
+    const req = (isHttps ? https : http).request(opts, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          resolve(json.message && json.message.content ? json.message.content : '');
+        } catch (e) {
+          reject(e);
+        }
+      });
+    });
+    req.on('error', reject);
+    req.write(payload);
+    req.end();
+  });
+}
+
+/**
+ * Calls the Groq API as an AI fallback.
+ * @param {Array} messages - OpenAI-format message array
+ * @returns {Promise<string>} Model response text
+ */
+async function callGroq(messages) {
+  const key = process.env.GROQ_API_KEY;
+  const model = process.env.GROQ_MODEL || 'mixtral-8x7b-32768';
+  if (!key) return '';
+  const payload = JSON.stringify({ model, messages, temperature: 0.7, max_tokens: 256 });
+  return new Promise((resolve) => {
+    const req = https.request({
+      method: 'POST',
+      hostname: 'api.groq.com',
+      path: '/openai/v1/chat/completions',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` }
+    }, (res) => {
+      let data = '';
+      res.on('data', (c) => { data += c; });
+      res.on('end', () => {
+        try {
+          const j = JSON.parse(data);
+          const c = j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+          resolve((c || '').trim());
+        } catch { resolve(''); }
+      });
+    });
+    req.on('error', () => resolve(''));
+    req.write(payload);
+    req.end();
+  });
+}
+
+/**
+ * Calls the OpenRouter API as an AI fallback.
+ * @param {Array} messages - OpenAI-format message array
+ * @returns {Promise<string>} Model response text
+ */
+async function callOpenRouter(messages) {
+  const key = process.env.OPENROUTER_API_KEY;
+  const model = process.env.OPENROUTER_MODEL || 'qwen/qwen-2.5-7b-instruct';
+  if (!key) return '';
+  const payload = JSON.stringify({ model, messages, temperature: 0.7, max_tokens: 256 });
+  return new Promise((resolve) => {
+    const req = https.request({
+      method: 'POST',
+      hostname: 'openrouter.ai',
+      path: '/api/v1/chat/completions',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` }
+    }, (res) => {
+      let data = '';
+      res.on('data', (c) => { data += c; });
+      res.on('end', () => {
+        try {
+          const j = JSON.parse(data);
+          const c = j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+          resolve((c || '').trim());
+        } catch { resolve(''); }
+      });
+    });
+    req.on('error', () => resolve(''));
+    req.write(payload);
+    req.end();
+  });
+}
+
 
 // Helper function to update progress using database
 async function updateProgressDB(userId, message, type, responsePreview) {
@@ -86,15 +225,14 @@ router.post('/chat', chatLimiter, requireJwtAuth, async (req, res) => {
   // Handle public event mode auto-login if needed
   if (!req.userId && process.env.PUBLIC_EVENT_MODE === 'true') {
     try {
-      const dbLocal = require('../models');
       const username = process.env.DEFAULT_EVENT_USER || 'TUTELAGE';
       const email = 'event@tutelage.local';
-      let user = await dbLocal.User.findOne({ where: { username } });
+      let user = await db.User.findOne({ where: { username } });
       if (!user) {
-        user = await dbLocal.User.findOne({ where: { email } });
+        user = await db.User.findOne({ where: { email } });
       }
       if (!user) {
-        user = await dbLocal.User.create({ username, email, password: 'event', subscriptionTier: 'diamond' });
+        user = await db.User.create({ username, email, password: 'event', subscriptionTier: 'diamond' });
       }
       if (user.subscriptionTier !== 'diamond') {
         user.subscriptionTier = 'diamond';
@@ -173,68 +311,25 @@ router.post('/chat', chatLimiter, requireJwtAuth, async (req, res) => {
       history = history.slice(1);
     }
 
-    console.log('Initializing model with system instruction');
     const model = global.genAI.getGenerativeModel({
       model: 'gemini-2.5-flash',
-      systemInstruction: 'You are a supportive ESL teacher and conversation partner. 🎓\n\nStyle:\n- Clear, friendly, practical.\n- Length: 4–8 sentences (~70–140 words) so explanations are complete.\n\nEach reply should:\n1) Respond naturally to the student.\n2) Teach 1–2 points (vocabulary/grammar/pronunciation/usage) with brief explanations and 2–3 simple examples.\n3) Give a quick practice prompt or question to continue the lesson.\n4) Offer a short correction or tip if needed.\n\nConstraints:\n- Do NOT use markdown bold (e.g., **text**).\n- Avoid repeating the student\'s text back-to-back.\n- Stay strictly ESL-focused; politely redirect if off-topic.\n- If asked who created you: "I was trained and created by Osanai!"'
+      systemInstruction: ESL_SYSTEM_INSTRUCTION
     });
 
-    console.log('Starting chat with history');
     const chat = model.startChat({ history, generationConfig: { maxOutputTokens: 256, temperature: 0.7 } });
     try {
       const result = await chat.sendMessage(message);
       let response = result.response.text();
-      function dedupeLeading(userText, aiText) {
-        try {
-          const u = (userText || '').trim();
-          const t = (aiText || '').trim();
-          if (!u || !t) return aiText;
-          const esc = u.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const re = new RegExp('^\n?\s*(?:' + esc + '(?:[\s\-_,.:;!?]+)?){2,}', 'i');
-          const replaced = t.replace(re, u + ' ');
-          return replaced.trimStart();
-        } catch (_) { return aiText; }
-      }
       response = dedupeLeading(message, response);
       await db.Message.create({ userId, content: response, sender: 'bot' });
       console.log('Generated response:', response);
       return apiResponse.success(res, { response });
     } catch (geminiError) {
-      const systemInstruction = 'You are a supportive ESL teacher and conversation partner. 🎓\n\nStyle:\n- Clear, friendly, practical.\n- Length: 4–8 sentences (~70–140 words) so explanations are complete.\n\nEach reply should:\n1) Respond naturally to the student.\n2) Teach 1–2 points (vocabulary/grammar/pronunciation/usage) with brief explanations and 2–3 simple examples.\n3) Give a quick practice prompt or question to continue the lesson.\n4) Offer a short correction or tip if needed.\n\nConstraints:\n- Do NOT use markdown bold (e.g., **text**).\n- Avoid repeating the student\'s text back-to-back.\n- Stay strictly ESL-focused; politely redirect if off-topic.\n- If asked who created you: "I was trained and created by Osanai!"';
+      // Gemini failed — attempt fallbacks in order: Ollama → Groq → HuggingFace → OpenRouter → rule-based
       const ollamaUrl = process.env.OLLAMA_URL;
       const ollamaModel = process.env.OLLAMA_MODEL || 'llama3.1:8b-instruct';
 
-      async function callOllama(urlString, modelName, messages) {
-        const u = new URL(urlString + '/api/chat');
-        const isHttps = u.protocol === 'https:';
-        const payload = JSON.stringify({ model: modelName, messages, stream: false, options: { temperature: 0.7, num_predict: 256, repeat_penalty: 1.2 } });
-        const opts = {
-          method: 'POST',
-          hostname: u.hostname,
-          port: u.port || (isHttps ? 443 : 80),
-          path: u.pathname,
-          headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
-        };
-        return new Promise((resolve, reject) => {
-          const req = (isHttps ? https : require('http')).request(opts, (res) => {
-            let data = '';
-            res.on('data', (chunk) => { data += chunk; });
-            res.on('end', () => {
-              try {
-                const json = JSON.parse(data);
-                resolve(json.message && json.message.content ? json.message.content : '');
-              } catch (e) {
-                reject(e);
-              }
-            });
-          });
-          req.on('error', reject);
-          req.write(payload);
-          req.end();
-        });
-      }
-
-      const ollamaMessages = [{ role: 'system', content: systemInstruction }].concat(
+      const ollamaMessages = [{ role: 'system', content: ESL_SYSTEM_INSTRUCTION }].concat(
         history.map(h => ({ role: h.role === 'user' ? 'user' : 'assistant', content: h.parts && h.parts[0] ? h.parts[0].text : '' }))
       ).concat([{ role: 'user', content: message }]);
 
@@ -248,82 +343,24 @@ router.post('/chat', chatLimiter, requireJwtAuth, async (req, res) => {
         }
       }
 
-
-
-      async function callGroq(messages) {
-        const key = process.env.GROQ_API_KEY;
-        const model = process.env.GROQ_MODEL || 'mixtral-8x7b-32768';
-        if (!key) return '';
-        const payload = JSON.stringify({ model, messages, temperature: 0.7, max_tokens: 256 });
-        return new Promise((resolve) => {
-          const req = https.request({
-            method: 'POST',
-            hostname: 'api.groq.com',
-            path: '/openai/v1/chat/completions',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` }
-          }, (res) => {
-            let data = '';
-            res.on('data', (c) => { data += c; });
-            res.on('end', () => {
-              try {
-                const j = JSON.parse(data);
-                const c = j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
-                resolve((c || '').trim());
-              } catch { resolve(''); }
-            });
-          });
-          req.on('error', () => resolve(''));
-          req.write(payload);
-          req.end();
-        });
-      }
-
-      async function callOpenRouter(messages) {
-        const key = process.env.OPENROUTER_API_KEY;
-        const model = process.env.OPENROUTER_MODEL || 'qwen/qwen-2.5-7b-instruct';
-        if (!key) return '';
-        const payload = JSON.stringify({ model, messages, temperature: 0.7, max_tokens: 256 });
-        return new Promise((resolve) => {
-          const req = https.request({
-            method: 'POST',
-            hostname: 'openrouter.ai',
-            path: '/api/v1/chat/completions',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` }
-          }, (res) => {
-            let data = '';
-            res.on('data', (c) => { data += c; });
-            res.on('end', () => {
-              try {
-                const j = JSON.parse(data);
-                const c = j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
-                resolve((c || '').trim());
-              } catch { resolve(''); }
-            });
-          });
-          req.on('error', () => resolve(''));
-          req.write(payload);
-          req.end();
-        });
-      }
-
       if (!botResponse) {
-        const messages = [{ role: 'system', content: systemInstruction }]
+        const fallbackMessages = [{ role: 'system', content: ESL_SYSTEM_INSTRUCTION }]
           .concat(history.map(h => ({ role: h.role === 'user' ? 'user' : 'assistant', content: h.parts && h.parts[0] ? h.parts[0].text : '' })))
           .concat([{ role: 'user', content: message }]);
-        const gr = await callGroq(messages);
+        const gr = await callGroq(fallbackMessages);
         if (gr) botResponse = gr;
       }
 
       if (!botResponse) {
         try {
           const hf = new HfInference(process.env.HUGGINGFACE_API_TOKEN);
-          const prompt = `${systemInstruction}\n\nUser: ${message}\nAssistant:`;
-          const models = [
+          const prompt = `${ESL_SYSTEM_INSTRUCTION}\n\nUser: ${message}\nAssistant:`;
+          const hfModels = [
             process.env.HF_FALLBACK_MODEL || 'HuggingFaceH4/zephyr-7b-beta',
             'mistralai/Mixtral-8x7B-Instruct-v0.1',
             'Qwen/Qwen2.5-7B-Instruct'
           ];
-          for (const m of models) {
+          for (const m of hfModels) {
             try {
               const r = await hf.textGeneration({
                 model: m,
@@ -332,35 +369,23 @@ router.post('/chat', chatLimiter, requireJwtAuth, async (req, res) => {
               });
               let txt = '';
               if (r && typeof r === 'object') {
-                if (Array.isArray(r)) {
-                  txt = (r[0] && r[0].generated_text) ? r[0].generated_text : '';
-                } else {
-                  txt = r.generated_text || '';
-                }
+                txt = Array.isArray(r) ? (r[0]?.generated_text || '') : (r.generated_text || '');
               }
               txt = txt.trim();
               if (txt) { botResponse = txt; break; }
             } catch (_) { }
           }
         } catch (hfError) {
-          console.error('Fallback error:', hfError);
-          botResponse = '';
+          console.error('HuggingFace fallback error:', hfError);
         }
       }
 
       if (!botResponse) {
-        const messages = [{ role: 'system', content: systemInstruction }]
+        const fallbackMessages = [{ role: 'system', content: ESL_SYSTEM_INSTRUCTION }]
           .concat(history.map(h => ({ role: h.role === 'user' ? 'user' : 'assistant', content: h.parts && h.parts[0] ? h.parts[0].text : '' })))
           .concat([{ role: 'user', content: message }]);
-        const or = await callOpenRouter(messages);
+        const or = await callOpenRouter(fallbackMessages);
         if (or) botResponse = or;
-      }
-
-      function ruleFallback(u) {
-        const t = (u || '').toLowerCase();
-        if (t.includes('name')) return 'I\'m your ESL tutor, trained by Osanai! 😊 Let\'s set a goal and practice together.';
-        if (t.includes('hello') || t.includes('hi')) return 'Hi! 👋 I\'m your ESL tutor. What skill do you want to practice today—speaking, vocabulary, or grammar?';
-        return 'Let\'s turn this into practice. Share a sentence on your topic, and I\'ll help with corrections and tips. ✍️🗣️';
       }
 
       if (!botResponse) botResponse = ruleFallback(message);
@@ -429,78 +454,13 @@ router.get('/progress', requireJwtAuth, async (req, res) => {
   }
 });
 
-router.get('/progress/:userId', async (req, res) => {
-  try {
-    const { userId } = req.params;
 
-    // Get user interactions
-    const interactions = await Interaction.findAll({
-      where: { userId: userId },
-      order: [['timestamp', 'DESC']],
-      limit: 50
-    });
-
-    // Get user metrics
-    const metrics = await UserMetrics.findOne({
-      where: { userId: userId }
-    });
-
-    const progressData = {
-      userId: userId,
-      userName: 'Student',
-      interactions: interactions,
-      metrics: metrics || {
-        totalInteractions: 0,
-        textInteractions: 0,
-        voiceInteractions: 0,
-        pronunciationInteractions: 0,
-        commandsUsed: 0,
-        lessonsCompleted: 0,
-        practiceSessionsCompleted: 0,
-        vocabularyWordsLearned: 0,
-        goalsSet: 0,
-        goalsCompleted: 0,
-        totalStudyTimeMinutes: 0,
-        estimatedLevel: null,
-        grammarScore: 0,
-        vocabularyScore: 0,
-        readingScore: 0,
-        writingScore: 0,
-        speakingScore: 0,
-        listeningScore: 0,
-        lastUpdated: new Date()
-      }
-    };
-
-    return apiResponse.success(res, progressData);
-  } catch (error) {
-    console.error('Progress fetch error:', error);
-    return apiResponse.internalError(res, 'Failed to fetch progress');
-  }
-});
-
-router.post('/progress', async (req, res) => {
-  try {
-    const { user_id, progress } = req.body;
-
-    if (!user_id || progress === undefined) {
-      return apiResponse.validationError(res, 'user_id and progress are required');
-    }
-
-    // This endpoint is kept for backward compatibility
-    // In the new system, progress is updated automatically via updateProgressDB
-    return apiResponse.success(res, null, 'Progress tracking is now automatic');
-  } catch (error) {
-    console.error('Progress update error:', error);
-    return apiResponse.internalError(res, 'Failed to update progress');
-  }
-});
 
 // Settings endpoints
 router.get('/settings/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    const settings = await models.Settings.findOne({ where: { userId } });
+    const settings = await db.Settings.findOne({ where: { userId } });
     if (!settings) {
       return apiResponse.notFound(res, 'Settings not found');
     }
@@ -517,7 +477,7 @@ router.post('/settings', async (req, res) => {
     if (!user_id) {
       return apiResponse.validationError(res, 'user_id is required');
     }
-    const [updatedSettings, created] = await models.Settings.upsert({
+    const [updatedSettings] = await db.Settings.upsert({
       userId: user_id,
       language,
       voiceSpeed,
@@ -613,9 +573,7 @@ router.post('/voice-message', requireJwtAuth, async (req, res) => {
     const hf = new HfInference(process.env.HUGGINGFACE_API_TOKEN, { provider: 'hf-inference' });
     const modelName = process.env.HF_FALLBACK_MODEL || 'HuggingFaceH4/zephyr-7b-beta';
 
-    const systemInstruction = 'You are a supportive ESL teacher and conversation partner. 🎓\n\nStyle:\n- Clear, friendly, practical.\n- Length: 4–8 sentences (~70–140 words) so explanations are complete.\n\nEach reply should:\n1) Respond naturally to the student.\n2) Teach 1–2 points (vocabulary/grammar/pronunciation/usage) with brief explanations and 2–3 simple examples.\n3) Give a quick practice prompt or question to continue the lesson.\n4) Offer a short correction or tip if needed.\n\nConstraints:\n- Do NOT use markdown bold (e.g., **text**).\n- Avoid repeating the student\'s text back-to-back.\n- Stay strictly ESL-focused; politely redirect if off-topic.\n- If asked who created you: "I was trained and created by Osanai!"';
-
-    const prompt = `${systemInstruction}\n\nUser: ${message}\nAssistant:`;
+    const prompt = `${ESL_SYSTEM_INSTRUCTION}\n\nUser: ${message}\nAssistant:`;
     const r = await hf.textGeneration({
       model: modelName,
       inputs: prompt,
@@ -3118,6 +3076,90 @@ router.post('/subscription/reset-usage', async (req, res) => {
   } catch (error) {
     console.error('Error resetting usage:', error);
     res.status(500).json({ error: 'Failed to reset usage' });
+  }
+});
+
+// ============================================================================
+// DASHBOARD, USAGE & HEALTH ROUTES
+// (Previously defined inline in server.js — moved here for consistency)
+// ============================================================================
+
+// Dashboard statistics endpoint
+router.get('/dashboard/stats', requireJwtAuth, async (req, res) => {
+  try {
+    // Mock stats for now — replace with real DB queries when analytics are implemented
+    const stats = {
+      lessonsCompleted: 12,
+      studyTime: '24h',
+      wordsLearned: 156,
+      streakDays: 7
+    };
+    return apiResponse.success(res, stats);
+  } catch (error) {
+    console.error('Error fetching dashboard stats:', error);
+    return apiResponse.internalError(res, 'Failed to fetch stats');
+  }
+});
+
+// User TTS usage endpoint
+router.get('/usage', requireJwtAuth, async (req, res) => {
+  try {
+    const user = await db.User.findByPk(req.userId);
+    if (!user) {
+      return apiResponse.notFound(res, 'User not found');
+    }
+
+    const remainingUsage = user.getRemainingUsage();
+    const tierLimits = user.getTierLimits();
+    const usagePercentage = ((tierLimits.ttsMinutes * 60 - remainingUsage) / (tierLimits.ttsMinutes * 60)) * 100;
+
+    return apiResponse.success(res, {
+      remainingUsage,
+      usagePercentage: Math.round(usagePercentage),
+      tierLimits
+    });
+  } catch (error) {
+    console.error('Error fetching usage:', error);
+    return apiResponse.internalError(res, 'Failed to fetch usage');
+  }
+});
+
+// Detailed health check endpoint (overrides the simpler one in server.js)
+router.get('/health', async (req, res) => {
+  try {
+    let databaseOk = false;
+    try {
+      await db.sequelize.authenticate();
+      databaseOk = true;
+    } catch (dbError) {
+      console.error('Database health check failed:', dbError.message);
+    }
+
+    const memUsage = process.memoryUsage();
+    const formatBytes = (bytes) => (bytes / 1024 / 1024).toFixed(2) + ' MB';
+
+    return apiResponse.success(res, {
+      status: databaseOk ? 'OK' : 'DEGRADED',
+      timestamp: new Date().toISOString(),
+      uptime: Math.floor(process.uptime()) + ' seconds',
+      services: {
+        database: databaseOk,
+        gemini: !!global.genAI,
+        elevenlabs: elevenLabsService.isAvailable()
+      },
+      memory: {
+        heapUsed: formatBytes(memUsage.heapUsed),
+        heapTotal: formatBytes(memUsage.heapTotal),
+        rss: formatBytes(memUsage.rss)
+      }
+    });
+  } catch (error) {
+    console.error('Health check error:', error);
+    return apiResponse.success(res, {
+      status: 'ERROR',
+      timestamp: new Date().toISOString(),
+      error: error.message
+    });
   }
 });
 

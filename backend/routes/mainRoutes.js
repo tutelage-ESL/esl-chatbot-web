@@ -1,3 +1,11 @@
+// =============================================================================
+// LEGACY ROUTER — FOR REFERENCE ONLY
+// =============================================================================
+// Handles page-rendering routes (login, dashboard, chat, etc.) for the
+// EJS/session-based server (server-legacy.js). Not used by the active
+// JWT/REST API server (server.js).
+// =============================================================================
+
 const express = require('express');
 const router = express.Router();
 const models = require('../models');

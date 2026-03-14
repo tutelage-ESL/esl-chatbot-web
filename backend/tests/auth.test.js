@@ -23,7 +23,7 @@ const createTestApp = () => {
     }));
 
     // Load routes
-    const authRoutes = require('../routes/authRoutes-api');
+    const authRoutes = require('../routes/sessionAuthRoutes');
     app.use('/api/auth', authRoutes);
 
     return app;

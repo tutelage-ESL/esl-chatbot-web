@@ -7,7 +7,6 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const session = require('express-session');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const fs = require('fs');
 require('dotenv').config();
 
 // Standardized API response utilities
@@ -98,10 +97,6 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
-app.use((req, res, next) => {
-  console.log(`Incoming request: ${req.method} ${req.url}`);
-  next();
-});
 
 app.use(bodyParser.json({ limit: '1mb' })); // Limit body size
 app.use(bodyParser.urlencoded({ extended: true, limit: '1mb' }));
@@ -127,112 +122,23 @@ app.get('/api/docs.json', (req, res) => {
 // ============================================================================
 // API ROUTES
 // ============================================================================
-const authRoutes = require('./routes/authRoutes-api');
+const authRoutes = require('./routes/sessionAuthRoutes');
 const jwtAuthRoutes = require('./routes/jwtAuthRoutes');
 const apiRoutes = require('./routes/apiRoutes');
 
-console.log('Applying auth routes middleware...');
-// Session-based auth routes (legacy)
+// Session-based auth routes
 app.use('/api/auth', authLimiter, authRoutes);
 // JWT-based auth routes
 app.use('/api/auth/jwt', authLimiter, jwtAuthRoutes);
 app.use('/api', apiRoutes);
 
-// Add new API endpoints for Next.js frontend
-app.get('/api/dashboard/stats', requireJwtAuth, async (req, res) => {
-  try {
-    // Mock stats for now - you can implement real stats later
-    const stats = {
-      lessonsCompleted: 12,
-      studyTime: '24h',
-      wordsLearned: 156,
-      streakDays: 7
-    };
-
-    return apiResponse.success(res, stats);
-  } catch (error) {
-    console.error('Error fetching dashboard stats:', error);
-    return apiResponse.internalError(res, 'Failed to fetch stats');
-  }
-});
-
-app.get('/api/usage', requireJwtAuth, async (req, res) => {
-  try {
-    const db = require('./models');
-    const user = await db.User.findByPk(req.userId);
-
-    if (!user) {
-      return apiResponse.notFound(res, 'User not found');
-    }
-
-    const remainingUsage = user.getRemainingUsage();
-    const tierLimits = user.getTierLimits();
-    const usagePercentage = ((tierLimits.ttsMinutes * 60 - remainingUsage) / (tierLimits.ttsMinutes * 60)) * 100;
-
-    return apiResponse.success(res, {
-      remainingUsage,
-      usagePercentage: Math.round(usagePercentage),
-      tierLimits
-    });
-  } catch (error) {
-    console.error('Error fetching usage:', error);
-    return apiResponse.internalError(res, 'Failed to fetch usage');
-  }
-});
-
-// Note: /api/auth/status is now handled by authRoutes-api.js
-
-// Health check endpoint
+// Simple health check (detailed check with service status lives in apiRoutes.js)
 app.get('/api/health', (req, res) => {
   return apiResponse.success(res, {
     status: 'OK',
-    timestamp: new Date().toISOString(),
-    services: {
-      database: 'connected',
-      gemini: !!global.genAI
-    }
+    timestamp: new Date().toISOString()
   });
 });
-
-// Helper function to update progress.json file
-function updateProgressJSON(userId, message, type, responsePreview) {
-  try {
-    const progressPath = path.join(__dirname, 'data/progress.json');
-    let progressData = {};
-
-    // Read existing progress data
-    if (fs.existsSync(progressPath)) {
-      const progressFile = fs.readFileSync(progressPath, 'utf8');
-      progressData = JSON.parse(progressFile);
-    }
-
-    // Initialize user data if it doesn't exist
-    if (!progressData[userId]) {
-      progressData[userId] = [];
-    }
-
-    // Add new progress entry
-    const progressEntry = {
-      timestamp: new Date().toISOString(),
-      message: message,
-      type: type,
-      responsePreview: responsePreview
-    };
-
-    progressData[userId].push(progressEntry);
-
-    // Keep only the last 100 entries per user
-    if (progressData[userId].length > 100) {
-      progressData[userId] = progressData[userId].slice(-100);
-    }
-
-    // Write back to file
-    fs.writeFileSync(progressPath, JSON.stringify(progressData, null, 2));
-
-  } catch (error) {
-    console.error('Error updating progress JSON:', error);
-  }
-}
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
@@ -302,7 +208,7 @@ io.on('connection', (socket) => {
       });
 
       // Format messages for Gemini API history
-      const username = socket.handshake.session.user?.username; // Get the logged-in user's username, using optional chaining
+      const username = socket.handshake.session.user?.username;
 
       let history = [];
       // Prepend a message to inform the AI about the user's name
@@ -333,10 +239,6 @@ io.on('connection', (socket) => {
 
       // Save bot response
       await db.Message.create({ userId, content: botResponse, sender: 'bot' });
-
-      // Update progress tracking with bot response preview
-      const responsePreview = botResponse.length > 100 ? botResponse.substring(0, 100) + '...' : botResponse;
-      updateProgressJSON(userId, msg, 'text', responsePreview);
 
       socket.emit('chat message', { user: msg, bot: botResponse });
     } catch (error) {

@@ -1,3 +1,13 @@
+// =============================================================================
+// LEGACY SERVER — FOR REFERENCE ONLY
+// =============================================================================
+// This is the original EJS/session-based server (server-legacy.js).
+// It renders HTML views using EJS templates from /views and handles
+// auth with express-session (no JWT). It is NOT the active server.
+//
+// The ACTIVE server is: server.js (JWT + REST API)
+// =============================================================================
+
 const express = require('express');
 const path = require('path');
 const http = require('http');
@@ -12,6 +22,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { HfInference } = require('@huggingface/inference');
 const fs = require('fs');
 require('dotenv').config();
+const db = require('./models');
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
@@ -81,7 +92,7 @@ io.use(async (socket, next) => {
   }
   next();
 });
-app.use(cors());
+
 app.use((req, res, next) => {
   console.log(`Incoming request: ${req.method} ${req.url}`);
   next();
@@ -451,8 +462,7 @@ io.on('connection', (socket) => {
     console.log('Client disconnected');
   });
 });
-const db = require('./models');
-const elevenLabsService = require('./services/elevenLabsService');
+
 
 server.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}/`);
