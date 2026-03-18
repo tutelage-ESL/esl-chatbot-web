@@ -22,8 +22,8 @@ const createTestApp = () => {
         saveUninitialized: false
     }));
 
-    // Load routes
-    const authRoutes = require('../routes/sessionAuthRoutes');
+    // Load routes (new modular path)
+    const authRoutes = require('../src/api/v1/auth/auth.routes');
     app.use('/api/auth', authRoutes);
 
     return app;
