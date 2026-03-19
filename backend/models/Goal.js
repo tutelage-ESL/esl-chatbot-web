@@ -1,108 +1,125 @@
+'use strict';
+
+/**
+ * models/Goal.js
+ *
+ * A learning objective set by a student (or assigned by their tutor).
+ * Progress is tracked as a 0-100 percentage; milestones are stored as
+ * a JSON array so the AI can reference them in conversation.
+ */
 module.exports = (sequelize, DataTypes) => {
   const Goal = sequelize.define('Goal', {
     id: {
       type: DataTypes.INTEGER,
       primaryKey: true,
-      autoIncrement: true
+      autoIncrement: true,
     },
     userId: {
       type: DataTypes.INTEGER,
-      allowNull: false
-    },
-    type: {
-      type: DataTypes.STRING,
       allowNull: false,
-      comment: 'Goal type: vocabulary, pronunciation, conversation, etc.'
+      comment: 'The student who owns this goal.',
+    },
+    assignedByTutorId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      comment: 'FK → users(id). Set when a tutor assigns the goal; null for self-created goals.',
+    },
+
+    // ── Goal definition ───────────────────────────────────────
+    type: {
+      type: DataTypes.STRING(60),
+      allowNull: false,
+      comment: 'e.g. vocabulary, pronunciation, conversation, grammar, listening',
+    },
+    description: {
+      type: DataTypes.TEXT,
+      allowNull: true,
     },
     target: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      comment: 'Target value (e.g., 50 words, 10 conversations)'
+      comment: 'Target value (e.g. 50 words, 10 conversations, 20 minutes).',
     },
     timeframe: {
-      type: DataTypes.STRING,
+      type: DataTypes.ENUM('daily', 'weekly', 'monthly', 'custom'),
       allowNull: false,
-      comment: 'week, month, quarter'
-    },
-    description: {
-      type: DataTypes.TEXT,
-      allowNull: true
-    },
-    category: {
-      type: DataTypes.STRING,
-      allowNull: true
+      defaultValue: 'weekly',
     },
     difficulty: {
       type: DataTypes.ENUM('beginner', 'intermediate', 'advanced'),
       allowNull: true,
-      defaultValue: 'intermediate'
+      defaultValue: 'intermediate',
+    },
+
+    // ── Status & progress ─────────────────────────────────────
+    status: {
+      type: DataTypes.ENUM('active', 'completed', 'paused', 'cancelled'),
+      allowNull: false,
+      defaultValue: 'active',
     },
     progress: {
       type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 0,
-      comment: 'Progress percentage 0-100'
+      comment: 'Progress percentage 0-100.',
+      validate: { min: 0, max: 100 },
     },
-    status: {
-      type: DataTypes.ENUM('active', 'completed', 'paused', 'cancelled'),
-      allowNull: false,
-      defaultValue: 'active'
-    },
+
+    // ── Milestones & plan ─────────────────────────────────────
+    /**
+     * milestones — array of objects, e.g.:
+     * [{ label: "Learn 10 words", targetValue: 10, achieved: false }]
+     */
     milestones: {
       type: DataTypes.JSON,
-      allowNull: true,
+      allowNull: false,
       defaultValue: [],
-      comment: 'Array of milestone objects'
     },
+    /**
+     * actionPlan — array of instruction strings the AI or tutor suggests.
+     */
     actionPlan: {
       type: DataTypes.JSON,
-      allowNull: true,
+      allowNull: false,
       defaultValue: [],
-      comment: 'Array of action plan strings'
     },
+
+    // ── Dates ─────────────────────────────────────────────────
     startDate: {
-      type: DataTypes.DATE,
+      type: DataTypes.DATEONLY,
       allowNull: true,
-      defaultValue: DataTypes.NOW
+      defaultValue: DataTypes.NOW,
     },
     targetDate: {
-      type: DataTypes.DATE,
-      allowNull: true
+      type: DataTypes.DATEONLY,
+      allowNull: true,
     },
     completedDate: {
-      type: DataTypes.DATE,
-      allowNull: true
-    },
-    currentStreak: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      defaultValue: 0
-    },
-    bestStreak: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      defaultValue: 0
-    },
-    completedMilestones: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      defaultValue: 0
+      type: DataTypes.DATEONLY,
+      allowNull: true,
     },
     lastProgressUpdate: {
       type: DataTypes.DATE,
-      allowNull: true
-    }
+      allowNull: true,
+    },
   }, {
     tableName: 'goals',
-    timestamps: true
+    timestamps: true,
+    indexes: [
+      { fields: ['userId', 'status'] },
+    ],
   });
 
-  // Define associations
   Goal.associate = function (models) {
     Goal.belongsTo(models.User, {
       foreignKey: 'userId',
       as: 'user',
-      constraints: false
+      constraints: false,
+    });
+    Goal.belongsTo(models.User, {
+      foreignKey: 'assignedByTutorId',
+      as: 'assignedBy',
+      constraints: false,
     });
   };
 

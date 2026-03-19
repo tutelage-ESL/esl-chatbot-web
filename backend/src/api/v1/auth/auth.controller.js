@@ -27,18 +27,18 @@ const session = {
       return apiResponse.validationError(res, 'Validation failed', details);
     }
 
-    const { username, email, password, subscriptionTier } = req.body;
+    const { username, email, password, role } = req.body;
     try {
-      const validTiers = ['standard', 'gold', 'diamond'];
-      const selectedTier = validTiers.includes(subscriptionTier) ? subscriptionTier : 'standard';
+      const allowedRoles = ['student', 'tutor', 'admin'];
+      const selectedRole = allowedRoles.includes(role) ? role : 'student';
       const hashedPassword = await bcrypt.hash(password, 10);
-      const user = await db.User.create({ username, email, password: hashedPassword, subscriptionTier: selectedTier });
+      const user = await db.User.create({ username, email, password: hashedPassword, role: selectedRole });
 
       req.session.userId = user.id;
-      req.session.user = { id: user.id, username: user.username, email: user.email, subscriptionTier: user.subscriptionTier };
+      req.session.user = { id: user.id, username: user.username, email: user.email, role: user.role };
 
       return apiResponse.created(res, {
-        user: { id: user.id, username: user.username, email: user.email, subscriptionTier: user.subscriptionTier }
+        user: { id: user.id, username: user.username, email: user.email, role: user.role }
       }, 'User created successfully');
     } catch (error) {
       console.error('Error during user signup:', error);
@@ -65,10 +65,10 @@ const session = {
       if (!isMatch) return apiResponse.unauthorized(res, 'Invalid email or password');
 
       req.session.userId = user.id;
-      req.session.user = { id: user.id, username: user.username, email: user.email, subscriptionTier: user.subscriptionTier };
+      req.session.user = { id: user.id, username: user.username, email: user.email, role: user.role };
 
       return apiResponse.success(res, {
-        user: { id: user.id, username: user.username, email: user.email, subscriptionTier: user.subscriptionTier }
+        user: { id: user.id, username: user.username, email: user.email, role: user.role }
       }, 'Login successful');
     } catch (error) {
       console.error('Error during user login:', error);
@@ -105,14 +105,14 @@ const jwt = {
       return apiResponse.validationError(res, 'Validation failed', details);
     }
 
-    const { username, email, password, subscriptionTier } = req.body;
+    const { username, email, password, role } = req.body;
     try {
-      const validTiers = ['standard', 'gold', 'diamond'];
-      const selectedTier = validTiers.includes(subscriptionTier) ? subscriptionTier : 'standard';
+      const allowedRoles = ['student', 'tutor', 'admin'];
+      const selectedRole = allowedRoles.includes(role) ? role : 'student';
       const hashedPassword = await bcrypt.hash(password, 10);
-      const user = await db.User.create({ username, email, password: hashedPassword, subscriptionTier: selectedTier });
+      const user = await db.User.create({ username, email, password: hashedPassword, role: selectedRole });
 
-      const userPayload = { id: user.id, username: user.username, email: user.email, subscriptionTier: user.subscriptionTier };
+      const userPayload = { id: user.id, username: user.username, email: user.email, role: user.role };
       const accessToken  = generateAccessToken(userPayload);
       const refreshToken = generateRefreshToken(userPayload);
       sessionStore.setSession(user.id, refreshToken);
@@ -142,7 +142,7 @@ const jwt = {
       const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) return apiResponse.unauthorized(res, 'Invalid email or password');
 
-      const userPayload = { id: user.id, username: user.username, email: user.email, subscriptionTier: user.subscriptionTier };
+      const userPayload = { id: user.id, username: user.username, email: user.email, role: user.role };
       const accessToken  = generateAccessToken(userPayload);
       const refreshToken = generateRefreshToken(userPayload);
       sessionStore.setSession(user.id, refreshToken);
@@ -174,7 +174,7 @@ const jwt = {
         return apiResponse.unauthorized(res, 'User no longer exists. Please sign in again.');
       }
 
-      const userPayload = { id: user.id, username: user.username, email: user.email, subscriptionTier: user.subscriptionTier };
+      const userPayload = { id: user.id, username: user.username, email: user.email, role: user.role };
       const newAccessToken  = generateAccessToken(userPayload);
       const newRefreshToken = generateRefreshToken(userPayload);
       sessionStore.setSession(userId, newRefreshToken);
@@ -198,7 +198,7 @@ const jwt = {
   getProfile: async (req, res) => {
     try {
       const user = await db.User.findByPk(req.userId, {
-        attributes: ['id', 'username', 'email', 'subscriptionTier', 'createdAt'],
+        attributes: ['id', 'username', 'displayName', 'email', 'role', 'phone', 'nativeLanguage', 'createdAt'],
       });
       if (!user) return apiResponse.notFound(res, 'User not found');
       return apiResponse.success(res, { user }, 'Profile retrieved successfully');

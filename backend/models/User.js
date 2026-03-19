@@ -1,3 +1,27 @@
+'use strict';
+
+/**
+ * models/User.js
+ *
+ * Core identity record. Roles:
+ *   student  — created by a tutor; has LearnerProfile + Subscription
+ *   tutor    — created by an admin; manages a roster of students
+ *   admin    — created at the system level; manages tutors + has full visibility
+ *
+ * Associations (all set in User.associate):
+ *   student  → belongsTo User (as 'tutor')   via tutorId
+ *   tutor    → hasMany   User (as 'students') via tutorId
+ *   tutor    → belongsTo User (as 'admin')    via adminId
+ *   admin    → hasMany   User (as 'tutors')   via adminId
+ *   student  → hasOne    LearnerProfile
+ *   student  → hasOne    Subscription
+ *   student  → hasOne    UserMetrics
+ *   student  → hasMany   ConversationSession
+ *   student  → hasMany   Message
+ *   student  → hasMany   Vocabulary
+ *   student  → hasMany   Goal
+ *   student  → hasMany   Progress
+ */
 module.exports = (sequelize, DataTypes) => {
   const User = sequelize.define('User', {
     id: {
@@ -5,115 +29,102 @@ module.exports = (sequelize, DataTypes) => {
       primaryKey: true,
       autoIncrement: true,
     },
+
+    // ── Identity ──────────────────────────────────────────────
     username: {
-      type: DataTypes.STRING,
+      type: DataTypes.STRING(60),
       allowNull: false,
+    },
+    displayName: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      comment: 'Friendly name shown in the UI',
     },
     email: {
       type: DataTypes.STRING,
       allowNull: false,
       unique: true,
-      validate: {
-        isEmail: true,
-      },
+      validate: { isEmail: true },
     },
     password: {
       type: DataTypes.STRING,
       allowNull: false,
     },
-    subscriptionTier: {
-      type: DataTypes.ENUM('standard', 'gold', 'diamond'),
+
+    // ── Role & hierarchy ──────────────────────────────────────
+    role: {
+      type: DataTypes.ENUM('student', 'tutor', 'admin'),
       allowNull: false,
-      defaultValue: 'standard',
+      defaultValue: 'student',
     },
-    monthlyTtsUsage: {
+    /**
+     * tutorId  — set on student rows; points to the tutor who owns them.
+     * adminId  — set on tutor rows; points to the admin who registered them.
+     * Both are null for admin accounts (root level).
+     */
+    tutorId: {
       type: DataTypes.INTEGER,
-      allowNull: false,
-      defaultValue: 0,
-      comment: 'TTS usage in seconds for current month'
+      allowNull: true,
+      references: { model: 'users', key: 'id' },
+      comment: 'FK → users(id). Populated on student rows only.',
     },
-    lastUsageReset: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      defaultValue: DataTypes.NOW,
-      comment: 'Last time monthly usage was reset'
+    adminId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: { model: 'users', key: 'id' },
+      comment: 'FK → users(id). Populated on tutor rows only.',
+    },
+
+    // ── Contact / extra attributes (tutors & admins) ──────────
+    phone: {
+      type: DataTypes.STRING(30),
+      allowNull: true,
+      comment: 'Optional phone number — primarily for tutors and admins.',
+    },
+
+    // ── Student-specific quick-access field ───────────────────
+    nativeLanguage: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+      comment: 'Student native language — used by AI to personalise explanations.',
     },
   }, {
     tableName: 'users',
-    timestamps: true
+    timestamps: true, // createdAt + updatedAt generated automatically
   });
 
-  // Instance methods for subscription management
-  User.prototype.getTierLimits = function() {
-    const limits = {
-      standard: 20 * 60, // 20 minutes in seconds
-      gold: 60 * 60,     // 1 hour in seconds
-      diamond: 120 * 60  // 2 hours in seconds
-    };
-    return limits[this.subscriptionTier] || limits.standard;
-  };
+  // ── Associations ─────────────────────────────────────────────
+  User.associate = function (models) {
+    // Hierarchy
+    User.belongsTo(models.User, { foreignKey: 'tutorId', as: 'tutor', constraints: false });
+    User.hasMany(models.User,   { foreignKey: 'tutorId', as: 'students', constraints: false });
+    User.belongsTo(models.User, { foreignKey: 'adminId', as: 'admin',   constraints: false });
+    User.hasMany(models.User,   { foreignKey: 'adminId', as: 'tutors',  constraints: false });
 
-  User.prototype.getRemainingUsage = function() {
-    return Math.max(0, this.getTierLimits() - this.monthlyTtsUsage);
-  };
-
-  User.prototype.canUseService = function(requestedSeconds = 0) {
-    return this.getRemainingUsage() >= requestedSeconds;
-  };
-
-  User.prototype.shouldResetUsage = function() {
-    const now = new Date();
-    const lastReset = new Date(this.lastUsageReset);
-    return now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear();
-  };
-
-  User.prototype.resetMonthlyUsage = function() {
-    this.monthlyTtsUsage = 0;
-    this.lastUsageReset = new Date();
-    return this.save();
-  };
-
-  User.prototype.addUsage = function(seconds) {
-    this.monthlyTtsUsage += seconds;
-    return this.save();
-  };
-
-  // Define associations
-  User.associate = function(models) {
-    User.hasMany(models.Message, {
-      foreignKey: 'userId',
-      as: 'messages',
-      constraints: false
+    // Student-owned records
+    User.hasOne(models.LearnerProfile, {
+      foreignKey: 'userId', as: 'learnerProfile', constraints: false,
     });
-    User.hasMany(models.Vocabulary, {
-      foreignKey: 'userId',
-      as: 'vocabulary',
-      constraints: false
-    });
-    User.hasMany(models.Goal, {
-      foreignKey: 'userId',
-      as: 'goals',
-      constraints: false
-    });
-    User.hasMany(models.Progress, {
-      foreignKey: 'userId',
-      as: 'progress',
-      constraints: false
-    });
-    User.hasMany(models.Interaction, {
-      foreignKey: 'userId',
-      as: 'interactions',
-      constraints: false
-    });
-    User.hasOne(models.Settings, {
-      foreignKey: 'userId',
-      as: 'settings',
-      constraints: false
+    User.hasOne(models.Subscription, {
+      foreignKey: 'userId', as: 'subscription', constraints: false,
     });
     User.hasOne(models.UserMetrics, {
-      foreignKey: 'userId',
-      as: 'metrics',
-      constraints: false
+      foreignKey: 'userId', as: 'metrics', constraints: false,
+    });
+    User.hasMany(models.ConversationSession, {
+      foreignKey: 'userId', as: 'sessions', constraints: false,
+    });
+    User.hasMany(models.Message, {
+      foreignKey: 'userId', as: 'messages', constraints: false,
+    });
+    User.hasMany(models.Vocabulary, {
+      foreignKey: 'userId', as: 'vocabulary', constraints: false,
+    });
+    User.hasMany(models.Goal, {
+      foreignKey: 'userId', as: 'goals', constraints: false,
+    });
+    User.hasMany(models.Progress, {
+      foreignKey: 'userId', as: 'progressHistory', constraints: false,
     });
   };
 

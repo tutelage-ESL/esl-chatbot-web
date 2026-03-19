@@ -811,3 +811,305 @@
  */
 
 module.exports = {};
+
+// ============================================================================
+// LEARNER PROFILE
+// ============================================================================
+
+/**
+ * @swagger
+ * /api/profile:
+ *   get:
+ *     summary: Get the authenticated student's learner profile
+ *     tags: [Profile]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Learner profile returned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/LearnerProfile'
+ *       401:
+ *         description: Not authenticated
+ *   put:
+ *     summary: Update the authenticated student's learner profile
+ *     tags: [Profile]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LearnerProfileRequest'
+ *     responses:
+ *       200:
+ *         description: Learner profile updated
+ */
+
+// ============================================================================
+// TUTOR DASHBOARD
+// ============================================================================
+
+/**
+ * @swagger
+ * /api/tutor/students:
+ *   get:
+ *     summary: List all students belonging to the authenticated tutor
+ *     tags: [Tutor]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Student list returned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/User'
+ *       403:
+ *         description: Tutor role required
+ *   post:
+ *     summary: Create a new student account under the authenticated tutor
+ *     tags: [Tutor]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/SignupRequest'
+ *     responses:
+ *       201:
+ *         description: Student account created
+ *       400:
+ *         description: Validation error
+ *       403:
+ *         description: Tutor role required
+ */
+
+/**
+ * @swagger
+ * /api/tutor/students/{studentId}/progress:
+ *   get:
+ *     summary: View a specific student's progress history
+ *     tags: [Tutor]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: from
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date (YYYY-MM-DD)
+ *       - in: query
+ *         name: to
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date (YYYY-MM-DD)
+ *     responses:
+ *       200:
+ *         description: Student progress snapshots returned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/ProgressSnapshot'
+ *       403:
+ *         description: Access denied
+ *       404:
+ *         description: Student not found
+ */
+
+/**
+ * @swagger
+ * /api/tutor/students/{studentId}/goals:
+ *   post:
+ *     summary: Assign a learning goal to a student
+ *     tags: [Tutor]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreateGoalRequest'
+ *     responses:
+ *       201:
+ *         description: Goal assigned to student
+ *       403:
+ *         description: Tutor role required
+ *       404:
+ *         description: Student not found
+ */
+
+/**
+ * @swagger
+ * /api/tutor/students/{studentId}/metrics:
+ *   get:
+ *     summary: View a student's live metrics (streaks, skill scores, etc.)
+ *     tags: [Tutor]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Student metrics returned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/UserMetrics'
+ *       403:
+ *         description: Access denied
+ */
+
+// ============================================================================
+// ADMIN PANEL
+// ============================================================================
+
+/**
+ * @swagger
+ * /api/admin/tutors:
+ *   get:
+ *     summary: List all tutors in the system
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Tutor list returned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/User'
+ *       403:
+ *         description: Admin role required
+ *   post:
+ *     summary: Register a new tutor account
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/SignupRequest'
+ *     responses:
+ *       201:
+ *         description: Tutor account created
+ *       400:
+ *         description: Validation error
+ *       403:
+ *         description: Admin role required
+ */
+
+/**
+ * @swagger
+ * /api/admin/tutors/{tutorId}/students:
+ *   get:
+ *     summary: View all students belonging to a specific tutor
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: tutorId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Student list returned
+ *       403:
+ *         description: Admin role required
+ *       404:
+ *         description: Tutor not found
+ */
+
+/**
+ * @swagger
+ * /api/admin/overview:
+ *   get:
+ *     summary: Get system-wide statistics (total users, active students, tutors, sessions)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: System overview returned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     totalStudents:
+ *                       type: integer
+ *                     totalTutors:
+ *                       type: integer
+ *                     totalAdmins:
+ *                       type: integer
+ *                     activeSessions:
+ *                       type: integer
+ *                     totalMessages:
+ *                       type: integer
+ *       403:
+ *         description: Admin role required
+ */
+

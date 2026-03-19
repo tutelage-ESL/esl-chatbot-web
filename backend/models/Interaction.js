@@ -1,77 +1,21 @@
-module.exports = (sequelize, DataTypes) => {
-  const Interaction = sequelize.define('Interaction', {
-    id: {
-      type: DataTypes.INTEGER,
-      primaryKey: true,
-      autoIncrement: true
-    },
-    userId: {
-      type: DataTypes.INTEGER,
-      allowNull: false
-    },
-    type: {
-      type: DataTypes.ENUM('text', 'voice', 'pronunciation', 'vocabulary', 'goal', 'goal_progress', 'lesson'),
-      allowNull: false
-    },
-    message: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-      comment: 'User input message'
-    },
-    responsePreview: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-      comment: 'Preview of AI response'
-    },
-    metadata: {
-      type: DataTypes.JSON,
-      allowNull: true,
-      comment: 'Additional data like scores, word practiced, etc.'
-    },
-    sessionId: {
-      type: DataTypes.STRING,
-      allowNull: true,
-      comment: 'Session identifier for grouping interactions'
-    },
-    duration: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      comment: 'Duration in seconds for voice/pronunciation activities'
-    },
-    score: {
-      type: DataTypes.FLOAT,
-      allowNull: true,
-      comment: 'Score for pronunciation or other graded activities'
-    },
-    timestamp: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      defaultValue: DataTypes.NOW
-    }
-  }, {
-    tableName: 'interactions',
-    timestamps: true,
-    indexes: [
-      {
-        fields: ['userId', 'timestamp']
-      },
-      {
-        fields: ['type']
-      },
-      {
-        fields: ['sessionId']
-      }
-    ]
-  });
+'use strict';
 
-  // Define associations
-  Interaction.associate = function (models) {
-    Interaction.belongsTo(models.User, {
-      foreignKey: 'userId',
-      as: 'user',
-      constraints: false
-    });
-  };
+/**
+ * models/Interaction.js — DEPRECATED
+ *
+ * This model has been replaced by the combination of:
+ *   - ConversationSession  (groups messages, carries session-level metadata)
+ *   - Message              (individual turns; holds aiEvaluation inline)
+ *   - Progress             (daily snapshot for activity counters & scores)
+ *
+ * This file is kept as a tombstone to prevent accidental re-creation.
+ * Do NOT import or register this model in models/index.js.
+ */
 
-  return Interaction;
+// eslint-disable-next-line no-unused-vars
+module.exports = () => {
+  throw new Error(
+    '[Interaction] This model is deprecated. ' +
+    'Use ConversationSession + Message + Progress instead.'
+  );
 };
