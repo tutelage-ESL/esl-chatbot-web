@@ -1,16 +1,12 @@
 'use strict';
-
 const express = require('express');
 const router = express.Router();
 const ctrl = require('./vocabulary.controller');
-const { requireJwtAuth } = require('../../../../middleware/jwtMiddleware');
-
-router.get('/',             requireJwtAuth, ctrl.getVocabulary);
-router.post('/',            requireJwtAuth, ctrl.addVocabulary);
-router.put('/:id',          requireJwtAuth, ctrl.updateVocabulary);
-router.delete('/:id',       requireJwtAuth, ctrl.deleteVocabulary);
-router.get('/practice',     requireJwtAuth, ctrl.getPracticeWords);
-router.post('/practice',    ctrl.recordPractice);
-router.get('/quiz',         ctrl.getQuiz);
-
+const { requireJwtAuth } = require('../../../middleware/auth.middleware');
+router.get('/',              requireJwtAuth, ctrl.list);
+router.post('/',             requireJwtAuth, ctrl.add);
+router.put('/:id',           requireJwtAuth, ctrl.update);
+router.delete('/:id',        requireJwtAuth, ctrl.remove);
+router.get('/due',           requireJwtAuth, ctrl.getDueCards);
+router.post('/:id/practice', requireJwtAuth, ctrl.recordPractice);
 module.exports = router;

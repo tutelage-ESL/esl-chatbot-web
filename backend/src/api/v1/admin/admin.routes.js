@@ -1,0 +1,10 @@
+'use strict';
+const express = require('express');
+const router = express.Router();
+const ctrl = require('./admin.controller');
+const { requireJwtAuth } = require('../../../middleware/auth.middleware');
+const { requireAdmin } = require('../../../middleware/rbac.middleware');
+router.get('/tutors',   requireJwtAuth, requireAdmin, ctrl.getTutors);
+router.post('/tutors',  requireJwtAuth, requireAdmin, ctrl.createTutor);
+router.get('/overview', requireJwtAuth, requireAdmin, ctrl.getOverview);
+module.exports = router;

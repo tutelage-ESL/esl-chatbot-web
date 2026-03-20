@@ -5,16 +5,9 @@
  * Split into two namespaces: `module.exports.session` and `module.exports.jwt`
  */
 
-const db = require('../../../../models');
-const bcrypt = require('bcryptjs');
 const { validationResult } = require('express-validator');
-const apiResponse = require('../../../../utils/apiResponse');
-const {
-  generateAccessToken,
-  generateRefreshToken,
-  verifyRefreshToken,
-} = require('../../../../services/tokenService');
-const sessionStore = require('../../../../services/sessionStore');
+const apiResponse = require('../../../utils/ApiResponse');
+const authService = require('./auth.service');
 
 // ============================================================================
 // SESSION AUTH
@@ -26,25 +19,13 @@ const session = {
       const details = errors.array().map(e => ({ field: e.path || e.param, message: e.msg }));
       return apiResponse.validationError(res, 'Validation failed', details);
     }
-
-    const { username, email, password, role } = req.body;
     try {
-      const allowedRoles = ['student', 'tutor', 'admin'];
-      const selectedRole = allowedRoles.includes(role) ? role : 'student';
-      const hashedPassword = await bcrypt.hash(password, 10);
-      const user = await db.User.create({ username, email, password: hashedPassword, role: selectedRole });
-
+      const user = await authService.registerUser(req.body);
       req.session.userId = user.id;
-      req.session.user = { id: user.id, username: user.username, email: user.email, role: user.role };
-
-      return apiResponse.created(res, {
-        user: { id: user.id, username: user.username, email: user.email, role: user.role }
-      }, 'User created successfully');
-    } catch (error) {
-      console.error('Error during user signup:', error);
-      if (error.name === 'SequelizeUniqueConstraintError') {
-        return apiResponse.conflict(res, 'User with this email already exists');
-      }
+      req.session.user = user;
+      return apiResponse.created(res, { user }, 'User created successfully');
+    } catch (err) {
+      if (err.name === 'SequelizeUniqueConstraintError') return apiResponse.conflict(res, 'User with this email already exists');
       return apiResponse.internalError(res);
     }
   },
@@ -55,33 +36,20 @@ const session = {
       const details = errors.array().map(e => ({ field: e.path || e.param, message: e.msg }));
       return apiResponse.validationError(res, 'Validation failed', details);
     }
-
-    const { email, password } = req.body;
     try {
-      const user = await db.User.findOne({ where: { email } });
+      const user = await authService.verifyCredentials(req.body);
       if (!user) return apiResponse.unauthorized(res, 'Invalid email or password');
-
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) return apiResponse.unauthorized(res, 'Invalid email or password');
-
       req.session.userId = user.id;
-      req.session.user = { id: user.id, username: user.username, email: user.email, role: user.role };
-
-      return apiResponse.success(res, {
-        user: { id: user.id, username: user.username, email: user.email, role: user.role }
-      }, 'Login successful');
-    } catch (error) {
-      console.error('Error during user login:', error);
+      req.session.user = user;
+      return apiResponse.success(res, { user }, 'Login successful');
+    } catch (err) {
       return apiResponse.internalError(res);
     }
   },
 
   logout: (req, res) => {
     req.session.destroy(err => {
-      if (err) {
-        console.error('Error destroying session:', err);
-        return apiResponse.internalError(res, 'Error logging out');
-      }
+      if (err) return apiResponse.internalError(res, 'Error logging out');
       return apiResponse.success(res, null, 'Logout successful');
     });
   },
@@ -104,25 +72,12 @@ const jwt = {
       const details = errors.array().map(e => ({ field: e.path || e.param, message: e.msg }));
       return apiResponse.validationError(res, 'Validation failed', details);
     }
-
-    const { username, email, password, role } = req.body;
     try {
-      const allowedRoles = ['student', 'tutor', 'admin'];
-      const selectedRole = allowedRoles.includes(role) ? role : 'student';
-      const hashedPassword = await bcrypt.hash(password, 10);
-      const user = await db.User.create({ username, email, password: hashedPassword, role: selectedRole });
-
-      const userPayload = { id: user.id, username: user.username, email: user.email, role: user.role };
-      const accessToken  = generateAccessToken(userPayload);
-      const refreshToken = generateRefreshToken(userPayload);
-      sessionStore.setSession(user.id, refreshToken);
-
-      return apiResponse.created(res, { user: userPayload, accessToken, refreshToken }, 'User created successfully');
-    } catch (error) {
-      console.error('JWT signup error:', error);
-      if (error.name === 'SequelizeUniqueConstraintError') {
-        return apiResponse.conflict(res, 'User with this email already exists');
-      }
+      const user = await authService.registerUser(req.body);
+      const tokens = authService.issueTokens(user);
+      return apiResponse.created(res, { user, ...tokens }, 'User created successfully');
+    } catch (err) {
+      if (err.name === 'SequelizeUniqueConstraintError') return apiResponse.conflict(res, 'User with this email already exists');
       return apiResponse.internalError(res);
     }
   },
@@ -133,23 +88,12 @@ const jwt = {
       const details = errors.array().map(e => ({ field: e.path || e.param, message: e.msg }));
       return apiResponse.validationError(res, 'Validation failed', details);
     }
-
-    const { email, password } = req.body;
     try {
-      const user = await db.User.findOne({ where: { email } });
+      const user = await authService.verifyCredentials(req.body);
       if (!user) return apiResponse.unauthorized(res, 'Invalid email or password');
-
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) return apiResponse.unauthorized(res, 'Invalid email or password');
-
-      const userPayload = { id: user.id, username: user.username, email: user.email, role: user.role };
-      const accessToken  = generateAccessToken(userPayload);
-      const refreshToken = generateRefreshToken(userPayload);
-      sessionStore.setSession(user.id, refreshToken);
-
-      return apiResponse.success(res, { user: userPayload, accessToken, refreshToken }, 'Sign in successful');
-    } catch (error) {
-      console.error('JWT signin error:', error);
+      const tokens = authService.issueTokens(user);
+      return apiResponse.success(res, { user, ...tokens }, 'Sign in successful');
+    } catch (err) {
       return apiResponse.internalError(res);
     }
   },
@@ -157,53 +101,27 @@ const jwt = {
   refresh: async (req, res) => {
     const { refreshToken } = req.body;
     if (!refreshToken) return apiResponse.unauthorized(res, 'Refresh token is required');
-
-    const result = verifyRefreshToken(refreshToken);
-    if (!result.valid) return apiResponse.unauthorized(res, 'Refresh token is invalid or expired. Please sign in again.');
-
-    const { userId } = result.decoded;
-    if (!sessionStore.isValidSession(userId, refreshToken)) {
-      sessionStore.removeSession(userId);
-      return apiResponse.unauthorized(res, 'Refresh token has been revoked. Please sign in again.');
-    }
-
     try {
-      const user = await db.User.findByPk(userId);
-      if (!user) {
-        sessionStore.removeSession(userId);
-        return apiResponse.unauthorized(res, 'User no longer exists. Please sign in again.');
-      }
-
-      const userPayload = { id: user.id, username: user.username, email: user.email, role: user.role };
-      const newAccessToken  = generateAccessToken(userPayload);
-      const newRefreshToken = generateRefreshToken(userPayload);
-      sessionStore.setSession(userId, newRefreshToken);
-
-      return apiResponse.success(res, { accessToken: newAccessToken, refreshToken: newRefreshToken }, 'Tokens refreshed successfully');
-    } catch (error) {
-      console.error('JWT refresh error:', error);
+      const tokens = await authService.refreshTokens(refreshToken);
+      if (!tokens) return apiResponse.unauthorized(res, 'Refresh token is invalid or expired. Please sign in again.');
+      return apiResponse.success(res, tokens, 'Tokens refreshed successfully');
+    } catch (err) {
       return apiResponse.internalError(res);
     }
   },
 
   logout: (req, res) => {
     const { refreshToken } = req.body;
-    if (refreshToken) {
-      const result = verifyRefreshToken(refreshToken);
-      if (result.valid) sessionStore.removeSession(result.decoded.userId);
-    }
+    if (refreshToken) authService.revokeToken(refreshToken);
     return apiResponse.success(res, null, 'Logout successful');
   },
 
   getProfile: async (req, res) => {
     try {
-      const user = await db.User.findByPk(req.userId, {
-        attributes: ['id', 'username', 'displayName', 'email', 'role', 'phone', 'nativeLanguage', 'createdAt'],
-      });
+      const user = await authService.getUserById(req.userId);
       if (!user) return apiResponse.notFound(res, 'User not found');
       return apiResponse.success(res, { user }, 'Profile retrieved successfully');
-    } catch (error) {
-      console.error('Get profile error:', error);
+    } catch (err) {
       return apiResponse.internalError(res);
     }
   },

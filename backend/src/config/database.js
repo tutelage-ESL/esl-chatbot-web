@@ -1,10 +1,5 @@
 'use strict';
-
-// Re-export the sequelize instance from the models layer.
-// Consumers can: const { sequelize } = require('../config/database');
-const db = require('../../models');
-
-module.exports = {
-  sequelize: db.sequelize,
-  Sequelize: db.Sequelize,
-};
+const path = require('path');
+const env = process.env.NODE_ENV || 'development';
+const configFile = require(path.join(__dirname, '../../config/config.json'))[env] || {};
+module.exports = configFile;

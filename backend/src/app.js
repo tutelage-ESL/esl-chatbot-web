@@ -1,12 +1,4 @@
 'use strict';
-
-/**
- * src/app.js
- * Express app factory — sets up all middleware, routes.
- * Does NOT call db.sync or server.listen (those live in server.js).
- * Exports { app, server, io } so server.js and tests can use them.
- */
-
 require('dotenv').config();
 
 const express    = require('express');
@@ -16,103 +8,79 @@ const sharedsession = require('express-socket.io-session');
 const cors       = require('cors');
 const bodyParser = require('body-parser');
 const session    = require('express-session');
+const path       = require('path');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const swaggerUi  = require('swagger-ui-express');
 
-const config          = require('./config');
-const swaggerSpec     = require('../config/swagger');
-const apiResponse     = require('../utils/apiResponse');
+const config           = require('./config');
+const corsOptions      = require('./config/cors');
+const { authLimiter, generalLimiter } = require('./middleware/rateLimiter.middleware');
+const { sanitizeInputs } = require('./middleware/validate.middleware');
+const { globalErrorHandler, notFoundHandler } = require('./middleware/errorHandler.middleware');
+const requestLogger    = require('./middleware/requestLogger.middleware');
 
-// Middleware
-const { securityHeaders }  = require('../middleware/securityHeaders');
-const { authLimiter, generalLimiter } = require('../middleware/rateLimiter');
-const { sanitizeInputs }   = require('../middleware/validators');
-const { globalErrorHandler, notFoundHandler } = require('../middleware/errorHandler');
-
-// ─── Environment validation ───────────────────────────────────────────────────
-const requiredEnvVars = ['SESSION_SECRET', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET'];
-const optionalEnvVars = ['GEMINI_API_KEY', 'ELEVENLABS_API_KEY', 'HUGGINGFACE_API_TOKEN'];
-
-requiredEnvVars.forEach(varName => {
-  if (!process.env[varName]) {
-    console.error(`ERROR: Required environment variable ${varName} is not set!`);
-    process.exit(1);
-  }
+// ── ENV validation ────────────────────────────────────────────────────────────
+['SESSION_SECRET', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET'].forEach(v => {
+  if (!process.env[v]) { console.error(`ERROR: Required env var ${v} is not set!`); process.exit(1); }
 });
-optionalEnvVars.forEach(varName => {
-  if (!process.env[varName]) {
-    console.warn(`WARNING: Optional env var ${varName} not set. Some features may be disabled.`);
-  }
+['GEMINI_API_KEY', 'ELEVENLABS_API_KEY'].forEach(v => {
+  if (!process.env[v]) console.warn(`WARNING: Optional env var ${v} not set.`);
 });
 
-// ─── Initialise global AI client ─────────────────────────────────────────────
-global.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// ── Global AI client ──────────────────────────────────────────────────────────
+global.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
-// ─── Express + HTTP + Socket.IO ──────────────────────────────────────────────
-const app = express();
+// ── Express + HTTP + Socket.IO ────────────────────────────────────────────────
+const app    = express();
 const server = http.createServer(app);
-const io = socketIo(server, {
-  cors: {
-    origin: config.frontendUrl,
-    methods: ['GET', 'POST'],
-    credentials: true
-  }
-});
+const io     = socketIo(server, { cors: { origin: config.frontendUrl, methods: ['GET','POST'], credentials: true } });
 
-// ─── Session middleware (shared with Socket.IO) ───────────────────────────────
+// ── Session ───────────────────────────────────────────────────────────────────
 const sessionMiddleware = session({
   secret: config.sessionSecret,
   resave: false,
   saveUninitialized: false,
-  cookie: {
-    secure: config.env === 'production',
-    httpOnly: true,
-    sameSite: 'lax',
-    maxAge: 24 * 60 * 60 * 1000
-  }
+  cookie: { secure: config.env === 'production', httpOnly: true, sameSite: 'lax', maxAge: 24 * 60 * 60 * 1000 }
 });
-
 app.use(sessionMiddleware);
 io.use(sharedsession(sessionMiddleware, { autoSave: true }));
 
-// ─── Register Socket.IO handlers ─────────────────────────────────────────────
+// ── Socket.IO ─────────────────────────────────────────────────────────────────
 const { registerChatSocket } = require('./sockets/chat.socket');
 registerChatSocket(io);
 
-// ─── Security middleware ──────────────────────────────────────────────────────
-app.use(securityHeaders);
+// ── Security headers ──────────────────────────────────────────────────────────
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'geolocation=(), camera=(), microphone=(self)');
+  res.removeHeader('X-Powered-By');
+  if (config.env === 'production') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  next();
+});
 app.use('/api', generalLimiter);
 app.use(sanitizeInputs);
 app.set('trust proxy', 1);
 
-// ─── Standard middleware ──────────────────────────────────────────────────────
-app.use(cors({
-  origin: config.frontendUrl,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-}));
+// ── Standard middleware ───────────────────────────────────────────────────────
+app.use(cors(corsOptions));
 app.use(bodyParser.json({ limit: '1mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '1mb' }));
+app.use(requestLogger);
 
-// ─── Swagger API docs ─────────────────────────────────────────────────────────
-app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-  customCss: '.swagger-ui .topbar { display: none }',
-  customSiteTitle: 'ESL Chatbot API Docs'
-}));
-app.get('/api/docs.json', (req, res) => {
-  res.setHeader('Content-Type', 'application/json');
-  res.send(swaggerSpec);
-});
+// ── EJS views ─────────────────────────────────────────────────────────────────
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, '../views'));
+app.use(express.static(path.join(__dirname, '../public')));
 
-// ─── Auth routes (with rate limiter applied here) ────────────────────────────
-const { authLimiter: al } = require('../middleware/rateLimiter');
-app.use('/api/auth',      al, require('./api/v1/auth/auth.routes'));
-
-// ─── All other v1 API routes ─────────────────────────────────────────────────
+// ── API v1 routes ─────────────────────────────────────────────────────────────
+app.use('/api/auth', authLimiter, require('./api/v1/auth/auth.routes'));
 app.use('/api', require('./api/v1'));
 
-// ─── 404 + global error ───────────────────────────────────────────────────────
+// ── 404 + error handler ───────────────────────────────────────────────────────
 app.use(notFoundHandler);
 app.use(globalErrorHandler);
 

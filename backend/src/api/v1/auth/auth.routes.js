@@ -5,7 +5,7 @@ const router = express.Router();
 const { check } = require('express-validator');
 const sessionCtrl = require('./auth.controller').session;
 const jwtCtrl     = require('./auth.controller').jwt;
-const { requireJwtAuth } = require('../../../../middleware/jwtMiddleware');
+const { requireJwtAuth } = require('../../../middleware/auth.middleware');
 
 // ─── Session-based auth (/api/auth/...) ───────────────────────────────────────
 router.post('/signup',

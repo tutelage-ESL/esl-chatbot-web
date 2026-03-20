@@ -8,20 +8,23 @@
 require('dotenv').config();
 
 const { server } = require('./src/app');
-const db = require('./models');
-const elevenLabsService = require('./services/elevenLabsService');
+const db = require('./src/models');
+const elevenLabsService = require('./src/services/elevenlabs.service');
 const config = require('./src/config');
+const { runSeeders } = require('./seeders/seed');
 
-db.sequelize.sync({ alter: false })
+db.sequelize.sync({ alter: true })
   .then(async () => {
     console.log('Database synchronized successfully.');
+    if (process.env.NODE_ENV === 'development') {
+      await runSeeders(db);
+    }
     await elevenLabsService.init();
     server.listen(config.port, () => {
-      console.log(`API Server is running on port ${config.port}`);
-      console.log(`Frontend should connect to: http://localhost:${config.port}`);
+      console.log(`[v1] API Server running on port ${config.port}`);
     });
   })
   .catch(err => {
-    console.error('Unable to synchronize the database:', err);
+    console.error('Database sync failed:', err);
     process.exit(1);
   });
