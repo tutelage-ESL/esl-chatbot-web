@@ -1,19 +1,42 @@
 import app from "./app.ts";
 import { env, logger } from "./config/index.ts";
+import { connectDatabase, disconnectDatabase, resetDatabase } from "./config/database.ts";
 
-const server = app.listen(env.PORT, () => {
-  logger.info(`Server running on port ${env.PORT} in ${env.NODE_ENV} mode`);
-  logger.info(`API docs: http://localhost:${env.PORT}/api-docs`);
-});
+async function bootstrap() {
+  // 1. Reset DB if RESET_DB=true in .env (dev only — destroys all data)
+  await resetDatabase();
 
-// Graceful shutdown
-const shutdown = () => {
-  logger.info("Shutting down gracefully...");
-  server.close(() => {
-    logger.info("Server closed");
-    process.exit(0);
+  // 2. Test database connection and log table info
+  await connectDatabase();
+
+  // 2. Start HTTP server
+  const server = app.listen(env.PORT, () => {
+    console.log("┌─────────────────────────────────────────┐");
+    console.log("│           SERVER STARTED                 │");
+    console.log("└─────────────────────────────────────────┘");
+    console.log(`🚀 Server running on http://localhost:${env.PORT}`);
+    console.log(`📚 API docs:  http://localhost:${env.PORT}/api-docs`);
+    console.log(`🏥 Health:    http://localhost:${env.PORT}/health`);
+    console.log(`🌍 Environment: ${env.NODE_ENV}`);
+    console.log("");
+    logger.info(`Server running on port ${env.PORT} in ${env.NODE_ENV} mode`);
   });
-};
 
-process.on("SIGTERM", shutdown);
-process.on("SIGINT", shutdown);
+  // Graceful shutdown
+  const shutdown = async () => {
+    logger.info("Shutting down gracefully...");
+    server.close(async () => {
+      await disconnectDatabase();
+      logger.info("Server closed");
+      process.exit(0);
+    });
+  };
+
+  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", shutdown);
+}
+
+bootstrap().catch((err) => {
+  console.error("❌ Failed to start server:", err);
+  process.exit(1);
+});

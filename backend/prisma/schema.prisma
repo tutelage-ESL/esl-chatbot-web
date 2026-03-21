@@ -15,6 +15,11 @@ enum Role {
   ADMIN
 }
 
+enum ClassStatus {
+  ACTIVE
+  INACTIVE
+}
+
 enum EnrollStatus {
   PENDING
   ACCEPTED
@@ -53,27 +58,14 @@ enum SubStatus {
 // ─── Users ───────────────────────────────────────────────
 
 model User {
-  id              String    @id @default(uuid())
-  username        String    @unique
-  displayName     String
-  email           String    @unique
-  password        String
-  role            Role      @default(STUDENT)
-  phone           String?
-  nativeLanguage  String?
-  avatarUrl       String?
-  isActive        Boolean   @default(true)
-  emailVerifiedAt DateTime?
-  classCode       String?   @unique
-
-  // Self-relations: student → tutor, tutor → admin
-  tutorId String?
-  tutor   User?  @relation("StudentTutor", fields: [tutorId], references: [id])
-  students User[] @relation("StudentTutor")
-
-  adminId      String?
-  admin        User?  @relation("TutorAdmin", fields: [adminId], references: [id])
-  managedTutors User[] @relation("TutorAdmin")
+  id          String  @id @default(uuid())
+  username    String  @unique
+  password    String
+  displayName String
+  avatarUrl   String?
+  isActive    Boolean @default(true)
+  role        Role    @default(STUDENT)
+  phoneNumber String?
 
   // One-to-one
   learnerProfile LearnerProfile?
@@ -81,6 +73,7 @@ model User {
   metrics        UserMetrics?
 
   // One-to-many
+  classEnrollments             ClassStudent[]
   enrollmentRequestsAsSender   EnrollmentRequest[] @relation("EnrollmentSender")
   enrollmentRequestsAsReceiver EnrollmentRequest[] @relation("EnrollmentReceiver")
   sessions                     ConversationSession[]
@@ -94,6 +87,38 @@ model User {
   updatedAt DateTime @updatedAt
 
   @@map("users")
+}
+
+// ─── Classes ──────────────────────────────────────────────
+
+model Class {
+  id            String      @id @default(uuid())
+  className     String
+  classCode     String      @unique
+  classCategory String?
+  classStatus   ClassStatus @default(ACTIVE)
+
+  students ClassStudent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("classes")
+}
+
+model ClassStudent {
+  id        String @id @default(uuid())
+  classId   String
+  studentId String
+
+  class   Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+  student User  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([classId, studentId])
+  @@map("class_students")
 }
 
 // ─── Enrollment Requests ─────────────────────────────────

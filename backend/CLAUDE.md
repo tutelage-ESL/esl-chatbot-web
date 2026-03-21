@@ -83,6 +83,7 @@ Each module under `src/modules/[name]/` follows:
 | Enum | Values |
 |------|--------|
 | Role | STUDENT, TUTOR, ADMIN |
+| ClassStatus | ACTIVE, INACTIVE |
 | EnrollStatus | PENDING, ACCEPTED, REJECTED |
 | SessionMode | TEXT, VOICE |
 | MessageRole | USER, ASSISTANT |
@@ -93,7 +94,9 @@ Each module under `src/modules/[name]/` follows:
 ### Models
 | Model | Table | Key Relations |
 |-------|-------|---------------|
-| User | users | self-ref (student→tutor, tutor→admin), 1:1 profile/subscription/metrics |
+| User | users | 1:1 profile/subscription/metrics, has many classes (tutor), has many classEnrollments (student) |
+| Class | classes | has many ClassStudents, no direct tutor FK |
+| ClassStudent | class_students | belongs to Class + User (student), unique(classId, studentId) |
 | EnrollmentRequest | enrollment_requests | student↔tutor, unique(studentId, tutorId) |
 | LearnerProfile | learner_profiles | 1:1 with User (students only) |
 | Subscription | subscriptions | 1:1 with User, Stripe fields nullable |
@@ -107,8 +110,9 @@ Each module under `src/modules/[name]/` follows:
 ### Key Design Decisions
 - All IDs are UUID v4
 - All tables have createdAt/updatedAt
-- Self-referential User model for student→tutor→admin hierarchy
-- Tutors get a unique `classCode` for student enrollment
+- User model has username (unique), displayName, password, avatarUrl, isActive, role, phoneNumber
+- Classes have a unique classCode; no direct tutor FK (tutor identity tracked via ClassStudent)
+- ClassStudent join table links students to classes with unique constraint
 - No separate settings table — settings live in LearnerProfile
 - Vocabulary uses SM-2 SRS algorithm fields (srsInterval, srsEase, srsDue)
 - Progress is exactly 1 row per user per calendar day
@@ -139,6 +143,32 @@ Each module under `src/modules/[name]/` follows:
 
 ## Environment Variables
 See `.env.example` for all required/optional variables.
+
+**Note:** If your PostgreSQL password contains special characters (e.g. `&`, `(`, `)`),
+URL-encode them in `DATABASE_URL`. Example: `(Gochan&DB)` → `(Gochan%26DB)`.
+
+---
+
+## Startup Behavior
+On `bun dev` / `bun start`, the server:
+1. Validates all env vars via Zod (exits if invalid)
+2. Connects to PostgreSQL and logs connection status
+3. Lists all tables with row counts
+4. Starts Express on the configured PORT
+5. Logs server URL, API docs URL, and health endpoint
+
+---
+
+## Seed Data
+Run `bun run db:seed` to populate the database with test data:
+- **Admin:** admin_main
+- **Tutor:** tutor_sarah (class code: SARAH-2024)
+- **Student 1:** student_ali (PREMIUM, B1 level)
+- **Student 2:** student_yuki (FREE, A2 level)
+- **Password for all:** `password123`
+
+Includes: classes with enrolled students, learner profiles, subscriptions, metrics, enrollment requests,
+conversation sessions with messages, vocabulary with SRS data, goals, and daily progress snapshots.
 
 ---
 
