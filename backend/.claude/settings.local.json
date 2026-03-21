@@ -23,7 +23,8 @@
       "Bash(\"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -U postgres -h localhost -p 5432 -d esl-chatbot-web -w -c \"SELECT 1 as test;\")",
       "Bash(\"/c/Program Files/PostgreSQL/18/bin/psql.exe\" \"postgresql://postgres:Gochan%26DB@localhost:5432/esl-chatbot-web\" -w -c \"SELECT 1;\")",
       "Bash(export PGPASSWORD='postgres')",
-      "Bash(\"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -U postgres -h localhost -p 5432 -w -c \"SELECT 1 as test;\")"
+      "Bash(\"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -U postgres -h localhost -p 5432 -w -c \"SELECT 1 as test;\")",
+      "Bash(RESET_DB=false timeout 6 bun dev)"
     ]
   }
 }

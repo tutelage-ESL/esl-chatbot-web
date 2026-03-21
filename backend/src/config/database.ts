@@ -88,8 +88,13 @@ export async function resetDatabase(): Promise<void> {
   // Re-push the Prisma schema (creates tables without migration history)
   const { execSync } = await import("child_process");
   execSync("bunx prisma db push --force-reset", { stdio: "inherit" });
+  console.log("✅ Tables recreated.\n");
 
-  console.log("✅ Database reset complete.\n");
+  // Run the seed script
+  console.log("🌱 Seeding database...");
+  execSync("bun prisma/seed.ts", { stdio: "inherit" });
+
+  console.log("✅ Database reset and seeded complete.\n");
 }
 
 /**

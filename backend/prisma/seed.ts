@@ -33,6 +33,7 @@ async function main() {
   const admin = await prisma.user.create({
     data: {
       username: "admin_main",
+      email: "admin@tutelage.com",
       displayName: "Platform Admin",
       password: hashedPassword,
       role: "ADMIN",
@@ -46,6 +47,7 @@ async function main() {
   const tutor = await prisma.user.create({
     data: {
       username: "tutor_sarah",
+      email: "sarah@tutelage.com",
       displayName: "Sarah Johnson",
       password: hashedPassword,
       role: "TUTOR",
@@ -59,6 +61,7 @@ async function main() {
   const student1 = await prisma.user.create({
     data: {
       username: "student_ali",
+      email: "ali@tutelage.com",
       displayName: "Ali Hassan",
       password: hashedPassword,
       role: "STUDENT",
@@ -70,6 +73,7 @@ async function main() {
   const student2 = await prisma.user.create({
     data: {
       username: "student_yuki",
+      email: "yuki@tutelage.com",
       displayName: "Yuki Tanaka",
       password: hashedPassword,
       role: "STUDENT",

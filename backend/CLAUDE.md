@@ -34,6 +34,8 @@ bun run db:push      # Push schema to DB (no migration)
 bun run db:seed      # Seed the database
 bun run db:studio    # Open Prisma Studio
 bun run typecheck    # TypeScript type check
+bun test             # Run all tests (requires DB running + seeded)
+bun run test:watch   # Run tests in watch mode
 ```
 
 ---
@@ -110,13 +112,14 @@ Each module under `src/modules/[name]/` follows:
 ### Key Design Decisions
 - All IDs are UUID v4
 - All tables have createdAt/updatedAt
-- User model has username (unique), displayName, password, avatarUrl, isActive, role, phoneNumber
+- User model has username (unique), email (unique), displayName, password, avatarUrl, isActive, role, phoneNumber
 - Classes have a unique classCode; no direct tutor FK (tutor identity tracked via ClassStudent)
 - ClassStudent join table links students to classes with unique constraint
 - No separate settings table — settings live in LearnerProfile
 - Vocabulary uses SM-2 SRS algorithm fields (srsInterval, srsEase, srsDue)
 - Progress is exactly 1 row per user per calendar day
 - Cascade delete on all user-owned relations
+- RefreshToken table stores hashed (SHA-256) refresh tokens for server-side revocation; one row per active session/device
 
 ---
 
@@ -128,6 +131,10 @@ Each module under `src/modules/[name]/` follows:
 - Pagination: `?page=1&limit=20` (max 100)
 - All request inputs validated with Zod (body, params, query)
 - Swagger JSDoc comments on all routes
+- Auth middleware pattern: `authenticate` → attaches `req.user`; `authorize("ROLE")` → guards by role
+  - 401: no token / invalid token / `req.user` missing when `authorize` runs
+  - 403: valid token but insufficient role (`"Access denied. Required role: X or Y"`)
+  - Usage: `router.get("/path", authenticate, authorize("ADMIN"), handler)`
 
 ---
 
@@ -138,6 +145,15 @@ Each module under `src/modules/[name]/` follows:
 - Prisma transactions for multi-table writes
 - Winston: info for requests, error for failures
 - All relations use onDelete: Cascade (user-owned) or SetNull (optional refs)
+
+## Testing
+- **Runner:** Bun's built-in test runner (`bun test`) — no extra runner package needed
+- **HTTP testing:** `supertest` — makes real HTTP requests against the Express app without starting a server
+- **Test type:** Integration tests — tests the full middleware chain as the frontend experiences it
+- **Token generation:** JWTs are signed directly in tests using env secrets (no DB user lookup needed for auth tests — JWTs are stateless)
+- **DB dependency:** 401/403 tests are DB-independent; 200 success tests require DB running (seeded or empty — both return 200)
+- **File location:** Co-located in `src/modules/[name]/__tests__/[name].router.test.ts`
+- **Error handler:** `ZodError` is handled as 400 with a field-level message; `AppError` maps to its own `statusCode`; all other errors return 500
 
 ---
 
@@ -161,10 +177,10 @@ On `bun dev` / `bun start`, the server:
 
 ## Seed Data
 Run `bun run db:seed` to populate the database with test data:
-- **Admin:** admin_main
-- **Tutor:** tutor_sarah (class code: SARAH-2024)
-- **Student 1:** student_ali (PREMIUM, B1 level)
-- **Student 2:** student_yuki (FREE, A2 level)
+- **Admin:** admin_main / admin@tutelage.com
+- **Tutor:** tutor_sarah / sarah@tutelage.com (class code: SARAH-2024)
+- **Student 1:** student_ali / ali@tutelage.com (PREMIUM, B1 level)
+- **Student 2:** student_yuki / yuki@tutelage.com (FREE, A2 level)
 - **Password for all:** `password123`
 
 Includes: classes with enrolled students, learner profiles, subscriptions, metrics, enrollment requests,
@@ -175,18 +191,16 @@ conversation sessions with messages, vocabulary with SRS data, goals, and daily 
 ## Recommended Next Phases
 
 ### Phase 2 — Auth Module (Critical Path)
-Build the authentication system first since every other module depends on it.
-- Implement `auth.service.ts`: register, login, refresh token, logout
-- Password hashing with bcryptjs (salt rounds: 12)
-- JWT access token (15m) + refresh token (7d) issuance
-- Implement `authenticate.ts` middleware (verify JWT, attach req.user)
-- Implement `authorize.ts` middleware factory (role guard)
-- Registration flow: create User + LearnerProfile + Subscription + UserMetrics in transaction
-- Email verification placeholder (SendGrid integration)
-- Password reset flow (token-based)
-- Routes: POST /auth/register, POST /auth/login, POST /auth/refresh, POST /auth/logout
+- ✅ `POST /auth/login` — username + password → access token (15m) + refresh token (7d) + user data (id, username, email, displayName, role, avatarUrl, isActive, subscription.plan/status)
+- ✅ `POST /auth/refresh` — exchange valid refresh token for a new access token
+- ✅ `POST /auth/logout` — revoke refresh token (deleted from DB)
+- ✅ `authenticate.ts` middleware — verifies Bearer access token, attaches `req.user = { id, username, email, role }`
+- ✅ Refresh tokens stored server-side as SHA-256 hashes in `refresh_tokens` table (supports multi-device, true revocation)
+- ✅ `authorize.ts` middleware factory (role guard) — `authorize(...roles: Role[])` factory; throws 401 if `req.user` missing, 403 with `"Access denied. Required role: X"` if role not in allowed list
+- Remaining: POST /auth/register (User + LearnerProfile + Subscription + UserMetrics in transaction), password reset flow, email verification placeholder
 
 ### Phase 3 — User & Enrollment Modules
+- ✅ `GET /users` — paginated user list (admin only); protected by `authenticate + authorize("ADMIN")`
 - User CRUD (self-update profile, admin manage users)
 - Tutor class code generation on tutor creation
 - Enrollment request flow: student submits code → tutor approves/rejects → tutorId linked
