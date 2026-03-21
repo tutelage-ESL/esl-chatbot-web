@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bun init:*)",
+      "Bash(bun add:*)",
+      "Bash(npx prisma:*)",
+      "Bash(bunx prisma:*)",
+      "Bash(bun remove:*)",
+      "Bash(for mod:*)",
+      "Bash(do mkdir:*)",
+      "Bash(done)",
+      "Bash(MODULES=\"auth users enrollment sessions messages vocabulary goals progress metrics subscriptions admin\")",
+      "Bash(do)",
+      "Bash(for suffix:*)",
+      "Bash(touch \"src/modules/$mod/$mod.$suffix.ts\")"
+    ]
+  }
+}
