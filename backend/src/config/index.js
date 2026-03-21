@@ -9,7 +9,7 @@ const config = {
   port: parseInt(process.env.PORT, 10) || 3001,
 
   // ─── Frontend ──────────────────────────────────────────────────────────────
-  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
+  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3020',
 
   // ─── Session ──────────────────────────────────────────────────────────────
   sessionSecret: process.env.SESSION_SECRET,

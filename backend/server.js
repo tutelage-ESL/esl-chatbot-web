@@ -18,7 +18,7 @@ db.sequelize.sync({ alter: false })
     await elevenLabsService.init();
     server.listen(config.port, () => {
       console.log(`API Server is running on port ${config.port}`);
-      console.log(`Frontend should connect to: http://localhost:${config.port}`);
+      console.log(`Frontend should connect from: ${config.frontendUrl}`);
     });
   })
   .catch(err => {
