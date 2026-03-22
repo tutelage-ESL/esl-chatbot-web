@@ -19,7 +19,7 @@ async function main() {
   await prisma.userMetrics.deleteMany();
   await prisma.subscription.deleteMany();
   await prisma.learnerProfile.deleteMany();
-  await prisma.classStudent.deleteMany();
+  await prisma.classUser.deleteMany();
   await prisma.class.deleteMany();
   await prisma.user.deleteMany();
   console.log("✅ Existing data cleared\n");
@@ -94,21 +94,30 @@ async function main() {
   });
   console.log(`   ✅ Class created: ${sarahClass.className} (code: ${sarahClass.classCode})\n`);
 
-  // ─── Enroll Students in Class ───────────────────────
-  console.log("📝 Enrolling students in class...");
-  await prisma.classStudent.create({
+  // ─── Enroll Users in Class ──────────────────────────
+  console.log("📝 Enrolling users in class...");
+  await prisma.classUser.create({
     data: {
       classId: sarahClass.id,
-      studentId: student1.id,
+      userId: tutor.id,
+      role: "TUTOR",
     },
   });
-  await prisma.classStudent.create({
+  await prisma.classUser.create({
     data: {
       classId: sarahClass.id,
-      studentId: student2.id,
+      userId: student1.id,
+      role: "STUDENT",
     },
   });
-  console.log("   ✅ 2 students enrolled in Sarah's class\n");
+  await prisma.classUser.create({
+    data: {
+      classId: sarahClass.id,
+      userId: student2.id,
+      role: "STUDENT",
+    },
+  });
+  console.log("   ✅ 1 tutor and 2 students enrolled in Sarah's class\n");
 
   // ─── Learner Profiles ─────────────────────────────────
   console.log("📋 Creating Learner Profiles...");
@@ -204,9 +213,9 @@ async function main() {
   console.log("📨 Creating Enrollment Request...");
   await prisma.enrollmentRequest.create({
     data: {
-      studentId: student1.id,
-      tutorId: tutor.id,
+      userId: student1.id,
       classCode: "SARAH-2024",
+      resolverId: tutor.id,
       status: "ACCEPTED",
       note: "I want to improve my English for work",
       resolvedAt: new Date(),
@@ -214,9 +223,9 @@ async function main() {
   });
   await prisma.enrollmentRequest.create({
     data: {
-      studentId: student2.id,
-      tutorId: tutor.id,
+      userId: student2.id,
       classCode: "SARAH-2024",
+      resolverId: tutor.id,
       status: "ACCEPTED",
       note: "Preparing for university entrance",
       resolvedAt: new Date(),
@@ -393,7 +402,7 @@ async function main() {
   const counts = {
     users: await prisma.user.count(),
     classes: await prisma.class.count(),
-    classStudents: await prisma.classStudent.count(),
+    classUsers: await prisma.classUser.count(),
     learnerProfiles: await prisma.learnerProfile.count(),
     subscriptions: await prisma.subscription.count(),
     userMetrics: await prisma.userMetrics.count(),

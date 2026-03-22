@@ -1,11 +1,13 @@
 import { Router } from "express";
 import usersRouter from "../../modules/users/users.router.ts";
 import authRouter from "../../modules/auth/auth.router.ts";
+import classesRouter from "../../modules/classes/classes.router.ts";
 
 const router = Router();
 
 router.use("/auth", authRouter);
 router.use("/users", usersRouter);
+router.use("/classes", classesRouter);
 
 // Routers to be mounted in upcoming phases:
 // router.use("/enrollment", enrollmentRouter);

@@ -1,15 +1,14 @@
 * Start by reading CLAUDE.md to understand the project structure and conventions.
 
-## Task: add test for users router
-* I wanna know test the users router.
-* how the application response when I don't have access token? or it's expired? or invalid?
-* how the application response when I don't have admin role?
-* how the application response when I have admin role?
-* how the application response when I have valid access token and admin role?
-* for those all add test to the project backend architecture. and tell me how to run those tests.
-* always stick to the project architecture and conventions.
+## Task: add classes route
+* check the users  route. just like how we have users route, that display all users, with a pagination.
+* add another route for classes, that display all classes, with a pagination(page number, limit...)
+* same like users for now only admin can access this route.
+* then add this 2 sub route for both classes and users route:
+    * users/:id
+    * classes/:id
+    * (for now) only admin can access this route.
 * make sure to update the related files according to changes related to it.
-
 
 ## before starting the task:
 * ask me questions if you have any doubts. or want to confirm your understanding.
@@ -18,3 +17,10 @@
 ## After completing the task:
 * update the claude.md according to changes related to it.
 * update the swagger documentation to the frontend team.
+
+* make sure to update the related files according to changes related to it.
+* update the seeds "prisma/seed.ts" file according to changes related to it.
+
+# Answer: 
+1. yes, full profile
+2. 

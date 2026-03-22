@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const getUsersQuerySchema = z.object({
+export const getClassesQuerySchema = z.object({
   page: z
     .string()
     .optional()
@@ -11,11 +11,11 @@ export const getUsersQuerySchema = z.object({
     .optional()
     .transform((val) => (val ? parseInt(val, 10) : 10))
     .pipe(z.number().int().min(1).max(100)),
-  role: z.enum(["STUDENT", "TUTOR", "ADMIN"]).optional(),
+  status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
 });
 
-export const getUserParamSchema = z.object({
-  id: z.string().uuid("Invalid user ID"),
+export const getClassParamSchema = z.object({
+  id: z.string().uuid("Invalid class ID"),
 });
 
-export type GetUsersQuery = z.infer<typeof getUsersQuerySchema>;
+export type GetClassesQuery = z.infer<typeof getClassesQuerySchema>;

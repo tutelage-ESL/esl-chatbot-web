@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { listUsers, getUser } from "./users.controller.ts";
+import { listClasses, getClass } from "./classes.controller.ts";
 import { authenticate } from "../../middlewares/authenticate.ts";
 import { authorize } from "../../middlewares/authorize.ts";
 
@@ -8,16 +8,16 @@ const router = Router();
 /**
  * @swagger
  * tags:
- *   name: Users
- *   description: User management — admin only
+ *   name: Classes
+ *   description: Class management — admin only
  */
 
 /**
  * @swagger
- * /users:
+ * /classes:
  *   get:
- *     summary: List all users (paginated) — Admin only
- *     tags: [Users]
+ *     summary: List all classes (paginated) — Admin only
+ *     tags: [Classes]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -35,16 +35,16 @@ const router = Router();
  *           minimum: 1
  *           maximum: 100
  *           default: 10
- *         description: Number of users per page
+ *         description: Number of classes per page
  *       - in: query
- *         name: role
+ *         name: status
  *         schema:
  *           type: string
- *           enum: [STUDENT, TUTOR, ADMIN]
- *         description: Filter by role
+ *           enum: [ACTIVE, INACTIVE]
+ *         description: Filter by class status
  *     responses:
  *       200:
- *         description: Paginated list of users
+ *         description: Paginated list of classes
  *         content:
  *           application/json:
  *             schema:
@@ -55,7 +55,7 @@ const router = Router();
  *                   example: true
  *                 message:
  *                   type: string
- *                   example: Users retrieved successfully
+ *                   example: Classes retrieved successfully
  *                 data:
  *                   type: array
  *                   items:
@@ -64,26 +64,22 @@ const router = Router();
  *                       id:
  *                         type: string
  *                         format: uuid
- *                       username:
+ *                       className:
  *                         type: string
- *                       email:
+ *                       classCode:
  *                         type: string
- *                       displayName:
- *                         type: string
- *                       avatarUrl:
+ *                       classCategory:
  *                         type: string
  *                         nullable: true
- *                       isActive:
- *                         type: boolean
- *                       role:
+ *                       classStatus:
  *                         type: string
- *                         enum: [STUDENT, TUTOR, ADMIN]
- *                       phoneNumber:
- *                         type: string
- *                         nullable: true
+ *                         enum: [ACTIVE, INACTIVE]
  *                       createdAt:
  *                         type: string
  *                         format: date-time
+ *                       memberCount:
+ *                         type: integer
+ *                         description: Total number of enrolled users
  *                 meta:
  *                   type: object
  *                   properties:
@@ -114,14 +110,14 @@ const router = Router();
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.get("/", authenticate, authorize("ADMIN"), listUsers);
+router.get("/", authenticate, authorize("ADMIN"), listClasses);
 
 /**
  * @swagger
- * /users/{id}:
+ * /classes/{id}:
  *   get:
- *     summary: Get a single user by ID (full profile) — Admin only
- *     tags: [Users]
+ *     summary: Get a single class by ID (with enrolled members) — Admin only
+ *     tags: [Classes]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -131,10 +127,10 @@ router.get("/", authenticate, authorize("ADMIN"), listUsers);
  *         schema:
  *           type: string
  *           format: uuid
- *         description: User UUID
+ *         description: Class UUID
  *     responses:
  *       200:
- *         description: Full user profile
+ *         description: Class detail with enrolled members
  *         content:
  *           application/json:
  *             schema:
@@ -145,106 +141,30 @@ router.get("/", authenticate, authorize("ADMIN"), listUsers);
  *                   example: true
  *                 message:
  *                   type: string
- *                   example: User retrieved successfully
+ *                   example: Class retrieved successfully
  *                 data:
  *                   type: object
  *                   properties:
  *                     id:
  *                       type: string
  *                       format: uuid
- *                     username:
+ *                     className:
  *                       type: string
- *                     email:
+ *                     classCode:
  *                       type: string
- *                     displayName:
- *                       type: string
- *                     avatarUrl:
+ *                     classCategory:
  *                       type: string
  *                       nullable: true
- *                     isActive:
- *                       type: boolean
- *                     role:
+ *                     classStatus:
  *                       type: string
- *                       enum: [STUDENT, TUTOR, ADMIN]
- *                     phoneNumber:
- *                       type: string
- *                       nullable: true
+ *                       enum: [ACTIVE, INACTIVE]
  *                     createdAt:
  *                       type: string
  *                       format: date-time
  *                     updatedAt:
  *                       type: string
  *                       format: date-time
- *                     learnerProfile:
- *                       type: object
- *                       nullable: true
- *                       properties:
- *                         id:
- *                           type: string
- *                           format: uuid
- *                         currentLevel:
- *                           type: string
- *                           nullable: true
- *                         targetLevel:
- *                           type: string
- *                           nullable: true
- *                         learningPurpose:
- *                           type: string
- *                           nullable: true
- *                         weeklyGoalMinutes:
- *                           type: integer
- *                         timezone:
- *                           type: string
- *                         uiLanguage:
- *                           type: string
- *                         theme:
- *                           type: string
- *                     subscription:
- *                       type: object
- *                       nullable: true
- *                       properties:
- *                         id:
- *                           type: string
- *                           format: uuid
- *                         plan:
- *                           type: string
- *                           enum: [FREE, PREMIUM]
- *                         status:
- *                           type: string
- *                           enum: [ACTIVE, INACTIVE, CANCELLED, PAST_DUE]
- *                         currentPeriodStart:
- *                           type: string
- *                           format: date-time
- *                           nullable: true
- *                         currentPeriodEnd:
- *                           type: string
- *                           format: date-time
- *                           nullable: true
- *                     metrics:
- *                       type: object
- *                       nullable: true
- *                       properties:
- *                         id:
- *                           type: string
- *                           format: uuid
- *                         totalStudyTimeMinutes:
- *                           type: integer
- *                         totalWordsTyped:
- *                           type: integer
- *                         lessonsCompleted:
- *                           type: integer
- *                         currentStreak:
- *                           type: integer
- *                         longestStreak:
- *                           type: integer
- *                         lastStudyDate:
- *                           type: string
- *                           format: date-time
- *                           nullable: true
- *                         estimatedLevel:
- *                           type: string
- *                           nullable: true
- *                     classUsers:
+ *                     members:
  *                       type: array
  *                       items:
  *                         type: object
@@ -252,22 +172,24 @@ router.get("/", authenticate, authorize("ADMIN"), listUsers);
  *                           id:
  *                             type: string
  *                             format: uuid
+ *                             description: ClassUser join record ID
  *                           role:
  *                             type: string
  *                             enum: [STUDENT, TUTOR, ADMIN]
- *                           class:
+ *                             description: Role of the user within this class
+ *                           user:
  *                             type: object
  *                             properties:
  *                               id:
  *                                 type: string
  *                                 format: uuid
- *                               className:
+ *                               username:
  *                                 type: string
- *                               classCode:
+ *                               displayName:
  *                                 type: string
- *                               classStatus:
+ *                               avatarUrl:
  *                                 type: string
- *                                 enum: [ACTIVE, INACTIVE]
+ *                                 nullable: true
  *       400:
  *         description: Invalid UUID format
  *         content:
@@ -287,12 +209,12 @@ router.get("/", authenticate, authorize("ADMIN"), listUsers);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  *       404:
- *         description: User not found
+ *         description: Class not found
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.get("/:id", authenticate, authorize("ADMIN"), getUser);
+router.get("/:id", authenticate, authorize("ADMIN"), getClass);
 
 export default router;

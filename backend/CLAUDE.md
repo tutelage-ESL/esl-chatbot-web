@@ -45,9 +45,10 @@ bun run test:watch   # Run tests in watch mode
 ```
 src/
 ├── config/          # env, database, redis, sendgrid, swagger, logger
-├── modules/         # domain modules (11 total)
+├── modules/         # domain modules (12 total)
 │   ├── auth/        # login, register, token refresh, password reset
 │   ├── users/       # CRUD, profile management
+│   ├── classes/     # class list and detail (admin only)
 │   ├── enrollment/  # student-tutor class join flow
 │   ├── sessions/    # conversation session lifecycle
 │   ├── messages/    # chat messages within sessions
@@ -96,10 +97,10 @@ Each module under `src/modules/[name]/` follows:
 ### Models
 | Model | Table | Key Relations |
 |-------|-------|---------------|
-| User | users | 1:1 profile/subscription/metrics, has many classes (tutor), has many classEnrollments (student) |
-| Class | classes | has many ClassStudents, no direct tutor FK |
-| ClassStudent | class_students | belongs to Class + User (student), unique(classId, studentId) |
-| EnrollmentRequest | enrollment_requests | student↔tutor, unique(studentId, tutorId) |
+| User | users | 1:1 profile/subscription/metrics, has many classUsers, has many enrollmentRequests, has many resolvedEnrollments |
+| Class | classes | has many ClassUsers, has many EnrollmentRequests (via classCode FK) |
+| ClassUser | class_users | belongs to Class + User, has role (TUTOR/STUDENT), unique(classId, userId) |
+| EnrollmentRequest | enrollment_requests | belongs to User (requester) + Class (via classCode) + optional User (resolver), unique(userId, classCode) |
 | LearnerProfile | learner_profiles | 1:1 with User (students only) |
 | Subscription | subscriptions | 1:1 with User, Stripe fields nullable |
 | UserMetrics | user_metrics | 1:1 with User, aggregated dashboard data |
@@ -113,8 +114,10 @@ Each module under `src/modules/[name]/` follows:
 - All IDs are UUID v4
 - All tables have createdAt/updatedAt
 - User model has username (unique), email (unique), displayName, password, avatarUrl, isActive, role, phoneNumber
-- Classes have a unique classCode; no direct tutor FK (tutor identity tracked via ClassStudent)
-- ClassStudent join table links students to classes with unique constraint
+- Classes have a unique classCode; tutor/student membership tracked via ClassUser join table
+- ClassUser join table links any user (TUTOR or STUDENT) to a class with a `role` field and unique(classId, userId) constraint
+- EnrollmentRequest links to Class via classCode FK (classCode is @unique on Class, enabling referential integrity without a UUID FK); unique(userId, classCode) prevents duplicate requests per class
+- EnrollmentRequest has an optional `resolverId` (FK to User) — the admin or tutor who accepted/rejected the request
 - No separate settings table — settings live in LearnerProfile
 - Vocabulary uses SM-2 SRS algorithm fields (srsInterval, srsEase, srsDue)
 - Progress is exactly 1 row per user per calendar day
@@ -130,7 +133,7 @@ Each module under `src/modules/[name]/` follows:
 - All async controllers wrapped in `asyncHandler()`
 - Pagination: `?page=1&limit=20` (max 100)
 - All request inputs validated with Zod (body, params, query)
-- Swagger JSDoc comments on all routes
+- Swagger JSDoc comments on all routes; shared `ErrorResponse` schema defined in `swagger.ts` components
 - Auth middleware pattern: `authenticate` → attaches `req.user`; `authorize("ROLE")` → guards by role
   - 401: no token / invalid token / `req.user` missing when `authorize` runs
   - 403: valid token but insufficient role (`"Access denied. Required role: X or Y"`)
@@ -183,7 +186,7 @@ Run `bun run db:seed` to populate the database with test data:
 - **Student 2:** student_yuki / yuki@tutelage.com (FREE, A2 level)
 - **Password for all:** `password123`
 
-Includes: classes with enrolled students, learner profiles, subscriptions, metrics, enrollment requests,
+Includes: classes with enrolled users (tutor + students via ClassUser), learner profiles, subscriptions, metrics, enrollment requests,
 conversation sessions with messages, vocabulary with SRS data, goals, and daily progress snapshots.
 
 ---
@@ -200,10 +203,13 @@ conversation sessions with messages, vocabulary with SRS data, goals, and daily 
 - Remaining: POST /auth/register (User + LearnerProfile + Subscription + UserMetrics in transaction), password reset flow, email verification placeholder
 
 ### Phase 3 — User & Enrollment Modules
-- ✅ `GET /users` — paginated user list (admin only); protected by `authenticate + authorize("ADMIN")`
+- ✅ `GET /users` — paginated user list, filterable by `?role=` (admin only)
+- ✅ `GET /users/:id` — full user profile: learnerProfile, subscription, metrics, classUsers (admin only)
+- ✅ `GET /classes` — paginated class list with memberCount, filterable by `?status=` (admin only)
+- ✅ `GET /classes/:id` — class detail with enrolled members (id, role, user: id/username/displayName/avatarUrl) (admin only)
 - User CRUD (self-update profile, admin manage users)
 - Tutor class code generation on tutor creation
-- Enrollment request flow: student submits code → tutor approves/rejects → tutorId linked
+- Enrollment request flow: user submits classCode → admin or tutor in the class approves/rejects → resolverId set on resolution
 - LearnerProfile CRUD for students
 - Admin: assign tutors, manage all users
 

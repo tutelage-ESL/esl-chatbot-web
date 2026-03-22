@@ -23,6 +23,16 @@ const options: swaggerJsdoc.Options = {
           bearerFormat: "JWT",
         },
       },
+      schemas: {
+        ErrorResponse: {
+          type: "object",
+          properties: {
+            success: { type: "boolean", example: false },
+            message: { type: "string" },
+            data: { nullable: true, example: null },
+          },
+        },
+      },
     },
   },
   apis: ["./src/modules/**/*.router.ts", "./src/routes/**/*.ts"],
