@@ -24,3 +24,7 @@
 # Answer: 
 1. yes, full profile
 2. 
+
+
+❯ I think I should hold these importand informations somewhere here in the project, how about creating a folder (docs or something) and add this informations about the database hosting, and add some more information and recommendation about our current express backend project. and provide any related informations to, such as where to hold voices? or avatars or avatar files or email services , or thoses kind of staffs, that I need to decide. 
+* whats your opinion?   
