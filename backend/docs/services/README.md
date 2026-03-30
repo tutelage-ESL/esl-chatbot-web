@@ -14,7 +14,7 @@ See individual files for full details, options, and setup guides.
 | File Storage | Cloudflare R2 (free tier) | Cloudflare R2 | [file-storage.md](./file-storage.md) |
 | Email | Resend (free tier) | Resend or AWS SES | [email.md](./email.md) |
 | App Hosting | Render or Railway | Railway or DigitalOcean | [hosting.md](./hosting.md) |
-| Secrets | Doppler (free) | Doppler | [secrets.md](./secrets.md) |
+| Secrets | Infisical (free) | Infisical | [secrets.md](./secrets.md) |
 
 ---
 
@@ -28,4 +28,4 @@ See individual files for full details, options, and setup guides.
 | Phase 4 | File Storage (R2) | Voice recordings |
 | Phase 8 | Redis (Upstash) | Rate limiting, caching |
 | When deploying | App Hosting | Sharing with team / production |
-| Before sharing env | Secrets (Doppler) | Team access to env vars |
+| Before sharing env | Secrets (Infisical) | Team access to env vars |

@@ -52,12 +52,12 @@ COPY package.json bun.lockb ./
 RUN bun install --frozen-lockfile
 COPY . .
 RUN bunx prisma generate
-EXPOSE 3000
+EXPOSE 8080
 CMD ["bun", "start"]
 ```
 
 ### Environment Variables
-Set all `.env` variables in the platform dashboard or via Doppler (see [secrets.md](./secrets.md)).
+Set all `.env` variables in the platform dashboard or via Infisical (see [secrets.md](./secrets.md)).
 Never commit `.env` to git.
 
 ### Health Check

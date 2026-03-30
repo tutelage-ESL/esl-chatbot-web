@@ -9,6 +9,7 @@ conversation sessions, vocabulary SRS, progress tracking, and subscription manag
 ## Tech Stack
 - **Runtime:** Bun
 - **Language:** TypeScript (strict mode)
+- **Secrets:** Infisical (CLI-based injection — see `SECRETS.md`)
 - **Framework:** Express.js 5
 - **ORM:** Prisma 6 + PostgreSQL
 - **Auth:** JWT (access + refresh tokens) + bcryptjs
@@ -25,17 +26,23 @@ conversation sessions, vocabulary SRS, progress tracking, and subscription manag
 ---
 
 ## Commands
+
+> All commands below require Infisical CLI to be set up (`infisical login` + `infisical init`).
+> For running without Infisical, use `bun run dev:env` / `bun run start:env` with a `.env` file.
+
 ```bash
-bun dev              # Start dev server with --watch
-bun start            # Start production server
-bun run db:generate  # Generate Prisma client
-bun run db:migrate   # Run Prisma migrations
-bun run db:push      # Push schema to DB (no migration)
-bun run db:seed      # Seed the database
-bun run db:studio    # Open Prisma Studio
-bun run typecheck    # TypeScript type check
-bun test             # Run all tests (requires DB running + seeded)
-bun run test:watch   # Run tests in watch mode
+bun dev                # Start dev server with --watch (via Infisical)
+bun start              # Start production server (via Infisical)
+bun run dev:env        # Start dev server without Infisical (needs .env file)
+bun run start:env      # Start production server without Infisical (needs .env file)
+bun run db:generate    # Generate Prisma client
+bun run db:migrate     # Run Prisma migrations (via Infisical)
+bun run db:push        # Push schema to DB (no migration) (via Infisical)
+bun run db:seed        # Seed the database (via Infisical)
+bun run db:studio      # Open Prisma Studio (via Infisical)
+bun run typecheck      # TypeScript type check
+bun test               # Run all tests (requires DB running + seeded) (via Infisical)
+bun run test:watch     # Run tests in watch mode (via Infisical)
 ```
 
 ---
@@ -161,7 +168,13 @@ Each module under `src/modules/[name]/` follows:
 ---
 
 ## Environment Variables
-See `.env.example` for all required/optional variables.
+
+Secrets are managed via **Infisical**. See `SECRETS.md` for the full setup guide.
+
+- Infisical project: `esl-chatbot`
+- Environments: `dev` (local), `prod` (production)
+- `.env.example` lists all required variables as a reference — do not copy secrets from there into a `.env` file unless absolutely necessary
+- `.infisical.json` in the project root binds the directory to the `esl-chatbot` project (created by `infisical init`)
 
 **Note:** If your PostgreSQL password contains special characters (e.g. `&`, `(`, `)`),
 URL-encode them in `DATABASE_URL`. Example: `(Gochan&DB)` → `(Gochan%26DB)`.

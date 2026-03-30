@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const envSchema = z.object({
-  PORT: z.coerce.number().default(3000),
+  PORT: z.coerce.number().default(8080),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 
   DATABASE_URL: z.string(),
@@ -19,7 +19,7 @@ const envSchema = z.object({
   SENDGRID_API_KEY: z.string().optional(),
   SENDGRID_FROM_EMAIL: z.string().email().optional(),
 
-  CORS_ORIGIN: z.string().default("http://localhost:3001"),
+  CORS_ORIGIN: z.string().default("http://localhost:3000"),
 });
 
 const parsed = envSchema.safeParse(process.env);

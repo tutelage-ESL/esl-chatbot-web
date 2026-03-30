@@ -137,9 +137,9 @@ src/
 
 ## API
 
-- Base URL: `http://localhost:3001/api/v1`
-- Docs: `http://localhost:3001/api-docs`
-- Health: `http://localhost:3001/health`
+- Base URL: `http://localhost:8080/api/v1`
+- Docs: `http://localhost:8080/api-docs`
+- Health: `http://localhost:8080/health`
 
 All responses follow:
 ```json

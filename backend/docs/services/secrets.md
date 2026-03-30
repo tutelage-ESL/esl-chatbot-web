@@ -1,7 +1,7 @@
-# Secrets Management — Doppler
+# Secrets Management — Infisical
 
 ## Decision
-**Doppler** for managing and sharing environment variables across environments and team members.
+**Infisical** for managing and sharing environment variables across environments and team members.
 
 ---
 
@@ -18,12 +18,14 @@ Sharing `.env` files over Slack or email is insecure and breaks when values chan
 
 ---
 
-## Why Doppler
+## Why Infisical
 
-- **Free** for small teams (up to 5 members on free plan)
+- **Open source** (MIT license) — no vendor lock-in, can self-host if needed
+- **Free** for small teams (generous free tier)
 - Single source of truth: change a value once, all environments and developers get it
 - CLI syncs secrets directly into your shell — no `.env` file needed locally
-- Integrates with Railway, Render, Fly, DigitalOcean, and most CI/CD tools
+- Available in Iraq (unlike Doppler which blocks registration from Iraq)
+- Integrates with Railway, Render, Fly, DigitalOcean, GitHub Actions, and most CI/CD tools
 - Audit log: see who accessed or changed what secret and when
 
 ---
@@ -31,37 +33,50 @@ Sharing `.env` files over Slack or email is insecure and breaks when values chan
 ## Setup
 
 ```bash
-# Install Doppler CLI
-# On Windows: use the MSI installer from doppler.com/docs/install-cli
+# Install Infisical CLI
+# Windows (PowerShell as Administrator):
+scoop install infisical
 
-# Login
-doppler login
+# macOS:
+brew install infisical/get-cli/infisical
 
-# Link project
-doppler setup
+# Linux (Ubuntu/Debian):
+curl -1sLf 'https://dl.cloudsmith.io/public/infisical/infisical-cli/setup.deb.sh' \
+  | sudo -E bash
+sudo apt-get install -y infisical
+
+# Log in (opens browser)
+infisical login
+
+# Link project to this directory (run once per machine, inside the backend folder)
+infisical init
 
 # Run the server with secrets injected
-doppler run -- bun dev
+bun dev
 ```
 
 ### Team Access
-1. Create a Doppler project: `tutelage`
-2. Create environments: `dev`, `staging`, `production`
-3. Invite teammates — they run `doppler setup` once and never manage `.env` files again
+1. Project lead creates a project named `esl-chatbot` on infisical.com
+2. Creates environments: `dev`, `staging`, `prod`
+3. Invites teammates via the dashboard (Settings → Members → Invite)
+4. Each teammate runs `infisical login` then `infisical init` once in the backend folder
+
+**Full step-by-step guide is in `SECRETS.md` at the project root.**
 
 ---
 
-## If Not Using Doppler
+## If Infisical Is Not Available
 
 Minimum safe practices:
-- Keep `.env` in `.gitignore` (already should be)
+- Keep `.env` in `.gitignore` (already configured)
 - Share via a **private** password manager (1Password, Bitwarden)
 - Rotate any secret that was accidentally shared or committed immediately
 - Use separate secrets per environment — never use production DB in local dev
+- As a last resort, Infisical can be self-hosted on any VPS
 
 ---
 
 ## Env Var Reference
 
 See `.env.example` in the project root for all required and optional variables.
-Doppler environments should mirror these keys exactly.
+Infisical environments should mirror these keys exactly.

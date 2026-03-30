@@ -46,7 +46,7 @@ bun run db:seed
 
 ## Sharing With Frontend Devs
 
-Never paste the `DATABASE_URL` in Slack or email. Use Doppler (see [secrets.md](./secrets.md))
+Never paste the `DATABASE_URL` in Slack or email. Use Infisical (see [secrets.md](./secrets.md))
 or share it once via a private channel and rotate it after.
 
 ---
