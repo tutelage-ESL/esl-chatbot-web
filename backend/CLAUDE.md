@@ -176,6 +176,8 @@ Secrets are managed via **Infisical**. See `SECRETS.md` for the full setup guide
 - `.env.example` lists all required variables as a reference — do not copy secrets from there into a `.env` file unless absolutely necessary
 - `.infisical.json` in the project root binds the directory to the `esl-chatbot` project (created by `infisical init`)
 
+**Database setup (0 to hero):** See `docs/services/database.md` for the full Neon setup guide — creating a project, choosing a region, getting the connection string, running migrations, seeding, and troubleshooting.
+
 **Note:** If your PostgreSQL password contains special characters (e.g. `&`, `(`, `)`),
 URL-encode them in `DATABASE_URL`. Example: `(Gochan&DB)` → `(Gochan%26DB)`.
 

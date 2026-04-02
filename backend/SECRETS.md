@@ -60,7 +60,7 @@ secrets, etc.). When you run locally, you always use `dev` secrets.
 
 | Secret Name            | Value                                                           |
 |------------------------|-----------------------------------------------------------------|
-| `PORT`                 | `8080`                                                          |
+| `PORT`                 | `8000`                                                          |
 | `NODE_ENV`             | `development`                                                   |
 | `DATABASE_URL`         | `postgresql://youruser:yourpass@host:5432/esl_chatbot`          |
 | `REDIS_URL`            | `redis://localhost:6379`                                        |

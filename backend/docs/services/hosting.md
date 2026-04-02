@@ -52,7 +52,7 @@ COPY package.json bun.lockb ./
 RUN bun install --frozen-lockfile
 COPY . .
 RUN bunx prisma generate
-EXPOSE 8080
+EXPOSE 8000
 CMD ["bun", "start"]
 ```
 

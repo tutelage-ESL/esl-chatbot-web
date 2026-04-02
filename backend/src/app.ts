@@ -26,8 +26,8 @@ app.use(morgan("combined", {
   stream: { write: (message: string) => logger.info(message.trim()) },
 }));
 
-// API docs
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+// API docs — helmet CSP disabled for this route (Swagger UI uses inline scripts/styles)
+app.use("/api-docs", helmet({ contentSecurityPolicy: false }), swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Routes
 app.use("/api/v1", v1Router);
