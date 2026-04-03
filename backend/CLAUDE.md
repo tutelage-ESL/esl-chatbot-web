@@ -20,6 +20,7 @@ conversation sessions, vocabulary SRS, progress tracking, and subscription manag
 - **Security:** Helmet, express-rate-limit, cors
 - **Logging:** Winston + Morgan
 - **API Docs:** Swagger (OpenAPI 3.0 via swagger-jsdoc)
+- **Type Sharing:** openapi-typescript (generates `frontend/types/api.ts` from Swagger spec)
 - **Validation:** Zod 4
 - **IDs:** UUID v4 (Prisma @default(uuid()))
 
@@ -41,9 +42,60 @@ bun run db:push        # Push schema to DB (no migration) (via Infisical)
 bun run db:seed        # Seed the database (via Infisical)
 bun run db:studio      # Open Prisma Studio (via Infisical)
 bun run typecheck      # TypeScript type check
+bun run generate:openapi   # Export Swagger spec → openapi.json (backend root, gitignored)
+bun run generate:types     # Full pipeline: openapi.json → ../frontend/types/api.ts
 bun test               # Run all tests (requires DB running + seeded) (via Infisical)
 bun run test:watch     # Run tests in watch mode (via Infisical)
 ```
+
+---
+
+## Frontend Type Sharing (openapi-typescript)
+
+The backend shares TypeScript types with the Nuxt.js frontend via `openapi-typescript`.
+No tRPC, no code generation framework — just types derived from the existing Swagger spec.
+
+### How it works
+```
+Swagger JSDoc comments in routers
+        ↓
+  swagger-jsdoc → openapi.json   (backend root, gitignored)
+        ↓
+  openapi-typescript → ../frontend/types/api.ts   (committed)
+```
+
+### When to regenerate
+Run after **any** route change: new endpoint, changed request body, changed response shape.
+```bash
+bun run generate:types
+```
+Commit `../frontend/types/api.ts` alongside your backend changes so the frontend stays in sync.
+
+### Frontend usage (Nuxt.js)
+Install the companion HTTP client in the frontend once:
+```bash
+bun add openapi-fetch   # inside esl-chatbot-web/frontend/
+```
+
+Then use it with full type safety:
+```ts
+import createClient from "openapi-fetch";
+import type { paths } from "~/types/api";
+
+const api = createClient<paths>({ baseUrl: "http://localhost:8000/api/v1" });
+
+// Fully typed — request body and response are inferred automatically
+const { data, error } = await api.POST("/auth/login", {
+  body: { username: "student_ali", password: "password123" },
+});
+// data.user.role is typed as "STUDENT" | "TUTOR" | "ADMIN"
+```
+
+### Key rules
+- **Never edit `frontend/types/api.ts` manually** — it is always regenerated
+- `openapi.json` is gitignored (intermediate artifact); `frontend/types/api.ts` is committed
+- Types are only as good as the Swagger JSDoc comments — keep them accurate
+- `scripts/export-openapi.ts` injects placeholder env vars so no real DB/JWT secrets are needed to generate types
 
 ---
 

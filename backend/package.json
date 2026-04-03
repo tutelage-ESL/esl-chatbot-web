@@ -14,6 +14,8 @@
     "db:seed": "infisical run --env=dev -- bun prisma/seed.ts",
     "db:studio": "infisical run --env=dev -- bunx prisma studio",
     "typecheck": "tsc --noEmit",
+    "generate:openapi": "bun scripts/export-openapi.ts",
+    "generate:types": "bun run generate:openapi && bunx openapi-typescript openapi.json -o ../frontend/types/api.ts",
     "test": "infisical run --env=dev -- bun test",
     "test:watch": "infisical run --env=dev -- bun test --watch"
   },
@@ -30,6 +32,7 @@
     "@types/swagger-ui-express": "^4.1.8",
     "@types/uuid": "^11.0.0",
     "bun-types": "^1.3.11",
+    "openapi-typescript": "^7.13.0",
     "prisma": "6",
     "supertest": "^7.2.2"
   },
