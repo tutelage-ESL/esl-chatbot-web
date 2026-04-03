@@ -19,6 +19,9 @@ const envSchema = z.object({
   SENDGRID_API_KEY: z.string().optional(),
   SENDGRID_FROM_EMAIL: z.string().email().optional(),
 
+  // Google OAuth — optional; Google login routes return 503 if not set
+  GOOGLE_CLIENT_ID: z.string().optional(),
+
   CORS_ORIGIN: z.string().default("http://localhost:3000"),
 });
 

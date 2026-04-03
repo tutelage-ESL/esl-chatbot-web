@@ -10,6 +10,7 @@ See individual files for full details, options, and setup guides.
 | Layer | Dev / Free | Production | File |
 |-------|-----------|------------|------|
 | PostgreSQL | Neon (free) | Neon Scale | [database.md](./database.md) |
+| Google OAuth | Google Cloud (free) | Google Cloud | [google-oauth.md](./google-oauth.md) |
 | Redis | Upstash (free) | Upstash Pay-as-you-go | [redis.md](./redis.md) |
 | File Storage | Cloudflare R2 (free tier) | Cloudflare R2 | [file-storage.md](./file-storage.md) |
 | Email | Resend (free tier) | Resend or AWS SES | [email.md](./email.md) |
@@ -23,6 +24,7 @@ See individual files for full details, options, and setup guides.
 | Priority | Service | Needed For |
 |----------|---------|-----------|
 | ✅ Now | PostgreSQL (Neon) | Everything |
+| ✅ Phase 2 | Google OAuth (Google Cloud) | Google Sign-In |
 | Phase 3 | File Storage (R2) | Avatars |
 | Phase 2 remaining | Email (Resend) | Registration, password reset |
 | Phase 4 | File Storage (R2) | Voice recordings |

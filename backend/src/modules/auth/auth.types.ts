@@ -5,6 +5,25 @@ export interface LoginInput {
   password: string;
 }
 
+export interface RegisterInput {
+  username: string;
+  email: string;
+  password: string;
+  displayName: string;
+}
+
+export interface GoogleAuthInput {
+  idToken: string;
+  username?: string;
+}
+
+export interface GoogleProfile {
+  googleId: string;
+  email: string;
+  displayName: string;
+  avatarUrl: string | null;
+}
+
 export interface JwtPayload {
   sub: string;
   username: string;
@@ -31,3 +50,18 @@ export interface LoginResponse {
   accessToken: string;
   refreshToken: string;
 }
+
+// Returned when a Google user doesn't exist yet and needs to choose a username
+export interface GoogleNeedsRegistration {
+  needsRegistration: true;
+  profile: GoogleProfile;
+}
+
+export interface GoogleLoginResponse {
+  needsRegistration: false;
+  user: AuthUser;
+  accessToken: string;
+  refreshToken: string;
+}
+
+export type GoogleAuthResponse = GoogleNeedsRegistration | GoogleLoginResponse;

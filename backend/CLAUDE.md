@@ -12,7 +12,7 @@ conversation sessions, vocabulary SRS, progress tracking, and subscription manag
 - **Secrets:** Infisical (CLI-based injection — see `SECRETS.md`)
 - **Framework:** Express.js 5
 - **ORM:** Prisma 6 + PostgreSQL
-- **Auth:** JWT (access + refresh tokens) + bcryptjs
+- **Auth:** JWT (access + refresh tokens) + bcryptjs + Google OAuth (ID token verification via Google tokeninfo endpoint)
 - **Cache:** Redis (placeholder — integrate later)
 - **Email:** SendGrid (placeholder — integrate later)
 - **File Uploads:** Multer
@@ -145,6 +145,7 @@ Each module under `src/modules/[name]/` follows:
 | Enum | Values |
 |------|--------|
 | Role | STUDENT, TUTOR, ADMIN |
+| AuthProvider | LOCAL, GOOGLE |
 | ClassStatus | ACTIVE, INACTIVE |
 | EnrollStatus | PENDING, ACCEPTED, REJECTED |
 | SessionMode | TEXT, VOICE |
@@ -172,7 +173,8 @@ Each module under `src/modules/[name]/` follows:
 ### Key Design Decisions
 - All IDs are UUID v4
 - All tables have createdAt/updatedAt
-- User model has username (unique), email (unique), displayName, password, avatarUrl, isActive, role, phoneNumber
+- User model has username (unique), email (unique), displayName, password (nullable — null for Google-only accounts), authProvider (LOCAL|GOOGLE), googleId (unique, nullable), avatarUrl, isActive, role, phoneNumber
+- AI chatbot access is gated by Subscription: `status === ACTIVE`. Default after registration: `plan=FREE, status=INACTIVE` (no AI access). Class joining does NOT require a subscription.
 - Classes have a unique classCode; tutor/student membership tracked via ClassUser join table
 - ClassUser join table links any user (TUTOR or STUDENT) to a class with a `role` field and unique(classId, userId) constraint
 - EnrollmentRequest links to Class via classCode FK (classCode is @unique on Class, enabling referential integrity without a UUID FK); unique(userId, classCode) prevents duplicate requests per class
@@ -262,12 +264,15 @@ conversation sessions with messages, vocabulary with SRS data, goals, and daily 
 
 ### Phase 2 — Auth Module (Critical Path)
 - ✅ `POST /auth/login` — username + password → access token (15m) + refresh token (7d) + user data (id, username, email, displayName, role, avatarUrl, isActive, subscription.plan/status)
+- ✅ `POST /auth/register` — creates User + LearnerProfile + Subscription (FREE/INACTIVE) + UserMetrics in a single transaction; returns tokens immediately (no separate login needed)
+- ✅ `POST /auth/google` — Google Sign-In: verifies Google ID token, handles login / account merge / new registration in one endpoint; see `docs/services/google-oauth.md`
+- ✅ `GET /auth/google/test` — dev-only HTML page: renders a Google Sign-In button and displays the resulting ID token so it can be copy-pasted into Swagger (disabled in production)
 - ✅ `POST /auth/refresh` — exchange valid refresh token for a new access token
 - ✅ `POST /auth/logout` — revoke refresh token (deleted from DB)
 - ✅ `authenticate.ts` middleware — verifies Bearer access token, attaches `req.user = { id, username, email, role }`
 - ✅ Refresh tokens stored server-side as SHA-256 hashes in `refresh_tokens` table (supports multi-device, true revocation)
 - ✅ `authorize.ts` middleware factory (role guard) — `authorize(...roles: Role[])` factory; throws 401 if `req.user` missing, 403 with `"Access denied. Required role: X"` if role not in allowed list
-- Remaining: POST /auth/register (User + LearnerProfile + Subscription + UserMetrics in transaction), password reset flow, email verification placeholder
+- Remaining: password reset flow, email verification placeholder
 
 ### Phase 3 — User & Enrollment Modules
 - ✅ `GET /users` — paginated user list, filterable by `?role=` (admin only)

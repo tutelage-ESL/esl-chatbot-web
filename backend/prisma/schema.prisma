@@ -15,6 +15,11 @@ enum Role {
   ADMIN
 }
 
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+}
+
 enum ClassStatus {
   ACTIVE
   INACTIVE
@@ -58,15 +63,17 @@ enum SubStatus {
 // ─── Users ───────────────────────────────────────────────
 
 model User {
-  id          String  @id @default(uuid())
-  username    String  @unique
-  email       String  @unique
-  password    String
-  displayName String
-  avatarUrl   String?
-  isActive    Boolean @default(true)
-  role        Role    @default(STUDENT)
-  phoneNumber String?
+  id           String       @id @default(uuid())
+  username     String       @unique
+  email        String       @unique
+  password     String?      // null for Google-only accounts
+  authProvider AuthProvider @default(LOCAL)
+  googleId     String?      @unique // Google's unique user ID (sub field)
+  displayName  String
+  avatarUrl    String?
+  isActive     Boolean      @default(true)
+  role         Role         @default(STUDENT)
+  phoneNumber  String?
 
   // One-to-one
   learnerProfile LearnerProfile?

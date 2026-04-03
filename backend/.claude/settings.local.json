@@ -27,7 +27,8 @@
       "Bash(RESET_DB=false timeout 6 bun dev)",
       "Bash(infisical --version)",
       "Bash(\"C:\\\\Users\\\\Aland\\\\scoop\\\\shims\\\\infisical.exe\" --version)",
-      "Bash(\"C:\\\\Users\\\\Aland\\\\scoop\\\\shims\\\\infisical.exe\" secrets:*)"
+      "Bash(\"C:\\\\Users\\\\Aland\\\\scoop\\\\shims\\\\infisical.exe\" secrets:*)",
+      "Bash(infisical run:*)"
     ]
   }
 }

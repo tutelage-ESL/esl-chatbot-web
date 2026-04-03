@@ -69,6 +69,7 @@ secrets, etc.). When you run locally, you always use `dev` secrets.
 | `JWT_ACCESS_EXPIRES`   | `15m`                                                           |
 | `JWT_REFRESH_SECRET`   | *(generate — different from access secret)*                     |
 | `JWT_REFRESH_EXPIRES`  | `7d`                                                            |
+| `GOOGLE_CLIENT_ID`     | *(from Google Cloud Console — see `docs/services/google-oauth.md`)* |
 | `SENDGRID_API_KEY`     | *(leave empty for now)*                                         |
 | `SENDGRID_FROM_EMAIL`  | *(leave empty for now)*                                         |
 | `CORS_ORIGIN`          | `http://localhost:3000`                                         |
