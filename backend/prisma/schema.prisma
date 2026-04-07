@@ -1,0 +1,375 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────
+
+enum Role {
+  STUDENT
+  TUTOR
+  ADMIN
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+}
+
+enum ClassStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum EnrollStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum SessionMode {
+  TEXT
+  VOICE
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+}
+
+enum GoalStatus {
+  ACTIVE
+  COMPLETED
+  PAUSED
+  CANCELLED
+}
+
+enum Plan {
+  FREE
+  PREMIUM
+}
+
+enum SubStatus {
+  ACTIVE
+  INACTIVE
+  CANCELLED
+  PAST_DUE
+}
+
+// ─── Users ───────────────────────────────────────────────
+
+model User {
+  id           String       @id @default(uuid())
+  username     String       @unique
+  email        String       @unique
+  password     String?      // null for Google-only accounts
+  authProvider AuthProvider @default(LOCAL)
+  googleId     String?      @unique // Google's unique user ID (sub field)
+  displayName  String
+  avatarUrl    String?
+  isActive     Boolean      @default(true)
+  role         Role         @default(STUDENT)
+  phoneNumber  String?
+
+  // One-to-one
+  learnerProfile LearnerProfile?
+  subscription   Subscription?
+  metrics        UserMetrics?
+
+  // One-to-many
+  classUsers                   ClassUser[]
+  enrollmentRequests           EnrollmentRequest[] @relation("EnrollmentSender")
+  resolvedEnrollments          EnrollmentRequest[] @relation("EnrollmentResolver")
+  sessions                     ConversationSession[]
+  messages                     Message[]
+  vocabularies                 Vocabulary[]
+  goals                        Goal[]
+  assignedGoals                Goal[]              @relation("GoalAssigner")
+  progress                     Progress[]
+  refreshTokens                RefreshToken[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+// ─── Classes ──────────────────────────────────────────────
+
+model Class {
+  id            String      @id @default(uuid())
+  className     String
+  classCode     String      @unique
+  classCategory String?
+  classStatus   ClassStatus @default(ACTIVE)
+
+  users              ClassUser[]
+  enrollmentRequests EnrollmentRequest[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("classes")
+}
+
+model ClassUser {
+  id      String @id @default(uuid())
+  classId String
+  userId  String
+  role    Role
+
+  class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([classId, userId])
+  @@map("class_users")
+}
+
+// ─── Enrollment Requests ─────────────────────────────────
+
+model EnrollmentRequest {
+  id          String       @id @default(uuid())
+  userId      String
+  classCode   String
+  resolverId  String?
+  status      EnrollStatus @default(PENDING)
+  note        String?
+  requestedAt DateTime     @default(now())
+  resolvedAt  DateTime?
+
+  user       User  @relation("EnrollmentSender", fields: [userId], references: [id], onDelete: Cascade)
+  class      Class @relation(fields: [classCode], references: [classCode], onDelete: Cascade)
+  resolvedBy User? @relation("EnrollmentResolver", fields: [resolverId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, classCode])
+  @@map("enrollment_requests")
+}
+
+// ─── Learner Profiles ────────────────────────────────────
+
+model LearnerProfile {
+  id                String  @id @default(uuid())
+  userId            String  @unique
+  currentLevel      String?
+  targetLevel       String?
+  learningPurpose   String?
+  topicsOfInterest  Json?
+  aiPersonality     String?
+  voiceSpeed        Float   @default(1.0)
+  autoSpeak         Boolean @default(false)
+  uiLanguage        String  @default("en")
+  theme             String  @default("light")
+  weeklyGoalMinutes Int     @default(60)
+  timezone          String  @default("UTC")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("learner_profiles")
+}
+
+// ─── Subscriptions ───────────────────────────────────────
+
+model Subscription {
+  id                   String    @id @default(uuid())
+  userId               String    @unique
+  plan                 Plan      @default(FREE)
+  status               SubStatus @default(ACTIVE)
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  monthlyTtsUsage      Int       @default(0)
+  lastUsageReset       DateTime?
+
+  // Stripe (nullable, future integration)
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("subscriptions")
+}
+
+// ─── User Metrics ────────────────────────────────────────
+
+model UserMetrics {
+  id                    String    @id @default(uuid())
+  userId                String    @unique
+  totalStudyTimeMinutes Int       @default(0)
+  totalWordsTyped       Int       @default(0)
+  lessonsCompleted      Int       @default(0)
+  currentStreak         Int       @default(0)
+  longestStreak         Int       @default(0)
+  lastStudyDate         DateTime?
+  estimatedLevel        String?
+  grammarSkill          Float     @default(0)
+  vocabularySkill       Float     @default(0)
+  readingSkill          Float     @default(0)
+  writingSkill          Float     @default(0)
+  speakingSkill         Float     @default(0)
+  listeningSkill        Float     @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("user_metrics")
+}
+
+// ─── Conversation Sessions ───────────────────────────────
+
+model ConversationSession {
+  id                String      @id @default(uuid())
+  userId            String
+  mode              SessionMode @default(TEXT)
+  topic             String?
+  summary           String?
+  aiContextSnapshot Json?
+  startedAt         DateTime    @default(now())
+  endedAt           DateTime?
+  durationSeconds   Int?
+  messageCount      Int         @default(0)
+  averageScore      Float?
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("conversation_sessions")
+}
+
+// ─── Messages ────────────────────────────────────────────
+
+model Message {
+  id           String      @id @default(uuid())
+  userId       String
+  sessionId    String
+  role         MessageRole
+  content      String
+  inputMode    String?
+  wordCount    Int?
+  aiEvaluation Json?
+  audioUrl     String?
+
+  user    User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session ConversationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("messages")
+}
+
+// ─── Vocabularies ────────────────────────────────────────
+
+model Vocabulary {
+  id             String    @id @default(uuid())
+  userId         String
+  word           String
+  definition     String
+  pronunciation  String?
+  example        String?
+  partOfSpeech   String?
+  difficulty     Int       @default(1)
+  category       String?
+  srsInterval    Int       @default(1)
+  srsDue         DateTime  @default(now())
+  srsEase        Float     @default(2.5)
+  reviewCount    Int       @default(0)
+  correctCount   Int       @default(0)
+  incorrectCount Int       @default(0)
+  masteryLevel   Int       @default(0)
+  lastPracticed  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, word])
+  @@map("vocabularies")
+}
+
+// ─── Goals ───────────────────────────────────────────────
+
+model Goal {
+  id                 String     @id @default(uuid())
+  userId             String
+  assignedByTutorId  String?
+  type               String
+  description        String
+  target             Int
+  timeframe          String?
+  difficulty         String?
+  status             GoalStatus @default(ACTIVE)
+  progress           Float      @default(0)
+  milestones         Json?
+  actionPlan         String?
+  startDate          DateTime   @default(now())
+  targetDate         DateTime?
+  completedDate      DateTime?
+  lastProgressUpdate DateTime?
+
+  user          User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedByTutor User? @relation("GoalAssigner", fields: [assignedByTutorId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("goals")
+}
+
+// ─── Progress ────────────────────────────────────────────
+
+model Progress {
+  id                  String   @id @default(uuid())
+  userId              String
+  date                DateTime @db.Date
+  studyMinutes        Int      @default(0)
+  messagesCount       Int      @default(0)
+  wordsTyped          Int      @default(0)
+  vocabularyPracticed Int      @default(0)
+  goalsAdvanced       Int      @default(0)
+  pronunciationScore  Float?
+  skillSnapshot       Json?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@map("progress")
+}
+
+// ─── Refresh Tokens ──────────────────────────────────────
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@map("refresh_tokens")
+}

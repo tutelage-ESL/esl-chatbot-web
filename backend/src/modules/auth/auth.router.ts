@@ -1,0 +1,457 @@
+import { Router } from "express";
+import { readFileSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
+import {
+  loginHandler,
+  registerHandler,
+  googleAuthHandler,
+  refreshHandler,
+  logoutHandler,
+} from "./auth.controller.ts";
+import { env } from "../../config/env.ts";
+
+const router = Router();
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// ─── Google OAuth test page (development only) ────────────────────────────────
+// Serves a browser page that triggers Google Sign-In and displays the ID token
+// so you can copy-paste it into Swagger. Not available in production.
+if (env.NODE_ENV !== "production") {
+  router.get("/google/test", (_req, res) => {
+    const html = readFileSync(join(__dirname, "google-test.html"), "utf-8");
+    const clientId = env.GOOGLE_CLIENT_ID ?? "NOT_SET";
+    const injected = html.replace("__GOOGLE_CLIENT_ID__", clientId);
+
+    // Override Helmet's strict CSP — Google Sign-In requires its own SDK script,
+    // an iframe for the sign-in popup, and inline styles for the button.
+    res.setHeader(
+      "Content-Security-Policy",
+      [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' https://accounts.google.com",
+        "style-src 'self' 'unsafe-inline' https://accounts.google.com",
+        "frame-src https://accounts.google.com",
+        "connect-src 'self' https://accounts.google.com",
+        "img-src 'self' https://*.googleusercontent.com data:",
+      ].join("; ")
+    );
+    res.setHeader("Content-Type", "text/html");
+    res.send(injected);
+  });
+}
+
+/**
+ * @swagger
+ * tags:
+ *   name: Auth
+ *   description: Authentication — register, login, Google OAuth, token refresh, logout
+ */
+
+// ─── Shared schema snippets ───────────────────────────────────────────────────
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     AuthUser:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *         username:
+ *           type: string
+ *         email:
+ *           type: string
+ *           format: email
+ *         displayName:
+ *           type: string
+ *         role:
+ *           type: string
+ *           enum: [STUDENT, TUTOR, ADMIN]
+ *         avatarUrl:
+ *           type: string
+ *           nullable: true
+ *         isActive:
+ *           type: boolean
+ *         subscription:
+ *           type: object
+ *           nullable: true
+ *           description: >
+ *             FREE + INACTIVE = no AI access (default after registration).
+ *             PREMIUM + ACTIVE = full AI chatbot access.
+ *           properties:
+ *             plan:
+ *               type: string
+ *               enum: [FREE, PREMIUM]
+ *             status:
+ *               type: string
+ *               enum: [ACTIVE, INACTIVE, CANCELLED, PAST_DUE]
+ *     AuthTokens:
+ *       type: object
+ *       properties:
+ *         accessToken:
+ *           type: string
+ *           description: JWT access token — expires in 15 minutes. Send as Bearer token in Authorization header.
+ *         refreshToken:
+ *           type: string
+ *           description: JWT refresh token — expires in 7 days. Store securely (httpOnly cookie or secure storage).
+ *     AuthResponse:
+ *       type: object
+ *       properties:
+ *         user:
+ *           $ref: '#/components/schemas/AuthUser'
+ *         accessToken:
+ *           type: string
+ *         refreshToken:
+ *           type: string
+ */
+
+// ─── POST /auth/register ──────────────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /auth/register:
+ *   post:
+ *     summary: Register a new account with email and password
+ *     tags: [Auth]
+ *     description: >
+ *       Creates a new user account. On success, returns tokens immediately so the user
+ *       is logged in right away — no separate login step required.
+ *
+ *       **Default state after registration:**
+ *       - `subscription.plan` = FREE
+ *       - `subscription.status` = INACTIVE
+ *       - AI chatbot access is **disabled** until the user subscribes (Phase 8)
+ *       - Class joining via class code works immediately (no subscription needed)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - email
+ *               - password
+ *               - displayName
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 minLength: 3
+ *                 maxLength: 30
+ *                 pattern: '^[a-zA-Z0-9_]+$'
+ *                 example: student_ali
+ *                 description: Unique. Letters, numbers, and underscores only.
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: ali@example.com
+ *               password:
+ *                 type: string
+ *                 minLength: 8
+ *                 example: MyPassword123
+ *               displayName:
+ *                 type: string
+ *                 maxLength: 100
+ *                 example: Ali Hassan
+ *     responses:
+ *       201:
+ *         description: Registration successful — user is logged in
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Registration successful
+ *                 data:
+ *                   $ref: '#/components/schemas/AuthResponse'
+ *       409:
+ *         description: Username or email already registered
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       422:
+ *         description: Validation error (missing or invalid fields)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.post("/register", registerHandler);
+
+// ─── POST /auth/login ─────────────────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /auth/login:
+ *   post:
+ *     summary: Login with username and password
+ *     tags: [Auth]
+ *     description: >
+ *       Standard email/password login. Returns an access token (15m) and a refresh
+ *       token (7d). If the account was created with Google Sign-In (no password),
+ *       a 401 is returned with a clear message directing the user to Google login.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - password
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 example: student_ali
+ *               password:
+ *                 type: string
+ *                 example: password123
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Login successful
+ *                 data:
+ *                   $ref: '#/components/schemas/AuthResponse'
+ *       401:
+ *         description: Invalid credentials, or account uses Google Sign-In
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       403:
+ *         description: Account deactivated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       422:
+ *         description: Validation error (missing fields)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.post("/login", loginHandler);
+
+// ─── POST /auth/google ────────────────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /auth/google:
+ *   post:
+ *     summary: Sign in or register with Google
+ *     tags: [Auth]
+ *     description: >
+ *       Verifies a Google ID token (obtained from Google Sign-In on the frontend)
+ *       and handles all three cases automatically:
+ *
+ *       **Case 1 — Existing Google user:** logs them in, returns tokens.
+ *
+ *       **Case 2 — Account merge:** if a user already has an email/password account
+ *       with the same email, their Google account is linked automatically and
+ *       tokens are returned. They can now sign in with either method.
+ *
+ *       **Case 3 — New user (needs username):** if no account exists, returns
+ *       `{ needsRegistration: true, profile: { email, displayName, avatarUrl } }`.
+ *       The frontend should show a username input, then call this endpoint again
+ *       with both `idToken` and `username`.
+ *
+ *       **Case 4 — New user (username provided):** creates the account and returns tokens.
+ *
+ *       **How to get an ID token on the frontend:**
+ *       Use Google's [Sign In With Google](https://developers.google.com/identity/gsi/web/guides/overview)
+ *       button or the `@react-oauth/google` / `vue3-google-login` library.
+ *       The `credential` field from the Google callback is the `idToken` to send here.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - idToken
+ *             properties:
+ *               idToken:
+ *                 type: string
+ *                 description: Google ID token (JWT) from the frontend Google Sign-In flow
+ *                 example: eyJhbGciOiJSUzI1NiIsImtpZCI6...
+ *               username:
+ *                 type: string
+ *                 minLength: 3
+ *                 maxLength: 30
+ *                 pattern: '^[a-zA-Z0-9_]+$'
+ *                 description: Required only for new users (when needsRegistration was true)
+ *                 example: john_doe
+ *     responses:
+ *       200:
+ *         description: >
+ *           Authentication successful — OR — username required (needsRegistration: true).
+ *           Check the `data.needsRegistration` field to distinguish.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   oneOf:
+ *                     - description: Authenticated — tokens returned
+ *                       type: object
+ *                       properties:
+ *                         needsRegistration:
+ *                           type: boolean
+ *                           example: false
+ *                         user:
+ *                           $ref: '#/components/schemas/AuthUser'
+ *                         accessToken:
+ *                           type: string
+ *                         refreshToken:
+ *                           type: string
+ *                     - description: New user — username required
+ *                       type: object
+ *                       properties:
+ *                         needsRegistration:
+ *                           type: boolean
+ *                           example: true
+ *                         profile:
+ *                           type: object
+ *                           properties:
+ *                             googleId:
+ *                               type: string
+ *                             email:
+ *                               type: string
+ *                               format: email
+ *                             displayName:
+ *                               type: string
+ *                             avatarUrl:
+ *                               type: string
+ *                               nullable: true
+ *       401:
+ *         description: Invalid or expired Google ID token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       409:
+ *         description: Username already taken
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       503:
+ *         description: Google OAuth is not configured on this server (missing GOOGLE_CLIENT_ID)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.post("/google", googleAuthHandler);
+
+// ─── POST /auth/refresh ───────────────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /auth/refresh:
+ *   post:
+ *     summary: Obtain a new access token using a valid refresh token
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - refreshToken
+ *             properties:
+ *               refreshToken:
+ *                 type: string
+ *                 description: The refresh token received at login or registration
+ *     responses:
+ *       200:
+ *         description: New access token issued
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Access token refreshed
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     accessToken:
+ *                       type: string
+ *       401:
+ *         description: Invalid or expired refresh token
+ */
+router.post("/refresh", refreshHandler);
+
+// ─── POST /auth/logout ────────────────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /auth/logout:
+ *   post:
+ *     summary: Logout and invalidate the refresh token
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - refreshToken
+ *             properties:
+ *               refreshToken:
+ *                 type: string
+ *                 description: The refresh token to revoke
+ *     responses:
+ *       200:
+ *         description: Logged out successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Logged out successfully
+ *                 data:
+ *                   nullable: true
+ *                   example: null
+ */
+router.post("/logout", logoutHandler);
+
+export default router;

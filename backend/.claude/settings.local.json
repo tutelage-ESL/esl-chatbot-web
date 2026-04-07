@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bun init:*)",
+      "Bash(bun add:*)",
+      "Bash(npx prisma:*)",
+      "Bash(bunx prisma:*)",
+      "Bash(bun remove:*)",
+      "Bash(for mod:*)",
+      "Bash(do mkdir:*)",
+      "Bash(done)",
+      "Bash(MODULES=\"auth users enrollment sessions messages vocabulary goals progress metrics subscriptions admin\")",
+      "Bash(do)",
+      "Bash(for suffix:*)",
+      "Bash(touch \"src/modules/$mod/$mod.$suffix.ts\")",
+      "Bash(bun:*)",
+      "Bash(PGPASSWORD='Gochan&DB' psql -U postgres -h localhost -p 5432 -d esl-chatbot-web -c \"SELECT 1 as test;\" 2>&1)",
+      "Bash(where psql:*)",
+      "Read(//c/Program Files/PostgreSQL//**)",
+      "Bash(taskkill //F //IM psql.exe)",
+      "Bash(PGPASSWORD='Gochan&DB' \"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -U postgres -h localhost -p 5432 -d esl-chatbot-web -w -c \"SELECT 1 as test;\")",
+      "Bash(export PGPASSWORD='Gochan&DB')",
+      "Bash(\"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -U postgres -h localhost -p 5432 -d esl-chatbot-web -w -c \"SELECT 1 as test;\")",
+      "Bash(\"/c/Program Files/PostgreSQL/18/bin/psql.exe\" \"postgresql://postgres:Gochan%26DB@localhost:5432/esl-chatbot-web\" -w -c \"SELECT 1;\")",
+      "Bash(export PGPASSWORD='postgres')",
+      "Bash(\"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -U postgres -h localhost -p 5432 -w -c \"SELECT 1 as test;\")",
+      "Bash(RESET_DB=false timeout 6 bun dev)",
+      "Bash(infisical --version)",
+      "Bash(\"C:\\\\Users\\\\Aland\\\\scoop\\\\shims\\\\infisical.exe\" --version)",
+      "Bash(\"C:\\\\Users\\\\Aland\\\\scoop\\\\shims\\\\infisical.exe\" secrets:*)",
+      "Bash(infisical run:*)"
+    ]
+  }
+}

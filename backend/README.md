@@ -1,197 +1,167 @@
-# ESL Chatbot — Backend
+# ESL Chatbot Backend
 
-The backend is a Node.js + Express REST API server that powers the ESL chatbot frontend. It handles authentication, AI-driven conversations, vocabulary management, text-to-speech, and user progress tracking.
+AI-powered English learning platform backend built with Bun, Express, TypeScript, and Prisma.
 
----
+## Features
 
-## Quick Start
+- **Student-Tutor-Admin hierarchy** with class enrollment system
+- **AI conversation sessions** with grammar/fluency evaluation
+- **Vocabulary flashcards** with SM-2 spaced repetition algorithm
+- **Learning goals** (self-set or tutor-assigned) with milestone tracking
+- **Daily progress snapshots** and skill-level metrics
+- **Subscription management** (FREE / PREMIUM) with Stripe integration (planned)
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Runtime | [Bun](https://bun.sh) |
+| Language | TypeScript (strict mode) |
+| Framework | Express.js 5 |
+| Database | PostgreSQL + [Prisma](https://prisma.io) 6 |
+| Auth | JWT (access + refresh tokens) + bcryptjs |
+| Validation | Zod 4 |
+| Logging | Winston + Morgan |
+| API Docs | Swagger (OpenAPI 3.0) |
+| Security | Helmet, CORS, rate limiting |
+
+## Prerequisites
+
+- [Bun](https://bun.sh) >= 1.0
+- [PostgreSQL](https://www.postgresql.org/) >= 14
+- [Node.js](https://nodejs.org/) >= 20 (for Prisma CLI)
+
+## Getting Started
+
+### 1. Install dependencies
 
 ```bash
-# Install dependencies (uses Bun)
 bun install
-
-# Start in development mode (auto-restarts on file changes)
-nodemon server.js
-# — or —
-bun run dev
-
-# Start in production mode
-node server.js
-# — or —
-bun run start
-
-# Run tests
-bun test
 ```
 
-> **Default port:** `3001`
-> **Frontend expects:** `http://localhost:3001`
+### 2. Configure environment
 
----
+```bash
+cp .env.example .env
+```
 
-## Environment Variables
+Edit `.env` with your database credentials and secrets:
 
-Copy `.env.example` to `.env` and fill in the values.
+```env
+DATABASE_URL=postgresql://user:password@localhost:5432/esl-chatbot-web?schema=public
+JWT_ACCESS_SECRET=your-secret-here
+JWT_REFRESH_SECRET=your-secret-here
+```
 
-| Variable | Required | Description |
-|---|---|---|
-| `SESSION_SECRET` | ✅ | Secret for `express-session` cookie signing |
-| `JWT_ACCESS_SECRET` | ✅ | Secret for JWT access token signing |
-| `JWT_REFRESH_SECRET` | ✅ | Secret for JWT refresh token signing |
-| `GEMINI_API_KEY` | ⚠️ | Google Gemini API key (primary AI provider) |
-| `ELEVENLABS_API_KEY` | ⚠️ | ElevenLabs API key for text-to-speech |
-| `HUGGINGFACE_API_TOKEN` | ⚠️ | HuggingFace token (AI fallback) |
-| `DATABASE_URL` | ⚠️ | PostgreSQL connection URL (auto-detected) |
-| `FRONTEND_URL` | — | Frontend origin for CORS (default: `http://localhost:3000`) |
-| `PORT` | — | Server port (default: `3001`) |
-| `NODE_ENV` | — | `development` or `production` |
-| `PUBLIC_EVENT_MODE` | — | Set to `"true"` to auto-login as event user |
+> **Tip:** If your password has special characters like `&`, URL-encode them (e.g. `&` → `%26`).
 
-> ⚠️ = Optional but some features will be disabled without it.
+### 3. Create the database
 
----
+Create a PostgreSQL database named `esl-chatbot-web` (or whatever you set in `DATABASE_URL`).
+
+### 4. Push schema & generate client
+
+```bash
+bun run db:push       # Creates all tables
+bun run db:generate   # Generates Prisma client
+```
+
+### 5. Seed test data
+
+```bash
+bun run db:seed
+```
+
+This creates test users, conversations, vocabulary, goals, and progress data. See [Test Accounts](#test-accounts) below.
+
+### 6. Start the server
+
+```bash
+bun dev    # Development (hot reload)
+bun start  # Production
+```
+
+The server will log database connection status, table info, and listen URL on startup.
+
+## Available Scripts
+
+| Command | Description |
+|---------|-------------|
+| `bun dev` | Start dev server with hot reload |
+| `bun start` | Start production server |
+| `bun run db:generate` | Generate Prisma client |
+| `bun run db:migrate` | Run Prisma migrations |
+| `bun run db:push` | Push schema to DB (skip migrations) |
+| `bun run db:seed` | Seed database with test data |
+| `bun run db:studio` | Open Prisma Studio GUI |
+| `bun run typecheck` | Run TypeScript type check |
 
 ## Project Structure
 
 ```
-backend/
-├── server.js               # ← Active entry point (JWT + REST API)
-├── server-legacy.js        # ← Legacy EJS server (session-based, NOT active)
-├── package.json
-│
-├── config/
-│   ├── config.json         # Sequelize database config per environment
-│   └── swagger.js          # Swagger/OpenAPI spec builder
-│
-├── controllers/
-│   ├── jwtAuthController.js      # JWT signup, signin, refresh, logout, profile
-│   ├── sessionAuthController.js  # Session-based signup/login (active API)
-│   └── authController.js         # LEGACY — EJS view rendering (not active)
-│
-├── routes/
-│   ├── apiRoutes.js              # Main API routes (chat, TTS, vocabulary, progress, goals…)
-│   ├── jwtAuthRoutes.js          # /api/auth/jwt/* routes
-│   ├── sessionAuthRoutes.js      # /api/auth/* routes (session-based for frontend)
-│   ├── mainRoutes.js             # LEGACY — EJS view routes (not active)
-│   └── authRoutes.js             # LEGACY — EJS auth routes (not active)
-│
-├── middleware/
-│   ├── jwtMiddleware.js    # requireJwtAuth / optionalJwtAuth
-│   ├── rateLimiter.js      # Per-route rate limits (auth, chat, TTS, general)
-│   ├── securityHeaders.js  # OWASP security headers (Helmet-style)
-│   ├── validators.js       # Joi schemas + XSS sanitization
-│   ├── errorHandler.js     # Global error handler + 404 handler
-│   └── authMiddleware.js   # Session-based auth guard (legacy)
-│
-├── models/
-│   ├── index.js            # Sequelize setup, model loader, associations
-│   ├── User.js             # User + subscription tier + TTS usage tracking
-│   ├── Message.js          # Chat messages (user↔bot)
-│   ├── Progress.js         # Chat count and word stats per user
-│   ├── Vocabulary.js       # User's vocabulary words with mastery tracking
-│   ├── Goal.js             # User learning goals
-│   ├── Interaction.js      # Timestamped interaction log
-│   ├── UserMetrics.js      # Aggregated skill metrics
-│   └── Settings.js         # Per-user language/voice settings
-│
-├── services/
-│   ├── elevenLabsService.js  # ElevenLabs TTS + STT (singleton)
-│   ├── tokenService.js       # JWT signing / verification helpers
-│   └── sessionStore.js       # In-memory refresh token store
-│
-├── utils/
-│   └── apiResponse.js      # Standardized response helpers (success, error, etc.)
-│
-├── docs/
-│   ├── JWT_AUTH.md         # JWT authentication flow documentation
-│   ├── schema.sql          # Database schema reference
-│   └── swagger-routes.js   # Swagger JSDoc annotations
-│
-├── migrations/             # Sequelize migration files
-├── tests/                  # Jest integration tests
-├── data/                   # JSON data files (progress.json, students.json)
-└── uploads/                # Multer file upload directory
+src/
+├── config/            # Environment, database, logger, Swagger config
+├── modules/           # Domain modules (auth, users, enrollment, etc.)
+│   └── [module]/
+│       ├── [module].router.ts
+│       ├── [module].controller.ts
+│       ├── [module].service.ts
+│       ├── [module].schema.ts      # Zod validation
+│       └── [module].types.ts
+├── middlewares/        # Auth, error handling, file upload
+├── utils/             # AppError, asyncHandler, apiResponse, pagination
+├── routes/v1/         # API v1 route mounting
+├── types/             # TypeScript declarations
+├── jobs/              # Cron jobs (placeholder)
+├── socket/            # Socket.io handlers (placeholder)
+├── app.ts             # Express app setup
+└── index.ts           # Server entry point
 ```
 
----
+## Database Schema
 
-## Key Components & How They Interact
+12 tables with full relational integrity:
 
+- **users** — core identity (student/tutor/admin roles, username-based auth)
+- **classes** — tutor-owned classes with unique class codes
+- **class_students** — student enrollment in classes (join table)
+- **learner_profiles** — student learning preferences and settings
+- **subscriptions** — plan management (FREE/PREMIUM)
+- **user_metrics** — aggregated dashboard stats per student
+- **enrollment_requests** — student-tutor class join workflow
+- **conversation_sessions** — chat session lifecycle
+- **messages** — individual messages within sessions
+- **vocabularies** — flashcards with SRS scheduling
+- **goals** — learning objectives with progress tracking
+- **progress** — daily study snapshots
+
+## API
+
+- Base URL: `http://localhost:8000/api/v1`
+- Docs: `http://localhost:8000/api-docs`
+- Health: `http://localhost:8000/health`
+
+All responses follow:
+```json
+{
+  "success": true,
+  "message": "...",
+  "data": {},
+  "meta": { "page": 1, "limit": 20, "total": 100, "totalPages": 5 }
+}
 ```
-Frontend (React)
-      │
-      │  HTTP REST + Socket.IO
-      ▼
-server.js ──────────────────────────────────────────┐
-  │  Express middleware stack:                       │
-  │  securityHeaders → rateLimiter → sanitizeInputs  │
-  │  → session → CORS → bodyParser                   │
-  │                                                  │
-  ├── /api/auth/*         sessionAuthRoutes.js        │
-  ├── /api/auth/jwt/*     jwtAuthRoutes.js            │
-  ├── /api/*              apiRoutes.js ───────────────┤
-  │                                                  │
-  │  Socket.IO (chat via WebSocket)                  │
-  └── io.on('chat message') → Gemini AI              │
-                                                     │
-                    ┌────────────────────────────────┘
-                    │
-              Services & Models
-              ├── elevenLabsService   → ElevenLabs API (TTS/STT)
-              ├── tokenService        → JWT sign/verify
-              ├── sessionStore        → Refresh token store
-              └── models (Sequelize)  → PostgreSQL / SQLite
-```
 
-### AI Fallback Chain (chat endpoint)
-When the primary Gemini API fails, the system tries these in order:
-1. **Ollama** (local LLM, if `OLLAMA_URL` is set)
-2. **Groq** (if `GROQ_API_KEY` is set)
-3. **HuggingFace** (if `HUGGINGFACE_API_TOKEN` is set)
-4. **OpenRouter** (if `OPENROUTER_API_KEY` is set)
-5. **Rule-based** (hardcoded ESL tutor fallback responses)
+## Test Accounts
 
----
+After running `bun run db:seed`:
 
-## API Overview
+| Role | Username | Password | Notes |
+|------|----------|----------|-------|
+| Admin | admin_main | password123 | Platform administrator |
+| Tutor | tutor_sarah | password123 | Class code: `SARAH-2024` |
+| Student | student_ali | password123 | PREMIUM plan, B1 level |
+| Student | student_yuki | password123 | FREE plan, A2 level |
 
-Swagger UI is available at: **`http://localhost:3001/api/docs`**
+## License
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/api/auth/signup` | — | Create account (session auth) |
-| POST | `/api/auth/login` | — | Login (session auth) |
-| POST | `/api/auth/jwt/signup` | — | Create account + get JWT tokens |
-| POST | `/api/auth/jwt/signin` | — | Login + get JWT tokens |
-| POST | `/api/auth/jwt/refresh` | — | Rotate JWT tokens |
-| GET | `/api/auth/jwt/profile` | JWT | Get current user profile |
-| POST | `/api/chat` | JWT | Send message to AI tutor |
-| GET | `/api/progress` | JWT | Get user progress stats |
-| GET/POST | `/api/vocabulary` | JWT | Manage vocabulary words |
-| GET/POST | `/api/goals` | JWT | Manage learning goals |
-| POST | `/api/text-to-speech` | — | Generate speech audio (ElevenLabs) |
-| GET | `/api/voices` | — | List available TTS voices |
-| GET | `/api/health` | — | Server health status |
-| GET | `/api/dashboard/stats` | JWT | Dashboard stats |
-| GET | `/api/usage` | JWT | TTS usage and limits |
-
-See [`../docs/api.md`](../docs/api.md) for detailed request/response shapes.
-
----
-
-## Active vs. Legacy Code
-
-The backend evolved from an EJS server-side-rendering approach to a pure REST API. The legacy code is **kept for reference** but not active:
-
-| File | Status |
-|------|--------|
-| `server.js` | ✅ **Active** — JWT + REST API |
-| `server-legacy.js` | 🔴 Legacy — EJS/session-based |
-| `routes/sessionAuthRoutes.js` | ✅ Active |
-| `routes/jwtAuthRoutes.js` | ✅ Active |
-| `routes/apiRoutes.js` | ✅ Active |
-| `routes/mainRoutes.js` | 🔴 Legacy |
-| `routes/authRoutes.js` | 🔴 Legacy |
-| `controllers/sessionAuthController.js` | ✅ Active |
-| `controllers/jwtAuthController.js` | ✅ Active |
-| `controllers/authController.js` | 🔴 Legacy |
+Private — All rights reserved.
