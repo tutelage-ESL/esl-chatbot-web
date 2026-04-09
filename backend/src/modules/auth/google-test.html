@@ -132,15 +132,19 @@
     });
   });
 
-  // Show the exact client ID being used so you can verify it in Google Cloud Console.
-  // Read from the data attribute so this always reflects what the server injected —
-  // if the two ever disagree, that itself is a bug worth seeing.
-  const clientIdMeta = document.getElementById('g_id_onload').dataset.client_id
-    || document.getElementById('g_id_onload').getAttribute('data-client_id');
-  document.getElementById('debug-client-id').textContent = clientIdMeta || '(not set)';
+  // The server rewrites the placeholder below in-place at request time
+  // (see auth.router.ts → res.send). After rewrite:
+  //   - real ID  → everything works
+  //   - "NOT_SET" → GOOGLE_CLIENT_ID is missing from your environment
+  //   - unchanged placeholder → you opened the .html file directly, bypassing the server
+  // The placeholder must appear in this file exactly ONCE, or the comparisons below
+  // would themselves get rewritten and silently break the check.
+  const CLIENT_ID = "__GOOGLE_CLIENT_ID__";
+  const PLACEHOLDER = "__GOOGLE_CLIENT" + "_ID__"; // split so the server's replaceAll can't match
 
-  // Show an error if the client ID was not injected (GOOGLE_CLIENT_ID not set in env)
-  if (!clientIdMeta || clientIdMeta === '__GOOGLE_CLIENT_ID__' || clientIdMeta === 'NOT_SET') {
+  document.getElementById('debug-client-id').textContent = CLIENT_ID || '(not set)';
+
+  if (!CLIENT_ID || CLIENT_ID === PLACEHOLDER || CLIENT_ID === 'NOT_SET') {
     const section = document.getElementById('error-section');
     const msg     = document.getElementById('error-msg');
     section.style.display = 'block';

@@ -104,11 +104,10 @@ const { data, error } = await api.POST("/auth/login", {
 ```
 src/
 ├── config/          # env, database, redis, sendgrid, swagger, logger
-├── modules/         # domain modules (12 total)
+├── modules/         # domain modules
 │   ├── auth/        # login, register, token refresh, password reset
 │   ├── users/       # CRUD, profile management
-│   ├── classes/     # class list and detail (admin only)
-│   ├── enrollment/  # student-tutor class join flow
+│   ├── classes/     # create classes, manage class code lifecycle, join by code
 │   ├── sessions/    # conversation session lifecycle
 │   ├── messages/    # chat messages within sessions
 │   ├── vocabulary/  # flashcards + SRS scheduling
@@ -147,7 +146,6 @@ Each module under `src/modules/[name]/` follows:
 | Role | STUDENT, TUTOR, ADMIN |
 | AuthProvider | LOCAL, GOOGLE |
 | ClassStatus | ACTIVE, INACTIVE |
-| EnrollStatus | PENDING, ACCEPTED, REJECTED |
 | SessionMode | TEXT, VOICE |
 | MessageRole | USER, ASSISTANT |
 | GoalStatus | ACTIVE, COMPLETED, PAUSED, CANCELLED |
@@ -157,10 +155,9 @@ Each module under `src/modules/[name]/` follows:
 ### Models
 | Model | Table | Key Relations |
 |-------|-------|---------------|
-| User | users | 1:1 profile/subscription/metrics, has many classUsers, has many enrollmentRequests, has many resolvedEnrollments |
-| Class | classes | has many ClassUsers, has many EnrollmentRequests (via classCode FK) |
+| User | users | 1:1 profile/subscription/metrics, has many classUsers, has many createdClasses (TUTOR/ADMIN as creator) |
+| Class | classes | has many ClassUsers, optional createdBy (User), classCode lifecycle fields |
 | ClassUser | class_users | belongs to Class + User, has role (TUTOR/STUDENT), unique(classId, userId) |
-| EnrollmentRequest | enrollment_requests | belongs to User (requester) + Class (via classCode) + optional User (resolver), unique(userId, classCode) |
 | LearnerProfile | learner_profiles | 1:1 with User (students only) |
 | Subscription | subscriptions | 1:1 with User, Stripe fields nullable |
 | UserMetrics | user_metrics | 1:1 with User, aggregated dashboard data |
@@ -177,8 +174,9 @@ Each module under `src/modules/[name]/` follows:
 - AI chatbot access is gated by Subscription: `status === ACTIVE`. Default after registration: `plan=FREE, status=INACTIVE` (no AI access). Class joining does NOT require a subscription.
 - Classes have a unique classCode; tutor/student membership tracked via ClassUser join table
 - ClassUser join table links any user (TUTOR or STUDENT) to a class with a `role` field and unique(classId, userId) constraint
-- EnrollmentRequest links to Class via classCode FK (classCode is @unique on Class, enabling referential integrity without a UUID FK); unique(userId, classCode) prevents duplicate requests per class
-- EnrollmentRequest has an optional `resolverId` (FK to User) — the admin or tutor who accepted/rejected the request
+- Class join flow is **direct** (no pending approval): a user submits a class code via `POST /classes/join` and is added as a STUDENT immediately, provided the code is not blocked, not expired, and the class is ACTIVE
+- **Class code lifecycle:** each Class has `classCode`, `classCodeExpiresAt` (nullable — null = permanent), `classCodeRefreshIntervalSeconds` (nullable — null = no auto refresh), `classCodeBlocked` (boolean), and `classCodeRefreshedAt`. Tutors of the class (or admins) can rotate, change the refresh interval, or block/unblock the code via dedicated endpoints. Codes are 8-char uppercase alphanumeric (excludes ambiguous chars like 0/O/1/I/L) generated in `classes/classCode.util.ts`
+- **Lazy auto-refresh on expiry:** when a join attempt arrives with an expired code, the service rotates the code to a new value internally and rejects the join with HTTP 410 (Gone). No cron job is needed
 - No separate settings table — settings live in LearnerProfile
 - Vocabulary uses SM-2 SRS algorithm fields (srsInterval, srsEase, srsDue)
 - Progress is exactly 1 row per user per calendar day
@@ -250,13 +248,12 @@ On `bun dev` / `bun start`, the server:
 ## Seed Data
 Run `bun run db:seed` to populate the database with test data:
 - **Admin:** admin_main / admin@tutelage.com
-- **Tutor:** tutor_sarah / sarah@tutelage.com (class code: SARAH-2024)
+- **Tutor:** tutor_sarah / sarah@tutelage.com (class code: `SARAH123`, weekly auto-refresh, expires in 7 days)
 - **Student 1:** student_ali / ali@tutelage.com (PREMIUM, B1 level)
 - **Student 2:** student_yuki / yuki@tutelage.com (FREE, A2 level)
 - **Password for all:** `password123`
 
-Includes: classes with enrolled users (tutor + students via ClassUser), learner profiles, subscriptions, metrics, enrollment requests,
-conversation sessions with messages, vocabulary with SRS data, goals, and daily progress snapshots.
+Includes: classes (with full code-lifecycle fields populated) with enrolled users (tutor + students via ClassUser), learner profiles, subscriptions, metrics, conversation sessions with messages, vocabulary with SRS data, goals, and daily progress snapshots.
 
 ---
 
@@ -274,14 +271,18 @@ conversation sessions with messages, vocabulary with SRS data, goals, and daily 
 - ✅ `authorize.ts` middleware factory (role guard) — `authorize(...roles: Role[])` factory; throws 401 if `req.user` missing, 403 with `"Access denied. Required role: X"` if role not in allowed list
 - Remaining: password reset flow, email verification placeholder
 
-### Phase 3 — User & Enrollment Modules
+### Phase 3 — User & Class Modules
 - ✅ `GET /users` — paginated user list, filterable by `?role=` (admin only)
 - ✅ `GET /users/:id` — full user profile: learnerProfile, subscription, metrics, classUsers (admin only)
-- ✅ `GET /classes` — paginated class list with memberCount, filterable by `?status=` (admin only)
+- ✅ `GET /classes` — paginated class list with memberCount + code-lifecycle fields, filterable by `?status=` (admin only)
 - ✅ `GET /classes/:id` — class detail with enrolled members (id, role, user: id/username/displayName/avatarUrl) (admin only)
+- ✅ `POST /classes` — tutor or admin creates a class; creator becomes a TUTOR member; a fresh code is generated; optional `classCodeRefreshIntervalSeconds`
+- ✅ `POST /classes/join` — any authenticated user joins by code; no pending state. Rejects with 403 (blocked), 410 (expired — code is auto-rotated internally), 409 (already a member or class INACTIVE), 404 (unknown code)
+- ✅ `GET /classes/mine` — list classes the authenticated user is a member of, with their role per class
+- ✅ `POST /classes/:id/code/refresh` — tutor of the class (or admin) manually rotates the code; expiry resets per the configured interval
+- ✅ `PATCH /classes/:id/code/settings` — change `classCodeRefreshIntervalSeconds` (null = permanent); recomputes expiry from `classCodeRefreshedAt`
+- ✅ `PATCH /classes/:id/code/block` — block or unblock the code with `{ blocked: boolean }`. Blocking does not change the code value or expiry
 - User CRUD (self-update profile, admin manage users)
-- Tutor class code generation on tutor creation
-- Enrollment request flow: user submits classCode → admin or tutor in the class approves/rejects → resolverId set on resolution
 - LearnerProfile CRUD for students
 - Admin: assign tutors, manage all users
 

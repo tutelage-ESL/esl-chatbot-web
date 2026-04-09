@@ -4,6 +4,89 @@
  */
 
 export interface paths {
+    "/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register a new account with email and password
+         * @description Creates a new user account. On success, returns tokens immediately so the user is logged in right away — no separate login step required.
+         *     **Default state after registration:** - `subscription.plan` = FREE - `subscription.status` = INACTIVE - AI chatbot access is **disabled** until the user subscribes (Phase 8) - Class joining via class code works immediately (no subscription needed)
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /**
+                         * @description Unique. Letters, numbers, and underscores only.
+                         * @example student_ali
+                         */
+                        username: string;
+                        /**
+                         * Format: email
+                         * @example ali@example.com
+                         */
+                        email: string;
+                        /** @example MyPassword123 */
+                        password: string;
+                        /** @example Ali Hassan */
+                        displayName: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Registration successful — user is logged in */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @example true */
+                            success?: boolean;
+                            /** @example Registration successful */
+                            message?: string;
+                            data?: components["schemas"]["AuthResponse"];
+                        };
+                    };
+                };
+                /** @description Username or email already registered */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Validation error (missing or invalid fields) */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/login": {
         parameters: {
             query?: never;
@@ -13,7 +96,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Login with username and password */
+        /**
+         * Login with username and password
+         * @description Standard email/password login. Returns an access token (15m) and a refresh token (7d). If the account was created with Google Sign-In (no password), a 401 is returned with a clear message directing the user to Google login.
+         */
         post: {
             parameters: {
                 query?: never;
@@ -43,47 +129,17 @@ export interface paths {
                             success?: boolean;
                             /** @example Login successful */
                             message?: string;
-                            data?: {
-                                user?: {
-                                    /** Format: uuid */
-                                    id?: string;
-                                    username?: string;
-                                    /** Format: email */
-                                    email?: string;
-                                    displayName?: string;
-                                    /** @enum {string} */
-                                    role?: "STUDENT" | "TUTOR" | "ADMIN";
-                                    avatarUrl?: string | null;
-                                    isActive?: boolean;
-                                    subscription?: {
-                                        /** @enum {string} */
-                                        plan?: "FREE" | "PREMIUM";
-                                        /** @enum {string} */
-                                        status?: "ACTIVE" | "INACTIVE" | "CANCELLED" | "PAST_DUE";
-                                    } | null;
-                                };
-                                /** @description JWT access token (expires in 15 minutes) */
-                                accessToken?: string;
-                                /** @description JWT refresh token (expires in 7 days) — store securely */
-                                refreshToken?: string;
-                            };
+                            data?: components["schemas"]["AuthResponse"];
                         };
                     };
                 };
-                /** @description Invalid username or password */
+                /** @description Invalid credentials, or account uses Google Sign-In */
                 401: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            /** @example false */
-                            success?: boolean;
-                            /** @example Invalid username or password */
-                            message?: string;
-                            /** @example null */
-                            data?: unknown;
-                        };
+                        "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
                 /** @description Account deactivated */
@@ -91,14 +147,125 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
                 /** @description Validation error (missing fields) */
                 422: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/google": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign in or register with Google
+         * @description Verifies a Google ID token (obtained from Google Sign-In on the frontend) and handles all three cases automatically:
+         *     **Case 1 — Existing Google user:** logs them in, returns tokens.
+         *     **Case 2 — Account merge:** if a user already has an email/password account with the same email, their Google account is linked automatically and tokens are returned. They can now sign in with either method.
+         *     **Case 3 — New user (needs username):** if no account exists, returns `{ needsRegistration: true, profile: { email, displayName, avatarUrl } }`. The frontend should show a username input, then call this endpoint again with both `idToken` and `username`.
+         *     **Case 4 — New user (username provided):** creates the account and returns tokens.
+         *     **How to get an ID token on the frontend:** Use Google's [Sign In With Google](https://developers.google.com/identity/gsi/web/guides/overview) button or the `@react-oauth/google` / `vue3-google-login` library. The `credential` field from the Google callback is the `idToken` to send here.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /**
+                         * @description Google ID token (JWT) from the frontend Google Sign-In flow
+                         * @example eyJhbGciOiJSUzI1NiIsImtpZCI6...
+                         */
+                        idToken: string;
+                        /**
+                         * @description Required only for new users (when needsRegistration was true)
+                         * @example john_doe
+                         */
+                        username?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Authentication successful — OR — username required (needsRegistration: true). Check the `data.needsRegistration` field to distinguish. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @example true */
+                            success?: boolean;
+                            message?: string;
+                            data?: {
+                                /** @example false */
+                                needsRegistration?: boolean;
+                                user?: components["schemas"]["AuthUser"];
+                                accessToken?: string;
+                                refreshToken?: string;
+                            } | {
+                                /** @example true */
+                                needsRegistration?: boolean;
+                                profile?: {
+                                    googleId?: string;
+                                    /** Format: email */
+                                    email?: string;
+                                    displayName?: string;
+                                    avatarUrl?: string | null;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Invalid or expired Google ID token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Username already taken */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Google OAuth is not configured on this server (missing GOOGLE_CLIENT_ID) */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -128,7 +295,7 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        /** @description The refresh token received at login */
+                        /** @description The refresh token received at login or registration */
                         refreshToken: string;
                     };
                 };
@@ -227,11 +394,8 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
-                    /** @description Page number */
                     page?: number;
-                    /** @description Number of classes per page */
                     limit?: number;
-                    /** @description Filter by class status */
                     status?: "ACTIVE" | "INACTIVE";
                 };
                 header?: never;
@@ -259,9 +423,12 @@ export interface paths {
                                 classCategory?: string | null;
                                 /** @enum {string} */
                                 classStatus?: "ACTIVE" | "INACTIVE";
+                                classCodeBlocked?: boolean;
+                                /** Format: date-time */
+                                classCodeExpiresAt?: string | null;
+                                classCodeRefreshIntervalSeconds?: number | null;
                                 /** Format: date-time */
                                 createdAt?: string;
-                                /** @description Total number of enrolled users */
                                 memberCount?: number;
                             }[];
                             meta?: {
@@ -273,7 +440,7 @@ export interface paths {
                         };
                     };
                 };
-                /** @description Invalid query parameters */
+                /** @description Invalid query */
                 400: {
                     headers: {
                         [name: string]: unknown;
@@ -282,7 +449,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
-                /** @description Missing or invalid access token */
+                /** @description Missing or invalid token */
                 401: {
                     headers: {
                         [name: string]: unknown;
@@ -291,8 +458,239 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
-                /** @description Authenticated but not an admin */
+                /** @description Not an admin */
                 403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create a new class (Tutor or Admin)
+         * @description Creates a class and adds the caller to it as a TUTOR member.
+         *     A fresh class code is generated immediately.
+         *
+         *     If `classCodeRefreshIntervalSeconds` is omitted or null, the code is
+         *     permanent (no automatic expiry). The tutor can still rotate it manually.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        className: string;
+                        classCategory?: string | null;
+                        /**
+                         * @description Auto-refresh interval in seconds. Common presets:
+                         *     86400 (daily), 604800 (weekly), 2592000 (monthly),
+                         *     31536000 (yearly). Omit or null = no auto refresh.
+                         */
+                        classCodeRefreshIntervalSeconds?: number | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description Class created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Invalid body */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not a tutor or admin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/classes/join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Join a class by entering its code
+         * @description Joins the caller to the class identified by the supplied code.
+         *     No tutor approval is required.
+         *
+         *     Codes are case-insensitive and trimmed before matching.
+         *
+         *     Possible failure reasons:
+         *     - **404** — code does not match any class
+         *     - **403** — code is currently blocked by the tutor
+         *     - **409** — class is INACTIVE, or caller is already a member
+         *     - **410** — code has expired (the system will have rotated it
+         *       to a new value internally; ask the tutor for the new code)
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @example XK7A9PQ2 */
+                        classCode: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Successfully joined the class */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            message?: string;
+                            data?: {
+                                /** Format: uuid */
+                                classId?: string;
+                                className?: string;
+                                classCode?: string;
+                                /** @enum {string} */
+                                role?: "STUDENT" | "TUTOR" | "ADMIN";
+                                /** Format: date-time */
+                                joinedAt?: string;
+                            };
+                        };
+                    };
+                };
+                /** @description Validation error */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Code is blocked */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Code does not match a class */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Already a member or class inactive */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Code has expired */
+                410: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/classes/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the classes the authenticated user is a member of */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Caller's class memberships */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Missing or invalid token */
+                401: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -317,13 +715,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get a single class by ID (with enrolled members) — Admin only */
+        /** Get a single class by ID with members — Admin only */
         get: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
-                    /** @description Class UUID */
                     id: string;
                 };
                 cookie?: never;
@@ -335,48 +732,9 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content: {
-                        "application/json": {
-                            /** @example true */
-                            success?: boolean;
-                            /** @example Class retrieved successfully */
-                            message?: string;
-                            data?: {
-                                /** Format: uuid */
-                                id?: string;
-                                className?: string;
-                                classCode?: string;
-                                classCategory?: string | null;
-                                /** @enum {string} */
-                                classStatus?: "ACTIVE" | "INACTIVE";
-                                /** Format: date-time */
-                                createdAt?: string;
-                                /** Format: date-time */
-                                updatedAt?: string;
-                                members?: {
-                                    /**
-                                     * Format: uuid
-                                     * @description ClassUser join record ID
-                                     */
-                                    id?: string;
-                                    /**
-                                     * @description Role of the user within this class
-                                     * @enum {string}
-                                     */
-                                    role?: "STUDENT" | "TUTOR" | "ADMIN";
-                                    user?: {
-                                        /** Format: uuid */
-                                        id?: string;
-                                        username?: string;
-                                        displayName?: string;
-                                        avatarUrl?: string | null;
-                                    };
-                                }[];
-                            };
-                        };
-                    };
+                    content?: never;
                 };
-                /** @description Invalid UUID format */
+                /** @description Invalid UUID */
                 400: {
                     headers: {
                         [name: string]: unknown;
@@ -385,7 +743,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
-                /** @description Missing or invalid access token */
+                /** @description Missing or invalid token */
                 401: {
                     headers: {
                         [name: string]: unknown;
@@ -394,7 +752,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
-                /** @description Authenticated but not an admin */
+                /** @description Not an admin */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -420,6 +778,263 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/classes/{id}/code/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Manually rotate the class code (Tutor in class or Admin)
+         * @description Generates a new random code and resets the expiry window using
+         *     the class's current refresh interval. Does not unblock a blocked code.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description New code information */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            message?: string;
+                            data?: components["schemas"]["ClassCodeInfo"];
+                        };
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not a tutor of this class */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Class not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/classes/{id}/code/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update the class code auto-refresh interval (Tutor in class or Admin)
+         * @description Sets how often the class code auto-refreshes. The new schedule
+         *     takes effect immediately, computed from the last refresh timestamp.
+         *
+         *     Pass `null` to make the code permanent (no automatic refresh).
+         *
+         *     Common presets (in seconds):
+         *     - daily: 86400
+         *     - weekly: 604800
+         *     - monthly: 2592000
+         *     - yearly: 31536000
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        classCodeRefreshIntervalSeconds: number | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description Updated code information */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            message?: string;
+                            data?: components["schemas"]["ClassCodeInfo"];
+                        };
+                    };
+                };
+                /** @description Invalid body */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not a tutor of this class */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Class not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/classes/{id}/code/block": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Block or unblock the class code (Tutor in class or Admin)
+         * @description Blocking does not change the code value or its expiry — it only
+         *     prevents new join attempts. Pass `{ blocked: false }` to unblock.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        blocked: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Updated code information */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            message?: string;
+                            data?: components["schemas"]["ClassCodeInfo"];
+                        };
+                    };
+                };
+                /** @description Invalid body */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not a tutor of this class */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Class not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/users": {
@@ -672,6 +1287,51 @@ export interface components {
             message?: string;
             /** @example null */
             data?: unknown;
+        };
+        AuthUser: {
+            /** Format: uuid */
+            id?: string;
+            username?: string;
+            /** Format: email */
+            email?: string;
+            displayName?: string;
+            /** @enum {string} */
+            role?: "STUDENT" | "TUTOR" | "ADMIN";
+            avatarUrl?: string | null;
+            isActive?: boolean;
+            /** @description FREE + INACTIVE = no AI access (default after registration). PREMIUM + ACTIVE = full AI chatbot access. */
+            subscription?: {
+                /** @enum {string} */
+                plan?: "FREE" | "PREMIUM";
+                /** @enum {string} */
+                status?: "ACTIVE" | "INACTIVE" | "CANCELLED" | "PAST_DUE";
+            } | null;
+        };
+        AuthTokens: {
+            /** @description JWT access token — expires in 15 minutes. Send as Bearer token in Authorization header. */
+            accessToken?: string;
+            /** @description JWT refresh token — expires in 7 days. Store securely (httpOnly cookie or secure storage). */
+            refreshToken?: string;
+        };
+        AuthResponse: {
+            user?: components["schemas"]["AuthUser"];
+            accessToken?: string;
+            refreshToken?: string;
+        };
+        ClassCodeInfo: {
+            /** Format: uuid */
+            classId?: string;
+            classCode?: string;
+            classCodeBlocked?: boolean;
+            /**
+             * Format: date-time
+             * @description Null means the code never expires automatically
+             */
+            classCodeExpiresAt?: string | null;
+            /** @description Auto-refresh interval in seconds. Null means no auto refresh. */
+            classCodeRefreshIntervalSeconds?: number | null;
+            /** Format: date-time */
+            classCodeRefreshedAt?: string;
         };
     };
     responses: never;

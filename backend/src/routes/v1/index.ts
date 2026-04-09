@@ -10,7 +10,6 @@ router.use("/users", usersRouter);
 router.use("/classes", classesRouter);
 
 // Routers to be mounted in upcoming phases:
-// router.use("/enrollment", enrollmentRouter);
 // router.use("/sessions", sessionsRouter);
 // router.use("/messages", messagesRouter);
 // router.use("/vocabulary", vocabularyRouter);

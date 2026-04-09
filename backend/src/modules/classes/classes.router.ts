@@ -1,5 +1,14 @@
 import { Router } from "express";
-import { listClasses, getClass } from "./classes.controller.ts";
+import {
+  listClasses,
+  getClass,
+  createClassHandler,
+  refreshCodeHandler,
+  updateCodeSettingsHandler,
+  setBlockedHandler,
+  joinByCodeHandler,
+  listMyClassesHandler,
+} from "./classes.controller.ts";
 import { authenticate } from "../../middlewares/authenticate.ts";
 import { authorize } from "../../middlewares/authorize.ts";
 
@@ -9,9 +18,37 @@ const router = Router();
  * @swagger
  * tags:
  *   name: Classes
- *   description: Class management — admin only
+ *   description: Class management — create, join by code, manage code lifecycle
+ *
+ * components:
+ *   schemas:
+ *     ClassCodeInfo:
+ *       type: object
+ *       properties:
+ *         classId:
+ *           type: string
+ *           format: uuid
+ *         classCode:
+ *           type: string
+ *         classCodeBlocked:
+ *           type: boolean
+ *         classCodeExpiresAt:
+ *           type: string
+ *           format: date-time
+ *           nullable: true
+ *           description: Null means the code never expires automatically
+ *         classCodeRefreshIntervalSeconds:
+ *           type: integer
+ *           nullable: true
+ *           description: Auto-refresh interval in seconds. Null means no auto refresh.
+ *         classCodeRefreshedAt:
+ *           type: string
+ *           format: date-time
  */
 
+// ─────────────────────────────────────────────────────────
+// LIST (admin)
+// ─────────────────────────────────────────────────────────
 /**
  * @swagger
  * /classes:
@@ -27,7 +64,6 @@ const router = Router();
  *           type: integer
  *           minimum: 1
  *           default: 1
- *         description: Page number
  *       - in: query
  *         name: limit
  *         schema:
@@ -35,13 +71,11 @@ const router = Router();
  *           minimum: 1
  *           maximum: 100
  *           default: 10
- *         description: Number of classes per page
  *       - in: query
  *         name: status
  *         schema:
  *           type: string
  *           enum: [ACTIVE, INACTIVE]
- *         description: Filter by class status
  *     responses:
  *       200:
  *         description: Paginated list of classes
@@ -50,73 +84,183 @@ const router = Router();
  *             schema:
  *               type: object
  *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: Classes retrieved successfully
+ *                 success: { type: boolean, example: true }
+ *                 message: { type: string, example: Classes retrieved successfully }
  *                 data:
  *                   type: array
  *                   items:
  *                     type: object
  *                     properties:
- *                       id:
- *                         type: string
- *                         format: uuid
- *                       className:
- *                         type: string
- *                       classCode:
- *                         type: string
- *                       classCategory:
- *                         type: string
- *                         nullable: true
- *                       classStatus:
- *                         type: string
- *                         enum: [ACTIVE, INACTIVE]
- *                       createdAt:
- *                         type: string
- *                         format: date-time
- *                       memberCount:
- *                         type: integer
- *                         description: Total number of enrolled users
+ *                       id: { type: string, format: uuid }
+ *                       className: { type: string }
+ *                       classCode: { type: string }
+ *                       classCategory: { type: string, nullable: true }
+ *                       classStatus: { type: string, enum: [ACTIVE, INACTIVE] }
+ *                       classCodeBlocked: { type: boolean }
+ *                       classCodeExpiresAt: { type: string, format: date-time, nullable: true }
+ *                       classCodeRefreshIntervalSeconds: { type: integer, nullable: true }
+ *                       createdAt: { type: string, format: date-time }
+ *                       memberCount: { type: integer }
  *                 meta:
  *                   type: object
  *                   properties:
- *                     page:
- *                       type: integer
- *                     limit:
- *                       type: integer
- *                     total:
- *                       type: integer
- *                     totalPages:
- *                       type: integer
- *       400:
- *         description: Invalid query parameters
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *       401:
- *         description: Missing or invalid access token
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *       403:
- *         description: Authenticated but not an admin
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *                     page: { type: integer }
+ *                     limit: { type: integer }
+ *                     total: { type: integer }
+ *                     totalPages: { type: integer }
+ *       400: { description: Invalid query, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       403: { description: Not an admin, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  */
 router.get("/", authenticate, authorize("ADMIN"), listClasses);
 
+// ─────────────────────────────────────────────────────────
+// CREATE (tutor / admin)
+// ─────────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /classes:
+ *   post:
+ *     summary: Create a new class (Tutor or Admin)
+ *     description: |
+ *       Creates a class and adds the caller to it as a TUTOR member.
+ *       A fresh class code is generated immediately.
+ *
+ *       If `classCodeRefreshIntervalSeconds` is omitted or null, the code is
+ *       permanent (no automatic expiry). The tutor can still rotate it manually.
+ *     tags: [Classes]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [className]
+ *             properties:
+ *               className:
+ *                 type: string
+ *                 minLength: 1
+ *                 maxLength: 100
+ *               classCategory:
+ *                 type: string
+ *                 maxLength: 100
+ *                 nullable: true
+ *               classCodeRefreshIntervalSeconds:
+ *                 type: integer
+ *                 nullable: true
+ *                 minimum: 60
+ *                 description: |
+ *                   Auto-refresh interval in seconds. Common presets:
+ *                   86400 (daily), 604800 (weekly), 2592000 (monthly),
+ *                   31536000 (yearly). Omit or null = no auto refresh.
+ *     responses:
+ *       201:
+ *         description: Class created
+ *       400:
+ *         description: Invalid body
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       401:
+ *         description: Missing or invalid token
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       403:
+ *         description: Not a tutor or admin
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ */
+router.post("/", authenticate, authorize("TUTOR", "ADMIN"), createClassHandler);
+
+// ─────────────────────────────────────────────────────────
+// JOIN BY CODE (any authenticated user)
+// ─────────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /classes/join:
+ *   post:
+ *     summary: Join a class by entering its code
+ *     description: |
+ *       Joins the caller to the class identified by the supplied code.
+ *       No tutor approval is required.
+ *
+ *       Codes are case-insensitive and trimmed before matching.
+ *
+ *       Possible failure reasons:
+ *       - **404** — code does not match any class
+ *       - **403** — code is currently blocked by the tutor
+ *       - **409** — class is INACTIVE, or caller is already a member
+ *       - **410** — code has expired (the system will have rotated it
+ *         to a new value internally; ask the tutor for the new code)
+ *     tags: [Classes]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [classCode]
+ *             properties:
+ *               classCode: { type: string, example: "XK7A9PQ2" }
+ *     responses:
+ *       201:
+ *         description: Successfully joined the class
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 message: { type: string }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     classId: { type: string, format: uuid }
+ *                     className: { type: string }
+ *                     classCode: { type: string }
+ *                     role: { type: string, enum: [STUDENT, TUTOR, ADMIN] }
+ *                     joinedAt: { type: string, format: date-time }
+ *       400: { description: Validation error, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       403: { description: Code is blocked, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       404: { description: Code does not match a class, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       409: { description: Already a member or class inactive, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       410: { description: Code has expired, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ */
+router.post("/join", authenticate, joinByCodeHandler);
+
+// ─────────────────────────────────────────────────────────
+// MY CLASSES (any authenticated user)
+// ─────────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /classes/mine:
+ *   get:
+ *     summary: List the classes the authenticated user is a member of
+ *     tags: [Classes]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Caller's class memberships
+ *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ */
+router.get("/mine", authenticate, listMyClassesHandler);
+
+// ─────────────────────────────────────────────────────────
+// DETAIL (admin)
+// ─────────────────────────────────────────────────────────
 /**
  * @swagger
  * /classes/{id}:
  *   get:
- *     summary: Get a single class by ID (with enrolled members) — Admin only
+ *     summary: Get a single class by ID with members — Admin only
  *     tags: [Classes]
  *     security:
  *       - bearerAuth: []
@@ -124,97 +268,159 @@ router.get("/", authenticate, authorize("ADMIN"), listClasses);
  *       - in: path
  *         name: id
  *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *         description: Class UUID
+ *         schema: { type: string, format: uuid }
  *     responses:
  *       200:
  *         description: Class detail with enrolled members
+ *       400: { description: Invalid UUID, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       403: { description: Not an admin, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       404: { description: Class not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ */
+router.get("/:id", authenticate, authorize("ADMIN"), getClass);
+
+// ─────────────────────────────────────────────────────────
+// REFRESH CODE (tutor in class / admin)
+// ─────────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /classes/{id}/code/refresh:
+ *   post:
+ *     summary: Manually rotate the class code (Tutor in class or Admin)
+ *     description: |
+ *       Generates a new random code and resets the expiry window using
+ *       the class's current refresh interval. Does not unblock a blocked code.
+ *     tags: [Classes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: New code information
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: Class retrieved successfully
- *                 data:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: string
- *                       format: uuid
- *                     className:
- *                       type: string
- *                     classCode:
- *                       type: string
- *                     classCategory:
- *                       type: string
- *                       nullable: true
- *                     classStatus:
- *                       type: string
- *                       enum: [ACTIVE, INACTIVE]
- *                     createdAt:
- *                       type: string
- *                       format: date-time
- *                     updatedAt:
- *                       type: string
- *                       format: date-time
- *                     members:
- *                       type: array
- *                       items:
- *                         type: object
- *                         properties:
- *                           id:
- *                             type: string
- *                             format: uuid
- *                             description: ClassUser join record ID
- *                           role:
- *                             type: string
- *                             enum: [STUDENT, TUTOR, ADMIN]
- *                             description: Role of the user within this class
- *                           user:
- *                             type: object
- *                             properties:
- *                               id:
- *                                 type: string
- *                                 format: uuid
- *                               username:
- *                                 type: string
- *                               displayName:
- *                                 type: string
- *                               avatarUrl:
- *                                 type: string
- *                                 nullable: true
- *       400:
- *         description: Invalid UUID format
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *       401:
- *         description: Missing or invalid access token
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *       403:
- *         description: Authenticated but not an admin
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *       404:
- *         description: Class not found
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *                 success: { type: boolean }
+ *                 message: { type: string }
+ *                 data: { $ref: '#/components/schemas/ClassCodeInfo' }
+ *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       403: { description: Not a tutor of this class, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       404: { description: Class not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  */
-router.get("/:id", authenticate, authorize("ADMIN"), getClass);
+router.post("/:id/code/refresh", authenticate, authorize("TUTOR", "ADMIN"), refreshCodeHandler);
+
+// ─────────────────────────────────────────────────────────
+// UPDATE CODE SETTINGS (tutor in class / admin)
+// ─────────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /classes/{id}/code/settings:
+ *   patch:
+ *     summary: Update the class code auto-refresh interval (Tutor in class or Admin)
+ *     description: |
+ *       Sets how often the class code auto-refreshes. The new schedule
+ *       takes effect immediately, computed from the last refresh timestamp.
+ *
+ *       Pass `null` to make the code permanent (no automatic refresh).
+ *
+ *       Common presets (in seconds):
+ *       - daily: 86400
+ *       - weekly: 604800
+ *       - monthly: 2592000
+ *       - yearly: 31536000
+ *     tags: [Classes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [classCodeRefreshIntervalSeconds]
+ *             properties:
+ *               classCodeRefreshIntervalSeconds:
+ *                 type: integer
+ *                 nullable: true
+ *                 minimum: 60
+ *     responses:
+ *       200:
+ *         description: Updated code information
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 message: { type: string }
+ *                 data: { $ref: '#/components/schemas/ClassCodeInfo' }
+ *       400: { description: Invalid body, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       403: { description: Not a tutor of this class, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       404: { description: Class not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ */
+router.patch(
+  "/:id/code/settings",
+  authenticate,
+  authorize("TUTOR", "ADMIN"),
+  updateCodeSettingsHandler,
+);
+
+// ─────────────────────────────────────────────────────────
+// BLOCK / UNBLOCK CODE (tutor in class / admin)
+// ─────────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /classes/{id}/code/block:
+ *   patch:
+ *     summary: Block or unblock the class code (Tutor in class or Admin)
+ *     description: |
+ *       Blocking does not change the code value or its expiry — it only
+ *       prevents new join attempts. Pass `{ blocked: false }` to unblock.
+ *     tags: [Classes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [blocked]
+ *             properties:
+ *               blocked: { type: boolean }
+ *     responses:
+ *       200:
+ *         description: Updated code information
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 message: { type: string }
+ *                 data: { $ref: '#/components/schemas/ClassCodeInfo' }
+ *       400: { description: Invalid body, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       403: { description: Not a tutor of this class, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       404: { description: Class not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ */
+router.patch("/:id/code/block", authenticate, authorize("TUTOR", "ADMIN"), setBlockedHandler);
 
 export default router;

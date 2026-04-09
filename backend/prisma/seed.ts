@@ -15,7 +15,6 @@ async function main() {
   await prisma.vocabulary.deleteMany();
   await prisma.message.deleteMany();
   await prisma.conversationSession.deleteMany();
-  await prisma.enrollmentRequest.deleteMany();
   await prisma.userMetrics.deleteMany();
   await prisma.subscription.deleteMany();
   await prisma.learnerProfile.deleteMany();
@@ -88,12 +87,23 @@ async function main() {
 
   // ─── Create Classes ─────────────────────────────────
   console.log("🏫 Creating Classes...");
+  // Default seeded class uses a weekly auto-refresh interval (604800s) so the
+  // join-by-code lifecycle is exercised end-to-end. The fixed code "SARAH123"
+  // is intentional for predictable test runs — production codes are random.
+  const WEEK_SECONDS = 7 * 24 * 60 * 60;
+  const seededRefreshedAt = new Date();
+  const seededExpiresAt = new Date(seededRefreshedAt.getTime() + WEEK_SECONDS * 1000);
   const sarahClass = await prisma.class.create({
     data: {
       className: "Sarah's ESL Class",
-      classCode: "SARAH-2024",
+      classCode: "SARAH123",
       classCategory: "General English",
       classStatus: "ACTIVE",
+      classCodeRefreshIntervalSeconds: WEEK_SECONDS,
+      classCodeExpiresAt: seededExpiresAt,
+      classCodeRefreshedAt: seededRefreshedAt,
+      classCodeBlocked: false,
+      createdById: tutor.id,
     },
   });
   console.log(`   ✅ Class created: ${sarahClass.className} (code: ${sarahClass.classCode})\n`);
@@ -212,30 +222,6 @@ async function main() {
     },
   });
   console.log("   ✅ 2 user metrics records created\n");
-
-  // ─── Enrollment Request ───────────────────────────────
-  console.log("📨 Creating Enrollment Request...");
-  await prisma.enrollmentRequest.create({
-    data: {
-      userId: student1.id,
-      classCode: "SARAH-2024",
-      resolverId: tutor.id,
-      status: "ACCEPTED",
-      note: "I want to improve my English for work",
-      resolvedAt: new Date(),
-    },
-  });
-  await prisma.enrollmentRequest.create({
-    data: {
-      userId: student2.id,
-      classCode: "SARAH-2024",
-      resolverId: tutor.id,
-      status: "ACCEPTED",
-      note: "Preparing for university entrance",
-      resolvedAt: new Date(),
-    },
-  });
-  console.log("   ✅ 2 enrollment requests created (both ACCEPTED)\n");
 
   // ─── Conversation Sessions & Messages ─────────────────
   console.log("💬 Creating Conversation Sessions & Messages...");
@@ -410,7 +396,6 @@ async function main() {
     learnerProfiles: await prisma.learnerProfile.count(),
     subscriptions: await prisma.subscription.count(),
     userMetrics: await prisma.userMetrics.count(),
-    enrollmentRequests: await prisma.enrollmentRequest.count(),
     sessions: await prisma.conversationSession.count(),
     messages: await prisma.message.count(),
     vocabularies: await prisma.vocabulary.count(),
@@ -429,7 +414,7 @@ async function main() {
   console.log("");
   console.log("🔑 Test accounts (all use password: password123):");
   console.log("   • Admin:   admin_main");
-  console.log("   • Tutor:   tutor_sarah (class code: SARAH-2024)");
+  console.log("   • Tutor:   tutor_sarah (class code: SARAH123, expires in 7 days)");
   console.log("   • Student: student_ali (PREMIUM, level B1)");
   console.log("   • Student: student_yuki (FREE, level A2)");
   console.log("");

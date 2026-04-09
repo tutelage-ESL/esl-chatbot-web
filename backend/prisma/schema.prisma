@@ -25,12 +25,6 @@ enum ClassStatus {
   INACTIVE
 }
 
-enum EnrollStatus {
-  PENDING
-  ACCEPTED
-  REJECTED
-}
-
 enum SessionMode {
   TEXT
   VOICE
@@ -66,7 +60,7 @@ model User {
   id           String       @id @default(uuid())
   username     String       @unique
   email        String       @unique
-  password     String?      // null for Google-only accounts
+  password     String? // null for Google-only accounts
   authProvider AuthProvider @default(LOCAL)
   googleId     String?      @unique // Google's unique user ID (sub field)
   displayName  String
@@ -81,16 +75,15 @@ model User {
   metrics        UserMetrics?
 
   // One-to-many
-  classUsers                   ClassUser[]
-  enrollmentRequests           EnrollmentRequest[] @relation("EnrollmentSender")
-  resolvedEnrollments          EnrollmentRequest[] @relation("EnrollmentResolver")
-  sessions                     ConversationSession[]
-  messages                     Message[]
-  vocabularies                 Vocabulary[]
-  goals                        Goal[]
-  assignedGoals                Goal[]              @relation("GoalAssigner")
-  progress                     Progress[]
-  refreshTokens                RefreshToken[]
+  classUsers     ClassUser[]
+  createdClasses Class[]               @relation("ClassCreator")
+  sessions       ConversationSession[]
+  messages       Message[]
+  vocabularies   Vocabulary[]
+  goals          Goal[]
+  assignedGoals  Goal[]                @relation("GoalAssigner")
+  progress       Progress[]
+  refreshTokens  RefreshToken[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -103,12 +96,21 @@ model User {
 model Class {
   id            String      @id @default(uuid())
   className     String
-  classCode     String      @unique
   classCategory String?
   classStatus   ClassStatus @default(ACTIVE)
+  createdById   String?
 
-  users              ClassUser[]
-  enrollmentRequests EnrollmentRequest[]
+  // ── Class code lifecycle ──
+  // classCode is the join code. It can expire, auto-refresh on expiry,
+  // be manually rotated by a tutor, or be blocked entirely.
+  classCode                       String    @unique
+  classCodeExpiresAt              DateTime? // null = never expires (permanent)
+  classCodeRefreshIntervalSeconds Int? // null = never auto-refresh
+  classCodeBlocked                Boolean   @default(false)
+  classCodeRefreshedAt            DateTime  @default(now())
+
+  users     ClassUser[]
+  createdBy User?       @relation("ClassCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -130,29 +132,6 @@ model ClassUser {
 
   @@unique([classId, userId])
   @@map("class_users")
-}
-
-// ─── Enrollment Requests ─────────────────────────────────
-
-model EnrollmentRequest {
-  id          String       @id @default(uuid())
-  userId      String
-  classCode   String
-  resolverId  String?
-  status      EnrollStatus @default(PENDING)
-  note        String?
-  requestedAt DateTime     @default(now())
-  resolvedAt  DateTime?
-
-  user       User  @relation("EnrollmentSender", fields: [userId], references: [id], onDelete: Cascade)
-  class      Class @relation(fields: [classCode], references: [classCode], onDelete: Cascade)
-  resolvedBy User? @relation("EnrollmentResolver", fields: [resolverId], references: [id], onDelete: SetNull)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([userId, classCode])
-  @@map("enrollment_requests")
 }
 
 // ─── Learner Profiles ────────────────────────────────────
@@ -183,14 +162,14 @@ model LearnerProfile {
 // ─── Subscriptions ───────────────────────────────────────
 
 model Subscription {
-  id                   String    @id @default(uuid())
-  userId               String    @unique
-  plan                 Plan      @default(FREE)
-  status               SubStatus @default(ACTIVE)
-  currentPeriodStart   DateTime?
-  currentPeriodEnd     DateTime?
-  monthlyTtsUsage      Int       @default(0)
-  lastUsageReset       DateTime?
+  id                 String    @id @default(uuid())
+  userId             String    @unique
+  plan               Plan      @default(FREE)
+  status             SubStatus @default(ACTIVE)
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  monthlyTtsUsage    Int       @default(0)
+  lastUsageReset     DateTime?
 
   // Stripe (nullable, future integration)
   stripeCustomerId     String?
@@ -327,7 +306,7 @@ model Goal {
   completedDate      DateTime?
   lastProgressUpdate DateTime?
 
-  user          User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   assignedByTutor User? @relation("GoalAssigner", fields: [assignedByTutorId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())

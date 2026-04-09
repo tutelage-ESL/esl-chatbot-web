@@ -28,7 +28,12 @@
       "Bash(infisical --version)",
       "Bash(\"C:\\\\Users\\\\Aland\\\\scoop\\\\shims\\\\infisical.exe\" --version)",
       "Bash(\"C:\\\\Users\\\\Aland\\\\scoop\\\\shims\\\\infisical.exe\" secrets:*)",
-      "Bash(infisical run:*)"
+      "Bash(infisical run:*)",
+      "Bash(DATABASE_URL='postgresql://placeholder:placeholder@localhost:5432/placeholder' bunx prisma format)",
+      "Bash(DATABASE_URL='postgresql://placeholder:placeholder@localhost:5432/placeholder' bunx prisma generate)",
+      "Bash(rm:*)",
+      "Bash(DATABASE_URL='postgresql://placeholder:placeholder@localhost:5432/placeholder' bunx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --script)",
+      "Bash(DATABASE_URL='postgresql://placeholder:placeholder@localhost:5432/placeholder' bunx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script)"
     ]
   }
 }

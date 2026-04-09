@@ -1,20 +1,30 @@
 * Start by reading CLAUDE.md to understand the project structure and conventions.
 
-## Update database/users model
-* the database should follow this workflow:
-* user can registe with google too. we just need to get 1 google API for that. but we have 'not null' for password. what should we do?
-* user can register, by defult after registration, they will have their account, but they can not have access to the chat-bot-AI, for that access they need Subscription. so I think we might need another new enum column to 'unsubscriped , subscriped'(or something like that). so we know the user's accesss status.
-* without subscription user still can join class, of course for the joining he needs the ClassCode of the class...
-* how does this workflow seem? do we need to change anything else from the database? check and see how it works?
+## Update database user and class 
+* check this 4 tables (Users, classes, class_users, enrollment_requests)
+* make sure it follows this workflow: tutor creates a class, the class has unique class_code which users use it to join the class, but that class_code should not be permanently, it must have a expire time, after the time ended, the class_code will be refreshed to a new code, tutors in the class can change the refresh time for that class_code, USER no needed to be in pending and wait for a tutor to accept their joining! they just can join the class by entering the class_code, as long as the class_code wasn't active at the time they try to join. 
+* tutor can set the refresh time as they wish (weekly, daily, monthly, or even yearly or 100 years{in case they wanted to make it permanent })
+* or they can refresh it with a click as they want
+* or they can block the code!
+
 
 ## before starting the task:
 * ask me questions if you have any doubts. or want to confirm your understanding.
 * provide recommendations to improve the task.
 
 ## After completing the task:
-* update the claude.md according to changes related to it.
 * make sure to update the related files according to changes related to it.
+* update any related API, routes and stuff
 * update the swagger documentation to the frontend team if needed.
+* update the claude.md according to changes related to it.
+* update the seeds "prisma/seed.ts" file according to changes related to it.
+
+## Update database/users model
+* the database should follow this workflow:
+* user can registe with google too. we just need to get 1 google API for that. but we have 'not null' for password. what should we do?
+* user can register, by defult after registration, they will have their account, but they can not have access to the chat-bot-AI, for that access they need Subscription. so I think we might need another new enum column to 'unsubscriped , subscriped'(or something like that). so we know the user's accesss status.
+* without subscription user still can join class, of course for the joining he needs the ClassCode of the class...
+* how does this workflow seem? do we need to change anything else from the database? check and see how it works?
 
 ## TASK: update databaes, classes table
 * we need to allow the tutor to set an refresh date to the classCode, like this example below:
@@ -28,7 +38,6 @@
 * what port is the best for express.js backend? cant be 8080 and 3000!
 
 
-* update the seeds "prisma/seed.ts" file according to changes related to it.
 
 # Answer: (in short, follow your recommendations)
 1. I it's better to merge them!

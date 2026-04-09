@@ -1,7 +1,32 @@
-import type { ClassStatus } from "@prisma/client";
+import type { ClassStatus, Prisma } from "@prisma/client";
 import { prisma } from "../../config/database.ts";
 import { AppError } from "../../utils/AppError.ts";
-import type { ClassListItem, ClassDetail } from "./classes.types.ts";
+import {
+  generateClassCode,
+  computeExpiryFromInterval,
+  isExpired,
+} from "./classCode.util.ts";
+import type {
+  ClassListItem,
+  ClassDetail,
+  ClassCodeInfo,
+  JoinClassResult,
+} from "./classes.types.ts";
+
+// ── Read paths (admin) ─────────────────────────────────────
+
+const CLASS_LIST_SELECT = {
+  id: true,
+  className: true,
+  classCode: true,
+  classCategory: true,
+  classStatus: true,
+  classCodeBlocked: true,
+  classCodeExpiresAt: true,
+  classCodeRefreshIntervalSeconds: true,
+  createdAt: true,
+  _count: { select: { users: true } },
+} satisfies Prisma.ClassSelect;
 
 export async function getClasses(
   page: number,
@@ -14,15 +39,7 @@ export async function getClasses(
   const [rawClasses, total] = await prisma.$transaction([
     prisma.class.findMany({
       where,
-      select: {
-        id: true,
-        className: true,
-        classCode: true,
-        classCategory: true,
-        classStatus: true,
-        createdAt: true,
-        _count: { select: { users: true } },
-      },
+      select: CLASS_LIST_SELECT,
       orderBy: { createdAt: "desc" },
       skip,
       take: limit,
@@ -36,6 +53,9 @@ export async function getClasses(
     classCode: c.classCode,
     classCategory: c.classCategory,
     classStatus: c.classStatus,
+    classCodeBlocked: c.classCodeBlocked,
+    classCodeExpiresAt: c.classCodeExpiresAt,
+    classCodeRefreshIntervalSeconds: c.classCodeRefreshIntervalSeconds,
     createdAt: c.createdAt,
     memberCount: c._count.users,
   }));
@@ -52,6 +72,11 @@ export async function getClassById(id: string): Promise<ClassDetail> {
       classCode: true,
       classCategory: true,
       classStatus: true,
+      classCodeBlocked: true,
+      classCodeExpiresAt: true,
+      classCodeRefreshIntervalSeconds: true,
+      classCodeRefreshedAt: true,
+      createdById: true,
       createdAt: true,
       updatedAt: true,
       users: {
@@ -78,4 +103,430 @@ export async function getClassById(id: string): Promise<ClassDetail> {
     ...cls,
     members: cls.users,
   };
+}
+
+// ── Create / update class ──────────────────────────────────
+
+export interface CreateClassInput {
+  className: string;
+  classCategory?: string | null;
+  classCodeRefreshIntervalSeconds?: number | null;
+}
+
+/**
+ * Create a class. The creator (a tutor or admin) is automatically added to
+ * the class as a TUTOR member, and a fresh class code is generated.
+ *
+ * Code uniqueness is enforced by retrying on the @unique constraint —
+ * collisions are vanishingly rare with an 8-char alphabet of 31 symbols
+ * (≈ 8.5 * 10^11 combinations) but the retry guards against the worst case.
+ */
+export async function createClass(
+  creatorUserId: string,
+  input: CreateClassInput,
+): Promise<ClassDetail> {
+  const refreshedAt = new Date();
+  const expiresAt = computeExpiryFromInterval(
+    input.classCodeRefreshIntervalSeconds,
+    refreshedAt,
+  );
+
+  // Retry up to 5 times on unique-code collision before giving up.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const classCode = generateClassCode();
+    try {
+      const cls = await prisma.$transaction(async (tx) => {
+        const created = await tx.class.create({
+          data: {
+            className: input.className,
+            classCategory: input.classCategory ?? null,
+            classCode,
+            classCodeRefreshIntervalSeconds:
+              input.classCodeRefreshIntervalSeconds ?? null,
+            classCodeExpiresAt: expiresAt,
+            classCodeRefreshedAt: refreshedAt,
+            createdById: creatorUserId,
+          },
+        });
+        await tx.classUser.create({
+          data: {
+            classId: created.id,
+            userId: creatorUserId,
+            role: "TUTOR",
+          },
+        });
+        return created.id;
+      });
+      return await getClassById(cls);
+    } catch (err) {
+      // P2002 = unique constraint violation; only retry on classCode collision.
+      const e = err as { code?: string; meta?: { target?: string[] } };
+      if (e.code === "P2002" && e.meta?.target?.includes("classCode")) continue;
+      throw err;
+    }
+  }
+
+  throw new AppError("Failed to generate a unique class code, try again", 500);
+}
+
+// ── Authorization helper ───────────────────────────────────
+
+/**
+ * Throws unless the given user is a TUTOR member of the class (or an ADMIN).
+ * Used by every code-management endpoint.
+ */
+async function assertTutorOfClass(classId: string, userId: string, userRole: string): Promise<void> {
+  if (userRole === "ADMIN") return;
+  const membership = await prisma.classUser.findUnique({
+    where: { classId_userId: { classId, userId } },
+    select: { role: true },
+  });
+  if (!membership) throw new AppError("Class not found", 404);
+  if (membership.role !== "TUTOR") {
+    throw new AppError("Only tutors of this class can manage the class code", 403);
+  }
+}
+
+// ── Code management ────────────────────────────────────────
+
+function toCodeInfo(c: {
+  id: string;
+  classCode: string;
+  classCodeBlocked: boolean;
+  classCodeExpiresAt: Date | null;
+  classCodeRefreshIntervalSeconds: number | null;
+  classCodeRefreshedAt: Date;
+}): ClassCodeInfo {
+  return {
+    classId: c.id,
+    classCode: c.classCode,
+    classCodeBlocked: c.classCodeBlocked,
+    classCodeExpiresAt: c.classCodeExpiresAt,
+    classCodeRefreshIntervalSeconds: c.classCodeRefreshIntervalSeconds,
+    classCodeRefreshedAt: c.classCodeRefreshedAt,
+  };
+}
+
+/**
+ * Rotate the class code now (manual refresh). Resets the expiry window
+ * based on the class's current refresh interval. Does NOT unblock a
+ * blocked code — call unblock separately if needed.
+ */
+export async function refreshClassCode(
+  classId: string,
+  actorUserId: string,
+  actorRole: string,
+): Promise<ClassCodeInfo> {
+  await assertTutorOfClass(classId, actorUserId, actorRole);
+
+  const existing = await prisma.class.findUnique({
+    where: { id: classId },
+    select: { classCodeRefreshIntervalSeconds: true },
+  });
+  if (!existing) throw new AppError("Class not found", 404);
+
+  const refreshedAt = new Date();
+  const expiresAt = computeExpiryFromInterval(
+    existing.classCodeRefreshIntervalSeconds,
+    refreshedAt,
+  );
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const newCode = generateClassCode();
+    try {
+      const updated = await prisma.class.update({
+        where: { id: classId },
+        data: {
+          classCode: newCode,
+          classCodeExpiresAt: expiresAt,
+          classCodeRefreshedAt: refreshedAt,
+        },
+        select: {
+          id: true,
+          classCode: true,
+          classCodeBlocked: true,
+          classCodeExpiresAt: true,
+          classCodeRefreshIntervalSeconds: true,
+          classCodeRefreshedAt: true,
+        },
+      });
+      return toCodeInfo(updated);
+    } catch (err) {
+      const e = err as { code?: string; meta?: { target?: string[] } };
+      if (e.code === "P2002" && e.meta?.target?.includes("classCode")) continue;
+      throw err;
+    }
+  }
+
+  throw new AppError("Failed to generate a unique class code, try again", 500);
+}
+
+/**
+ * Update the auto-refresh interval. Recomputes the expiry from the
+ * current refreshedAt so the new schedule takes effect immediately.
+ * Pass `null` (or omit) to make the code permanent.
+ */
+export async function updateClassCodeSettings(
+  classId: string,
+  actorUserId: string,
+  actorRole: string,
+  refreshIntervalSeconds: number | null,
+): Promise<ClassCodeInfo> {
+  await assertTutorOfClass(classId, actorUserId, actorRole);
+
+  const existing = await prisma.class.findUnique({
+    where: { id: classId },
+    select: { classCodeRefreshedAt: true },
+  });
+  if (!existing) throw new AppError("Class not found", 404);
+
+  const expiresAt = computeExpiryFromInterval(
+    refreshIntervalSeconds,
+    existing.classCodeRefreshedAt,
+  );
+
+  const updated = await prisma.class.update({
+    where: { id: classId },
+    data: {
+      classCodeRefreshIntervalSeconds: refreshIntervalSeconds,
+      classCodeExpiresAt: expiresAt,
+    },
+    select: {
+      id: true,
+      classCode: true,
+      classCodeBlocked: true,
+      classCodeExpiresAt: true,
+      classCodeRefreshIntervalSeconds: true,
+      classCodeRefreshedAt: true,
+    },
+  });
+  return toCodeInfo(updated);
+}
+
+/**
+ * Block (true) or unblock (false) the class code.
+ * Blocking does NOT change the code value or its expiry — it only
+ * prevents new join attempts.
+ */
+export async function setClassCodeBlocked(
+  classId: string,
+  actorUserId: string,
+  actorRole: string,
+  blocked: boolean,
+): Promise<ClassCodeInfo> {
+  await assertTutorOfClass(classId, actorUserId, actorRole);
+
+  const updated = await prisma.class
+    .update({
+      where: { id: classId },
+      data: { classCodeBlocked: blocked },
+      select: {
+        id: true,
+        classCode: true,
+        classCodeBlocked: true,
+        classCodeExpiresAt: true,
+        classCodeRefreshIntervalSeconds: true,
+        classCodeRefreshedAt: true,
+      },
+    })
+    .catch((err: { code?: string }) => {
+      if (err.code === "P2025") throw new AppError("Class not found", 404);
+      throw err;
+    });
+
+  return toCodeInfo(updated);
+}
+
+// ── Join by code ───────────────────────────────────────────
+
+/**
+ * Auto-refresh helper used by the join flow. If the class's code is
+ * expired, this rotates the code to a new value (and updates expiresAt)
+ * before the join check rejects the request.
+ *
+ * Returns the (possibly updated) class snapshot.
+ */
+async function autoRefreshIfExpired(classId: string): Promise<{
+  id: string;
+  classCode: string;
+  classCodeBlocked: boolean;
+  classCodeExpiresAt: Date | null;
+  classCodeRefreshIntervalSeconds: number | null;
+  wasRefreshed: boolean;
+}> {
+  const cls = await prisma.class.findUnique({
+    where: { id: classId },
+    select: {
+      id: true,
+      classCode: true,
+      classCodeBlocked: true,
+      classCodeExpiresAt: true,
+      classCodeRefreshIntervalSeconds: true,
+    },
+  });
+  if (!cls) throw new AppError("Class not found", 404);
+
+  if (!isExpired(cls.classCodeExpiresAt)) return { ...cls, wasRefreshed: false };
+
+  // Expired — rotate it.
+  const refreshedAt = new Date();
+  const newExpiresAt = computeExpiryFromInterval(
+    cls.classCodeRefreshIntervalSeconds,
+    refreshedAt,
+  );
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const newCode = generateClassCode();
+    try {
+      const updated = await prisma.class.update({
+        where: { id: classId },
+        data: {
+          classCode: newCode,
+          classCodeExpiresAt: newExpiresAt,
+          classCodeRefreshedAt: refreshedAt,
+        },
+        select: {
+          id: true,
+          classCode: true,
+          classCodeBlocked: true,
+          classCodeExpiresAt: true,
+          classCodeRefreshIntervalSeconds: true,
+        },
+      });
+      return { ...updated, wasRefreshed: true };
+    } catch (err) {
+      const e = err as { code?: string; meta?: { target?: string[] } };
+      if (e.code === "P2002" && e.meta?.target?.includes("classCode")) continue;
+      throw err;
+    }
+  }
+  throw new AppError("Failed to refresh expired class code", 500);
+}
+
+/**
+ * Join a class by class code. No tutor approval required.
+ *
+ * Rejects with 410 (Gone) if the code is expired (after auto-refreshing it
+ * to a new value internally so the next call from someone with the *new*
+ * code can succeed) or if the code is blocked.
+ *
+ * Rejects with 409 if the user is already a member.
+ */
+export async function joinClassByCode(
+  userId: string,
+  rawCode: string,
+): Promise<JoinClassResult> {
+  const code = rawCode.trim().toUpperCase();
+  if (!code) throw new AppError("Class code is required", 400);
+
+  // Look up the class purely by the supplied code first.
+  const cls = await prisma.class.findUnique({
+    where: { classCode: code },
+    select: {
+      id: true,
+      className: true,
+      classCode: true,
+      classStatus: true,
+      classCodeBlocked: true,
+      classCodeExpiresAt: true,
+    },
+  });
+  if (!cls) throw new AppError("Invalid class code", 404);
+  if (cls.classStatus !== "ACTIVE") {
+    throw new AppError("This class is not currently active", 409);
+  }
+  if (cls.classCodeBlocked) {
+    throw new AppError("This class code is blocked. Ask the tutor for access.", 403);
+  }
+
+  // If the code on file is expired, rotate it lazily and reject.
+  // The user must obtain the new code from the tutor.
+  if (isExpired(cls.classCodeExpiresAt)) {
+    await autoRefreshIfExpired(cls.id);
+    throw new AppError("This class code has expired. Ask the tutor for the new code.", 410);
+  }
+
+  // Insert membership; rely on the unique(classId, userId) constraint to
+  // detect duplicate joins atomically.
+  try {
+    const membership = await prisma.classUser.create({
+      data: {
+        classId: cls.id,
+        userId,
+        role: "STUDENT",
+      },
+      select: { createdAt: true, role: true },
+    });
+    return {
+      classId: cls.id,
+      className: cls.className,
+      classCode: cls.classCode,
+      role: membership.role,
+      joinedAt: membership.createdAt,
+    };
+  } catch (err) {
+    const e = err as { code?: string };
+    if (e.code === "P2002") {
+      throw new AppError("You are already a member of this class", 409);
+    }
+    throw err;
+  }
+}
+
+// ── List classes the current user belongs to ──────────────
+
+export interface MyClassListItem {
+  id: string;
+  className: string;
+  classCode: string;
+  classCategory: string | null;
+  classStatus: ClassStatus;
+  myRole: "STUDENT" | "TUTOR" | "ADMIN";
+  memberCount: number;
+  joinedAt: Date;
+  // Code lifecycle (only useful for tutors but harmless to expose):
+  classCodeBlocked: boolean;
+  classCodeExpiresAt: Date | null;
+  classCodeRefreshIntervalSeconds: number | null;
+  classCodeRefreshedAt: Date;
+}
+
+export async function listMyClasses(userId: string): Promise<MyClassListItem[]> {
+  const memberships = await prisma.classUser.findMany({
+    where: { userId },
+    select: {
+      role: true,
+      createdAt: true,
+      class: {
+        select: {
+          id: true,
+          className: true,
+          classCode: true,
+          classCategory: true,
+          classStatus: true,
+          classCodeBlocked: true,
+          classCodeExpiresAt: true,
+          classCodeRefreshIntervalSeconds: true,
+          classCodeRefreshedAt: true,
+          _count: { select: { users: true } },
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return memberships.map((m) => ({
+    id: m.class.id,
+    className: m.class.className,
+    classCode: m.class.classCode,
+    classCategory: m.class.classCategory,
+    classStatus: m.class.classStatus,
+    myRole: m.role,
+    memberCount: m.class._count.users,
+    joinedAt: m.createdAt,
+    classCodeBlocked: m.class.classCodeBlocked,
+    classCodeExpiresAt: m.class.classCodeExpiresAt,
+    classCodeRefreshIntervalSeconds: m.class.classCodeRefreshIntervalSeconds,
+    classCodeRefreshedAt: m.class.classCodeRefreshedAt,
+  }));
 }
