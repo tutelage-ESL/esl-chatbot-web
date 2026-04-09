@@ -58,10 +58,17 @@
     data-client_id is injected server-side by auth.router.ts.
     data-callback calls the global handleCredentialResponse function below.
   -->
+  <!-- debug: shows the exact client ID injected by the server so you can verify it in Google Cloud Console -->
+  <div style="background:#111; border:1px solid #333; border-radius:6px; padding:10px 14px; margin-bottom:14px; font-size:12px; color:#888;">
+    <span style="color:#555;">Active Client ID →</span>
+    <span id="debug-client-id" style="color:#fbbf24; word-break:break-all;"></span>
+  </div>
+
   <div id="g_id_onload"
        data-client_id="__GOOGLE_CLIENT_ID__"
        data-callback="handleCredentialResponse"
-       data-auto_prompt="false">
+       data-auto_prompt="false"
+       data-use_fedcm_for_prompt="false">
   </div>
   <div class="g_id_signin"
        data-type="standard"
@@ -69,7 +76,8 @@
        data-text="signin_with"
        data-size="large"
        data-shape="rectangular"
-       data-logo_alignment="left">
+       data-logo_alignment="left"
+       data-ux_mode="popup">
   </div>
 </div>
 
@@ -124,8 +132,14 @@
     });
   });
 
+  // Show the exact client ID being used so you can verify it in Google Cloud Console.
+  // Read from the data attribute so this always reflects what the server injected —
+  // if the two ever disagree, that itself is a bug worth seeing.
+  const clientIdMeta = document.getElementById('g_id_onload').dataset.client_id
+    || document.getElementById('g_id_onload').getAttribute('data-client_id');
+  document.getElementById('debug-client-id').textContent = clientIdMeta || '(not set)';
+
   // Show an error if the client ID was not injected (GOOGLE_CLIENT_ID not set in env)
-  const clientIdMeta = document.getElementById('g_id_onload').dataset.clientId || "890561814327-jtang0dfihkvca1dcgum9mtpiebm4di8.apps.googleusercontent.com"
   if (!clientIdMeta || clientIdMeta === '__GOOGLE_CLIENT_ID__' || clientIdMeta === 'NOT_SET') {
     const section = document.getElementById('error-section');
     const msg     = document.getElementById('error-msg');

@@ -21,7 +21,7 @@ if (env.NODE_ENV !== "production") {
   router.get("/google/test", (_req, res) => {
     const html = readFileSync(join(__dirname, "google-test.html"), "utf-8");
     const clientId = env.GOOGLE_CLIENT_ID ?? "NOT_SET";
-    const injected = html.replace("__GOOGLE_CLIENT_ID__", clientId);
+    const injected = html.replaceAll("__GOOGLE_CLIENT_ID__", clientId);
 
     // Override Helmet's strict CSP — Google Sign-In requires its own SDK script,
     // an iframe for the sign-in popup, and inline styles for the button.
@@ -36,6 +36,16 @@ if (env.NODE_ENV !== "production") {
         "img-src 'self' https://*.googleusercontent.com data:",
       ].join("; ")
     );
+
+    // Override Helmet's default Cross-Origin-Opener-Policy (`same-origin`).
+    // Google Sign-In opens its consent flow in a popup and posts the credential
+    // back to this window via `window.opener`. With `same-origin`, the browser
+    // isolates the popup and the callback never fires (popup appears white/blank).
+    // `same-origin-allow-popups` keeps the parent protected from cross-origin
+    // popups stealing data, while still allowing child popups this page opens
+    // to communicate back — exactly what GSI needs.
+    res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+
     res.setHeader("Content-Type", "text/html");
     res.send(injected);
   });

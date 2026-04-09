@@ -72,3 +72,8 @@ I still have the error so I show you all I see:
   </div>"
 
 and from google here Client ID=890561814327-jtang0dfihkvca1dcgum9mtpiebm4di8.apps.googleusercontent.com
+
+
+
+read the claude.md file, and check this file "C:\Users\Aland\Desktop\Projects\tutelage\esl-chatbot-web\backend\src\modules\auth\google-test.html", it is not working! when I click on the "sign in with google" after some nexts the box gets white and it won't return the token! at the same time, the frontend works perfectly, so the problem is ether the client_ID or it's because that I have'nt added port 8000 in the "Authorized JavaScript origins" but it can't be, because I checked that many times, so client ID is definitely is '890561814327-jtang0dfihkvca1dcgum9mtpiebm4di8.apps.googleusercontent.com' and I have added port 3000(for frontend) and 8000(for backend test). the front-end works perfectly, so for that, check the my codes to insure if there are libraries or something that blocks the backend or not! and if you still could not find the issue, what should I do? should I add another "OAuth 2.0 Client IDs" or what?
+* if you changed anything, make sure to update the related files such as claude.md or the routes...

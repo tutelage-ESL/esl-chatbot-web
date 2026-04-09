@@ -285,6 +285,16 @@ If users get "App not verified" or can't sign in, your OAuth consent screen is i
 **Testing** mode and only allows added test users. Either add their email as a test user
 in Google Cloud Console, or publish the consent screen.
 
+### `/auth/google/test` popup goes white and no token is returned
+The Google Sign-In popup opens, you pick an account, but then the popup turns blank and
+the ID token never appears in the text box. This is almost always caused by a strict
+`Cross-Origin-Opener-Policy` header on the parent page. Google Sign-In (popup mode) needs
+to `postMessage` the credential back to the opener window, and `COOP: same-origin` blocks
+that. The `/auth/google/test` route already overrides this to `same-origin-allow-popups`;
+if you ever copy the page elsewhere or mount it under a different route, you must set
+the same header there too. **This has nothing to do with your Authorized JavaScript
+origins or Client ID** — do not create a second OAuth client to try to "fix" it.
+
 ---
 
 ## Security Notes
