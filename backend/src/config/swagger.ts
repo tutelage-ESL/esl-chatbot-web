@@ -1,6 +1,8 @@
 import swaggerJsdoc from "swagger-jsdoc";
 import { env } from "./env.ts";
 
+const projectRoot = process.cwd().replace(/\\/g, "/");
+
 const options: swaggerJsdoc.Options = {
   definition: {
     openapi: "3.0.0",
@@ -35,7 +37,25 @@ const options: swaggerJsdoc.Options = {
       },
     },
   },
-  apis: ["./src/modules/**/*.router.ts", "./src/routes/**/*.ts"],
+  apis: [
+    `${projectRoot}/src/modules/**/*.router.ts`,
+    `${projectRoot}/src/routes/**/*.ts`,
+  ],
 };
 
-export const swaggerSpec = swaggerJsdoc(options);
+export const swaggerSpec = (() => {
+  try {
+    return swaggerJsdoc(options);
+  } catch (error) {
+    console.warn("Swagger spec generation failed; continuing without API docs.", error);
+    return {
+      openapi: "3.0.0",
+      info: {
+        title: "ESL Chatbot API",
+        version: "1.0.0",
+        description: "Swagger unavailable at startup",
+      },
+      paths: {},
+    };
+  }
+})();
