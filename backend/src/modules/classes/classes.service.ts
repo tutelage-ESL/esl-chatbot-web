@@ -1,4 +1,4 @@
-import type { ClassStatus, Prisma } from "@prisma/client";
+import type { ClassStatus, Prisma, Role } from "@prisma/client";
 import { prisma } from "../../config/database.ts";
 import { AppError } from "../../utils/AppError.ts";
 import {
@@ -12,6 +12,57 @@ import type {
   ClassCodeInfo,
   JoinClassResult,
 } from "./classes.types.ts";
+
+// ── Shared refresh helper ─────────────────────────────────
+
+/**
+ * Rotate the class code to a new value if (and only if) the current one
+ * has expired. Idempotent and safe to call from any read path.
+ *
+ * Returns true if a rotation actually happened.
+ *
+ * Used by:
+ *  - the join flow (lazy refresh + reject with 410)
+ *  - the class detail / "my classes" reads (so tutors see a fresh code
+ *    just by opening the class, no manual click required)
+ */
+async function refreshIfExpired(classId: string): Promise<boolean> {
+  const cls = await prisma.class.findUnique({
+    where: { id: classId },
+    select: {
+      classCodeExpiresAt: true,
+      classCodeRefreshIntervalSeconds: true,
+    },
+  });
+  if (!cls) return false;
+  if (!isExpired(cls.classCodeExpiresAt)) return false;
+
+  const refreshedAt = new Date();
+  const newExpiresAt = computeExpiryFromInterval(
+    cls.classCodeRefreshIntervalSeconds,
+    refreshedAt,
+  );
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const newCode = generateClassCode();
+    try {
+      await prisma.class.update({
+        where: { id: classId },
+        data: {
+          classCode: newCode,
+          classCodeExpiresAt: newExpiresAt,
+          classCodeRefreshedAt: refreshedAt,
+        },
+      });
+      return true;
+    } catch (err) {
+      const e = err as { code?: string; meta?: { target?: string[] } };
+      if (e.code === "P2002" && e.meta?.target?.includes("classCode")) continue;
+      throw err;
+    }
+  }
+  throw new AppError("Failed to refresh expired class code", 500);
+}
 
 // ── Read paths (admin) ─────────────────────────────────────
 
@@ -63,7 +114,11 @@ export async function getClasses(
   return { classes, total };
 }
 
-export async function getClassById(id: string): Promise<ClassDetail> {
+/**
+ * Internal: read class detail with members. No authorization, no refresh.
+ * Used by `getClassById` and `createClass` (which has just minted the row).
+ */
+async function readClassDetail(id: string): Promise<ClassDetail> {
   const cls = await prisma.class.findUnique({
     where: { id },
     select: {
@@ -103,6 +158,46 @@ export async function getClassById(id: string): Promise<ClassDetail> {
     ...cls,
     members: cls.users,
   };
+}
+
+/**
+ * Read a class by ID, gated by membership.
+ *
+ * Authorization rules:
+ *  - ADMIN: always allowed
+ *  - Class members (tutor or student): allowed
+ *  - Anyone else: 404 (do not reveal that the class exists)
+ *
+ * Refresh-on-read: if the caller is an admin or a tutor of this class
+ * AND the code is expired, the code is rotated lazily before the read.
+ * Student callers do NOT trigger a rotation — they cannot bump it by
+ * spamming reads, and they generally don't need a fresh code anyway.
+ */
+export async function getClassById(
+  id: string,
+  actorUserId: string,
+  actorRole: Role,
+): Promise<ClassDetail> {
+  const isAdmin = actorRole === "ADMIN";
+
+  // Look up the caller's membership (if any) — also serves as the
+  // existence/access check for non-admins.
+  const membership = await prisma.classUser.findUnique({
+    where: { classId_userId: { classId: id, userId: actorUserId } },
+    select: { role: true },
+  });
+
+  if (!isAdmin && !membership) {
+    throw new AppError("Class not found", 404);
+  }
+
+  // Refresh-on-read for tutors and admins only.
+  const canTriggerRefresh = isAdmin || membership?.role === "TUTOR";
+  if (canTriggerRefresh) {
+    await refreshIfExpired(id);
+  }
+
+  return readClassDetail(id);
 }
 
 // ── Create / update class ──────────────────────────────────
@@ -157,7 +252,7 @@ export async function createClass(
         });
         return created.id;
       });
-      return await getClassById(cls);
+      return await readClassDetail(cls);
     } catch (err) {
       // P2002 = unique constraint violation; only retry on classCode collision.
       const e = err as { code?: string; meta?: { target?: string[] } };
@@ -340,70 +435,6 @@ export async function setClassCodeBlocked(
 // ── Join by code ───────────────────────────────────────────
 
 /**
- * Auto-refresh helper used by the join flow. If the class's code is
- * expired, this rotates the code to a new value (and updates expiresAt)
- * before the join check rejects the request.
- *
- * Returns the (possibly updated) class snapshot.
- */
-async function autoRefreshIfExpired(classId: string): Promise<{
-  id: string;
-  classCode: string;
-  classCodeBlocked: boolean;
-  classCodeExpiresAt: Date | null;
-  classCodeRefreshIntervalSeconds: number | null;
-  wasRefreshed: boolean;
-}> {
-  const cls = await prisma.class.findUnique({
-    where: { id: classId },
-    select: {
-      id: true,
-      classCode: true,
-      classCodeBlocked: true,
-      classCodeExpiresAt: true,
-      classCodeRefreshIntervalSeconds: true,
-    },
-  });
-  if (!cls) throw new AppError("Class not found", 404);
-
-  if (!isExpired(cls.classCodeExpiresAt)) return { ...cls, wasRefreshed: false };
-
-  // Expired — rotate it.
-  const refreshedAt = new Date();
-  const newExpiresAt = computeExpiryFromInterval(
-    cls.classCodeRefreshIntervalSeconds,
-    refreshedAt,
-  );
-
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const newCode = generateClassCode();
-    try {
-      const updated = await prisma.class.update({
-        where: { id: classId },
-        data: {
-          classCode: newCode,
-          classCodeExpiresAt: newExpiresAt,
-          classCodeRefreshedAt: refreshedAt,
-        },
-        select: {
-          id: true,
-          classCode: true,
-          classCodeBlocked: true,
-          classCodeExpiresAt: true,
-          classCodeRefreshIntervalSeconds: true,
-        },
-      });
-      return { ...updated, wasRefreshed: true };
-    } catch (err) {
-      const e = err as { code?: string; meta?: { target?: string[] } };
-      if (e.code === "P2002" && e.meta?.target?.includes("classCode")) continue;
-      throw err;
-    }
-  }
-  throw new AppError("Failed to refresh expired class code", 500);
-}
-
-/**
  * Join a class by class code. No tutor approval required.
  *
  * Rejects with 410 (Gone) if the code is expired (after auto-refreshing it
@@ -442,7 +473,7 @@ export async function joinClassByCode(
   // If the code on file is expired, rotate it lazily and reject.
   // The user must obtain the new code from the tutor.
   if (isExpired(cls.classCodeExpiresAt)) {
-    await autoRefreshIfExpired(cls.id);
+    await refreshIfExpired(cls.id);
     throw new AppError("This class code has expired. Ask the tutor for the new code.", 410);
   }
 
@@ -492,6 +523,29 @@ export interface MyClassListItem {
 }
 
 export async function listMyClasses(userId: string): Promise<MyClassListItem[]> {
+  // Refresh-on-read: find any classes where the caller is a TUTOR and the
+  // code is currently expired, then rotate them before reading the list.
+  // Student memberships are skipped — students cannot bump the rotation by
+  // listing their classes. Admins still see whatever they happen to be a
+  // member of; they should use the /classes endpoint for the global view.
+  const expiredTutorMemberships = await prisma.classUser.findMany({
+    where: {
+      userId,
+      role: "TUTOR",
+      class: {
+        classCodeExpiresAt: { lt: new Date(), not: null },
+      },
+    },
+    select: { classId: true },
+  });
+
+  // Sequential is fine — having multiple expired classes per tutor at the
+  // moment of the read is rare, and parallel updates on different rows
+  // gain little here.
+  for (const m of expiredTutorMemberships) {
+    await refreshIfExpired(m.classId);
+  }
+
   const memberships = await prisma.classUser.findMany({
     where: { userId },
     select: {

@@ -32,8 +32,9 @@ export const listClasses = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const getClass = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.user) throw new AppError("Authentication required", 401);
   const { id } = getClassParamSchema.parse(req.params);
-  const cls = await getClassById(id);
+  const cls = await getClassById(id, req.user.id, req.user.role);
   sendSuccess(res, cls, "Class retrieved successfully");
 });
 

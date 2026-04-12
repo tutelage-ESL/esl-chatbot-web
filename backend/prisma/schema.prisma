@@ -35,6 +35,11 @@ enum MessageRole {
   ASSISTANT
 }
 
+enum MessageType {
+  TEXT
+  VOICE
+}
+
 enum GoalStatus {
   ACTIVE
   COMPLETED
@@ -225,8 +230,9 @@ model ConversationSession {
   messageCount      Int         @default(0)
   averageScore      Float?
 
-  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  messages Message[]
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages   Message[]
+  evaluation SessionEvaluation?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -237,23 +243,73 @@ model ConversationSession {
 // ─── Messages ────────────────────────────────────────────
 
 model Message {
-  id           String      @id @default(uuid())
-  userId       String
-  sessionId    String
-  role         MessageRole
-  content      String
-  inputMode    String?
-  wordCount    Int?
-  aiEvaluation Json?
-  audioUrl     String?
+  id              String      @id @default(uuid())
+  userId          String
+  sessionId       String
+  role            MessageRole
+  type            MessageType @default(TEXT)
+  content         String
+  wordCount       Int?
+  audioUrl        String?
+  audioDurationSec Float?
 
-  user    User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  session ConversationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session    ConversationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  evaluation MessageEvaluation?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("messages")
+}
+
+// ─── Message Evaluations ─────────────────────────────────
+
+model MessageEvaluation {
+  id                  String  @id @default(uuid())
+  messageId           String  @unique
+  grammarScore        Int
+  grammarErrors       Json    // [{error, correction, rule, severity}]
+  vocabularyScore     Int
+  vocabularyLevel     String  // detected CEFR level of words used (A1-C2)
+  fluencyScore        Int
+  pronunciationScore  Int?    // voice sessions only
+  pronunciationIssues Json?   // [{word, issue, suggestion}]
+  overallScore        Int     // weighted composite (0-100)
+  detectedCefrLevel   String  // detected CEFR level of this message (A1-C2)
+  corrections         Json    // [{original, corrected, explanation}]
+  feedback            String  // human-readable summary from AI
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@map("message_evaluations")
+}
+
+// ─── Session Evaluations ─────────────────────────────────
+
+model SessionEvaluation {
+  id                String @id @default(uuid())
+  sessionId         String @unique
+  topicsCovered     Json   // string[]
+  avgGrammarScore   Float
+  avgVocabularyScore Float
+  avgFluencyScore   Float
+  avgOverallScore   Float
+  detectedCefrLevel String // overall session CEFR level
+  strengths         Json   // string[]
+  weaknesses        Json   // string[]
+  recommendations   Json   // string[]
+  newVocabulary     Json   // words to feed into SRS
+  totalUserMessages Int
+  totalUserWords    Int
+
+  session ConversationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@map("session_evaluations")
 }
 
 // ─── Vocabularies ────────────────────────────────────────

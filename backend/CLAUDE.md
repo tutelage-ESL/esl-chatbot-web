@@ -148,6 +148,7 @@ Each module under `src/modules/[name]/` follows:
 | ClassStatus | ACTIVE, INACTIVE |
 | SessionMode | TEXT, VOICE |
 | MessageRole | USER, ASSISTANT |
+| MessageType | TEXT, VOICE |
 | GoalStatus | ACTIVE, COMPLETED, PAUSED, CANCELLED |
 | Plan | FREE, PREMIUM |
 | SubStatus | ACTIVE, INACTIVE, CANCELLED, PAST_DUE |
@@ -161,8 +162,10 @@ Each module under `src/modules/[name]/` follows:
 | LearnerProfile | learner_profiles | 1:1 with User (students only) |
 | Subscription | subscriptions | 1:1 with User, Stripe fields nullable |
 | UserMetrics | user_metrics | 1:1 with User, aggregated dashboard data |
-| ConversationSession | conversation_sessions | belongs to User, has many Messages |
-| Message | messages | belongs to User + Session |
+| ConversationSession | conversation_sessions | belongs to User, has many Messages, optional SessionEvaluation |
+| Message | messages | belongs to User + Session, has type (TEXT/VOICE), optional MessageEvaluation |
+| MessageEvaluation | message_evaluations | 1:1 with Message (USER messages only), stores grammar/vocab/fluency scores and corrections |
+| SessionEvaluation | session_evaluations | 1:1 with ConversationSession, aggregate scores + strengths/weaknesses/recommendations |
 | Vocabulary | vocabularies | belongs to User, SRS fields, unique(userId, word) |
 | Goal | goals | belongs to User, optional tutor assigner |
 | Progress | progress | daily snapshot, unique(userId, date) |
@@ -176,12 +179,20 @@ Each module under `src/modules/[name]/` follows:
 - ClassUser join table links any user (TUTOR or STUDENT) to a class with a `role` field and unique(classId, userId) constraint
 - Class join flow is **direct** (no pending approval): a user submits a class code via `POST /classes/join` and is added as a STUDENT immediately, provided the code is not blocked, not expired, and the class is ACTIVE
 - **Class code lifecycle:** each Class has `classCode`, `classCodeExpiresAt` (nullable — null = permanent), `classCodeRefreshIntervalSeconds` (nullable — null = no auto refresh), `classCodeBlocked` (boolean), and `classCodeRefreshedAt`. Tutors of the class (or admins) can rotate, change the refresh interval, or block/unblock the code via dedicated endpoints. Codes are 8-char uppercase alphanumeric (excludes ambiguous chars like 0/O/1/I/L) generated in `classes/classCode.util.ts`
-- **Lazy auto-refresh on expiry:** when a join attempt arrives with an expired code, the service rotates the code to a new value internally and rejects the join with HTTP 410 (Gone). No cron job is needed
+- **Lazy auto-refresh on expiry:** the service rotates an expired code on demand, so no cron job is needed. Three triggers, all routed through the shared `refreshIfExpired(classId)` helper in `classes.service.ts`:
+  1. **Join attempt with an expired code** — code is rotated internally and the join is rejected with HTTP 410 (Gone). The user must obtain the new code from the tutor.
+  2. **`GET /classes/:id` by an admin or by a tutor of the class** — code is rotated before the response is built, so opening the class detail is enough to see a fresh code.
+  3. **`GET /classes/mine`** — for each class where the caller is a TUTOR with a currently expired code, the code is rotated before the list is built. Student memberships do NOT trigger rotation, so students cannot bump the rotation by spamming reads.
 - No separate settings table — settings live in LearnerProfile
 - Vocabulary uses SM-2 SRS algorithm fields (srsInterval, srsEase, srsDue)
 - Progress is exactly 1 row per user per calendar day
 - Cascade delete on all user-owned relations
 - RefreshToken table stores hashed (SHA-256) refresh tokens for server-side revocation; one row per active session/device
+- **Message evaluation flow:** each user message is evaluated by the AI for grammar (0-100), vocabulary (0-100 + CEFR level), fluency (0-100), overall score (weighted: 35% grammar + 35% vocab + 30% fluency), corrections (original/corrected/explanation), and feedback. Evaluations are stored in `message_evaluations` (1:1 with Message). Students see inline corrections after each message.
+- **Session evaluation:** generated on `POST /sessions/:id/end`. Aggregates all message evaluations into averages, detects session-level CEFR, identifies strengths/weaknesses/recommendations, and lists new vocabulary for SRS. Stored in `session_evaluations` (1:1 with ConversationSession).
+- **Message type vs session mode:** `SessionMode` (TEXT/VOICE) is the starting mode. Individual `Message.type` (TEXT/VOICE) allows mixed-mode sessions — no separate MIXED enum needed.
+- **Session limits:** soft limit (FREE=50, PREMIUM=150 user messages) shows a warning; hard limit (soft+10) blocks further messages. Daily session cap (FREE=3, PREMIUM=50) prevents runaway costs.
+- **AI provider placeholder:** `messages.service.ts` contains `getAIResponse()` — a placeholder that returns heuristic-based evaluations. Replace with real AI API calls when provider is finalized. See `docs/services/ai-providers.md` for provider comparison.
 
 ---
 
@@ -275,10 +286,10 @@ Includes: classes (with full code-lifecycle fields populated) with enrolled user
 - ✅ `GET /users` — paginated user list, filterable by `?role=` (admin only)
 - ✅ `GET /users/:id` — full user profile: learnerProfile, subscription, metrics, classUsers (admin only)
 - ✅ `GET /classes` — paginated class list with memberCount + code-lifecycle fields, filterable by `?status=` (admin only)
-- ✅ `GET /classes/:id` — class detail with enrolled members (id, role, user: id/username/displayName/avatarUrl) (admin only)
+- ✅ `GET /classes/:id` — class detail with enrolled members (id, role, user: id/username/displayName/avatarUrl). Access: admins or members of the class only (anyone else gets 404). **Refresh-on-read:** triggers a lazy rotation when the caller is an admin or a tutor of this class and the code is currently expired
 - ✅ `POST /classes` — tutor or admin creates a class; creator becomes a TUTOR member; a fresh code is generated; optional `classCodeRefreshIntervalSeconds`
 - ✅ `POST /classes/join` — any authenticated user joins by code; no pending state. Rejects with 403 (blocked), 410 (expired — code is auto-rotated internally), 409 (already a member or class INACTIVE), 404 (unknown code)
-- ✅ `GET /classes/mine` — list classes the authenticated user is a member of, with their role per class
+- ✅ `GET /classes/mine` — list classes the authenticated user is a member of, with their role per class. **Refresh-on-read:** any class where the caller is a TUTOR with an expired code is rotated before the list is built (student memberships do not trigger rotation)
 - ✅ `POST /classes/:id/code/refresh` — tutor of the class (or admin) manually rotates the code; expiry resets per the configured interval
 - ✅ `PATCH /classes/:id/code/settings` — change `classCodeRefreshIntervalSeconds` (null = permanent); recomputes expiry from `classCodeRefreshedAt`
 - ✅ `PATCH /classes/:id/code/block` — block or unblock the code with `{ blocked: boolean }`. Blocking does not change the code value or expiry
@@ -287,11 +298,17 @@ Includes: classes (with full code-lifecycle fields populated) with enrolled user
 - Admin: assign tutors, manage all users
 
 ### Phase 4 — Conversation Sessions & Messages
-- Session lifecycle: create, end, list, get by ID
-- Message creation within session (with word count tracking)
-- AI integration placeholder (evaluations stored in aiEvaluation JSON)
-- Session summary generation placeholder
-- Real-time messaging via Socket.io
+- ✅ `POST /sessions` — start a new conversation session (requires active subscription, daily caps: FREE=3, PREMIUM=50)
+- ✅ `GET /sessions` — list user's sessions (paginated, filterable by mode/active status)
+- ✅ `GET /sessions/:id` — session detail with all messages and evaluations
+- ✅ `POST /sessions/:id/end` — end session, compute averages, generate SessionEvaluation
+- ✅ `POST /sessions/:sessionId/messages` — send message → AI responds → MessageEvaluation generated (grammar, vocabulary, fluency, corrections). Per-session limits: FREE=50+10 buffer, PREMIUM=150+10 buffer
+- ✅ `GET /sessions/:sessionId/messages` — paginated message list with evaluations
+- ✅ MessageEvaluation table: per-message grammar/vocabulary/fluency scores, corrections, CEFR detection
+- ✅ SessionEvaluation table: aggregate scores, strengths, weaknesses, recommendations, detected CEFR level
+- ✅ Message type field (TEXT/VOICE) — sessions can contain both types (mixed mode)
+- ✅ AI integration placeholder with heuristic-based evaluation (swap for real AI provider later)
+- Remaining: real AI provider integration, TTS/STT pipeline, Socket.io real-time messaging
 
 ### Phase 5 — Vocabulary & SRS System
 - CRUD for vocabulary items

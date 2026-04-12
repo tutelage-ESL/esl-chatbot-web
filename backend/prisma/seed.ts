@@ -13,6 +13,8 @@ async function main() {
   await prisma.progress.deleteMany();
   await prisma.goal.deleteMany();
   await prisma.vocabulary.deleteMany();
+  await prisma.sessionEvaluation.deleteMany();
+  await prisma.messageEvaluation.deleteMany();
   await prisma.message.deleteMany();
   await prisma.conversationSession.deleteMany();
   await prisma.userMetrics.deleteMany();
@@ -223,8 +225,8 @@ async function main() {
   });
   console.log("   ✅ 2 user metrics records created\n");
 
-  // ─── Conversation Sessions & Messages ─────────────────
-  console.log("💬 Creating Conversation Sessions & Messages...");
+  // ─── Conversation Sessions, Messages & Evaluations ─────
+  console.log("💬 Creating Conversation Sessions, Messages & Evaluations...");
   const session1 = await prisma.conversationSession.create({
     data: {
       userId: student1.id,
@@ -239,30 +241,71 @@ async function main() {
     },
   });
 
-  const session1Messages = [
-    { role: "USER" as const, content: "Hi! I want to practice ordering food at a restaurant.", wordCount: 11 },
-    { role: "ASSISTANT" as const, content: "Great choice! Let's roleplay. I'll be the waiter. Welcome to The Green Garden! Here's your menu. What would you like to start with?", wordCount: 24 },
-    { role: "USER" as const, content: "I would like to have the chicken soup for starter please.", wordCount: 11 },
-    { role: "ASSISTANT" as const, content: "Excellent choice! And for your main course? We have a special today — grilled salmon with vegetables.", wordCount: 17 },
-    { role: "USER" as const, content: "That sounds good. I will take the salmon. Can I also get a glass of water?", wordCount: 16 },
-    { role: "ASSISTANT" as const, content: "Of course! So that's one chicken soup, the grilled salmon special, and a glass of water. Great ordering! Your grammar was very natural.", wordCount: 23 },
-  ];
+  // Session 1 messages with evaluations for USER messages
+  const s1m1 = await prisma.message.create({
+    data: { userId: student1.id, sessionId: session1.id, role: "USER", type: "TEXT", content: "Hi! I want to practice ordering food at a restaurant.", wordCount: 11 },
+  });
+  await prisma.messageEvaluation.create({
+    data: {
+      messageId: s1m1.id,
+      grammarScore: 90, grammarErrors: [], vocabularyScore: 75, vocabularyLevel: "B1",
+      fluencyScore: 85, overallScore: 83, detectedCefrLevel: "B1",
+      corrections: [], feedback: "Excellent sentence structure. Clear and natural.",
+    },
+  });
+  await prisma.message.create({
+    data: { userId: student1.id, sessionId: session1.id, role: "ASSISTANT", type: "TEXT", content: "Great choice! Let's roleplay. I'll be the waiter. Welcome to The Green Garden! Here's your menu. What would you like to start with?", wordCount: 24 },
+  });
 
-  for (const msg of session1Messages) {
-    await prisma.message.create({
-      data: {
-        userId: student1.id,
-        sessionId: session1.id,
-        role: msg.role,
-        content: msg.content,
-        wordCount: msg.wordCount,
-        inputMode: "text",
-        aiEvaluation: msg.role === "USER" ? { grammar: 85, fluency: 80, vocabulary: 75 } : undefined,
-      },
-    });
-  }
-  console.log(`   ✅ Session 1: "${session1.topic}" (${session1Messages.length} messages)`);
+  const s1m3 = await prisma.message.create({
+    data: { userId: student1.id, sessionId: session1.id, role: "USER", type: "TEXT", content: "I would like to have the chicken soup for starter please.", wordCount: 11 },
+  });
+  await prisma.messageEvaluation.create({
+    data: {
+      messageId: s1m3.id,
+      grammarScore: 80, grammarErrors: [{ error: "'for starter' should be 'as a starter'", correction: "as a starter", rule: "preposition", severity: "minor" }],
+      vocabularyScore: 70, vocabularyLevel: "A2", fluencyScore: 78, overallScore: 76,
+      detectedCefrLevel: "B1",
+      corrections: [{ original: "for starter", corrected: "as a starter", explanation: "Use 'as a starter' when referring to the first course." }],
+      feedback: "Good polite phrasing with 'I would like'. Minor preposition error.",
+    },
+  });
+  await prisma.message.create({
+    data: { userId: student1.id, sessionId: session1.id, role: "ASSISTANT", type: "TEXT", content: "Excellent choice! And for your main course? We have a special today — grilled salmon with vegetables.", wordCount: 17 },
+  });
 
+  const s1m5 = await prisma.message.create({
+    data: { userId: student1.id, sessionId: session1.id, role: "USER", type: "TEXT", content: "That sounds good. I will take the salmon. Can I also get a glass of water?", wordCount: 16 },
+  });
+  await prisma.messageEvaluation.create({
+    data: {
+      messageId: s1m5.id,
+      grammarScore: 92, grammarErrors: [], vocabularyScore: 72, vocabularyLevel: "B1",
+      fluencyScore: 88, overallScore: 84, detectedCefrLevel: "B1",
+      corrections: [], feedback: "Natural and fluent ordering. Good use of polite request form.",
+    },
+  });
+  await prisma.message.create({
+    data: { userId: student1.id, sessionId: session1.id, role: "ASSISTANT", type: "TEXT", content: "Of course! So that's one chicken soup, the grilled salmon special, and a glass of water. Great ordering! Your grammar was very natural.", wordCount: 23 },
+  });
+
+  // Session evaluation for session 1
+  await prisma.sessionEvaluation.create({
+    data: {
+      sessionId: session1.id,
+      topicsCovered: ["restaurant vocabulary", "polite ordering", "food items"],
+      avgGrammarScore: 87.3, avgVocabularyScore: 72.3, avgFluencyScore: 83.7, avgOverallScore: 81.0,
+      detectedCefrLevel: "B1",
+      strengths: ["Strong grammar skills", "Natural politeness forms"],
+      weaknesses: ["vocabulary needs improvement"],
+      recommendations: ["Focus on improving vocabulary", "Learn more food-related expressions"],
+      newVocabulary: ["appetizer", "main course", "starter"],
+      totalUserMessages: 3, totalUserWords: 38,
+    },
+  });
+  console.log(`   ✅ Session 1: "${session1.topic}" (6 messages, 3 evaluations)`);
+
+  // Session 2 — Yuki (lower level)
   const session2 = await prisma.conversationSession.create({
     data: {
       userId: student2.id,
@@ -273,31 +316,64 @@ async function main() {
       endedAt: new Date(Date.now() - 3.5 * 60 * 60 * 1000),
       durationSeconds: 1200,
       messageCount: 4,
-      averageScore: 65.0,
+      averageScore: 62.5,
     },
   });
 
-  const session2Messages = [
-    { role: "USER" as const, content: "Hello, I want practice introduce myself.", wordCount: 7 },
-    { role: "ASSISTANT" as const, content: "Hello Yuki! Let's practice. Try saying: 'I would like to practice introducing myself.' Now, go ahead — tell me about yourself!", wordCount: 21 },
-    { role: "USER" as const, content: "My name is Yuki. I am from Japan. I am 22 years old. I like cooking and reading books.", wordCount: 18 },
-    { role: "ASSISTANT" as const, content: "That was great, Yuki! Very clear and well-structured. To make it even more natural, you could say: 'I'm Yuki from Japan. I'm 22 and I enjoy cooking and reading.'", wordCount: 30 },
-  ];
+  const s2m1 = await prisma.message.create({
+    data: { userId: student2.id, sessionId: session2.id, role: "USER", type: "TEXT", content: "Hello, I want practice introduce myself.", wordCount: 7 },
+  });
+  await prisma.messageEvaluation.create({
+    data: {
+      messageId: s2m1.id,
+      grammarScore: 55, grammarErrors: [
+        { error: "Missing 'to' before 'practice'", correction: "I want to practice", rule: "infinitive", severity: "major" },
+        { error: "'introduce' should be 'introducing'", correction: "practice introducing", rule: "gerund after practice", severity: "major" },
+      ],
+      vocabularyScore: 50, vocabularyLevel: "A2", fluencyScore: 58, overallScore: 54,
+      detectedCefrLevel: "A2",
+      corrections: [
+        { original: "I want practice introduce myself", corrected: "I want to practice introducing myself", explanation: "Use 'want to + verb' and 'practice + verb-ing'." },
+      ],
+      feedback: "Good attempt! Remember: 'want TO practice' and 'practice introducing' (gerund).",
+    },
+  });
+  await prisma.message.create({
+    data: { userId: student2.id, sessionId: session2.id, role: "ASSISTANT", type: "TEXT", content: "Hello Yuki! Let's practice. Try saying: 'I would like to practice introducing myself.' Now, go ahead — tell me about yourself!", wordCount: 21 },
+  });
 
-  for (const msg of session2Messages) {
-    await prisma.message.create({
-      data: {
-        userId: student2.id,
-        sessionId: session2.id,
-        role: msg.role,
-        content: msg.content,
-        wordCount: msg.wordCount,
-        inputMode: "text",
-        aiEvaluation: msg.role === "USER" ? { grammar: 60, fluency: 65, vocabulary: 55 } : undefined,
-      },
-    });
-  }
-  console.log(`   ✅ Session 2: "${session2.topic}" (${session2Messages.length} messages)\n`);
+  const s2m3 = await prisma.message.create({
+    data: { userId: student2.id, sessionId: session2.id, role: "USER", type: "TEXT", content: "My name is Yuki. I am from Japan. I am 22 years old. I like cooking and reading books.", wordCount: 18 },
+  });
+  await prisma.messageEvaluation.create({
+    data: {
+      messageId: s2m3.id,
+      grammarScore: 85, grammarErrors: [],
+      vocabularyScore: 55, vocabularyLevel: "A2", fluencyScore: 68, overallScore: 71,
+      detectedCefrLevel: "A2",
+      corrections: [],
+      feedback: "Very clear and well-structured! To sound more natural, try connecting sentences: 'I'm Yuki from Japan. I'm 22 and I enjoy cooking and reading.'",
+    },
+  });
+  await prisma.message.create({
+    data: { userId: student2.id, sessionId: session2.id, role: "ASSISTANT", type: "TEXT", content: "That was great, Yuki! Very clear and well-structured. To make it even more natural, you could say: 'I'm Yuki from Japan. I'm 22 and I enjoy cooking and reading.'", wordCount: 30 },
+  });
+
+  // Session evaluation for session 2
+  await prisma.sessionEvaluation.create({
+    data: {
+      sessionId: session2.id,
+      topicsCovered: ["self-introduction", "personal information", "hobbies"],
+      avgGrammarScore: 70.0, avgVocabularyScore: 52.5, avgFluencyScore: 63.0, avgOverallScore: 62.5,
+      detectedCefrLevel: "A2",
+      strengths: ["Clear sentence structure in simple sentences"],
+      weaknesses: ["vocabulary needs improvement", "fluency needs improvement"],
+      recommendations: ["Focus on improving vocabulary", "Practice connecting sentences naturally", "Focus on improving fluency"],
+      newVocabulary: ["introduce", "hobby", "enjoy"],
+      totalUserMessages: 2, totalUserWords: 25,
+    },
+  });
+  console.log(`   ✅ Session 2: "${session2.topic}" (4 messages, 2 evaluations)\n`);
 
   // ─── Vocabulary ───────────────────────────────────────
   console.log("📖 Creating Vocabulary items...");
@@ -398,6 +474,8 @@ async function main() {
     userMetrics: await prisma.userMetrics.count(),
     sessions: await prisma.conversationSession.count(),
     messages: await prisma.message.count(),
+    messageEvaluations: await prisma.messageEvaluation.count(),
+    sessionEvaluations: await prisma.sessionEvaluation.count(),
     vocabularies: await prisma.vocabulary.count(),
     goals: await prisma.goal.count(),
     progress: await prisma.progress.count(),

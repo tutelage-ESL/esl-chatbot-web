@@ -672,7 +672,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List the classes the authenticated user is a member of */
+        /**
+         * List the classes the authenticated user is a member of
+         * @description Returns every class the caller belongs to, with their role per
+         *     class (`myRole`) and the full code lifecycle fields.
+         *
+         *     **Refresh-on-read:** before returning, any class where the caller
+         *     is a TUTOR and the code is currently expired is rotated to a new
+         *     value. Student memberships do NOT trigger rotations — students
+         *     cannot bump codes by listing their classes.
+         */
         get: {
             parameters: {
                 query?: never;
@@ -715,7 +724,22 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get a single class by ID with members — Admin only */
+        /**
+         * Get a single class by ID with members
+         * @description Returns the class detail (including the current code value and
+         *     lifecycle fields) plus all members.
+         *
+         *     **Access:**
+         *     - Admins can read any class
+         *     - Tutors and students who are members of the class can read it
+         *     - Anyone else gets a 404 (class existence is not revealed)
+         *
+         *     **Refresh-on-read:** when the caller is an admin or a tutor of
+         *     this class AND `classCodeExpiresAt` is in the past, the code is
+         *     rotated to a new value before being returned. This means tutors
+         *     can simply open the class to get a fresh code — no manual click
+         *     required. Student callers do NOT trigger a rotation.
+         */
         get: {
             parameters: {
                 query?: never;
@@ -752,16 +776,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
-                /** @description Not an admin */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorResponse"];
-                    };
-                };
-                /** @description Class not found */
+                /** @description Class not found or caller not a member */
                 404: {
                     headers: {
                         [name: string]: unknown;
@@ -1035,6 +1050,495 @@ export interface paths {
                 };
             };
         };
+        trace?: never;
+    };
+    "/sessions/{sessionId}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List messages in a session (paginated) */
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    sessionId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Paginated list of messages with evaluations */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @example true */
+                            success?: boolean;
+                            message?: string;
+                            data?: {
+                                /** Format: uuid */
+                                id?: string;
+                                /** @enum {string} */
+                                role?: "USER" | "ASSISTANT";
+                                /** @enum {string} */
+                                type?: "TEXT" | "VOICE";
+                                content?: string;
+                                wordCount?: number | null;
+                                audioUrl?: string | null;
+                                audioDurationSec?: number | null;
+                                /** Format: date-time */
+                                createdAt?: string;
+                                evaluation?: components["schemas"]["MessageEvaluation"] | null;
+                            }[];
+                            meta?: {
+                                page?: number;
+                                limit?: number;
+                                total?: number;
+                                totalPages?: number;
+                            };
+                        };
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Session not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Send a message and get AI response with evaluation
+         * @description Sends a user message in the session, triggers an AI response, and
+         *     evaluates the user's message for grammar, vocabulary, and fluency.
+         *
+         *     Returns the user message, AI response, and evaluation in one call.
+         *
+         *     Per-session message limits (user messages only):
+         *     - FREE plan: 50 messages (soft) + 10 buffer (hard)
+         *     - PREMIUM plan: 150 messages (soft) + 10 buffer (hard)
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    sessionId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        content: string;
+                        /**
+                         * @default TEXT
+                         * @enum {string}
+                         */
+                        type?: "TEXT" | "VOICE";
+                    };
+                };
+            };
+            responses: {
+                /** @description Message sent, AI responded, evaluation generated */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            message?: string;
+                            data?: {
+                                userMessage?: {
+                                    /** Format: uuid */
+                                    id?: string;
+                                    /** @example USER */
+                                    role?: string;
+                                    /** @enum {string} */
+                                    type?: "TEXT" | "VOICE";
+                                    content?: string;
+                                    wordCount?: number;
+                                    /** Format: date-time */
+                                    createdAt?: string;
+                                };
+                                assistantMessage?: {
+                                    /** Format: uuid */
+                                    id?: string;
+                                    /** @example ASSISTANT */
+                                    role?: string;
+                                    /** @enum {string} */
+                                    type?: "TEXT" | "VOICE";
+                                    content?: string;
+                                    wordCount?: number;
+                                    /** Format: date-time */
+                                    createdAt?: string;
+                                };
+                                evaluation?: components["schemas"]["MessageEvaluation"];
+                            };
+                        };
+                    };
+                };
+                /** @description Invalid body */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Session not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Session already ended */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Message limit reached */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the authenticated user's conversation sessions */
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                    limit?: number;
+                    mode?: "TEXT" | "VOICE";
+                    /** @description Filter by active (not ended) or ended sessions */
+                    active?: "true" | "false";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Paginated list of sessions */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @example true */
+                            success?: boolean;
+                            message?: string;
+                            data?: components["schemas"]["SessionListItem"][];
+                            meta?: {
+                                page?: number;
+                                limit?: number;
+                                total?: number;
+                                totalPages?: number;
+                            };
+                        };
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Start a new conversation session
+         * @description Creates a new conversation session. Requires an active subscription.
+         *
+         *     Daily session limits apply:
+         *     - FREE plan: 3 sessions/day
+         *     - PREMIUM plan: 50 sessions/day
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /**
+                         * @default TEXT
+                         * @enum {string}
+                         */
+                        mode?: "TEXT" | "VOICE";
+                        /** @description Optional conversation topic */
+                        topic?: string | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description Session created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            message?: string;
+                            data?: components["schemas"]["SessionListItem"];
+                        };
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description No active subscription */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Daily session limit reached */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sessions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a session with all messages and evaluations */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Session detail with messages and evaluations */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            message?: string;
+                            data?: components["schemas"]["SessionListItem"] & {
+                                /** Format: uuid */
+                                userId?: string;
+                                messages?: {
+                                    /** Format: uuid */
+                                    id?: string;
+                                    /** @enum {string} */
+                                    role?: "USER" | "ASSISTANT";
+                                    /** @enum {string} */
+                                    type?: "TEXT" | "VOICE";
+                                    content?: string;
+                                    wordCount?: number | null;
+                                    audioUrl?: string | null;
+                                    audioDurationSec?: number | null;
+                                    /** Format: date-time */
+                                    createdAt?: string;
+                                    evaluation?: components["schemas"]["MessageEvaluation"] | null;
+                                }[];
+                                evaluation?: components["schemas"]["SessionEvaluation"] | null;
+                            };
+                        };
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Session not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sessions/{id}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End a conversation session
+         * @description Ends the session, computes duration, message count, average score,
+         *     and generates a session-level evaluation summary from all message
+         *     evaluations. Returns the full session detail with the evaluation.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Session ended with evaluation summary */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            message?: string;
+                            data?: components["schemas"]["SessionListItem"] & {
+                                evaluation?: components["schemas"]["SessionEvaluation"];
+                            };
+                        };
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Session not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Session already ended */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/users": {
@@ -1332,6 +1836,67 @@ export interface components {
             classCodeRefreshIntervalSeconds?: number | null;
             /** Format: date-time */
             classCodeRefreshedAt?: string;
+        };
+        SessionListItem: {
+            /** Format: uuid */
+            id?: string;
+            /** @enum {string} */
+            mode?: "TEXT" | "VOICE";
+            topic?: string | null;
+            summary?: string | null;
+            /** Format: date-time */
+            startedAt?: string;
+            /** Format: date-time */
+            endedAt?: string | null;
+            durationSeconds?: number | null;
+            messageCount?: number;
+            averageScore?: number | null;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        MessageEvaluation: {
+            grammarScore?: number;
+            grammarErrors?: {
+                error?: string;
+                correction?: string;
+                rule?: string;
+                /** @enum {string} */
+                severity?: "minor" | "major" | "critical";
+            }[];
+            vocabularyScore?: number;
+            /** @enum {string} */
+            vocabularyLevel?: "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
+            fluencyScore?: number;
+            pronunciationScore?: number | null;
+            pronunciationIssues?: {
+                word?: string;
+                issue?: string;
+                suggestion?: string;
+            }[] | null;
+            overallScore?: number;
+            /** @enum {string} */
+            detectedCefrLevel?: "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
+            corrections?: {
+                original?: string;
+                corrected?: string;
+                explanation?: string;
+            }[];
+            feedback?: string;
+        };
+        SessionEvaluation: {
+            topicsCovered?: string[];
+            avgGrammarScore?: number;
+            avgVocabularyScore?: number;
+            avgFluencyScore?: number;
+            avgOverallScore?: number;
+            /** @enum {string} */
+            detectedCefrLevel?: "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
+            strengths?: string[];
+            weaknesses?: string[];
+            recommendations?: string[];
+            newVocabulary?: string[];
+            totalUserMessages?: number;
+            totalUserWords?: number;
         };
     };
     responses: never;

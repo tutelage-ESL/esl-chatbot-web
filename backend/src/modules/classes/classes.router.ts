@@ -243,6 +243,14 @@ router.post("/join", authenticate, joinByCodeHandler);
  * /classes/mine:
  *   get:
  *     summary: List the classes the authenticated user is a member of
+ *     description: |
+ *       Returns every class the caller belongs to, with their role per
+ *       class (`myRole`) and the full code lifecycle fields.
+ *
+ *       **Refresh-on-read:** before returning, any class where the caller
+ *       is a TUTOR and the code is currently expired is rotated to a new
+ *       value. Student memberships do NOT trigger rotations — students
+ *       cannot bump codes by listing their classes.
  *     tags: [Classes]
  *     security:
  *       - bearerAuth: []
@@ -254,13 +262,27 @@ router.post("/join", authenticate, joinByCodeHandler);
 router.get("/mine", authenticate, listMyClassesHandler);
 
 // ─────────────────────────────────────────────────────────
-// DETAIL (admin)
+// DETAIL (admin or member of the class)
 // ─────────────────────────────────────────────────────────
 /**
  * @swagger
  * /classes/{id}:
  *   get:
- *     summary: Get a single class by ID with members — Admin only
+ *     summary: Get a single class by ID with members
+ *     description: |
+ *       Returns the class detail (including the current code value and
+ *       lifecycle fields) plus all members.
+ *
+ *       **Access:**
+ *       - Admins can read any class
+ *       - Tutors and students who are members of the class can read it
+ *       - Anyone else gets a 404 (class existence is not revealed)
+ *
+ *       **Refresh-on-read:** when the caller is an admin or a tutor of
+ *       this class AND `classCodeExpiresAt` is in the past, the code is
+ *       rotated to a new value before being returned. This means tutors
+ *       can simply open the class to get a fresh code — no manual click
+ *       required. Student callers do NOT trigger a rotation.
  *     tags: [Classes]
  *     security:
  *       - bearerAuth: []
@@ -274,10 +296,9 @@ router.get("/mine", authenticate, listMyClassesHandler);
  *         description: Class detail with enrolled members
  *       400: { description: Invalid UUID, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
- *       403: { description: Not an admin, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
- *       404: { description: Class not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       404: { description: Class not found or caller not a member, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  */
-router.get("/:id", authenticate, authorize("ADMIN"), getClass);
+router.get("/:id", authenticate, getClass);
 
 // ─────────────────────────────────────────────────────────
 // REFRESH CODE (tutor in class / admin)
