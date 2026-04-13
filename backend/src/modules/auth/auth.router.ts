@@ -8,8 +8,10 @@ import {
   googleAuthHandler,
   refreshHandler,
   logoutHandler,
+  meHandler,
 } from "./auth.controller.ts";
 import { env } from "../../config/env.ts";
+import { authenticate } from "../../middlewares/authenticate.ts";
 
 const router = Router();
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -379,6 +381,61 @@ router.post("/login", loginHandler);
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post("/google", googleAuthHandler);
+
+// ─── GET /auth/me ─────────────────────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /auth/me:
+ *   get:
+ *     summary: Get the currently authenticated user
+ *     tags: [Auth]
+ *     description: >
+ *       Returns the authenticated user's profile based on the Bearer access token.
+ *       The DB is queried on every call so the response reflects current state
+ *       (subscription changes, role upgrades, deactivation) rather than stale
+ *       claims from the token payload.
+ *
+ *       Use this on app load / refresh to rehydrate the user session, and as a
+ *       lightweight "is my token still valid?" probe.
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Current user
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Current user
+ *                 data:
+ *                   $ref: '#/components/schemas/AuthUser'
+ *       401:
+ *         description: Missing, invalid, or expired access token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       403:
+ *         description: Account has been deactivated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: User no longer exists
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.get("/me", authenticate, meHandler);
 
 // ─── POST /auth/refresh ───────────────────────────────────────────────────────
 

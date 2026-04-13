@@ -2,7 +2,8 @@ import type { Request, Response } from "express";
 import { asyncHandler } from "../../utils/asyncHandler.ts";
 import { sendSuccess } from "../../utils/apiResponse.ts";
 import { loginSchema, registerSchema, googleAuthSchema, refreshSchema, logoutSchema } from "./auth.schema.ts";
-import { login, register, googleAuth, refreshAccessToken, logout } from "./auth.service.ts";
+import { login, register, googleAuth, refreshAccessToken, logout, getMe } from "./auth.service.ts";
+import { AppError } from "../../utils/AppError.ts";
 
 export const loginHandler = asyncHandler(async (req: Request, res: Response) => {
   const input = loginSchema.parse(req.body);
@@ -35,6 +36,13 @@ export const refreshHandler = asyncHandler(async (req: Request, res: Response) =
   const result = await refreshAccessToken(refreshToken);
 
   sendSuccess(res, result, "Access token refreshed", 200);
+});
+
+export const meHandler = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.user) throw new AppError("Authentication required", 401);
+  const user = await getMe(req.user.id);
+
+  sendSuccess(res, user, "Current user", 200);
 });
 
 export const logoutHandler = asyncHandler(async (req: Request, res: Response) => {

@@ -5,6 +5,7 @@ import { prisma } from "../../config/database.ts";
 import { env } from "../../config/env.ts";
 import { AppError } from "../../utils/AppError.ts";
 import type {
+  AuthUser,
   LoginInput,
   LoginResponse,
   RegisterInput,
@@ -361,6 +362,37 @@ export async function refreshAccessToken(refreshToken: string): Promise<{ access
   };
 
   return { accessToken: signAccessToken(jwtPayload) };
+}
+
+// ─── Current user (GET /auth/me) ──────────────────────────────────────────────
+
+export async function getMe(userId: string): Promise<AuthUser> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { subscription: { select: { plan: true, status: true } } },
+  });
+
+  // Token was valid but the user no longer exists (deleted account)
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+
+  if (!user.isActive) {
+    throw new AppError("Your account has been deactivated. Please contact support.", 403);
+  }
+
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    displayName: user.displayName,
+    role: user.role,
+    avatarUrl: user.avatarUrl,
+    isActive: user.isActive,
+    subscription: user.subscription
+      ? { plan: user.subscription.plan, status: user.subscription.status }
+      : null,
+  };
 }
 
 export async function logout(refreshToken: string): Promise<void> {

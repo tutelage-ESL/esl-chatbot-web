@@ -275,6 +275,7 @@ Includes: classes (with full code-lifecycle fields populated) with enrolled user
 - ✅ `POST /auth/register` — creates User + LearnerProfile + Subscription (FREE/INACTIVE) + UserMetrics in a single transaction; returns tokens immediately (no separate login needed)
 - ✅ `POST /auth/google` — Google Sign-In: verifies Google ID token, handles login / account merge / new registration in one endpoint; see `docs/services/google-oauth.md`
 - ✅ `GET /auth/google/test` — dev-only HTML page: renders a Google Sign-In button and displays the resulting ID token so it can be copy-pasted into Swagger (disabled in production)
+- ✅ `GET /auth/me` — returns the authenticated user's profile (same `AuthUser` shape as login). DB is queried on every call so subscription/role/deactivation changes are reflected; 403 if account was deactivated after the token was issued, 404 if the user no longer exists. Also serves as a token-validity probe on app load.
 - ✅ `POST /auth/refresh` — exchange valid refresh token for a new access token
 - ✅ `POST /auth/logout` — revoke refresh token (deleted from DB)
 - ✅ `authenticate.ts` middleware — verifies Bearer access token, attaches `req.user = { id, username, email, role }`
