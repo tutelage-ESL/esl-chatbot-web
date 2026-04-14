@@ -1,15 +1,10 @@
-import type { NavItem } from '~~/common/types/nav-links-type';
-import type { SocialLink } from '~~/common/types/nav-links-type';
 
-export const navItems: NavItem[] = [
-    { link: '/#home' },
-    { name: 'About Us', link: '/#aboutus' },
-    { name: 'Loyalty Program', link: '/#loyaltyprogram' },
-    { name: 'Community', link: '/#community' },
-    { name: 'Our Partners', link: '/#ourpartners' },
-    { name: 'Contact Us', link: '/#contact' },
-    { name: 'FAQs', link: '/#faqs' },
-    { link: '/#footer' },
+import { type NavItemTypes, type SocialLink } from '~~/common/types/nav-links-type';
+
+export const navItems: NavItemTypes[] = [
+    { name: 'Features', link: '/#features' },
+    { name: 'Pricing', link: '/#pricing' },
+    { name: 'About', link: '/#about' },
 ];
 
 export const socialLinks: SocialLink[] = [
