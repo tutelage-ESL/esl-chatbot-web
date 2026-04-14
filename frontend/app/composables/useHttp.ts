@@ -1,5 +1,5 @@
-import { useAuthStore } from '~~/stores/auth'
-import { toast } from 'vue-sonner'
+import { toast } from 'vue-sonner';
+import { useAuthStore } from '~~/stores/auth';
 
 type HttpOptions = {
   method: 'GET' | 'POST' | 'DELETE' | 'PUT' | 'PATCH'
