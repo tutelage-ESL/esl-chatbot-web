@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { navItems } from '~/../common/data/nav-links';
-import { profileLinks } from '~/../common/data/profile-links';
+
 import { onMounted, onUnmounted, ref, watch, nextTick, computed } from 'vue';
 import { CircleUserRound, User2Icon } from 'lucide-vue-next';
 import { onClickOutside } from '@vueuse/core';
+import { navItems } from '~/common/data/nav-links';
 
 const activeLink = ref<string>('');
 const route = useRoute();
@@ -82,7 +82,7 @@ onUnmounted(() => {
             class="h-15.25 max-md:shadow-sm md:bg-[#EFEFEF]/50 backdrop-blur-[5px] px-4 py-2 rounded-full flex items-center justify-between ">
             <div class="w-29.75 h-4 md:w-42.25 md:h-5.75 md-lg:max-lg:w-35 lg:w-42.25 lg:h-5.75">
                 <AppLink to="/" @click.prevent="useScrollToTop">
-                    <AppImage src="/images/logo/smileMates.svg" alt="Smile Mates Logo" width="169" height="23" />
+                    <!-- <AppImage src="/images/logo/smileMates.svg" alt="Smile Mates Logo" width="169" height="23" /> -->
                 </AppLink>
             </div>
 

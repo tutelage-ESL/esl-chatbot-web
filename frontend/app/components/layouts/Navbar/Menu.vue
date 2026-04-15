@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { Menu, X } from 'lucide-vue-next';
 import { onMounted, onUnmounted, watch, nextTick } from 'vue';
-import type { NavItem } from '~~/common/types/nav-links-type';
+import type { NavItemTypes } from '~/common/types/nav-links-type';
 
 
 defineProps<{
-  navItems: NavItem[];
+  navItems: NavItemTypes[];
   activeLink: string;
 }>();
 

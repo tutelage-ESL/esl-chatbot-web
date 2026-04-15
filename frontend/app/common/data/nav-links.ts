@@ -1,5 +1,5 @@
+import type { NavItemTypes, SocialLink } from "../types/nav-links-type";
 
-import { type NavItemTypes, type SocialLink } from '~~/common/types/nav-links-type';
 
 export const navItems: NavItemTypes[] = [
     { name: 'Features', link: '/#features' },
