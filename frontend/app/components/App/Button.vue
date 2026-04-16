@@ -1,6 +1,15 @@
 <template>
-  <component :is="tag ? tag : to ? 'NuxtLink' : 'button'" :to="to" :class="mergedClasses" :disabled="loading"
-    v-bind="attrs" :type="buttonType">
+  <component
+    :is="resolvedTag"
+    :to="resolvedTo"
+    :class="mergedClasses"
+    :disabled="isDisabled"
+    v-bind="attrs"
+    :type="buttonType"
+    :aria-disabled="isDisabled || undefined"
+    :tabindex="isDisabled && resolvedTag !== 'button' ? -1 : undefined"
+    @click="handleClick"
+  >
     <Icon v-if="loading" mode="mask" icon="svg-spinners:180-ring-with-bg" class="text-2xl mx-auto" />
     <template v-else>
       <slot name="before" />
@@ -37,6 +46,7 @@ type ButtonProps = {
   textClassList?: string;
   icon?: SvgBasedIconName;
   active?: boolean;
+  disabled?: boolean;
   activeClassList?: string;
   iconPosition?: 'start' | 'end'
   iconConfig?: {
@@ -48,6 +58,15 @@ type ButtonProps = {
 }
 
 const attrs = useAttrs()
+
+const isDisabled = computed(() => Boolean(props.disabled || props.loading))
+
+const resolvedTag = computed(() => {
+  if (props.tag) return props.tag
+  return props.to && !isDisabled.value ? 'NuxtLink' : 'button'
+})
+
+const resolvedTo = computed(() => (resolvedTag.value === 'NuxtLink' ? props.to : undefined))
 
 
 const props = withDefaults(
@@ -62,7 +81,7 @@ const props = withDefaults(
 
 const buttonType = computed(() => {
   if (attrs.type) return attrs.type as string;
-  return props.to ? undefined : 'button';
+  return resolvedTag.value === 'button' ? 'button' : undefined;
 })
 
 const iconSize = computed(() => {
@@ -101,4 +120,11 @@ const mergedClasses = computed(() => {
   return twMerge(variant, size, radius, defaultClasses, props.classList)
 }
 );
+
+const handleClick = (event: MouseEvent) => {
+  if (isDisabled.value) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+}
 </script>

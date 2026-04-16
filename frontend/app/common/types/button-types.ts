@@ -23,23 +23,23 @@ export const buttonRadiusClasses: Record<ButtonRadius, string> = {
 }
 
 
-
-const disabledClasses = 'disabled:bg-base-neutral-100 dark:disabled:bg-base-neutral-700 disabled:from-base-neutral-100 disabled:to-base-neutral-100 disabled:border-base-neutral-100 dark:disabled:border-base-neutral-700 dark:disabled:from-base-neutral-700 dark:disabled:to-base-neutral-700 disabled:text-base-neutral-400 disabled:icon-base-neutral-400 disabled:cursor-not-allowed';
+// const disabledClasses = 'disabled:bg-neutral-300 dark:disabled:bg-neutral-700 disabled:from-neutral-500 disabled:to-neutral-500 disabled:border-neutral-100 dark:disabled:border-neutral-700 dark:disabled:from-neutral-700 dark:disabled:to-neutral-700 disabled:text-neutral-400 disabled:icon-neutral-400 disabled:cursor-not-allowed';
+const disabledClasses = 'disabled:cursor-not-allowed! text-white! disabled:opacity-60 disabled:bg-neutral-100 dark:disabled:bg-neutral-800 disabled:border-neutral-200 dark:disabled:border-neutral-700 disabled:text-neutral-400 dark:disabled:text-neutral-500 disabled:icon-neutral-400 dark:disabled:icon-neutral-500';
 
 export const variantClasses: Record<Variant, string> = {
-  'primary': `bg-linear-to-tr border border-transparent from-primary-orange-500 active:bg-clip-padding active:outline active:outline-primary-orange-500  to-primary-red-700 hover:from-primary-orange-700 hover:to-app-red-800  justify-center px-4  text-white ${disabledClasses} `,
-  'secondary': `border border-primary-orange-500  text-primary-orange-500  active:border-transparent active:bg-clip-padding active:outline active:outline-primary-orange-500   justify-center px-4 hover:text-white hover:bg-primary-orange-500 ${disabledClasses}`,
-  'outline': `border dark:text-white border-neutral-default  text-base-neutral-600 hover:bg-surface-150! icon-neutral-600 dark:icon-white  justify-center px-4 ${disabledClasses} active:bg-white dark:bg-base-neutral-800 active:text-primary-orange-500 active:border-primary-orange-500 active:icon-primary-orange-500`,
-  'ghost': 'bg-transparent  justify-center',
-  'danger': 'bg-app-error text-white icon-white justify-center px-4',
+  'primary': `bg-linear-to-tr border border-transparent from-primary-500 active:bg-clip-padding active:outline active:outline-primary-500 to-ternary-300 hover:from-primary-600 hover:to-ternary-400 justify-center px-4 text-neutral-50 icon-neutral-50 ${disabledClasses}`,
+  'secondary': `bg-secondary-100 border border-secondary-200 text-secondary-900 icon-secondary-900 justify-center px-4 hover:bg-secondary-200 hover:border-secondary-300 active:bg-secondary-300 active:border-secondary-400 active:outline active:outline-secondary-300 ${disabledClasses}`,
+  'outline': `bg-transparent border border-secondary-300 text-secondary-800 icon-secondary-800 justify-center px-4 hover:bg-secondary-50 dark:border-secondary-600 dark:text-secondary-100 dark:icon-secondary-100 dark:hover:bg-secondary-800 active:bg-secondary-100 dark:active:bg-secondary-700 active:border-secondary-400 dark:active:border-secondary-500 active:text-secondary-900 dark:active:text-secondary-50 active:icon-secondary-900 dark:active:icon-secondary-50 ${disabledClasses}`,
+  'ghost': `bg-transparent border border-transparent text-secondary-800 icon-secondary-800 justify-center px-4 hover:bg-secondary-50 dark:text-secondary-100 dark:icon-secondary-100 dark:hover:bg-secondary-800 active:bg-secondary-100 dark:active:bg-secondary-700 active:text-secondary-900 dark:active:text-secondary-50 active:icon-secondary-900 dark:active:icon-secondary-50 ${disabledClasses}`,
+  'danger': `bg-destructive border border-destructive text-white icon-destructive-foreground justify-center px-4 hover:bg-destructive/90 active:bg-destructive/80 ${disabledClasses}`,
 }
 
 export const activeClasses: Record<Variant, string> = {
-  'primary': 'bg-clip-padding! outline! outline-primary-orange-500!',
-  'secondary': 'border-transparent! bg-clip-padding! outline! outline-primary-orange-500!',
-  'outline': 'bg-white dark:bg-base-neutral-800 text-primary-orange-500! border-primary-orange-500! icon-primary-orange-500!',
-  'ghost': '',
-  'danger': '',
+  'primary': 'bg-clip-padding! outline! outline-primary-500!',
+  'secondary': 'bg-secondary-300! border-secondary-400! text-secondary-900! icon-secondary-900!',
+  'outline': 'bg-secondary-100! dark:bg-secondary-700 border-secondary-400! dark:border-secondary-500 text-secondary-900! dark:text-secondary-50! icon-secondary-900! dark:icon-secondary-50!',
+  'ghost': 'bg-secondary-100! dark:bg-secondary-700 text-secondary-900! dark:text-secondary-50! icon-secondary-900! dark:icon-secondary-50!',
+  'danger': 'bg-destructive/90! outline! outline-destructive!',
 
 }
 

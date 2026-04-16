@@ -5,12 +5,12 @@
   </component>
 </template>
 <script setup lang="ts">
-import { colorClasses, fontFamilyClasses, sizeClasses, type TextProps, weightClasses } from '@/common/types/text-types';
+import { colorClasses, fontFamilyClasses, sizeClasses, weightClasses, type TextProps } from '@/common/types/text-types';
 import { twMerge } from 'tailwind-merge';
 
 
 
-const props = withDefaults(defineProps<TextProps>(), {
+const props = withDefaults(defineProps<TextProps>(), {  
   size: '16',
   weight: 'normal',
   color: 'black',

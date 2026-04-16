@@ -20,19 +20,15 @@ export default defineNuxtConfig({
       tailwindcss()
     ]
   },
-  shadcn: {
-    /**
-     * Prefix for all the imported component.
-     * @default "Ui"
-     */
-    prefix: '',
-    /**
-     * Directory that the component lives in.
-     * Will respect the Nuxt aliases.
-     * @link https://nuxt.com/docs/api/nuxt-config#alias
-     * @default "@/components/ui"
-     */
-    componentDir: '@/components/ui'
+ shadcn: {
+    prefix: 'Ui',
+    componentDir: [
+      '@/components/ui',
+      {
+        path: '@/components/ai',
+        prefix: 'Ai',
+      },
+    ],
   },
   modules: ['@pinia/nuxt', '@nuxt/image', 'shadcn-nuxt']
 })

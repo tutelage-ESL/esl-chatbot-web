@@ -1,6 +1,16 @@
 export type TextSize = '10' | '12' | '14' | '16' | '18' | '20' | '24' | '30' | '32' | '36' | '40' | '48'
 export type TextWeight = 'normal' | 'medium' | 'semibold' | 'bold'
-export type TextColor = 'white' | 'black' | 'neutral-600' | 'neutral-400' | 'primary-orange-500' | 'error' | 'success' | 'warning' | 'info'
+export type TextColor =
+  | 'white'
+  | 'black'
+  | 'neutral-600'
+  | 'neutral-400'
+  | 'primary-orange-500'
+  | 'primary-500'
+  | 'error'
+  | 'success'
+  | 'warning'
+  | 'info'
 export type FontFamily = 'poppins'
 
 export const sizeClasses: Record<TextSize, string> = {
@@ -26,15 +36,16 @@ export const weightClasses: Record<TextWeight, string> = {
 }
 
 export const colorClasses: Record<TextColor, string> = {
-  'white': 'text-white',
-  'black': 'text-base-neutral-800 dark:text-white',
-  'neutral-600': 'text-base-neutral-600 dark:text-base-neutral-100',
-  'neutral-400': 'text-base-neutral-400 dark:text-base-neutral-300',
-  'primary-orange-500': 'text-primary-orange-500',
-  'error': 'text-app-error',
-  'success': 'text-app-success',
-  'warning': 'text-app-warning',
-  'info': 'text-app-info',
+  'white': 'text-neutral-50',
+  'black': 'text-neutral-900 dark:text-neutral-50',
+  'neutral-600': 'text-neutral-600 dark:text-neutral-200',
+  'neutral-400': 'text-neutral-400 dark:text-neutral-300',
+  'primary-orange-500': 'text-primary-500 dark:text-primary-300',
+  'primary-500': 'text-primary-500 dark:text-primary-300',
+  'error': 'text-destructive',
+  'success': 'text-primary-500 dark:text-primary-300',
+  'warning': 'text-ternary-300 dark:text-ternary-200',
+  'info': 'text-secondary-700 dark:text-secondary-200',
 }
 
 export const fontFamilyClasses: Record<FontFamily, string> = {
