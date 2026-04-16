@@ -1,8 +1,29 @@
 import type { Request, Response } from "express";
 import { asyncHandler } from "../../utils/asyncHandler.ts";
 import { sendSuccess } from "../../utils/apiResponse.ts";
-import { loginSchema, registerSchema, googleAuthSchema, refreshSchema, logoutSchema } from "./auth.schema.ts";
-import { login, register, googleAuth, refreshAccessToken, logout, getMe } from "./auth.service.ts";
+import {
+  loginSchema,
+  registerSchema,
+  googleAuthSchema,
+  refreshSchema,
+  logoutSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  linkGoogleSchema,
+  setPasswordSchema,
+} from "./auth.schema.ts";
+import {
+  login,
+  register,
+  googleAuth,
+  refreshAccessToken,
+  logout,
+  getMe,
+  forgotPassword,
+  resetPassword,
+  linkGoogle,
+  setPassword,
+} from "./auth.service.ts";
 import { AppError } from "../../utils/AppError.ts";
 
 export const loginHandler = asyncHandler(async (req: Request, res: Response) => {
@@ -50,4 +71,35 @@ export const logoutHandler = asyncHandler(async (req: Request, res: Response) =>
   await logout(refreshToken);
 
   sendSuccess(res, null, "Logged out successfully", 200);
+});
+
+export const forgotPasswordHandler = asyncHandler(async (req: Request, res: Response) => {
+  const input = forgotPasswordSchema.parse(req.body);
+  await forgotPassword(input);
+
+  // Always return the same message — do not reveal whether the email exists
+  sendSuccess(res, null, "If that email is registered, you will receive a reset code shortly", 200);
+});
+
+export const resetPasswordHandler = asyncHandler(async (req: Request, res: Response) => {
+  const input = resetPasswordSchema.parse(req.body);
+  await resetPassword(input);
+
+  sendSuccess(res, null, "Password reset successfully. You can now log in with your new password.", 200);
+});
+
+export const linkGoogleHandler = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.user) throw new AppError("Authentication required", 401);
+  const input = linkGoogleSchema.parse(req.body);
+  const user = await linkGoogle(req.user.id, input);
+
+  sendSuccess(res, user, "Google account linked successfully", 200);
+});
+
+export const setPasswordHandler = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.user) throw new AppError("Authentication required", 401);
+  const input = setPasswordSchema.parse(req.body);
+  await setPassword(req.user.id, input);
+
+  sendSuccess(res, null, "Password set successfully. You can now log in with your email and password.", 200);
 });

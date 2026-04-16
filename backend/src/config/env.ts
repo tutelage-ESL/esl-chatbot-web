@@ -19,6 +19,10 @@ const envSchema = z.object({
   SENDGRID_API_KEY: z.string().optional(),
   SENDGRID_FROM_EMAIL: z.string().email().optional(),
 
+  // Resend — optional; email features return 503 if not set
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().optional(),
+
   // Google OAuth — optional; Google login routes return 503 if not set
   GOOGLE_CLIENT_ID: z.string().optional(),
 

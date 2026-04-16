@@ -13,7 +13,12 @@ import type {
   GoogleAuthResponse,
   GoogleProfile,
   JwtPayload,
+  ForgotPasswordInput,
+  ResetPasswordInput,
+  LinkGoogleInput,
+  SetPasswordInput,
 } from "./auth.types.ts";
+import { resend } from "../../config/resend.ts";
 
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const INVALID_CREDENTIALS_MSG = "Invalid username or password";
@@ -398,4 +403,183 @@ export async function getMe(userId: string): Promise<AuthUser> {
 export async function logout(refreshToken: string): Promise<void> {
   const tokenHash = hashToken(refreshToken);
   await prisma.refreshToken.deleteMany({ where: { tokenHash } });
+}
+
+// ─── Forgot password (send OTP) ───────────────────────────────────────────────
+
+function generateOtp(): string {
+  // 6-digit numeric OTP — padded to always be 6 chars
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+export async function forgotPassword(input: ForgotPasswordInput): Promise<void> {
+  if (!resend || !env.RESEND_API_KEY) {
+    throw new AppError("Email service is not configured on this server", 503);
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { email: input.email },
+    select: { id: true, displayName: true, password: true, authProvider: true },
+  });
+
+  // Never reveal whether an email exists — respond the same way regardless
+  if (!user) return;
+
+  // Google-only accounts have no password — direct them to Google login
+  if (!user.password) {
+    await resend.emails.send({
+      from: env.EMAIL_FROM ?? "noreply@resend.dev",
+      to: input.email,
+      subject: "Tutelage — Password reset not available",
+      html: `
+        <p>Hi ${user.displayName},</p>
+        <p>Your Tutelage account was created with Google Sign-In and does not have a password.</p>
+        <p>Simply use the <strong>"Sign in with Google"</strong> button to access your account — no password needed.</p>
+        <p>If you'd like to set a password so you can also log in with email, you can do so from your account settings after signing in.</p>
+        <p>— The Tutelage Team</p>
+      `,
+    });
+    return;
+  }
+
+  const otp = generateOtp();
+  const otpHash = hashToken(otp);
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+  // Invalidate any previous unused OTPs for this user, then create a fresh one
+  await prisma.$transaction([
+    prisma.passwordResetToken.deleteMany({ where: { userId: user.id } }),
+    prisma.passwordResetToken.create({ data: { userId: user.id, otpHash, expiresAt } }),
+  ]);
+
+  await resend.emails.send({
+    from: env.EMAIL_FROM ?? "noreply@resend.dev",
+    to: input.email,
+    subject: "Tutelage — Your password reset code",
+    html: `
+      <p>Hi ${user.displayName},</p>
+      <p>Use the following code to reset your Tutelage password. It expires in <strong>15 minutes</strong>.</p>
+      <h2 style="letter-spacing: 8px; font-size: 36px;">${otp}</h2>
+      <p>If you did not request this, you can safely ignore this email.</p>
+      <p>— The Tutelage Team</p>
+    `,
+  });
+}
+
+// ─── Reset password (verify OTP + set new password) ───────────────────────────
+
+export async function resetPassword(input: ResetPasswordInput): Promise<void> {
+  const user = await prisma.user.findUnique({
+    where: { email: input.email },
+    select: { id: true, password: true },
+  });
+
+  if (!user) {
+    throw new AppError("Invalid or expired reset code", 400);
+  }
+
+  if (!user.password) {
+    throw new AppError(
+      "This account uses Google Sign-In. Use 'Sign in with Google' to access your account.",
+      400,
+    );
+  }
+
+  const otpHash = hashToken(input.otp);
+  const record = await prisma.passwordResetToken.findUnique({
+    where: { otpHash },
+  });
+
+  if (!record || record.userId !== user.id) {
+    throw new AppError("Invalid or expired reset code", 400);
+  }
+
+  if (record.usedAt) {
+    throw new AppError("This reset code has already been used", 400);
+  }
+
+  if (record.expiresAt < new Date()) {
+    throw new AppError("Reset code has expired. Please request a new one.", 400);
+  }
+
+  const hashedPassword = await bcryptjs.hash(input.newPassword, 12);
+
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: user.id }, data: { password: hashedPassword } }),
+    prisma.passwordResetToken.update({ where: { otpHash }, data: { usedAt: new Date() } }),
+  ]);
+}
+
+// ─── Link Google to an existing account ──────────────────────────────────────
+
+export async function linkGoogle(userId: string, input: LinkGoogleInput): Promise<AuthUser> {
+  const profile = await verifyGoogleToken(input.idToken);
+
+  const currentUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { googleId: true },
+  });
+
+  if (!currentUser) throw new AppError("User not found", 404);
+
+  if (currentUser.googleId) {
+    throw new AppError("A Google account is already linked to your profile", 409);
+  }
+
+  // Ensure this Google account isn't already linked to a different user
+  const existingGoogleUser = await prisma.user.findUnique({
+    where: { googleId: profile.googleId },
+  });
+  if (existingGoogleUser) {
+    throw new AppError("This Google account is already linked to a different user", 409);
+  }
+
+  // Read current avatar before updating so we can preserve it if already set
+  const existing = await prisma.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: { avatarUrl: true },
+  });
+
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      googleId: profile.googleId,
+      avatarUrl: existing.avatarUrl ?? profile.avatarUrl,
+    },
+    include: { subscription: { select: { plan: true, status: true } } },
+  });
+
+  return {
+    id: updated.id,
+    username: updated.username,
+    email: updated.email,
+    displayName: updated.displayName,
+    role: updated.role,
+    avatarUrl: updated.avatarUrl,
+    isActive: updated.isActive,
+    subscription: updated.subscription
+      ? { plan: updated.subscription.plan, status: updated.subscription.status }
+      : null,
+  };
+}
+
+// ─── Set password (for Google-only accounts) ─────────────────────────────────
+
+export async function setPassword(userId: string, input: SetPasswordInput): Promise<void> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { password: true },
+  });
+
+  if (!user) throw new AppError("User not found", 404);
+
+  if (user.password) {
+    throw new AppError(
+      "Your account already has a password. Use the forgot-password flow to change it.",
+      409,
+    );
+  }
+
+  const hashedPassword = await bcryptjs.hash(input.newPassword, 12);
+  await prisma.user.update({ where: { id: userId }, data: { password: hashedPassword } });
 }

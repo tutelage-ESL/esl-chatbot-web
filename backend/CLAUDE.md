@@ -14,7 +14,7 @@ conversation sessions, vocabulary SRS, progress tracking, and subscription manag
 - **ORM:** Prisma 6 + PostgreSQL
 - **Auth:** JWT (access + refresh tokens) + bcryptjs + Google OAuth (ID token verification via Google tokeninfo endpoint)
 - **Cache:** Redis (placeholder — integrate later)
-- **Email:** SendGrid (placeholder — integrate later)
+- **Email:** Resend (`src/config/resend.ts`) — active for password reset OTP; SendGrid scaffolded as fallback (`src/config/sendgrid.ts`)
 - **File Uploads:** Multer
 - **Realtime:** Socket.io (placeholder — integrate later)
 - **Security:** Helmet, express-rate-limit, cors
@@ -188,6 +188,7 @@ Each module under `src/modules/[name]/` follows:
 - Progress is exactly 1 row per user per calendar day
 - Cascade delete on all user-owned relations
 - RefreshToken table stores hashed (SHA-256) refresh tokens for server-side revocation; one row per active session/device
+- PasswordResetToken table stores SHA-256-hashed 6-digit OTPs for password reset; 15-minute TTL; single-use (usedAt set on redemption); old tokens deleted when a new OTP is requested
 - **Message evaluation flow:** each user message is evaluated by the AI for grammar (0-100), vocabulary (0-100 + CEFR level), fluency (0-100), overall score (weighted: 35% grammar + 35% vocab + 30% fluency), corrections (original/corrected/explanation), and feedback. Evaluations are stored in `message_evaluations` (1:1 with Message). Students see inline corrections after each message.
 - **Session evaluation:** generated on `POST /sessions/:id/end`. Aggregates all message evaluations into averages, detects session-level CEFR, identifies strengths/weaknesses/recommendations, and lists new vocabulary for SRS. Stored in `session_evaluations` (1:1 with ConversationSession).
 - **Message type vs session mode:** `SessionMode` (TEXT/VOICE) is the starting mode. Individual `Message.type` (TEXT/VOICE) allows mixed-mode sessions — no separate MIXED enum needed.
@@ -281,7 +282,12 @@ Includes: classes (with full code-lifecycle fields populated) with enrolled user
 - ✅ `authenticate.ts` middleware — verifies Bearer access token, attaches `req.user = { id, username, email, role }`
 - ✅ Refresh tokens stored server-side as SHA-256 hashes in `refresh_tokens` table (supports multi-device, true revocation)
 - ✅ `authorize.ts` middleware factory (role guard) — `authorize(...roles: Role[])` factory; throws 401 if `req.user` missing, 403 with `"Access denied. Required role: X"` if role not in allowed list
-- Remaining: password reset flow, email verification placeholder
+- ✅ `POST /auth/forgot-password` — sends 6-digit OTP to registered email via Resend (15 min TTL); always 200 to prevent enumeration; Google-only accounts get a redirect email instead of OTP
+- ✅ `POST /auth/reset-password` — verifies OTP (single-use, hashed in DB) + sets new password
+- ✅ `POST /auth/link-google` — authenticated; links Google account to an existing LOCAL account; preserves existing avatar; 409 if already linked
+- ✅ `POST /auth/set-password` — authenticated; lets Google-only accounts add a password (recommended, not forced); 409 if password already set
+- ✅ `requireGoogleLinked` middleware — reusable guard that enforces Google account is linked; attach to any route that requires it (chatbot, subscriptions, etc.)
+- Remaining: email verification on registration, welcome email
 
 ### Phase 3 — User & Class Modules
 - ✅ `GET /users` — paginated user list, filterable by `?role=` (admin only)

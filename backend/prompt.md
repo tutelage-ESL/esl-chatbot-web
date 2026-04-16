@@ -1,13 +1,11 @@
 * Start by reading CLAUDE.md to understand the project structure and conventions.
 
-
-## decide on the system's next move
-* as a reminder, user can register and join class that are created by tutors, and user if they had subscprtion then they can use the chat-bot AI, the chatbot allows user to have conversation with voice-live or chat text, the bot is in purpose of learning language (for now all the eyes are on only english). and the application must monitor the students performance and help the student to level up...
-* now I have to decide which part of the application to work on right now?
-* fortunately the classes and students are kind of fine with joining/creating class and authentication of user. but here are some layers that we need to work on, especially the database and workflow of the system design 
-* payments, chat-bot conversation, user profile in detail like a dashboard that shows all the users performance and stuff, and how the AI detects the users goal and performance and progress and goal...
-* and maybe some more area that I don't remeremember right now, so what is your recommendation which area should we work on now?
-
+## authentication update
+* we need a new API, that allows user to reset their password!
+* but in order to do that as you know we must force all the accounts to link to their google account, so as a start of registration we do let them register, but will not use chat-bot or anything pay related... for those they need to set up their google's... so we can reach them later and use OTP to confirm and reset their account
+* for that as you see from docs/services we have to 'resend' for the email handling right?
+* check the database schema for your refrence
+* set a good plan that tells what should me and you do to complete that task?
 
 ## before starting the task:
 * ask me questions if you have any doubts. or want to confirm your understanding.
@@ -19,6 +17,22 @@
 * update the swagger documentation to the frontend team if needed.
 * update the claude.md according to changes related to it.
 * update the seeds "prisma/seed.ts" file according to changes related to it.
+
+## authentication update
+* we need to add a new API, frontend team asked for a /auth/me, I guess he wants a that API that checks the tokens of the user and according to the payload, it will send the user's information and stuff
+* so add that API and prepare anything related to that subject
+
+
+
+
+## decide on the system's next move
+* as a reminder, user can register and join class that are created by tutors, and user if they had subscprtion then they can use the chat-bot AI, the chatbot allows user to have conversation with voice-live or chat text, the bot is in purpose of learning language (for now all the eyes are on only english). and the application must monitor the students performance and help the student to level up...
+* now I have to decide which part of the application to work on right now?
+* fortunately the classes and students are kind of fine with joining/creating class and authentication of user. but here are some layers that we need to work on, especially the database and workflow of the system design 
+* payments, chat-bot conversation, user profile in detail like a dashboard that shows all the users performance and stuff, and how the AI detects the users goal and performance and progress and goal...
+* and maybe some more area that I don't remeremember right now, so what is your recommendation which area should we work on now?
+
+
 
 
 ## Update database user and class 
@@ -137,3 +151,19 @@ here is my points on your takes:
 2. STT:
   * Dev: deepgram for sure.
   * Pro: 
+
+
+
+
+
+
+* just one thing we may update later accordingly is that we need to send them other type of emails as they register or buy a subscription, or when their subscription is close to end, or for other stuffs related to the applications...
+## Answers:
+1. Redir or DB table? which one you recommend more? it's true that we haven't prepared redis at all so far, but if you think it's necessary , then guid me to do set redis up and handle the primary basic updates, but if you think the database table for this part is more efficient , then let's do it in this way.
+2. yeah I think so, the Middleware 
+3. yes, I think just simply like a social medias applications that connected to google...
+4. stick with standard 15Min
+5. yes,
+* just notice that: user who don't have password getting recommendation to set a password, so that they can login with password or google. if they don't set password then it is still ok but recommended to set it. (the workflow, do we have an API that sets password for users that registered from google? if no should we immediately add it or add it after this task?)
+
+* update the docs/services/email file and tell me what is the technical steps that I should do to get the proper RESEND_API_KEY and EMAIL_FROM and and verify sending domain in the resend dashboard 

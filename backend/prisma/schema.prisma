@@ -4,6 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // ─── Enums ───────────────────────────────────────────────
@@ -87,7 +88,8 @@ model User {
   goals          Goal[]
   assignedGoals  Goal[]                @relation("GoalAssigner")
   progress       Progress[]
-  refreshTokens  RefreshToken[]
+  refreshTokens       RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -391,6 +393,22 @@ model Progress {
 
   @@unique([userId, date])
   @@map("progress")
+}
+
+// ─── Password Reset Tokens ───────────────────────────────
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  otpHash   String    @unique // SHA-256 hash of the 6-digit OTP
+  expiresAt DateTime
+  usedAt    DateTime? // null = unused; set on redemption
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@map("password_reset_tokens")
 }
 
 // ─── Refresh Tokens ──────────────────────────────────────

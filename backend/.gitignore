@@ -38,3 +38,6 @@ uploads/
 
 # Generated OpenAPI spec (intermediate artifact — commit ../frontend/types/api.ts instead)
 openapi.json
+
+# personal memory file
+prompt.md

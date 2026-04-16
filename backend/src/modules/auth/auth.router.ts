@@ -9,6 +9,10 @@ import {
   refreshHandler,
   logoutHandler,
   meHandler,
+  forgotPasswordHandler,
+  resetPasswordHandler,
+  linkGoogleHandler,
+  setPasswordHandler,
 } from "./auth.controller.ts";
 import { env } from "../../config/env.ts";
 import { authenticate } from "../../middlewares/authenticate.ts";
@@ -520,5 +524,273 @@ router.post("/refresh", refreshHandler);
  *                   example: null
  */
 router.post("/logout", logoutHandler);
+
+// ─── POST /auth/forgot-password ───────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /auth/forgot-password:
+ *   post:
+ *     summary: Request a password reset OTP
+ *     tags: [Auth]
+ *     description: >
+ *       Sends a 6-digit OTP to the user's registered email address. The OTP expires
+ *       in 15 minutes. Any previous unused OTP for that account is invalidated.
+ *
+ *       **Always returns 200** — the response does not reveal whether the email is
+ *       registered, to prevent account enumeration.
+ *
+ *       If the account was created with Google Sign-In (no password), a helpful
+ *       email is sent directing the user to use Google login instead.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: ali@tutelage.com
+ *     responses:
+ *       200:
+ *         description: OTP sent (or email not found — same response either way)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: If that email is registered, you will receive a reset code shortly
+ *                 data:
+ *                   nullable: true
+ *                   example: null
+ *       503:
+ *         description: Email service not configured on this server
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       422:
+ *         description: Validation error (invalid email format)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.post("/forgot-password", forgotPasswordHandler);
+
+// ─── POST /auth/reset-password ────────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /auth/reset-password:
+ *   post:
+ *     summary: Reset password using OTP
+ *     tags: [Auth]
+ *     description: >
+ *       Verifies the OTP sent to the user's email and sets a new password.
+ *       The OTP is single-use and expires after 15 minutes.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - otp
+ *               - newPassword
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: ali@tutelage.com
+ *               otp:
+ *                 type: string
+ *                 minLength: 6
+ *                 maxLength: 6
+ *                 pattern: '^\d{6}$'
+ *                 example: "482910"
+ *               newPassword:
+ *                 type: string
+ *                 minLength: 8
+ *                 example: NewPassword123
+ *     responses:
+ *       200:
+ *         description: Password reset successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Password reset successfully. You can now log in with your new password.
+ *                 data:
+ *                   nullable: true
+ *                   example: null
+ *       400:
+ *         description: Invalid, expired, or already-used OTP
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       422:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.post("/reset-password", resetPasswordHandler);
+
+// ─── POST /auth/link-google ───────────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /auth/link-google:
+ *   post:
+ *     summary: Link a Google account to the authenticated user
+ *     tags: [Auth]
+ *     description: >
+ *       Links the user's Google account to their existing profile. After linking,
+ *       they can sign in with either their password or Google Sign-In.
+ *
+ *       Required for accessing AI chatbot and subscription features. If the user
+ *       already has a different avatar, it is preserved; Google's avatar is only
+ *       applied if no avatar exists yet.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - idToken
+ *             properties:
+ *               idToken:
+ *                 type: string
+ *                 description: Google ID token from the frontend Google Sign-In flow
+ *                 example: eyJhbGciOiJSUzI1NiIsImtpZCI6...
+ *     responses:
+ *       200:
+ *         description: Google account linked successfully — returns updated user profile
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Google account linked successfully
+ *                 data:
+ *                   $ref: '#/components/schemas/AuthUser'
+ *       401:
+ *         description: Missing or invalid access token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       409:
+ *         description: Google account already linked (to this or another user)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       503:
+ *         description: Google OAuth not configured on this server
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.post("/link-google", authenticate, linkGoogleHandler);
+
+// ─── POST /auth/set-password ──────────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /auth/set-password:
+ *   post:
+ *     summary: Set a password for a Google-only account
+ *     tags: [Auth]
+ *     description: >
+ *       Allows users who registered via Google Sign-In (and therefore have no
+ *       password) to set one. After setting a password, they can log in with
+ *       either their email/password or Google.
+ *
+ *       **Recommended but not required** — the user can dismiss the prompt and
+ *       continue using Google Sign-In only.
+ *
+ *       Returns 409 if the account already has a password set (use the
+ *       forgot-password flow to change an existing password).
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - newPassword
+ *             properties:
+ *               newPassword:
+ *                 type: string
+ *                 minLength: 8
+ *                 example: MyNewPassword123
+ *     responses:
+ *       200:
+ *         description: Password set successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Password set successfully. You can now log in with your email and password.
+ *                 data:
+ *                   nullable: true
+ *                   example: null
+ *       401:
+ *         description: Missing or invalid access token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       409:
+ *         description: Account already has a password
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       422:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.post("/set-password", authenticate, setPasswordHandler);
 
 export default router;

@@ -65,3 +65,21 @@ export interface GoogleLoginResponse {
 }
 
 export type GoogleAuthResponse = GoogleNeedsRegistration | GoogleLoginResponse;
+
+export interface ForgotPasswordInput {
+  email: string;
+}
+
+export interface ResetPasswordInput {
+  email: string;
+  otp: string;
+  newPassword: string;
+}
+
+export interface LinkGoogleInput {
+  idToken: string;
+}
+
+export interface SetPasswordInput {
+  newPassword: string;
+}

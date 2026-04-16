@@ -37,3 +37,21 @@ export const refreshSchema = z.object({
 export const logoutSchema = z.object({
   refreshToken: z.string().min(1, "Refresh token is required"),
 });
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().email("Invalid email address"),
+});
+
+export const resetPasswordSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  otp: z.string().length(6, "OTP must be 6 digits").regex(/^\d{6}$/, "OTP must be numeric"),
+  newPassword: z.string().min(8, "Password must be at least 8 characters"),
+});
+
+export const linkGoogleSchema = z.object({
+  idToken: z.string().min(1, "Google ID token is required"),
+});
+
+export const setPasswordSchema = z.object({
+  newPassword: z.string().min(8, "Password must be at least 8 characters"),
+});

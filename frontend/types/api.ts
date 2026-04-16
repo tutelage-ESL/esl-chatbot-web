@@ -456,6 +456,325 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/forgot-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request a password reset OTP
+         * @description Sends a 6-digit OTP to the user's registered email address. The OTP expires in 15 minutes. Any previous unused OTP for that account is invalidated.
+         *     **Always returns 200** — the response does not reveal whether the email is registered, to prevent account enumeration.
+         *     If the account was created with Google Sign-In (no password), a helpful email is sent directing the user to use Google login instead.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /**
+                         * Format: email
+                         * @example ali@tutelage.com
+                         */
+                        email: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description OTP sent (or email not found — same response either way) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @example true */
+                            success?: boolean;
+                            /** @example If that email is registered, you will receive a reset code shortly */
+                            message?: string;
+                            /** @example null */
+                            data?: unknown;
+                        };
+                    };
+                };
+                /** @description Validation error (invalid email format) */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Email service not configured on this server */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset password using OTP
+         * @description Verifies the OTP sent to the user's email and sets a new password. The OTP is single-use and expires after 15 minutes.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /**
+                         * Format: email
+                         * @example ali@tutelage.com
+                         */
+                        email: string;
+                        /** @example 482910 */
+                        otp: string;
+                        /** @example NewPassword123 */
+                        newPassword: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Password reset successfully */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @example true */
+                            success?: boolean;
+                            /** @example Password reset successfully. You can now log in with your new password. */
+                            message?: string;
+                            /** @example null */
+                            data?: unknown;
+                        };
+                    };
+                };
+                /** @description Invalid, expired, or already-used OTP */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/link-google": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Link a Google account to the authenticated user
+         * @description Links the user's Google account to their existing profile. After linking, they can sign in with either their password or Google Sign-In.
+         *     Required for accessing AI chatbot and subscription features. If the user already has a different avatar, it is preserved; Google's avatar is only applied if no avatar exists yet.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /**
+                         * @description Google ID token from the frontend Google Sign-In flow
+                         * @example eyJhbGciOiJSUzI1NiIsImtpZCI6...
+                         */
+                        idToken: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Google account linked successfully — returns updated user profile */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @example true */
+                            success?: boolean;
+                            /** @example Google account linked successfully */
+                            message?: string;
+                            data?: components["schemas"]["AuthUser"];
+                        };
+                    };
+                };
+                /** @description Missing or invalid access token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Google account already linked (to this or another user) */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Google OAuth not configured on this server */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/set-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a password for a Google-only account
+         * @description Allows users who registered via Google Sign-In (and therefore have no password) to set one. After setting a password, they can log in with either their email/password or Google.
+         *     **Recommended but not required** — the user can dismiss the prompt and continue using Google Sign-In only.
+         *     Returns 409 if the account already has a password set (use the forgot-password flow to change an existing password).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @example MyNewPassword123 */
+                        newPassword: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Password set successfully */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @example true */
+                            success?: boolean;
+                            /** @example Password set successfully. You can now log in with your email and password. */
+                            message?: string;
+                            /** @example null */
+                            data?: unknown;
+                        };
+                    };
+                };
+                /** @description Missing or invalid access token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Account already has a password */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/classes": {
         parameters: {
             query?: never;
