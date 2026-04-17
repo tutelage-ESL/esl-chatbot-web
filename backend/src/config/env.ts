@@ -26,6 +26,12 @@ const envSchema = z.object({
   // Google OAuth — optional; Google login routes return 503 if not set
   GOOGLE_CLIENT_ID: z.string().optional(),
 
+  // AI Providers — optional; AI features return 503 if not set
+  OPENAI_API_KEY: z.string().optional(),  // PREMIUM tier LLM (GPT-5 mini)
+  GEMINI_API_KEY: z.string().optional(),  // Dev + FREE + GOLD tier LLM (Gemini)
+  AZURE_SPEECH_KEY: z.string().optional(),
+  AZURE_SPEECH_REGION: z.string().optional(),
+
   CORS_ORIGIN: z.string().default("http://localhost:3000"),
 });
 

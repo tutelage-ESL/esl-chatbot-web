@@ -146,6 +146,7 @@ router.get("/", authenticate, listSessionsHandler);
  *
  *       Daily session limits apply:
  *       - FREE plan: 3 sessions/day
+ *       - GOLD plan: 15 sessions/day
  *       - PREMIUM plan: 50 sessions/day
  *     tags: [Sessions]
  *     security:

@@ -2,11 +2,16 @@ import { prisma } from "../../config/database.ts";
 import { AppError } from "../../utils/AppError.ts";
 import {
   FREE_MAX_MESSAGES_PER_SESSION,
+  GOLD_MAX_MESSAGES_PER_SESSION,
   PREMIUM_MAX_MESSAGES_PER_SESSION,
+  FREE_MAX_MESSAGES_PER_DAY,
   SOFT_LIMIT_BUFFER,
+  FREE_LLM_CONTEXT_MESSAGES,
+  DEFAULT_LLM_CONTEXT_MESSAGES,
 } from "../sessions/sessions.service.ts";
+import { generateAIResponse } from "../ai/ai.service.ts";
 import type { SendMessageResult } from "./messages.types.ts";
-import type { MessageType } from "@prisma/client";
+import type { MessageType, Plan } from "@prisma/client";
 
 // ── Send message (user → AI → evaluate → store) ──────────
 
@@ -42,12 +47,15 @@ export async function sendMessage(
     select: { plan: true },
   });
 
+  const plan = (subscription?.plan ?? "FREE") as Plan;
   const maxMessages =
-    subscription?.plan === "PREMIUM"
+    plan === "PREMIUM"
       ? PREMIUM_MAX_MESSAGES_PER_SESSION
-      : FREE_MAX_MESSAGES_PER_SESSION;
+      : plan === "GOLD"
+        ? GOLD_MAX_MESSAGES_PER_SESSION
+        : FREE_MAX_MESSAGES_PER_SESSION;
 
-  // Count only USER messages for the limit
+  // Count only USER messages for the per-session limit
   const userMessageCount = await prisma.message.count({
     where: { sessionId, role: "USER" },
   });
@@ -59,26 +67,48 @@ export async function sendMessage(
     );
   }
 
+  // FREE tier: enforce daily message cap across all sessions
+  if (plan === "FREE") {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const messagesToday = await prisma.message.count({
+      where: { userId, role: "USER", createdAt: { gte: todayStart } },
+    });
+    if (messagesToday >= FREE_MAX_MESSAGES_PER_DAY) {
+      throw new AppError(
+        `Daily message limit reached (${FREE_MAX_MESSAGES_PER_DAY}). Upgrade to GOLD for more messages.`,
+        429,
+      );
+    }
+  }
+
   // Get learner profile for AI context
   const learnerProfile = await prisma.learnerProfile.findUnique({
     where: { userId },
-    select: { currentLevel: true, targetLevel: true, learningPurpose: true, aiPersonality: true },
+    select: {
+      currentLevel: true,
+      targetLevel: true,
+      learningPurpose: true,
+      aiPersonality: true,
+    },
   });
 
-  // Get recent conversation history for AI context
+  // Get recent conversation history — FREE tier gets shorter context to reduce token cost
+  const contextLimit = plan === "FREE" ? FREE_LLM_CONTEXT_MESSAGES : DEFAULT_LLM_CONTEXT_MESSAGES;
   const recentMessages = await prisma.message.findMany({
     where: { sessionId },
     select: { role: true, content: true },
-    orderBy: { createdAt: "asc" },
-    take: 20,
+    orderBy: { createdAt: "desc" },
+    take: contextLimit,
   });
+  recentMessages.reverse();
 
-  // Call AI for response + evaluation
-  const aiResult = await getAIResponse(
+  // Call AI for response + evaluation (real OpenAI or heuristic fallback)
+  const aiResult = await generateAIResponse(
     content,
     recentMessages,
     learnerProfile,
-    session.mode,
+    plan,
   );
 
   const wordCount = content.split(/\s+/).filter(Boolean).length;
@@ -96,7 +126,14 @@ export async function sendMessage(
         content,
         wordCount,
       },
-      select: { id: true, role: true, type: true, content: true, wordCount: true, createdAt: true },
+      select: {
+        id: true,
+        role: true,
+        type: true,
+        content: true,
+        wordCount: true,
+        createdAt: true,
+      },
     });
 
     // 2. Create message evaluation for the user message
@@ -104,13 +141,13 @@ export async function sendMessage(
       data: {
         messageId: userMsg.id,
         grammarScore: aiResult.evaluation.grammarScore,
-        grammarErrors: aiResult.evaluation.grammarErrors,
+        grammarErrors: aiResult.evaluation.grammarErrors as unknown as object[],
         vocabularyScore: aiResult.evaluation.vocabularyScore,
         vocabularyLevel: aiResult.evaluation.vocabularyLevel,
         fluencyScore: aiResult.evaluation.fluencyScore,
         overallScore: aiResult.evaluation.overallScore,
         detectedCefrLevel: aiResult.evaluation.detectedCefrLevel,
-        corrections: aiResult.evaluation.corrections,
+        corrections: aiResult.evaluation.corrections as unknown as object[],
         feedback: aiResult.evaluation.feedback,
       },
       select: {
@@ -136,7 +173,14 @@ export async function sendMessage(
         content: aiResult.reply,
         wordCount: aiWordCount,
       },
-      select: { id: true, role: true, type: true, content: true, wordCount: true, createdAt: true },
+      select: {
+        id: true,
+        role: true,
+        type: true,
+        content: true,
+        wordCount: true,
+        createdAt: true,
+      },
     });
 
     // 4. Update session message count
@@ -152,12 +196,6 @@ export async function sendMessage(
       evaluation,
     };
   });
-
-  // Return soft limit warning in the response if approaching limit
-  const newUserCount = userMessageCount + 1;
-  if (newUserCount >= maxMessages) {
-    // The controller can check this and add a warning header
-  }
 
   return result;
 }
@@ -217,127 +255,4 @@ export async function listMessages(
   ]);
 
   return { messages, total };
-}
-
-// ── AI Integration (placeholder) ──────────────────────────
-//
-// This is a placeholder that generates realistic mock evaluations.
-// Replace with real AI API calls (OpenAI, Claude, etc.) when ready.
-// The interface is designed so the swap is a single-function replacement.
-
-interface AIResponse {
-  reply: string;
-  evaluation: {
-    grammarScore: number;
-    grammarErrors: Array<{ error: string; correction: string; rule: string; severity: string }>;
-    vocabularyScore: number;
-    vocabularyLevel: string;
-    fluencyScore: number;
-    overallScore: number;
-    detectedCefrLevel: string;
-    corrections: Array<{ original: string; corrected: string; explanation: string }>;
-    feedback: string;
-  };
-}
-
-async function getAIResponse(
-  userMessage: string,
-  _conversationHistory: Array<{ role: string; content: string }>,
-  _learnerProfile: { currentLevel: string | null; targetLevel: string | null; learningPurpose: string | null; aiPersonality: string | null } | null,
-  _sessionMode: string,
-): Promise<AIResponse> {
-  // ──────────────────────────────────────────────────────────
-  // TODO: Replace this placeholder with a real AI API call.
-  //
-  // The real implementation should:
-  // 1. Build a system prompt from learnerProfile (level, personality, purpose)
-  // 2. Send conversation history + new message to the LLM
-  // 3. Ask the LLM to respond naturally AND evaluate the user's message
-  // 4. Parse the structured evaluation from the LLM response
-  //
-  // Expected AI response format (instruct the LLM to return JSON):
-  // {
-  //   "reply": "Natural conversational response...",
-  //   "evaluation": { grammarScore, grammarErrors, ... }
-  // }
-  // ──────────────────────────────────────────────────────────
-
-  const wordCount = userMessage.split(/\s+/).filter(Boolean).length;
-
-  // Simple heuristic-based mock evaluation
-  const hasCapitalStart = /^[A-Z]/.test(userMessage);
-  const hasEndPunctuation = /[.!?]$/.test(userMessage);
-  const avgWordLength =
-    userMessage.replace(/[^a-zA-Z\s]/g, "").split(/\s+/).reduce((s, w) => s + w.length, 0) /
-    Math.max(wordCount, 1);
-
-  let grammarScore = 70;
-  if (hasCapitalStart) grammarScore += 10;
-  if (hasEndPunctuation) grammarScore += 10;
-  if (wordCount > 5) grammarScore += 5;
-  grammarScore = Math.min(grammarScore, 100);
-
-  let vocabScore = Math.min(40 + avgWordLength * 8, 95);
-  const fluencyScore = Math.min(50 + wordCount * 2, 95);
-  const overallScore = Math.round(grammarScore * 0.35 + vocabScore * 0.35 + fluencyScore * 0.3);
-
-  const cefrLevel =
-    overallScore >= 90 ? "C2" :
-    overallScore >= 80 ? "C1" :
-    overallScore >= 70 ? "B2" :
-    overallScore >= 60 ? "B1" :
-    overallScore >= 45 ? "A2" : "A1";
-
-  const vocabLevel =
-    avgWordLength >= 7 ? "B2" :
-    avgWordLength >= 5 ? "B1" :
-    avgWordLength >= 4 ? "A2" : "A1";
-
-  const grammarErrors: AIResponse["evaluation"]["grammarErrors"] = [];
-  const corrections: AIResponse["evaluation"]["corrections"] = [];
-
-  if (!hasCapitalStart) {
-    grammarErrors.push({
-      error: "Sentence does not start with a capital letter",
-      correction: userMessage.charAt(0).toUpperCase() + userMessage.slice(1),
-      rule: "capitalization",
-      severity: "minor",
-    });
-    corrections.push({
-      original: userMessage.slice(0, 20),
-      corrected: userMessage.charAt(0).toUpperCase() + userMessage.slice(1, 20),
-      explanation: "Sentences should start with a capital letter.",
-    });
-  }
-
-  if (!hasEndPunctuation) {
-    grammarErrors.push({
-      error: "Missing end punctuation",
-      correction: userMessage + ".",
-      rule: "punctuation",
-      severity: "minor",
-    });
-  }
-
-  const feedback =
-    overallScore >= 80
-      ? "Excellent work! Your message is well-structured and clear."
-      : overallScore >= 60
-        ? "Good effort! There are a few areas to improve, but you're communicating effectively."
-        : "Keep practicing! Focus on the corrections above to improve your grammar and fluency.";
-
-  return {
-    reply: `[AI Placeholder] Thank you for your message! I received: "${userMessage.slice(0, 50)}${userMessage.length > 50 ? "..." : ""}". This is a placeholder response — connect a real AI provider to get natural tutoring responses.`,
-    evaluation: {
-      grammarScore,
-      grammarErrors,
-      vocabularyScore: Math.round(vocabScore),
-      vocabularyLevel: vocabLevel,
-      fluencyScore,
-      overallScore,
-      detectedCefrLevel: cefrLevel,
-      corrections,
-      feedback,
-    },
-  };
 }

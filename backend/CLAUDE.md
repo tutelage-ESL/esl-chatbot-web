@@ -4,6 +4,9 @@
 AI-powered English learning platform backend. Supports student-tutor-admin hierarchy,
 conversation sessions, vocabulary SRS, progress tracking, and subscription management.
 
+**Claude Code usage guide:** `docs/claude-code/` — prompting recipes, skills reference,
+context efficiency tips, and memory system explained for this project.
+
 ---
 
 ## Tech Stack
@@ -150,7 +153,7 @@ Each module under `src/modules/[name]/` follows:
 | MessageRole | USER, ASSISTANT |
 | MessageType | TEXT, VOICE |
 | GoalStatus | ACTIVE, COMPLETED, PAUSED, CANCELLED |
-| Plan | FREE, PREMIUM |
+| Plan | FREE, GOLD, PREMIUM |
 | SubStatus | ACTIVE, INACTIVE, CANCELLED, PAST_DUE |
 
 ### Models
@@ -192,8 +195,10 @@ Each module under `src/modules/[name]/` follows:
 - **Message evaluation flow:** each user message is evaluated by the AI for grammar (0-100), vocabulary (0-100 + CEFR level), fluency (0-100), overall score (weighted: 35% grammar + 35% vocab + 30% fluency), corrections (original/corrected/explanation), and feedback. Evaluations are stored in `message_evaluations` (1:1 with Message). Students see inline corrections after each message.
 - **Session evaluation:** generated on `POST /sessions/:id/end`. Aggregates all message evaluations into averages, detects session-level CEFR, identifies strengths/weaknesses/recommendations, and lists new vocabulary for SRS. Stored in `session_evaluations` (1:1 with ConversationSession).
 - **Message type vs session mode:** `SessionMode` (TEXT/VOICE) is the starting mode. Individual `Message.type` (TEXT/VOICE) allows mixed-mode sessions — no separate MIXED enum needed.
-- **Session limits:** soft limit (FREE=50, PREMIUM=150 user messages) shows a warning; hard limit (soft+10) blocks further messages. Daily session cap (FREE=3, PREMIUM=50) prevents runaway costs.
-- **AI provider placeholder:** `messages.service.ts` contains `getAIResponse()` — a placeholder that returns heuristic-based evaluations. Replace with real AI API calls when provider is finalized. See `docs/services/ai-providers.md` for provider comparison.
+- **Session limits:** soft limit shows a warning; hard limit (soft+10) blocks further messages. Daily session cap prevents runaway costs.
+- **FREE tier cost controls:** 20 msg/session soft limit, 20 msg/day hard cap across all sessions, 10-message LLM context window (vs 20 for GOLD/PREMIUM). Reduces FREE tier AI cost ~65% vs naive design.
+- **AI integration:** `src/modules/ai/ai.service.ts` exports `generateAIResponse()` — model selected by plan: FREE→Gemini 2.5 Flash-Lite, GOLD→Gemini 2.5 Flash, PREMIUM→GPT-5 mini. Dev uses Gemini 3 Flash (preview, free tier). Falls back to heuristic evaluation if no API key is set. FREE/GOLD/Dev are pending migration from OpenAI placeholder to Gemini SDK. See `docs/services/ai-providers.md` + `docs/ai-providers/llm.md` for full decision, costs, and upgrade paths.
+- **AI tier limits:** Session/day caps: FREE=3, GOLD=15, PREMIUM=50. Messages/session soft limits: FREE=20+10 buffer, GOLD=100+10 buffer, PREMIUM=150+10 buffer. FREE also has 20 msg/day hard cap.
 
 ---
 
@@ -309,12 +314,12 @@ Includes: classes (with full code-lifecycle fields populated) with enrolled user
 - ✅ `GET /sessions` — list user's sessions (paginated, filterable by mode/active status)
 - ✅ `GET /sessions/:id` — session detail with all messages and evaluations
 - ✅ `POST /sessions/:id/end` — end session, compute averages, generate SessionEvaluation
-- ✅ `POST /sessions/:sessionId/messages` — send message → AI responds → MessageEvaluation generated (grammar, vocabulary, fluency, corrections). Per-session limits: FREE=50+10 buffer, PREMIUM=150+10 buffer
+- ✅ `POST /sessions/:sessionId/messages` — send message → AI responds → MessageEvaluation generated (grammar, vocabulary, fluency, corrections). Per-session limits: FREE=20+10, GOLD=100+10, PREMIUM=150+10. FREE also has 20 msg/day hard cap and 10-message context window.
 - ✅ `GET /sessions/:sessionId/messages` — paginated message list with evaluations
 - ✅ MessageEvaluation table: per-message grammar/vocabulary/fluency scores, corrections, CEFR detection
 - ✅ SessionEvaluation table: aggregate scores, strengths, weaknesses, recommendations, detected CEFR level
 - ✅ Message type field (TEXT/VOICE) — sessions can contain both types (mixed mode)
-- ✅ AI integration placeholder with heuristic-based evaluation (swap for real AI provider later)
+- ✅ AI integration — `src/modules/ai/` module with plan-based model selection (PREMIUM→gpt-5-mini via OpenAI; FREE/GOLD→Gemini pending migration); heuristic fallback when no API key
 - Remaining: real AI provider integration, TTS/STT pipeline, Socket.io real-time messaging
 
 ### Phase 5 — Vocabulary & SRS System

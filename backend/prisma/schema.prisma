@@ -49,6 +49,7 @@ enum GoalStatus {
 
 enum Plan {
   FREE
+  GOLD
   PREMIUM
 }
 

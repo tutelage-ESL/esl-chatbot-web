@@ -1,11 +1,12 @@
 * Start by reading CLAUDE.md to understand the project structure and conventions.
 
-## authentication update
-* we need a new API, that allows user to reset their password!
-* but in order to do that as you know we must force all the accounts to link to their google account, so as a start of registration we do let them register, but will not use chat-bot or anything pay related... for those they need to set up their google's... so we can reach them later and use OTP to confirm and reset their account
-* for that as you see from docs/services we have to 'resend' for the email handling right?
-* check the database schema for your refrence
-* set a good plan that tells what should me and you do to complete that task?
+## update the docs - AI services related
+* as our last conversation we were planning to choose the perfect API-AI services for our project, we need to pick a TTS, STT, and LLM... but I belive that we did not researched very good, for that step by step we discuss about 
+1. MML
+2. STT
+3. TTS
+* Read docs/services/ai-providers.md and docs/ai-providers/ to understand the AI stack decisions we made.
+* this time I'll provide you the website that you can research to get the newest information, and list the best choices and I'll hear your recommendation and we decide on it...
 
 ## before starting the task:
 * ask me questions if you have any doubts. or want to confirm your understanding.
@@ -18,12 +19,37 @@
 * update the claude.md according to changes related to it.
 * update the seeds "prisma/seed.ts" file according to changes related to it.
 
+## features:
+* /ultraplan
+* /ultrathink
+* /skills
+* /compact
+* /context usage
+* /model opusplan
+
+
+
+* Read docs/services/ai-providers.md and docs/ai-providers/llm.md to understand the AI stack decisions we made.
+
+ We finished planning. The AI module at src/modules/ai/ exists but still uses OpenAI as a placeholder. The goal now is to implement the real providers:
+  - Migrate src/modules/ai/providers/openai.llm.ts → replace with Gemini (FREE + GOLD) and Claude Haiku 4.5 (PREMIUM)
+  - Add GEMINI_API_KEY and ANTHROPIC_API_KEY to src/config/env.ts
+  - Update ai.service.ts to route by plan: FREE/GOLD → Gemini, PREMIUM → Claude
+  - Heuristic fallback stays for when no API key is set
+
+  - Start by reading those two docs, then read src/modules/ai/ai.service.ts and src/modules/ai/providers/openai.llm.ts to see what's there, then implement.
+
 ## authentication update
 * we need to add a new API, frontend team asked for a /auth/me, I guess he wants a that API that checks the tokens of the user and according to the payload, it will send the user's information and stuff
 * so add that API and prepare anything related to that subject
 
 
-
+## authentication update
+* we need a new API, that allows user to reset their password!
+* but in order to do that as you know we must force all the accounts to link to their google account, so as a start of registration we do let them register, but will not use chat-bot or anything pay related... for those they need to set up their google's... so we can reach them later and use OTP to confirm and reset their account
+* for that as you see from docs/services we have to 'resend' for the email handling right?
+* check the database schema for your refrence
+* set a good plan that tells what should me and you do to complete that task?
 
 ## decide on the system's next move
 * as a reminder, user can register and join class that are created by tutors, and user if they had subscprtion then they can use the chat-bot AI, the chatbot allows user to have conversation with voice-live or chat text, the bot is in purpose of learning language (for now all the eyes are on only english). and the application must monitor the students performance and help the student to level up...
@@ -167,3 +193,152 @@ here is my points on your takes:
 * just notice that: user who don't have password getting recommendation to set a password, so that they can login with password or google. if they don't set password then it is still ok but recommended to set it. (the workflow, do we have an API that sets password for users that registered from google? if no should we immediately add it or add it after this task?)
 
 * update the docs/services/email file and tell me what is the technical steps that I should do to get the proper RESEND_API_KEY and EMAIL_FROM and and verify sending domain in the resend dashboard 
+
+
+* Start by reading CLAUDE.md to understand the project structure and conventions.
+* I need you add a new instruction file for the developer in backend/docs/
+* simply introduce claude code for that project
+* the file must help developer to know how to use claude code properly the way he gets the most benefits of it, with less token and the most perfect result output
+* make a search and find the most usefull features of Claude and tell how to use it especially on that current project of us.
+* help user how to prompt and how to use each feature and when
+* for example I heard about /skills but so far I haven't used at all.
+
+## before starting the task:
+* ask me questions if you have any doubts. or want to confirm your understanding.
+* provide recommendations to improve the task.
+
+## After completing the task:
+* make sure to update the related files according to changes related to it.
+* update any related API, routes and stuff
+* update the swagger documentation to the frontend team if needed.
+* update the claude.md according to changes related to it.
+* update the seeds "prisma/seed.ts" file according to changes related to it.
+
+
+## ANS: 
+1. for developer who is actually a programmer and used AI before, but want to make sure to use it perfectly,and not so much familiar with claude code tools and uses
+2. do not combine claude API and Claude use at same file! maybe we discuss about the AI-APIs later, for now just focus on the uses of claude code as a buddy-oder.
+3. multiple files, I think
+
+* follow your recommendations 
+
+
+
+sorry, but I'm still not stratified actually. when I said it is costy I didn't mean to make everything super cheap. of course quality matters too
+let's move step by step how many services we need?
+we start by LLM, and then we go for other services.
+* list all the choices and tell which one 
+
+1. Development 
+2. production 
+  * Free
+  * premium 
+  * gold
+
+* accordingly you update the doc files and any other related files
+
+* below see my answers and before you immediately apply it, let me know what do you think, if you were disagree maybe I change my mind, otherwith we move to next layers
+## Ans:
+1. Development: Gemini 2.5 Flash (B)
+2. Free tier: Gemini 2.5 Flash (B) or gpt-4o-mini, compare them so I choose
+  - I still want that performance too, as long as the cost was so low
+  - (but can you estimate how much does it cost on us per month?)
+3. Gold: gpt-4.1 or Gemini 2.5 Flash
+  - compare so I choose
+4. Claude Haiku 4.5 or gpt-4o or Gemini 2.5 Pro
+* one more question, will it be challenging to switch between models in future or the code will work with only one model? can I even on production for instance switch from B to A?
+
+
+* I am agree with your recommendation (2.5 flash, 2.5 flash-lite, 2.5-flash, Hakiu 4.5)
+* so confirmed
+* we can get to next level which as you said is STT, but I need that details seach again so I can see everything and decide as I wish, and let me see your recommendation below it.
+* we need a detail documentation to save, so for now update /docs and add a folder for AI providers and in LLM file write these information and make table to the models and their costs and their quality and tell why we selected what we selected for different layers(dev, free....)
+* and from the documentation we need guidle that explains how can we get the APIs step by step for our project (gemeni, gpt, haiku)
+* so after that we work on the STT and decide and make a documentation for that too
+
+
+* for development and free, I am a bit curious between Groq Whisper Turbo and Deepgram Nova-3 so compare them before I decide which one.
+* for the gold and premium you recommended only Azure 'Azure Speech STT' are you sure that we don't have a better choice? if yes then we're fine.
+* after I choose you have write the guidelines how do I get the APIs for that STT properly 
+* after that last confirmation we can move to next level TTS
+
+
+
+1. yes I meant LLM
+2. I'll past it below these answers 
+3. I wanna make sure nothin better
+4. I felt gap because last time you made research by yourself and missed gemeni 3 series! so this time I'll provide references and also let you to research for it too...
+5. exactly, now we go with LLM and then other
+
+## gemeni refrences
+1. Gemini API (Managed Service)
+These are the official Google pages for the "pay-per-token" models you access via an API key.
+Google AI Studio - Model Overview: The main hub for the Gemini 3/3.1 series. Use this to quickly compare Pro vs. Flash vs. Flash-Lite.
+https://aistudio.google.com/models/gemini-3
+Gemini API Official Pricing Guide: The most important page for your budget. It breaks down the "standard" vs. "long-context" pricing and the free tier limits.
+https://ai.google.dev/pricing
+Gemini 3 Developer Guide: Technical documentation on new 2026 features like "Thinking Levels" and "Agentic Workflows."
+https://ai.google.dev/gemini-api/docs/gemini-3
+
+2. Gemma 4 (Open-Weight Models)
+Since you are interested in Gemma 4, these sources explain how to get the files and how to host them yourself.
+
+Google Cloud Blog: Gemma 4 Release: The official announcement detailing the 31B and 26B models and their Apache 2.0 licensing.
+https://cloud.google.com/blog/products/ai-machine-learning/gemma-4-available-on-google-cloud
+
+OpenRouter: Gemma 4 31B Pricing: A great source to see the real-time market price if you choose to use a third-party host for Gemma 4 instead of running it on your own server.
+https://openrouter.ai/google/gemma-4-31b-it
+Gemma 4 on Hugging Face: This is where you actually download the model weights if you want to host it on your own hardware.
+https://huggingface.co/google/gemma-4-31b-it
+
+## OpenAI references:
+🧠 Main Models Overview (ALL models list)
+
+https://platform.openai.com/docs/models
+
+👉 This page lists all available models (GPT-5, GPT-4.1, GPT-4o, o-series, audio, image, etc.)
+
+📘 Models Guide (How to choose models)
+
+https://developers.openai.com/api/docs/models
+
+👉 Explains which model to choose depending on cost, speed, reasoning, etc.
+
+💰 Pricing (MOST IMPORTANT for your business)
+
+https://platform.openai.com/pricing
+
+👉 Full pricing for all models (input/output cost per 1M tokens)
+
+📊 GPT-4.1 Family Docs
+
+https://platform.openai.com/docs/models/gpt-4.1
+
+👉 Deep explanation of:
+
+GPT-4.1
+GPT-4.1 mini
+GPT-4.1 nano
+🎧 GPT-4o (Multimodal / Voice / Chat)
+
+https://platform.openai.com/docs/models/gpt-4o
+
+👉 Best for:
+
+voice
+real-time apps
+chatbots
+⚙️ API Model List (technical endpoint)
+
+https://platform.openai.com/docs/api-reference/models
+
+👉 Shows:
+
+how to list models programmatically
+raw model IDs
+
+## Claude reference 
+* you provide the refrence by yourself its your own company
+* I think Claude Haiku 4.5 is enough to know about
+
+

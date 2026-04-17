@@ -1,136 +1,44 @@
-# AI Providers — ESL Chatbot
+# AI Providers — Overview
 
-> Last updated: 2026-04-10
+> Detailed decisions moved to `docs/ai-providers/`
 
-## Overview
+## Confirmed Stack (April 2026)
 
-The chatbot needs four AI capabilities:
+| Capability | Dev | FREE prod | GOLD prod | PREMIUM prod |
+|-----------|-----|-----------|-----------|--------------|
+| **LLM** | Gemini 3 Flash ⚠️ preview | Gemini 2.5 Flash-Lite | Gemini 2.5 Flash | GPT-5 mini |
+| **STT** | Deepgram Nova-3 ($200 credit) | Deepgram Nova-3 | Azure Speech | Azure Speech |
+| **TTS** | Edge TTS (npm, no key) | Azure Neural TTS | Azure Neural TTS | Azure Neural TTS* |
+| **Pronunciation** | Azure F0 (5 hrs/month free) | None | Azure (basic) | Azure (full + prosody) |
 
-| Capability | What it does |
-|------------|-------------|
-| **LLM (Text)** | Conversational tutoring, grammar/vocabulary evaluation, CEFR-aware feedback |
-| **STT (Speech-to-Text)** | Transcribe learner speech, handle non-native accents |
-| **TTS (Text-to-Speech)** | Natural English speech for the tutor bot |
-| **Pronunciation Assessment** | Phoneme-level accuracy, fluency, prosody, accent analysis |
+> *PREMIUM TTS: upgrade to OpenAI TTS HD later if voice quality becomes a business priority  
+> ⚠️ Dev LLM uses Gemini 3 Flash preview — free tier, better quality than 2.5 Flash. Gemini 3.x not used in production until GA.
 
----
+## API Keys Required (Production)
 
-## Provider Comparison
+| Key | Used for |
+|-----|---------|
+| `GEMINI_API_KEY` | LLM — Dev (Gemini 3 Flash, free) + FREE + GOLD |
+| `OPENAI_API_KEY` | LLM — PREMIUM (GPT-5 mini) |
+| `DEEPGRAM_API_KEY` | STT — Dev + FREE ($200 free credit) |
+| `AZURE_SPEECH_KEY` | STT + TTS + Pronunciation — GOLD + PREMIUM |
+| `AZURE_SPEECH_REGION` | Azure config (e.g. `eastus`) |
 
-### LLM (Text Conversation & Evaluation)
+## Detailed Docs
 
-| Provider | Model | Input / Output (per 1M tokens) | ESL Quality | Notes |
-|----------|-------|-------------------------------|-------------|-------|
-| OpenAI | GPT-4o | ~$2.50 / $10 | Excellent | Strong at structured JSON evaluation, CEFR-aware |
-| OpenAI | GPT-4.1 | ~$2.00 / $8 | Excellent | Optimized for instruction-following |
-| OpenAI | GPT-4o-mini | ~$0.15 / $0.60 | Good | Best cost-efficiency for dev/free tier |
-| Anthropic | Claude Sonnet 4 | ~$3.00 / $15 | Excellent | Nuanced grammar explanation, pedagogical tone |
-| Anthropic | Claude Haiku 4.5 | ~$0.80 / $4 | Good | Budget option with strong instruction-following |
-| Google | Gemini 2.0 Flash | ~$0.10 / $0.40 | Decent | Cheapest option, native multimodal |
-| Google | Gemini 2.5 Pro | ~$1.25 / $10 | Strong | Competitive with GPT-4o |
-
-### STT (Speech-to-Text)
-
-| Provider | Model | Price | Accent Handling | Pronunciation Scoring |
-|----------|-------|-------|-----------------|----------------------|
-| OpenAI | Whisper API | ~$0.006/min | Good | No |
-| Deepgram | Nova-2/Nova-3 | ~$0.0043/min | Excellent | No |
-| Google | Cloud Speech v2 | ~$0.016/min | Good | No |
-| **Azure** | **Speech Services** | **~$0.016/min** | **Good** | **Yes — Pronunciation Assessment API** |
-
-> **Azure Speech Services is the only major provider with a dedicated Pronunciation Assessment API.**
-> It returns per-phoneme accuracy, fluency, completeness, and prosody scores — essential for accent analysis.
-
-### TTS (Text-to-Speech)
-
-| Provider | Price (per 1M chars) | Quality | Notes |
-|----------|---------------------|---------|-------|
-| OpenAI | ~$15 | Good | 6 voices, simple integration |
-| ElevenLabs | ~$30 (varies) | Best-in-class | Voice cloning, 30+ languages |
-| Google | ~$16 (WaveNet) / $4 (Standard) | Good | WaveNet approaches ElevenLabs quality |
-| Azure | ~$16 (Neural) | Good | Many voices/languages |
-
-### Real-Time Voice Conversation
-
-| Approach | How it works | Cost | Latency |
-|----------|-------------|------|---------|
-| OpenAI Realtime API | Native speech-to-speech via WebSocket | ~$5/hr in + $20/hr out | ~300-500ms |
-| Chained Pipeline | STT -> LLM -> TTS sequentially | Sum of individual (much cheaper) | ~1-2s total |
-
----
-
-## Recommended Setup
-
-### Development / Free Tier — Single Provider (OpenAI)
-
-```
-Text:  GPT-4o-mini      ($0.15 / $0.60 per 1M tokens)
-STT:   Whisper API       ($0.006/min)
-TTS:   OpenAI TTS        ($15 / 1M chars)
-Voice: Chained pipeline  (Whisper -> GPT-4o-mini -> TTS)
-```
-
-**Why:** Single API key, simplest integration, cheapest viable quality. Good enough for development and free-tier users.
-
-### Production / Premium Tier — Multi-Provider (Best Quality)
-
-```
-Text:           GPT-4o or GPT-4.1      (best evaluation quality)
-STT:            Azure Speech Services   (pronunciation assessment)
-TTS:            ElevenLabs or OpenAI    (natural voice)
-Voice (live):   OpenAI Realtime API     (lowest latency)
-Pronunciation:  Azure Pronunciation Assessment API
-```
-
-**Why:** Azure is irreplaceable for accent/pronunciation analysis. GPT-4o gives the best structured evaluation output. ElevenLabs has the most natural voices.
-
----
-
-## Architecture Recommendation
-
-Abstract the AI layer behind provider-agnostic interfaces so providers can be swapped without touching controllers:
-
-```
-src/modules/ai/
-├── ai.types.ts           # LLMProvider, STTProvider, TTSProvider interfaces
-├── providers/
-│   ├── openai.llm.ts     # OpenAI GPT implementation
-│   ├── openai.stt.ts     # Whisper implementation
-│   ├── openai.tts.ts     # OpenAI TTS implementation
-│   ├── azure.stt.ts      # Azure Speech (with pronunciation)
-│   └── elevenlabs.tts.ts # ElevenLabs TTS implementation
-└── ai.service.ts         # Orchestrates providers based on config/plan
-```
-
-### Subscription-Gated Features
-
-| Feature | FREE | PREMIUM |
-|---------|------|---------|
-| Text LLM | GPT-4o-mini | GPT-4o / GPT-4.1 |
-| STT | Whisper (transcription only) | Azure (transcription + pronunciation) |
-| TTS | OpenAI TTS | ElevenLabs |
-| Voice chat | Chained pipeline (higher latency) | Realtime API (low latency) |
-| Pronunciation scoring | Not available | Full phoneme-level analysis |
-
----
-
-## Cost Estimates (per user per month)
-
-Assumptions: 30 text sessions (20 messages each), 10 voice sessions (5 min each)
-
-| Tier | LLM | STT | TTS | Total |
-|------|-----|-----|-----|-------|
-| Free (GPT-4o-mini) | ~$0.05 | ~$0.30 | ~$0.15 | **~$0.50/user/month** |
-| Premium (GPT-4o + Azure + ElevenLabs) | ~$1.50 | ~$1.60 | ~$0.50 | **~$3.60/user/month** |
-
-These are rough estimates. Actual costs depend on message length and session frequency.
-
----
+| File | Contents |
+|------|---------|
+| [`docs/ai-providers/llm.md`](../ai-providers/llm.md) | LLM model comparison, cost tables, decision rationale, Gemini + Anthropic setup guides |
+| [`docs/ai-providers/stt.md`](../ai-providers/stt.md) | STT provider comparison, Deepgram + Azure setup guides, fallback plan |
+| [`docs/ai-providers/tts.md`](../ai-providers/tts.md) | TTS provider comparison, Edge TTS + Azure Neural TTS setup guide, upgrade path |
+| [`docs/ai-providers/business-costs.md`](../ai-providers/business-costs.md) | Cost per tier, profit margins, break-even, scale scenarios |
 
 ## Implementation Phases
 
-1. **Phase 4 (now):** Text chat with GPT-4o-mini (OpenAI only). Build the evaluation pipeline.
-2. **Phase 4.5:** Add TTS for bot responses (OpenAI TTS). Student reads, bot can also speak.
-3. **Phase 5:** Add STT with Whisper for voice input. Student speaks, bot responds in text+voice.
-4. **Phase 5.5:** Add Azure Pronunciation Assessment for premium users.
-5. **Phase 6:** Add OpenAI Realtime API for live voice conversations (premium).
+| Phase | Capability | Status |
+|-------|-----------|--------|
+| 4 | Text LLM — migrate from OpenAI placeholder to Gemini + Claude | 🔄 Code ready, needs API keys |
+| 4.5 | TTS for AI tutor voice replies | ⏳ Not started |
+| 5 | STT for student voice input | ⏳ Not started |
+| 5.5 | Azure Pronunciation Assessment | ⏳ Not started |
+| 6 | OpenAI Realtime API — PREMIUM live voice | ⏳ Not started |

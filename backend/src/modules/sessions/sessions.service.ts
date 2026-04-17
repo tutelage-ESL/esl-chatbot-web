@@ -10,12 +10,28 @@ import type {
 // ── Constants ─────────────────────────────────────────────
 
 const FREE_MAX_SESSIONS_PER_DAY = 3;
+const GOLD_MAX_SESSIONS_PER_DAY = 15;
 const PREMIUM_MAX_SESSIONS_PER_DAY = 50;
-const FREE_MAX_MESSAGES_PER_SESSION = 50;
-const PREMIUM_MAX_MESSAGES_PER_SESSION = 150;
-const SOFT_LIMIT_BUFFER = 10;
 
-export { FREE_MAX_MESSAGES_PER_SESSION, PREMIUM_MAX_MESSAGES_PER_SESSION, SOFT_LIMIT_BUFFER };
+const FREE_MAX_MESSAGES_PER_SESSION = 20;   // soft limit — warning shown
+const GOLD_MAX_MESSAGES_PER_SESSION = 100;
+const PREMIUM_MAX_MESSAGES_PER_SESSION = 150;
+
+const FREE_MAX_MESSAGES_PER_DAY = 20;       // hard daily cap across all sessions
+
+const SOFT_LIMIT_BUFFER = 10;               // extra messages allowed after soft limit before hard cutoff
+const FREE_LLM_CONTEXT_MESSAGES = 10;       // last N messages sent as context to LLM
+const DEFAULT_LLM_CONTEXT_MESSAGES = 20;    // GOLD + PREMIUM context window
+
+export {
+  FREE_MAX_MESSAGES_PER_SESSION,
+  GOLD_MAX_MESSAGES_PER_SESSION,
+  PREMIUM_MAX_MESSAGES_PER_SESSION,
+  FREE_MAX_MESSAGES_PER_DAY,
+  SOFT_LIMIT_BUFFER,
+  FREE_LLM_CONTEXT_MESSAGES,
+  DEFAULT_LLM_CONTEXT_MESSAGES,
+};
 
 // ── Create session ────────────────────────────────────────
 
@@ -48,11 +64,13 @@ export async function createSession(
   const maxSessions =
     subscription.plan === "PREMIUM"
       ? PREMIUM_MAX_SESSIONS_PER_DAY
-      : FREE_MAX_SESSIONS_PER_DAY;
+      : subscription.plan === "GOLD"
+        ? GOLD_MAX_SESSIONS_PER_DAY
+        : FREE_MAX_SESSIONS_PER_DAY;
 
   if (sessionsToday >= maxSessions) {
     throw new AppError(
-      `Daily session limit reached (${maxSessions}). Upgrade to Premium for more sessions.`,
+      `Daily session limit reached (${maxSessions}). Upgrade your plan for more sessions.`,
       429,
     );
   }

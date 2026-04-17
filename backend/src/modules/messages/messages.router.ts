@@ -87,8 +87,9 @@ router.get("/:sessionId/messages", authenticate, listMessagesHandler);
  *       Returns the user message, AI response, and evaluation in one call.
  *
  *       Per-session message limits (user messages only):
- *       - FREE plan: 50 messages (soft) + 10 buffer (hard)
- *       - PREMIUM plan: 150 messages (soft) + 10 buffer (hard)
+ *       - FREE plan: 20 messages (soft) + 10 buffer · 20 messages/day cap across all sessions · 10-message AI context
+ *       - GOLD plan: 100 messages (soft) + 10 buffer · 20-message AI context
+ *       - PREMIUM plan: 150 messages (soft) + 10 buffer · 20-message AI context
  *     tags: [Messages]
  *     security:
  *       - bearerAuth: []
