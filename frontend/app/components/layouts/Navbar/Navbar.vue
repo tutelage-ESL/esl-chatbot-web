@@ -78,43 +78,39 @@ onUnmounted(() => {
 
 <template>
     <div class="sticky top-0 z-9999 w-full">
-        <div class="h-18 max-md:shadow-sm md:bg-[#EFEFEF]/50 backdrop-blur-[5px] px-4 py-2 border-b border-secondary-200/70 dark:border-secondary-700/70 rounded-none">
-            <header id="site-navbar"
-                class="container-lg layout-padding-lg  flex items-center justify-between">
-            <div class="w-29.75 h-4 md:w-42.25 md:h-5.75 md-lg:max-lg:w-35 lg:w-42.25 lg:h-5.75">
-                <AppLink to="/" @click.prevent="useScrollToTop">
-                    <!-- <AppImage src="/images/logo/smileMates.svg" alt="Smile Mates Logo" width="169" height="23" /> -->
-                     <AppText tag="div" size="32" weight="bold" color="primary-orange-500">
-                        Tutelage AI
-                     </AppText>
-                </AppLink>
-            </div>
+        <div
+            class="h-18 max-md:shadow-sm md:bg-[#EFEFEF]/50 backdrop-blur-[5px] px-4 py-2 border-b border-secondary-200/70 dark:border-secondary-700/70 rounded-none flex items-center justify-center   ">
+            <header id="site-navbar" class="container-lg layout-padding-lg flex items-center justify-between">
+                    <AppLink to="/" @click.prevent="useScrollToTop" class="flex items-center justify-center gap-2">
+                        <AppImage src="/only-logo-black-border-yellow-bg.svg" alt="Tutelage Logo"
+                            class="size-8.75 md:size-10" />
+                        <AppText size="20" weight="bold" classList="text-black">Tutelage AI</AppText>
+                    </AppLink>
 
-            <nav class="hidden md-lg:block">
-                <ul class="flex items-center justify-center gap-6">
-                    <li v-for="link in navItems" :key="link.name" class="relative">
-                        <AppLink v-if="link.name" :to="link.link"
-                            class="text-xs lg:text-sm font-semibold text-black transition-transform duration-300 inline-block"
-                            :class="{ '-translate-y-0.5 text-primary-400': activeLink === link.link }"
-                            @click="handleLinkClick(link.link)">
-                            {{ link.name }}
-                        </AppLink>
-                        <span
-                            class="absolute left-1/2 -translate-x-1/2 -bottom-1 h-0.5 bg-primary-400 transition-all duration-300 ease-out"
-                            :class="activeLink === link.link ? 'w-full' : 'w-0'"></span>
-                    </li>
-                </ul>
-            </nav>
+                <nav class="hidden md-lg:block">
+                    <ul class="flex items-center justify-center gap-6">
+                        <li v-for="link in navItems" :key="link.name" class="relative">
+                            <AppLink v-if="link.name" :to="link.link"
+                                class="text-xs lg:text-sm font-semibold text-black transition-transform duration-300 inline-block"
+                                :class="{ '-translate-y-0.5 text-primary-400': activeLink === link.link }"
+                                @click="handleLinkClick(link.link)">
+                                {{ link.name }}
+                            </AppLink>
+                            <span
+                                class="absolute left-1/2 -translate-x-1/2 -bottom-1 h-0.5 bg-primary-400 transition-all duration-300 ease-out"
+                                :class="activeLink === link.link ? 'w-full' : 'w-0'"></span>
+                        </li>
+                    </ul>
+                </nav>
 
-            <div class="flex items-center justify-center gap-2">
-                <AppButton :disabled="false" aria-label="log in button" to="/signin" 
-                    class-list="w-21 h-7.75 md:w-32 md:h-11.25 text-white text-sm font-medium">
-                    Log In
-                </AppButton>
-                <div class="md-lg:hidden">
-                    <LayoutNavbarMenu :nav-items="navItems" :active-link="activeLink" />
+                <div class="flex items-center justify-center gap-2">
+                    <AppButton size="40" aria-label="Signin button" to="/signin" class-list="cursor-pointer">
+                        Get Started
+                    </AppButton>
+                    <div class="md-lg:hidden">
+                        <LayoutNavbarMenu :nav-items="navItems" :active-link="activeLink" />
+                    </div>
                 </div>
-            </div>
             </header>
         </div>
     </div>

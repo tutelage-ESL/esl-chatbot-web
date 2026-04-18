@@ -73,9 +73,9 @@ const props = withDefaults(
   defineProps<ButtonProps>(),
   {
     variant: "primary",
-    size: "48",
+    size: "38",
     iconPosition: 'start',
-    radius: '12',
+    radius: '8',
   }
 );
 
