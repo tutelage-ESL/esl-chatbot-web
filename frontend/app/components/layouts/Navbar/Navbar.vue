@@ -79,7 +79,7 @@ onUnmounted(() => {
 <template>
     <div class="sticky top-0 z-9999 w-full">
         <div
-            class="h-18 max-md:shadow-sm md:bg-[#EFEFEF]/50 backdrop-blur-[5px] px-4 py-2 border-b border-secondary-200/70 dark:border-secondary-700/70 rounded-none flex items-center justify-center   ">
+            class="h-18 md:bg-[#EFEFEF]/50 backdrop-blur-[5px] px-4 py-2 border-b border-secondary-200/70 dark:border-secondary-700/70 rounded-none flex items-center justify-center   ">
             <header id="site-navbar" class="container-lg layout-padding-lg flex items-center justify-between">
                     <AppLink to="/" @click.prevent="useScrollToTop" class="flex items-center justify-center gap-2">
                         <AppImage src="/only-logo-black-border-yellow-bg.svg" alt="Tutelage Logo"
@@ -108,7 +108,7 @@ onUnmounted(() => {
                         Get Started
                     </AppButton>
                     <div class="md-lg:hidden">
-                        <LayoutNavbarMenu :nav-items="navItems" :active-link="activeLink" />
+                        <LayoutsNavbarMenu :nav-items="navItems" :active-link="activeLink" />
                     </div>
                 </div>
             </header>
