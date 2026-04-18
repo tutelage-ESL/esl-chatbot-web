@@ -78,9 +78,9 @@ onUnmounted(() => {
 
 <template>
     <div class="sticky top-0 z-9999 w-full">
-        <div class="container-lg layout-padding-lg">
+        <div class="h-18 max-md:shadow-sm md:bg-[#EFEFEF]/50 backdrop-blur-[5px] px-4 py-2 border-b border-secondary-200/70 dark:border-secondary-700/70 rounded-none">
             <header id="site-navbar"
-                class="h-15.25 max-md:shadow-sm md:bg-[#EFEFEF]/50 backdrop-blur-[5px] px-4 py-2 border-b border-secondary-200/70 dark:border-secondary-700/70 rounded-none flex items-center justify-between">
+                class="container-lg layout-padding-lg  flex items-center justify-between">
             <div class="w-29.75 h-4 md:w-42.25 md:h-5.75 md-lg:max-lg:w-35 lg:w-42.25 lg:h-5.75">
                 <AppLink to="/" @click.prevent="useScrollToTop">
                     <!-- <AppImage src="/images/logo/smileMates.svg" alt="Smile Mates Logo" width="169" height="23" /> -->
@@ -107,7 +107,7 @@ onUnmounted(() => {
             </nav>
 
             <div class="flex items-center justify-center gap-2">
-                <AppButton  :disabled="true" aria-label="log in button" to="/signin" 
+                <AppButton :disabled="false" aria-label="log in button" to="/signin" 
                     class-list="w-21 h-7.75 md:w-32 md:h-11.25 text-white text-sm font-medium">
                     Log In
                 </AppButton>
