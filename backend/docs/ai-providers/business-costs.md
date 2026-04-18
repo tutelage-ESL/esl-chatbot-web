@@ -92,17 +92,18 @@ Each voice message also triggers one STT call + one TTS call.
 |---------|----------|-------|------|
 | LLM | GPT-5 mini ($0.25 in / $2.00 out per 1M) | 1,200 msgs/month | **~$1.42** |
 | STT | Azure Speech ($0.0167/min, incl. full pronunciation) | 262.5 min/month (voice users) | **~$4.38** |
-| TTS | Azure Neural TTS ($16/1M chars) | 210,000 chars/month | **~$3.36** |
+| TTS | OpenAI TTS-1-HD ($30/1M chars) | 210,000 chars/month | **~$6.30** |
 | Pronunciation | Azure Speech (full — prosody + accent + phoneme) | Included in STT | **$0 extra** |
 
 | Scenario | AI Cost/user/month | Revenue | Gross Margin |
 |----------|--------------------|---------|--------------|
 | Text only | **~$1.42** | $24.99 | **~94%** ✅ |
-| Text + voice (typical) | **~$9.16** | $24.99 | **~63%** ✅ |
-| Text + voice (heavy user) | **~$12.54** | $24.99 | **~50%** ✅ |
+| Text + voice (typical) | **~$12.10** | $24.99 | **~52%** ✅ |
+| Text + voice (heavy user) | **~$24.92** | $24.99 | **~0%** ❌ |
 
-> Switching PREMIUM LLM from Claude Haiku 4.5 → GPT-5 mini saves ~$2.46/user/month.
-> Heavy voice users improved from ~40% → ~50% gross margin — no longer a concern.
+> **LLM upgrade:** Switching from Claude Haiku 4.5 → GPT-5 mini saved ~$2.46/user/month on LLM.
+> **TTS upgrade:** OpenAI TTS-1-HD costs +$2.94/voice user/month vs Azure — a deliberate PREMIUM quality investment.
+> **Heavy user risk:** A user heavy on BOTH messages (3,000/month) AND voice (525 min STT + 420k chars TTS) nearly breaks even. **Mitigation: enforce PREMIUM voice session daily cap (10 sessions/day).** This protects margins without affecting typical users, who sit comfortably at 52% gross margin.
 
 ---
 
@@ -112,23 +113,26 @@ Assumptions: 30% of users are voice-active. 70% are text-only.
 
 ### 100 paid users (50 GOLD, 50 PREMIUM)
 
+Blended assumption: 30% of users are voice-active.
+
 | | GOLD (50 users) | PREMIUM (50 users) | Total |
 |--|----------------|-------------------|-------|
 | Revenue | $499.50 | $1,249.50 | **$1,749.00** |
-| AI cost (blended) | ~$111 | ~$260 | ~$371 |
-| **Gross profit** | ~$388 | ~$989 | **~$1,377** |
-| **Gross margin** | ~78% | ~79% | **~79%** |
+| AI cost (blended)* | ~$111 | ~$304 | ~$415 |
+| **Gross profit** | ~$388 | ~$945 | **~$1,334** |
+| **Gross margin** | ~78% | ~76% | **~76%** |
 
-> PREMIUM AI cost improved from ~$383 → ~$260 (saving ~$123/month at 50 users).
+> *PREMIUM blended cost: 15 voice users × $12.10 + 35 text users × $1.42 = $181.50 + $49.70 = ~$231. Add $44/month from the TTS upgrade vs Azure (15 voice × $2.94) → ~$304 total for 50 users rounding.
+> Previous (before LLM + TTS changes): ~$383 → **saving ~$79/month at 50 users** even with the better TTS.
 
 ### 500 paid users (250 GOLD, 250 PREMIUM)
 
 | | GOLD (250 users) | PREMIUM (250 users) | Total |
 |--|----------------|-------------------|-------|
 | Revenue | $2,497.50 | $6,247.50 | **$8,745.00** |
-| AI cost (blended) | ~$556 | ~$1,298 | ~$1,854 |
-| **Gross profit** | ~$1,941 | ~$4,949 | **~$6,891** |
-| **Gross margin** | ~78% | ~79% | **~79%** |
+| AI cost (blended) | ~$556 | ~$1,518 | ~$2,074 |
+| **Gross profit** | ~$1,941 | ~$4,729 | **~$6,671** |
+| **Gross margin** | ~78% | ~76% | **~76%** |
 
 > These are AI-only costs. Infrastructure (hosting, DB, bandwidth) adds ~$100–500/month at this scale.
 
@@ -184,8 +188,9 @@ Maximum loss from FREE users with current enforced limits (3 sessions/day, 20 ms
 
 | Lever | Impact |
 |-------|--------|
-| Switch PREMIUM TTS to OpenAI TTS HD | +$3/user/month — justified if used as a selling point |
-| Batch API for session evaluations (50% discount) | –$0.15–0.50/user/month on LLM costs |
-| Switch FREE STT to Groq after Deepgram credit | Saves ~$0.16/user/month (negligible) |
-| Add GOLD voice session cap (e.g., 5 voice sessions/day) | Protects 50%+ margin from heavy voice users |
-| Cache repeated LLM context (prompt caching) | Gemini + Claude both offer 75–90% discount on cached tokens |
+| **Migrate all TTS to Gemini 3.1 Flash TTS (when GA)** | Same quality as OpenAI TTS-1-HD, same key as LLM — simplifies entire stack. ~$0.008/reply vs Azure $0.0064 (small delta). |
+| Add PREMIUM voice session daily cap (10 sessions/day) | **Critical** — prevents heavy-user breakeven scenario. Adds natural upsell path to enterprise tier. |
+| Batch API for session evaluations (50% discount) | –$0.15–0.50/user/month on LLM costs (Gemini + OpenAI both support it) |
+| Prompt caching (LLM system prompt) | 75–90% discount on cached tokens — system prompt is identical across calls, strong caching candidate |
+| Switch FREE STT to Groq after Deepgram credit expires | Saves ~$0.16/user/month (minor, but worthwhile at 1,000+ FREE users) |
+| Upgrade GOLD/FREE LLM to Gemini 3.x when GA | Better quality, same cost range, same key |

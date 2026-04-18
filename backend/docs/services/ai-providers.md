@@ -8,11 +8,12 @@
 |-----------|-----|-----------|-----------|--------------|
 | **LLM** | Gemini 3 Flash ⚠️ preview | Gemini 2.5 Flash-Lite | Gemini 2.5 Flash | GPT-5 mini |
 | **STT** | Deepgram Nova-3 ($200 credit) | Deepgram Nova-3 | Azure Speech | Azure Speech |
-| **TTS** | Edge TTS (npm, no key) | Azure Neural TTS | Azure Neural TTS | Azure Neural TTS* |
+| **TTS** | Edge TTS (npm, no key) | Azure Neural TTS | Azure Neural TTS | OpenAI TTS-1-HD† |
 | **Pronunciation** | Azure F0 (5 hrs/month free) | None | Azure (basic) | Azure (full + prosody) |
 
-> *PREMIUM TTS: upgrade to OpenAI TTS HD later if voice quality becomes a business priority  
-> ⚠️ Dev LLM uses Gemini 3 Flash preview — free tier, better quality than 2.5 Flash. Gemini 3.x not used in production until GA.
+> ⚠️ Dev LLM uses Gemini 3 Flash preview — free tier, better quality than 2.5 Flash. Gemini 3.x not used in production until GA.  
+> †PREMIUM TTS uses OpenAI TTS-1-HD: noticeably more natural speech vs Azure, differentiates the $24.99 tier from GOLD. `OPENAI_API_KEY` already in stack for GPT-5 mini — zero new keys.  
+> 🔭 Future (all prod TTS): Gemini 3.1 Flash TTS — launched April 15 2026, ranked #2 quality globally, same `GEMINI_API_KEY`. Migrate when GA.
 
 ## API Keys Required (Production)
 
