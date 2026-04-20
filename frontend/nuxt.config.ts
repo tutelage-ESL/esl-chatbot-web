@@ -30,5 +30,5 @@ export default defineNuxtConfig({
       },
     ],
   },
-  modules: ['@pinia/nuxt', '@nuxt/image', 'shadcn-nuxt']
+  modules: ['@pinia/nuxt', '@nuxt/image', 'shadcn-nuxt', 'nuxt-marquee']
 })

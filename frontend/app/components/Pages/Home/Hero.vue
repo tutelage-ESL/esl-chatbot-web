@@ -79,18 +79,16 @@
           Trusted by 2,000+ learners worldwide
         </AppText>
         <div class="relative overflow-hidden mask-[linear-gradient(90deg,transparent,black_10%,black_90%,transparent)]">
-          <div class="flex gap-14 w-max animate-[marq_40s_linear_infinite]">
-            <div v-for="k in 2" :key="k" class="flex gap-14 items-center shrink-0 text-neutral-50/35">
-              <div
-                v-for="brand in brands"
-                :key="brand.name"
-                class="flex items-center gap-2 text-[15px] font-medium tracking-tight"
-              >
-                <Icon :icon="brand.icon" width="15" class="text-neutral-50/45" />
-                <AppText size="15" color="white" class-list="text-neutral-50/35">{{ brand.name }}</AppText>
-              </div>
+          <NuxtMarquee :auto-fill="true" :pause-on-hover="false" :speed="36" class="py-1">
+            <div
+              v-for="brand in brands"
+              :key="brand.name"
+              class="flex items-center gap-2 shrink-0 text-[15px] font-medium tracking-tight text-neutral-50/35 mr-14"
+            >
+              <Icon :icon="brand.icon" width="15" class="text-neutral-50/45" />
+              <AppText size="15" color="white" class-list="text-neutral-50/35">{{ brand.name }}</AppText>
             </div>
-          </div>
+          </NuxtMarquee>
         </div>
       </div>
     </div>
@@ -121,31 +119,3 @@ const brands = [
 
 const heroChecks = ['Free to start', 'No credit card', '40+ topics']
 </script>
-
-<style scoped>
-@keyframes rise {
-  from {
-    transform: translateY(20px);
-    opacity: 0;
-  }
-
-  20% {
-    opacity: 1;
-  }
-
-  to {
-    transform: translateY(-220px);
-    opacity: 0;
-  }
-}
-
-@keyframes marq {
-  from {
-    transform: translateX(0);
-  }
-
-  to {
-    transform: translateX(-50%);
-  }
-}
-</style>
