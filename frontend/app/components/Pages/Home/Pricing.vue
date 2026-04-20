@@ -1,14 +1,12 @@
 <template>
   <section id="pricing" class="bg-brand-muted/60 py-28 sm:py-32 border-y border-neutral-200/70">
     <div class="container-md layout-padding-md">
-      <div class="max-w-2xl mx-auto text-center mb-14">
-        <AppText size="11" weight="semibold" color="brand-primary" class-list="uppercase tracking-[0.2em] mb-3">
-          Pricing
-        </AppText>
-        <AppText size="section-h2" weight="semibold" color="brand-ink" class-list="tracking-[-0.03em] leading-[1.05]">
-          Start free. Upgrade when you're ready.
-        </AppText>
-      </div>
+      <LayoutsSectionHeader
+        eyebrow="Pricing"
+        title="Start free. Upgrade when you're ready."
+        align="center"
+        wrapper-class="mb-14"
+      />
 
       <div class="grid md:grid-cols-2 gap-5">
         <div class="rounded-[14px] bg-neutral-50 border border-neutral-200/70 p-8 shadow-soft">

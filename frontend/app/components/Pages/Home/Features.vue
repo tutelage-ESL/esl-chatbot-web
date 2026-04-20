@@ -1,23 +1,19 @@
 <template>
   <section id="features" class="bg-neutral-50 py-28 sm:py-32">
     <div class="container-lg layout-padding-lg">
-      <div class="max-w-2xl">
-        <AppText size="11" weight="semibold" color="brand-primary" class-list="uppercase tracking-[0.2em] mb-3">
-          Features
-        </AppText>
-        <AppText size="section-h2" weight="semibold" color="brand-ink" class-list="tracking-[-0.03em] leading-[1.05]">
-          Everything you need to master English.
-        </AppText>
-        <AppText size="16" color="brand-sub" class-list="mt-4 max-w-xl leading-relaxed">
-          A complete toolkit — designed together, not bolted on. Every session feeds your goals, your vocabulary, and your analytics.
-        </AppText>
-      </div>
+      <LayoutsSectionHeader
+        eyebrow="Features"
+        title="Everything you need to master English."
+        description="A complete toolkit — designed together, not bolted on. Every session feeds your goals, your vocabulary, and your analytics."
+        align="start"
+        description-class="max-w-xl"
+      />
 
       <div class="mt-14 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <div
           v-for="(feature, i) in features"
           :key="i"
-          class="group relative rounded-[14px] bg-brand-muted border border-neutral-200/60 p-6 overflow-hidden transition-[transform,box-shadow,border-color] duration-400 hover:-translate-y-1 hover:shadow-[0_20px_48px_-20px_rgba(17,17,17,0.18)]"
+          class="group relative rounded-[14px] bg-brand-muted border border-neutral-200/60 p-6 overflow-hidden transform-gpu will-change-transform transition-transform duration-200 ease-out hover:-translate-y-1 hover:shadow-[0_20px_48px_-20px_rgba(17,17,17,0.18)]"
         >
           <div class="absolute top-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-brand-primary/30 to-transparent opacity-0 group-hover:opacity-100 transition" />
           <div class="w-11 h-11 rounded-xl bg-neutral-50 border border-neutral-200/70 flex items-center justify-center shadow-soft mb-5 text-brand-ink group-hover:text-brand-primary group-hover:border-brand-primary/30 transition">
@@ -26,7 +22,7 @@
           <AppText size="17" weight="semibold" color="brand-ink" class-list="tracking-tight">{{ feature.title }}</AppText>
           <AppText size="14" color="brand-sub" class-list="mt-2 leading-relaxed">{{ feature.description }}</AppText>
           <div class="mt-5 flex items-center gap-1.5 text-[12px] font-medium text-brand-primary opacity-0 group-hover:opacity-100 transition">
-            <AppText size="12" color="brand-primary">Learn more</AppText>
+            <AppText class-list="cursor-pointer" size="12" color="brand-primary">Learn more</AppText>
             <Icon icon="lucide:arrow-right" width="12" />
           </div>
         </div>

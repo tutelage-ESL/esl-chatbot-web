@@ -28,7 +28,7 @@
           <div
             v-for="item in sidebarItems"
             :key="item.label"
-            class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[12px]"
+            class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[12px] cursor-pointer"
             :class="item.active ? 'bg-brand-primary/10 text-brand-ink font-medium' : 'text-neutral-500'"
           >
             <Icon :icon="item.icon" width="14" />
@@ -56,7 +56,7 @@
               <div class="text-[11px] text-neutral-400 uppercase tracking-wider font-medium">Good morning</div>
               <div class="text-lg font-semibold tracking-tight">Welcome back, Aram 👋</div>
             </div>
-            <button class="hidden sm:flex items-center gap-2 text-[12px] bg-brand-ink text-neutral-50 px-3 py-1.5 rounded-lg">
+            <button class="cursor-pointer hidden sm:flex items-center gap-2 text-[12px] bg-brand-ink text-neutral-50 px-3 py-1.5 rounded-lg">
               <Icon icon="lucide:message-circle" width="13" /> New session
             </button>
           </div>
@@ -145,7 +145,7 @@
               </div>
               <div class="mt-2 pt-2 border-t border-neutral-100 flex items-center justify-between">
                 <div class="text-[10px] text-neutral-400">12 turns · 94% accuracy</div>
-                <button class="text-[10px] font-medium text-brand-primary flex items-center gap-0.5">
+                <button class="cursor-pointer text-[10px] font-medium text-brand-primary flex items-center gap-0.5">
                   Continue <Icon icon="lucide:arrow-right" width="10" />
                 </button>
               </div>
