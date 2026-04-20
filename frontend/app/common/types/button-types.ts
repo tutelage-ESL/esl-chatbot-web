@@ -1,5 +1,5 @@
-export type ButtonHeight = 'auto' | '24' | '28' | '32' | '36' | '38' | '40' | '44' | '48'
-export type Variant = 'primary' | 'secondary' | 'ghost' | 'outline' | 'danger'
+export type ButtonHeight = 'auto' | '24' | '28' | '32' | '36' | '38' | '40' | '44' | '48' | '52' | '56'
+export type Variant = 'primary' | 'secondary' | 'ghost' | 'outline' | 'danger' | 'brand' | 'dark-ghost' | 'ink'
 export type ButtonRadius = 'none' | 'full' | '4' | '8' | '12' | '16'
 
 
@@ -12,7 +12,9 @@ export const buttonSizeClasses: Record<ButtonHeight, string> = {
   '38': 'h-9.5 text-sm',
   "40": 'h-10 text-sm',
   '44': 'h-11 text-base',
-  '48': 'h-12 text-xl',
+  '48': 'h-12 text-base',
+  '52': 'h-[52px] text-[15px]',
+  '56': 'h-14 text-[15px]',
 }
 export const buttonRadiusClasses: Record<ButtonRadius, string> = {
   'none': 'rounded-0',
@@ -24,7 +26,6 @@ export const buttonRadiusClasses: Record<ButtonRadius, string> = {
 }
 
 
-// const disabledClasses = 'disabled:bg-neutral-300 dark:disabled:bg-neutral-700 disabled:from-neutral-500 disabled:to-neutral-500 disabled:border-neutral-100 dark:disabled:border-neutral-700 dark:disabled:from-neutral-700 dark:disabled:to-neutral-700 disabled:text-neutral-400 disabled:icon-neutral-400 disabled:cursor-not-allowed';
 const disabledClasses = 'disabled:cursor-not-allowed! disabled:text-white! disabled:opacity-60 disabled:bg-neutral-100 dark:disabled:bg-neutral-800 disabled:border-neutral-200 dark:disabled:border-neutral-700 disabled:text-neutral-400 dark:disabled:text-neutral-500 disabled:icon-neutral-400 dark:disabled:icon-neutral-500';
 
 export const variantClasses: Record<Variant, string> = {
@@ -33,6 +34,12 @@ export const variantClasses: Record<Variant, string> = {
   'outline': `${disabledClasses} bg-transparent border border-secondary-300 text-secondary-800 icon-secondary-800 justify-center px-4 hover:bg-secondary-50 dark:border-secondary-600 dark:text-secondary-100 dark:icon-secondary-100 dark:hover:bg-secondary-800 active:bg-secondary-100 dark:active:bg-secondary-700 active:border-secondary-400 dark:active:border-secondary-500 active:text-secondary-900 dark:active:text-secondary-50 active:icon-secondary-900 dark:active:icon-secondary-50`,
   'ghost': `${disabledClasses} bg-transparent border border-transparent text-secondary-800 icon-secondary-800 justify-center px-4 hover:bg-secondary-50 dark:text-secondary-100 dark:icon-secondary-100 dark:hover:bg-secondary-800 active:bg-secondary-100 dark:active:bg-secondary-700 active:text-secondary-900 dark:active:text-secondary-50 active:icon-secondary-900 dark:active:icon-secondary-50`,
   'danger': `${disabledClasses} bg-destructive border border-destructive text-white icon-destructive-foreground justify-center px-4 hover:bg-destructive/90 active:bg-destructive/80`,
+  // Landing-page orange gradient button with soft inner highlight + amber glow shadow
+  'brand': `${disabledClasses} justify-center px-5 font-semibold text-brand-ink bg-gradient-to-b from-brand-primary to-[#e48906] shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_10px_24px_-10px_rgba(245,158,11,0.55)] hover:brightness-110 active:brightness-95`,
+  // Landing-page dark glass button (white/90 text, subtle white border, white/3 bg)
+  'dark-ghost': `${disabledClasses} justify-center px-5 font-medium text-white/90 bg-white/[0.03] border border-white/15 hover:bg-white/[0.06] active:bg-white/[0.08]`,
+  // Solid ink (near-black) button used in pricing "Get started" and dashboard mock
+  'ink': `${disabledClasses} justify-center px-5 font-semibold bg-brand-ink text-white border border-brand-ink hover:bg-neutral-800 active:bg-neutral-900`,
 }
 
 export const activeClasses: Record<Variant, string> = {
@@ -41,8 +48,7 @@ export const activeClasses: Record<Variant, string> = {
   'outline': 'bg-secondary-100! dark:bg-secondary-700 border-secondary-400! dark:border-secondary-500 text-secondary-900! dark:text-secondary-50! icon-secondary-900! dark:icon-secondary-50!',
   'ghost': 'bg-secondary-100! dark:bg-secondary-700 text-secondary-900! dark:text-secondary-50! icon-secondary-900! dark:icon-secondary-50!',
   'danger': 'bg-destructive/90! outline! outline-destructive!',
-
+  'brand': 'brightness-95!',
+  'dark-ghost': 'bg-white/[0.08]!',
+  'ink': 'bg-neutral-900!',
 }
-
-
-
