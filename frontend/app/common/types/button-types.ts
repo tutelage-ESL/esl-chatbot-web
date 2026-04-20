@@ -25,21 +25,17 @@ export const buttonRadiusClasses: Record<ButtonRadius, string> = {
   'full': 'rounded-full',
 }
 
-
-const disabledClasses = 'disabled:cursor-not-allowed! disabled:text-white! disabled:opacity-60 disabled:bg-neutral-100 dark:disabled:bg-neutral-800 disabled:border-neutral-200 dark:disabled:border-neutral-700 disabled:text-neutral-400 dark:disabled:text-neutral-500 disabled:icon-neutral-400 dark:disabled:icon-neutral-500';
+const disabledClasses = 'disabled:cursor-not-allowed disabled:opacity-60 disabled:bg-neutral-100 dark:disabled:bg-neutral-800 disabled:border-neutral-200 dark:disabled:border-neutral-700 disabled:text-neutral-400 dark:disabled:text-neutral-500 disabled:icon-neutral-400 dark:disabled:icon-neutral-500';
 
 export const variantClasses: Record<Variant, string> = {
   'primary': `${disabledClasses} bg-linear-to-br border border-transparent from-primary-500 active:bg-clip-padding active:outline active:outline-primary-500 to-primary-300 hover:from-primary-600 hover:to-ternary-400 justify-center px-4 text-neutral-50 icon-neutral-50`,
   'secondary': `${disabledClasses} bg-secondary-100 border border-secondary-200 text-black icon-secondary-900 justify-center px-4 hover:bg-secondary-200 hover:border-secondary-300 active:bg-secondary-300 active:border-secondary-400 active:outline active:outline-secondary-300`,
   'outline': `${disabledClasses} bg-transparent border border-secondary-300 text-secondary-800 icon-secondary-800 justify-center px-4 hover:bg-secondary-50 dark:border-secondary-600 dark:text-secondary-100 dark:icon-secondary-100 dark:hover:bg-secondary-800 active:bg-secondary-100 dark:active:bg-secondary-700 active:border-secondary-400 dark:active:border-secondary-500 active:text-secondary-900 dark:active:text-secondary-50 active:icon-secondary-900 dark:active:icon-secondary-50`,
   'ghost': `${disabledClasses} bg-transparent border border-transparent text-secondary-800 icon-secondary-800 justify-center px-4 hover:bg-secondary-50 dark:text-secondary-100 dark:icon-secondary-100 dark:hover:bg-secondary-800 active:bg-secondary-100 dark:active:bg-secondary-700 active:text-secondary-900 dark:active:text-secondary-50 active:icon-secondary-900 dark:active:icon-secondary-50`,
-  'danger': `${disabledClasses} bg-destructive border border-destructive text-white icon-destructive-foreground justify-center px-4 hover:bg-destructive/90 active:bg-destructive/80`,
-  // Landing-page orange gradient button with soft inner highlight + amber glow shadow
-  'brand': `${disabledClasses} justify-center px-5 font-semibold text-brand-ink bg-gradient-to-b from-brand-primary to-[#e48906] shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_10px_24px_-10px_rgba(245,158,11,0.55)] hover:brightness-110 active:brightness-95`,
-  // Landing-page dark glass button (white/90 text, subtle white border, white/3 bg)
-  'dark-ghost': `${disabledClasses} justify-center px-5 font-medium text-white/90 bg-white/[0.03] border border-white/15 hover:bg-white/[0.06] active:bg-white/[0.08]`,
-  // Solid ink (near-black) button used in pricing "Get started" and dashboard mock
-  'ink': `${disabledClasses} justify-center px-5 font-semibold bg-brand-ink text-white border border-brand-ink hover:bg-neutral-800 active:bg-neutral-900`,
+  'danger': `${disabledClasses} bg-destructive border border-destructive text-neutral-50 icon-destructive-foreground justify-center px-4 hover:bg-destructive/90 active:bg-destructive/80`,
+  'brand': `${disabledClasses} justify-center px-5 font-semibold text-brand-ink bg-linear-to-b from-brand-primary to-primary-400 border border-brand-primary/70 ring-1 ring-primary-300/40 shadow-lg shadow-brand-primary/40 hover:brightness-110 active:brightness-95`,
+  'dark-ghost': `${disabledClasses} justify-center px-5 font-medium text-neutral-50/90 bg-neutral-50/3 border border-neutral-50/15 hover:bg-neutral-50/6 active:bg-neutral-50/8`,
+  'ink': `${disabledClasses} justify-center px-5 font-semibold bg-brand-ink text-neutral-50 border border-brand-ink hover:bg-neutral-800 active:bg-neutral-900`,
 }
 
 export const activeClasses: Record<Variant, string> = {
@@ -49,6 +45,6 @@ export const activeClasses: Record<Variant, string> = {
   'ghost': 'bg-secondary-100! dark:bg-secondary-700 text-secondary-900! dark:text-secondary-50! icon-secondary-900! dark:icon-secondary-50!',
   'danger': 'bg-destructive/90! outline! outline-destructive!',
   'brand': 'brightness-95!',
-  'dark-ghost': 'bg-white/[0.08]!',
+  'dark-ghost': 'bg-neutral-50/8!',
   'ink': 'bg-neutral-900!',
 }

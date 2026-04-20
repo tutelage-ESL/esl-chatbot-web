@@ -8,11 +8,11 @@
 
 
 <template>
-  <div>
+  <div class="min-h-dvh bg-neutral-50">
     <LayoutsNavbar />
-    <div class="w-full min-h-[calc(100dvh-844px)]">
+    <main class="w-full">
       <slot />
-    </div>
+    </main>
     <LayoutsFooter />
     <AppScrollToTopButton />
   </div>

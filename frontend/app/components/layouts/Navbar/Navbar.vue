@@ -1,117 +1,62 @@
+<template>
+    <header
+        class="fixed top-0 inset-x-0 z-50 border-b transition-all duration-300"
+        :class="scrolled ? 'bg-brand-ink/60 backdrop-blur-xl border-neutral-50/10' : 'bg-transparent border-transparent'"
+    >
+        <div class="container-lg layout-padding-lg h-16 flex items-center justify-between">
+            <AppLink to="/" class="flex items-center gap-2 group">
+                <AppImage src="/only-logo-black-border-yellow-bg.svg" alt="Tutelage AI Logo" class="size-8" />
+                <AppText size="15" weight="semibold" color="white" class-list="tracking-tight">
+                    Tutelage <span class="text-brand-primary">AI</span>
+                </AppText>
+            </AppLink>
+
+            <nav class="hidden md:flex items-center gap-7">
+                <AppLink
+                    v-for="item in navLinks"
+                    :key="item.label"
+                    :to="item.to"
+                    class="text-[13px] font-medium text-neutral-50/70 transition-colors hover:text-brand-primary"
+                >
+                    {{ item.label }}
+                </AppLink>
+            </nav>
+
+            <div class="flex items-center gap-2">
+                <AppButton to="/signin" variant="dark-ghost" size="38" class-list="hidden sm:inline-flex px-3.5 text-[13px]">
+                    Sign in
+                </AppButton>
+                <AppButton to="#cta" variant="brand" size="38" class-list="px-3.5 text-[13px] gap-1.5">
+                    <span>Get Started</span>
+                    <Icon icon="lucide:arrow-right" width="13" />
+                </AppButton>
+            </div>
+        </div>
+    </header>
+</template>
+
 <script setup lang="ts">
+import { Icon } from '@iconify/vue'
 
-import { onMounted, onUnmounted, ref, watch, nextTick, computed } from 'vue';
-import { CircleUserRound, User2Icon } from 'lucide-vue-next';
-import { onClickOutside } from '@vueuse/core';
-import { navItems } from '~/common/data/nav-links';
+const scrolled = ref(false)
 
-const activeLink = ref<string>('');
-const route = useRoute();
-const router = useRouter();
-const handleLinkClick = (linkName: string) => {
-    activeLink.value = linkName;
-};
+const navLinks = [
+    { label: 'Features', to: '#features' },
+    { label: 'How It Works', to: '#how' },
+    { label: 'Dashboard', to: '#dashboard' },
+    { label: 'Pricing', to: '#pricing' },
+]
 
-let observer: IntersectionObserver | null = null;
-
-const setupObserver = async () => {
-    await nextTick();
-
-    if (observer) {
-        observer.disconnect();
-    }
-
-    const options = {
-        root: null,
-        rootMargin: '-50% 0px -50% 0px',
-        threshold: 0
-    };
-
-    observer = new IntersectionObserver((entries) => {
-        entries.forEach((entry) => {
-            if (entry.isIntersecting) {
-                const id = entry.target.id;
-                activeLink.value = `/#${id}`;
-            }
-        });
-    }, options);
-
-    navItems.forEach((item) => {
-        const id = item.link.split('#')[1];
-        if (id) {
-            const el = document.getElementById(id);
-            if (el) observer?.observe(el);
-        }
-    });
-};
-
+const onScroll = () => {
+    scrolled.value = window.scrollY > 20
+}
 
 onMounted(() => {
-    setupObserver();
-
-    // Handle initial hash on page load
-    if (route.hash) {
-        setTimeout(() => {
-            const element = document.querySelector(route.hash);
-            if (element) {
-                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                activeLink.value = `/${route.hash}`;
-            }
-        }, 100);
-    }
-});
-
-// Re-setup observer when route changes
-watch(() => route.path, () => {
-    setupObserver();
-    if (route.path !== '/') {
-        activeLink.value = '';
-    }
-});
+    window.addEventListener('scroll', onScroll)
+    onScroll()
+})
 
 onUnmounted(() => {
-    if (observer) {
-        observer.disconnect();
-    }
-});
+    window.removeEventListener('scroll', onScroll)
+})
 </script>
-
-<template>
-    <div class="sticky top-0 z-9999 w-full">
-        <div
-            class="h-18 md:bg-[#EFEFEF]/50 backdrop-blur-[5px] px-4 py-2 border-b border-secondary-200/70 dark:border-secondary-700/70 rounded-none flex items-center justify-center   ">
-            <header id="site-navbar" class="container-lg layout-padding-lg flex items-center justify-between">
-                    <AppLink to="/" @click.prevent="useScrollToTop" class="flex items-center justify-center gap-2">
-                        <AppImage src="/only-logo-black-border-yellow-bg.svg" alt="Tutelage Logo"
-                            class="size-8.75 md:size-10" />
-                        <AppText size="20" weight="bold" classList="text-black">Tutelage AI</AppText>
-                    </AppLink>
-
-                <nav class="hidden md-lg:block">
-                    <ul class="flex items-center justify-center gap-6">
-                        <li v-for="link in navItems" :key="link.name" class="relative">
-                            <AppLink v-if="link.name" :to="link.link"
-                                class="text-xs lg:text-sm font-semibold text-black transition-transform duration-300 inline-block"
-                                :class="{ '-translate-y-0.5 text-primary-400': activeLink === link.link }"
-                                @click="handleLinkClick(link.link)">
-                                {{ link.name }}
-                            </AppLink>
-                            <span
-                                class="absolute left-1/2 -translate-x-1/2 -bottom-1 h-0.5 bg-primary-400 transition-all duration-300 ease-out"
-                                :class="activeLink === link.link ? 'w-full' : 'w-0'"></span>
-                        </li>
-                    </ul>
-                </nav>
-
-                <div class="flex items-center justify-center gap-2">
-                    <AppButton size="40" aria-label="Signin button" to="/signin" class-list="cursor-pointer">
-                        Get Started
-                    </AppButton>
-                    <div class="md-lg:hidden">
-                        <LayoutsNavbarMenu :nav-items="navItems" :active-link="activeLink" />
-                    </div>
-                </div>
-            </header>
-        </div>
-    </div>
-</template>

@@ -113,11 +113,11 @@ const mergedClasses = computed(() => {
   const variant = variantClasses[props.variant];
   const size = buttonSizeClasses[props.size];
   const radius = buttonRadiusClasses[props.radius];
-  const defaultClasses = ['font-poppins', 'font-medium', 'flex', 'items-center', 'group', 'whitespace-nowrap', 'transition-all', '**:transition-all', 'duration-400', '**:duration-400', `${props.variant}-button`]
+  const defaultClasses = ['font-poppins', 'font-medium', 'flex', 'items-center', 'group', 'whitespace-nowrap', 'transition-all', '**:transition-all', 'duration-400', '**:duration-400']
   if (props.aspect === 'square') defaultClasses.push('aspect-square', 'p-0')
   if (props.iconPosition === 'end' && props.icon) defaultClasses.push('flex-row-reverse', 'gap-2')
   if (props.active) defaultClasses.push(props.activeClassList || activeClasses[props.variant]);
-  return twMerge(variant, size, radius, defaultClasses, props.classList)
+  return twMerge('cursor-pointer', variant, size, radius, defaultClasses, props.classList)
 }
 );
 

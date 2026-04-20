@@ -79,14 +79,14 @@ export const colorClasses: Record<TextColor, string> = {
   'brand-primary': 'text-brand-primary',
   'brand-ink':     'text-brand-ink',
   'brand-sub':     'text-brand-sub',
-  'white-90': 'text-white/90',
-  'white-70': 'text-white/70',
-  'white-60': 'text-white/60',
-  'white-55': 'text-white/55',
-  'white-50': 'text-white/50',
-  'white-45': 'text-white/45',
-  'white-40': 'text-white/40',
-  'white-35': 'text-white/35',
+  'white-90': 'text-neutral-50/90',
+  'white-70': 'text-neutral-50/70',
+  'white-60': 'text-neutral-50/60',
+  'white-55': 'text-neutral-50/55',
+  'white-50': 'text-neutral-50/50',
+  'white-45': 'text-neutral-50/45',
+  'white-40': 'text-neutral-50/40',
+  'white-35': 'text-neutral-50/35',
 }
 
 export const fontFamilyClasses: Record<FontFamily, string> = {
