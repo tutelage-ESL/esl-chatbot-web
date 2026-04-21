@@ -1,5 +1,6 @@
 <template>
     <header
+        id="site-navbar"
         class="fixed top-0 inset-x-0 z-50 border-b transition-all duration-300"
         :class="scrolled ? 'bg-brand-ink/60 backdrop-blur-xl border-neutral-50/10' : 'bg-transparent border-transparent'"
     >
@@ -11,25 +12,34 @@
                 </AppText>
             </AppLink>
 
-            <nav class="hidden md:flex items-center gap-7">
+            <nav class="hidden md-lg:flex items-center gap-7">
                 <AppLink
                     v-for="item in navLinks"
-                    :key="item.label"
-                    :to="item.to"
+                    :key="item.link"
+                    :to="item.link"
                     class="text-[13px] font-medium text-neutral-50/70 transition-colors hover:text-brand-primary"
+                    :class="activeLink === item.link ? 'text-brand-primary' : ''"
                 >
-                    {{ item.label }}
+                    {{ item.name }}
                 </AppLink>
             </nav>
 
-            <div class="flex items-center gap-2">
+            <div class="hidden md-lg:flex items-center gap-2">
                 <AppButton to="/signin" variant="dark-ghost" size="38" class-list="hidden sm:inline-flex px-3.5 text-[13px]">
                     Sign in
                 </AppButton>
-                <AppButton to="#cta" variant="brand" size="38" class-list="px-3.5 text-[13px] gap-1.5">
+                <AppButton to="/#cta" variant="brand" size="38" class-list="px-3.5 text-[13px] gap-1.5">
                     <span>Get Started</span>
                     <Icon icon="lucide:arrow-right" width="13" />
                 </AppButton>
+            </div>
+
+            <div class="md-lg:hidden flex items-center gap-2">
+                <AppButton to="/#cta" variant="brand" size="38" class-list="px-3 sm:px-3.5 text-[13px] gap-1.5">
+                    <span>Get Started</span>
+                    <Icon icon="lucide:arrow-right" width="13" />
+                </AppButton>
+                <LayoutsNavbarMenu :nav-items="navLinks" :active-link="activeLink" />
             </div>
         </div>
     </header>
@@ -37,15 +47,19 @@
 
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
+import type { NavItemTypes } from '~/common/types/nav-links-type'
 
 const scrolled = ref(false)
+const route = useRoute()
 
-const navLinks = [
-    { label: 'Features', to: '#features' },
-    { label: 'How It Works', to: '#how' },
-    { label: 'Dashboard', to: '#dashboard' },
-    { label: 'Pricing', to: '#pricing' },
+const navLinks: NavItemTypes[] = [
+    { name: 'Features', link: '/#features' },
+    { name: 'How It Works', link: '/#how' },
+    { name: 'Dashboard', link: '/#dashboard' },
+    { name: 'Pricing', link: '/#pricing' },
 ]
+
+const activeLink = computed(() => `${route.path}${route.hash || ''}`)
 
 const onScroll = () => {
     scrolled.value = window.scrollY > 20
