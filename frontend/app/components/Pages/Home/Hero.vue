@@ -98,7 +98,7 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
 
-const particles = Array.from({ length: 22 }, () => ({
+const particles = Array.from({ length: 200 }, () => ({
   left:   Math.random() * 100,
   bottom: Math.random() * 30,
   delay:  Math.random() * 8,
