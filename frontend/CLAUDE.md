@@ -16,6 +16,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working in the 
 - **Notifications:** `vue-sonner`
 - **OTP input:** `vue-input-otp`
 - **Images:** `@nuxt/image`
+- **Marquee:** `nuxt-marquee`
 
 ## Commands
 
@@ -45,7 +46,7 @@ app/
 │  ├─ data/         # static data (country-code.ts, nav-links.ts, profile-links.ts, ...)
 │  ├─ model/        # types mirroring backend tables (e.g. user.ts)
 │  ├─ types/        # other TS types (button-types.ts, iconsax-types.ts, ...)
-│  └─ schema/       # Zod validation schemas
+│  └─ schemas/      # Zod validation schemas
 │
 ├─ components/      # Subfolders are PascalCase, EXCEPT package folders (e.g. `ui` for shadcn — never rename)
 │  ├─ App/          # main UI primitives: Button, Iconsax, Link, Text, Image, ...
@@ -65,14 +66,17 @@ app/
 └─ pages/           # Nuxt pages (file-based routing)
 ```
 
+Pinia stores live at the **workspace root** in `stores/` (imported as `~~/stores/...`), NOT under `app/stores/`. See [useHttp.ts](app/composables/useHttp.ts) importing from `~~/stores/auth`.
+
 **Key rules:**
 - Component folders use **PascalCase** (`App/`, `Form/`, `Pages/`). Package-owned folders (`ui/` for shadcn) stay as the package expects.
 - Page-specific sections live under `components/Pages/<PageName>/` — not under `pages/` itself.
 - Skeleton components are grouped under `components/Skeletons/` mirroring the page/component they load for.
 - `common/model/` holds types that correspond 1:1 to backend DB tables. Generated API types live separately in [types/api.ts](types/api.ts).
 - Composables are named `useXxx()` and may export multiple related functions from one file.
-- the components use Auto imports By Nuxt, for examplewe have app/components/App/Button.vue, we use it as  <AppButton></AppButton>
-- for the designes use tailwind css, if a design is global amke it utility and put it in the main.css, if a style is dont by using css like key rames use <style scoped></style> inside the component itself!
+- Components auto-import with folder-path PascalCase prefix — `app/components/App/Button.vue` is used as `<AppButton />`, `app/components/Pages/Home/Hero.vue` as `<PagesHomeHero />`.
+- Styling: use Tailwind utilities. Put reusable/global styles in [app/assets/css/main.css](app/assets/css/main.css) as utility classes. Use `<style scoped>` inside a component only for things Tailwind can't express (e.g. `@keyframes`).
+- Fetch data via the `useHttp` composable ([app/composables/useHttp.ts](app/composables/useHttp.ts)) — never call `fetch` directly from components or pages.
 
 ## API Types (do not edit)
 
@@ -120,8 +124,9 @@ const { success, data, message } = await useHttp<User>({
 ## Runtime Config
 
 Defined in [nuxt.config.ts](nuxt.config.ts):
-- `BASE_URL` — server-side base URL
-- `public.googleClientId` — from `NUXT_PUBLIC_GOOGLE_CLIENT_ID`
+- `BASE_URL` — server-side base URL (from `NUXT_BASE_URL`)
+
+`NUXT_PUBLIC_GOOGLE_CLIENT_ID` is referenced by the Google Sign-In flow but is **not currently wired into `runtimeConfig.public`**. When implementing auth, add `public: { googleClientId: '' }` to `runtimeConfig` in [nuxt.config.ts](nuxt.config.ts) so it resolves from the env var at runtime.
 
 Add new public values under `runtimeConfig.public` and consume via `useRuntimeConfig().public.*`.
 
@@ -131,7 +136,7 @@ Add new public values under `runtimeConfig.public` and consume via `useRuntimeCo
 - **Styling:** use `cn()` from [app/lib/utils.ts](app/lib/utils.ts) + `tailwind-merge` to merge classes. Use CVA (`class-variance-authority`) for variant-based components — see [app/common/types/button-types.ts](app/common/types/button-types.ts) for the pattern.
 - **Icons:** prefer the `App/Iconsax.vue` wrapper; use `@iconify/vue` directly only when an icon isn't in the Iconsax set.
 - **Toasts:** `vue-sonner` — `useHttp` already integrates it via `showToast: true`.
-- **Naming:** components PascalCase, composables `useXxx`, types and Zod schemas go in `common/types/` and `common/schema/` respectively (not co-located with components).
+- **Naming:** components PascalCase, composables `useXxx`, types and Zod schemas go in `common/types/` and `common/schemas/` respectively (not co-located with components).
 
 ## Related Docs
 

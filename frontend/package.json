@@ -28,7 +28,8 @@
     "vue-iconsax": "^2.0.0",
     "vue-input-otp": "^0.3.2",
     "vue-router": "^4.6.4",
-    "vue-sonner": "^2.0.9"
+    "vue-sonner": "^2.0.9",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@iconify/vue": "^5.0.0",

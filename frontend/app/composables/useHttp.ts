@@ -24,7 +24,7 @@ export const useHttp = async <T = any>(options: HttpOptions): Promise<HttpRespon
   const config = useRuntimeConfig()
   const { baseUrl ,url, method, body, requireAuth = false, headers, showToast = false, includeCredentials = false, ignoreResponse = false } = options
 
-  const BASE_URL = config.app.baseURL || 'http://localhost:3000'
+  const BASE_URL = config.BASE_URL || 'http://localhost:8000'
 
   let API_URL = options.url
   if(url){

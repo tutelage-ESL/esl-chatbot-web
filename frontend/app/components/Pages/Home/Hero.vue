@@ -47,13 +47,13 @@
           </AppText>
 
           <div class="mt-9 flex flex-col sm:flex-row items-center gap-3 justify-center lg:justify-start">
-            <AppButton to="#cta" variant="brand" size="52" radius="12" class-list="text-[14px] gap-2 px-5">
+            <AppButton to="/signin" variant="brand" size="52" radius="12" class-list="text-[14px] gap-2 px-5">
               <span>Get Started</span>
               <Icon icon="lucide:arrow-right" width="14" />
             </AppButton>
-            <AppButton to="#" variant="dark-ghost" size="52" radius="12" class-list="text-[14px] gap-2 px-5">
-              <Icon icon="lucide:message-circle" width="14" />
-              <span>Try AI Chat</span>
+            <AppButton to="#pricing" variant="dark-ghost" size="52" radius="12" class-list="text-[14px] gap-2 px-5">
+              <Icon icon="lucide:dollar-sign" width="14" />
+              <span>See Pricing</span>
             </AppButton>
           </div>
 
@@ -118,4 +118,6 @@ const brands = [
 ]
 
 const heroChecks = ['Free to start', 'No credit card', '40+ topics']
+
+
 </script>

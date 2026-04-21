@@ -1,15 +1,6 @@
 <template>
-  <component
-    :is="resolvedTag"
-    :to="resolvedTo"
-    :class="mergedClasses"
-    :disabled="isDisabled"
-    v-bind="attrs"
-    :type="buttonType"
-    :aria-disabled="isDisabled || undefined"
-    :tabindex="isDisabled && resolvedTag !== 'button' ? -1 : undefined"
-    @click="handleClick"
-  >
+  <component :is="tag ? tag : to ? 'router-link' : 'button'" :to="to" :class="mergedClasses" :disabled="loading"
+    v-bind="attrs" :type="buttonType">
     <Icon v-if="loading" mode="mask" icon="svg-spinners:180-ring-with-bg" class="text-2xl mx-auto" />
     <template v-else>
       <slot name="before" />
@@ -25,6 +16,7 @@
 import { twMerge } from "tailwind-merge";
 import Iconsax from "./Iconsax.vue";
 import { activeClasses, buttonRadiusClasses, buttonSizeClasses, variantClasses, type ButtonHeight, type ButtonRadius, type Variant } from "@/common/types/button-types";
+
 import type { RouteLocationRaw } from "vue-router";
 import { Icon } from "@iconify/vue";
 import type { SvgBasedIconName } from "~/common/types/iconsax-types";
@@ -65,8 +57,6 @@ const resolvedTag = computed(() => {
   if (props.tag) return props.tag
   return props.to && !isDisabled.value ? 'NuxtLink' : 'button'
 })
-
-const resolvedTo = computed(() => (resolvedTag.value === 'NuxtLink' ? props.to : undefined))
 
 
 const props = withDefaults(
@@ -120,11 +110,4 @@ const mergedClasses = computed(() => {
   return twMerge('cursor-pointer', variant, size, radius, defaultClasses, props.classList)
 }
 );
-
-const handleClick = (event: MouseEvent) => {
-  if (isDisabled.value) {
-    event.preventDefault();
-    event.stopPropagation();
-  }
-}
 </script>

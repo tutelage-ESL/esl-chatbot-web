@@ -1,16 +1,14 @@
 export type User = {
-  name: string;
-  phoneNumber: string;
-  profilePicture: string;
-  balance: number;
-  profile: {
-    FirstName: string;
-    LastName: string;
-    Birthday: string;
-    E_Mail: string;
-    Gender: string;
-    Country: any;
-    State: any;
-    AdvertisementLanguage: string;
-  }
+  id: string;
+  username: string;
+  email: string;
+  displayName: string;
+  role: 'STUDENT' | 'TEACHER' | 'ADMIN';
+  avatarUrl: string;
+  isActive: boolean;
+  subscription: {
+    plan: 'FREE' | 'GOLD' | 'PREMIUM';
+    status: 'ACTIVE' | 'INACTIVE' | 'CANCELED' | 'PAST_DUE';
+  };
 };
+

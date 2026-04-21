@@ -26,10 +26,7 @@
             </nav>
 
             <div class="hidden md-lg:flex items-center gap-2">
-                <AppButton to="/signin" variant="dark-ghost" size="38" class-list="hidden sm:inline-flex px-3.5 text-[13px]">
-                    Sign in
-                </AppButton>
-                <AppButton to="/#cta" variant="brand" size="38" class-list="px-3.5 text-[13px] gap-1.5">
+                <AppButton to="/signin" variant="brand" size="38" class-list="px-3.5 text-[13px] gap-1.5">
                     <span>Get Started</span>
                     <Icon icon="lucide:arrow-right" width="13" />
                 </AppButton>

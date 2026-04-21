@@ -17,7 +17,7 @@
       </AppText>
 
       <div class="mt-9 flex items-center justify-center gap-3 flex-wrap">
-        <AppButton to="#" variant="brand" size="56" radius="12" class-list="gap-2 px-6 text-[15px]">
+        <AppButton to="/signin" variant="brand" size="56" radius="12" class-list="gap-2 px-6 text-[15px]">
           <span>Get Started Free</span>
           <Icon icon="lucide:arrow-right" width="14" />
         </AppButton>
