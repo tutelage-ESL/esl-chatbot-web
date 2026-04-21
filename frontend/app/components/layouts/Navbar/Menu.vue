@@ -7,6 +7,9 @@ const props = defineProps<{
   navItems: NavItemTypes[]
   activeLink?: string
 }>()
+const emit = defineEmits<{
+  select: [link: string]
+}>()
 
 const route = useRoute()
 
@@ -43,6 +46,11 @@ const toggleMenu = async () => {
 
 const closeMenu = () => {
   isOpen.value = false
+}
+
+const handleItemClick = (link: string) => {
+  emit('select', link)
+  closeMenu()
 }
 
 watch(isOpen, (open) => {
@@ -103,15 +111,15 @@ onUnmounted(() => {
           <div class="relative h-full overflow-y-auto border-t border-neutral-50/10 bg-linear-to-b from-brand-ink via-brand-dark to-brand-dark2">
             <div class="pointer-events-none absolute inset-0 opacity-80 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-size-[44px_44px]" />
 
-            <div  :style="{ marginTop: `${topOffset}px` }" class="relative layout-padding-lg py-7">
+            <div :style="{ marginTop: `${topOffset}px` }" class="relative layout-padding-lg py-7">
               <nav>
                 <ul class="flex flex-col gap-2">
                   <li v-for="item in props.navItems" :key="item.link">
                     <AppLink
                       :to="item.link"
                       class="group flex items-center justify-between rounded-xl border border-neutral-50/10 bg-neutral-50/3 px-4 py-3 text-neutral-50/80 transition-all hover:border-brand-primary/40 hover:bg-brand-primary/10 hover:text-neutral-50"
-                      :class="{ 'border-brand-primary/50 bg-brand-primary/15 text-brand-primary': props.activeLink === item.link }"
-                      @click="closeMenu"
+                      :class="{ 'border-brand-primary/40! bg-brand-primary/10! text-neutral-50!': props.activeLink === item.link }"
+                      @click="handleItemClick(item.link)"
                     >
                       <AppText size="15" color="white" class-list="text-inherit font-medium tracking-tight">
                         {{ item.name ?? 'Menu item' }}
