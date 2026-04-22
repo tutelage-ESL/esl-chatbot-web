@@ -197,7 +197,15 @@ Each module under `src/modules/[name]/` follows:
 - **Message type vs session mode:** `SessionMode` (TEXT/VOICE) is the starting mode. Individual `Message.type` (TEXT/VOICE) allows mixed-mode sessions — no separate MIXED enum needed.
 - **Session limits:** soft limit shows a warning; hard limit (soft+10) blocks further messages. Daily session cap prevents runaway costs.
 - **FREE tier cost controls:** 20 msg/session soft limit, 20 msg/day hard cap across all sessions, 10-message LLM context window (vs 20 for GOLD/PREMIUM). Reduces FREE tier AI cost ~65% vs naive design.
-- **AI integration:** `src/modules/ai/ai.service.ts` exports `generateAIResponse()` — model selected by plan: FREE→Gemini 2.5 Flash-Lite, GOLD→Gemini 2.5 Flash, PREMIUM→GPT-5 mini. Dev uses Gemini 3 Flash (preview, free tier). Falls back to heuristic evaluation if no API key is set. FREE/GOLD/Dev are pending migration from OpenAI placeholder to Gemini SDK. See `docs/services/ai-providers.md` + `docs/ai-providers/llm.md` for full decision, costs, and upgrade paths.
+- **AI integration:** `src/modules/ai/ai.service.ts` exports `generateAIResponse()` — routing by plan and environment:
+  - Dev (all plans) → `gemini-flash-latest` alias (resolves to `gemini-3-flash-preview`) via `@google/genai`
+  - FREE → Gemini 2.5 Flash-Lite (`gemini-2.5-flash-lite`) via `@google/genai`
+  - GOLD → Gemini 2.5 Flash (`gemini-2.5-flash`) via `@google/genai`
+  - PREMIUM → GPT-5 mini (`gpt-5-mini`) via OpenAI SDK; **auto-falls back** to Gemini 2.5 Flash if OpenAI errors
+  - No API key → heuristic placeholder response
+  - Model strings are constants in each provider file — model upgrades are one-line changes
+  - Shared system prompt: `src/modules/ai/providers/prompt.ts`
+  - See `docs/services/ai-providers.md` + `docs/ai-providers/llm.md` for full decision, costs, and upgrade paths.
 - **TTS stack:** Dev→Edge TTS (npm, free) · FREE+GOLD→Azure Neural TTS (`AZURE_SPEECH_KEY`) · PREMIUM→OpenAI TTS-1-HD (`OPENAI_API_KEY`, already in stack). Future: Gemini 3.1 Flash TTS (launched Apr 2026, #2 global quality, same `GEMINI_API_KEY`) when GA. See `docs/ai-providers/tts.md`.
 - **STT stack:** Dev+FREE→Deepgram Nova-3 (`DEEPGRAM_API_KEY`, $200 credit) · GOLD+PREMIUM→Azure Speech (`AZURE_SPEECH_KEY`, includes pronunciation assessment). See `docs/ai-providers/stt.md`.
 - **AI tier limits:** Session/day caps: FREE=3, GOLD=15, PREMIUM=50. Messages/session soft limits: FREE=20+10 buffer, GOLD=100+10 buffer, PREMIUM=150+10 buffer. FREE also has 20 msg/day hard cap.

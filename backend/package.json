@@ -40,6 +40,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@google/genai": "^1.50.1",
     "@prisma/client": "6",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",

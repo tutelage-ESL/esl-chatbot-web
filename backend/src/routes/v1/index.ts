@@ -4,10 +4,12 @@ import authRouter from "../../modules/auth/auth.router.ts";
 import classesRouter from "../../modules/classes/classes.router.ts";
 import sessionsRouter from "../../modules/sessions/sessions.router.ts";
 import messagesRouter from "../../modules/messages/messages.router.ts";
+import aiRouter from "../../modules/ai/ai.router.ts";
 
 const router = Router();
 
 router.use("/auth", authRouter);
+router.use("/ai", aiRouter);
 router.use("/users", usersRouter);
 router.use("/classes", classesRouter);
 router.use("/sessions", sessionsRouter);

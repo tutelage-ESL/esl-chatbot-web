@@ -1,7 +1,7 @@
 # LLM Provider — Decision & Reference
 
 > Decided: 2026-04-17  
-> Status: **Confirmed** — Gemini 2.5 Flash-Lite (FREE) · Gemini 2.5 Flash (GOLD) · GPT-5 mini (PREMIUM) · Gemini 3 Flash (Dev)
+> Status: **Confirmed** — Gemini 2.5 Flash-Lite (FREE) · Gemini 2.5 Flash (GOLD) · GPT-5 mini (PREMIUM) · `gemini-flash-latest` alias (Dev → resolves to gemini-3-flash-preview)
 
 ---
 
@@ -88,13 +88,13 @@ FREE tier uses smaller context (~450 input tokens — 10-message window vs 20 fo
 
 | Environment | Model | Reason |
 |-------------|-------|--------|
-| **Development** | Gemini 3 Flash (preview) | Free tier. Better quality than 2.5 Flash — dev tests reflect near-GOLD production behavior. Preview is acceptable for dev. |
+| **Development** | `gemini-flash-latest` alias (→ gemini-3-flash-preview) | Free tier. Direct `gemini-3-flash` ID returns 404 — the alias is the confirmed working path. Switch to a pinned stable ID when Gemini 3 Flash reaches GA. |
 | **FREE production** | Gemini 2.5 Flash-Lite | $0 revenue. Stable GA model at ~$0.08/user/month. Gemini 3.1 Flash-Lite would be 3× more expensive for the same $0 revenue. |
 | **GOLD production** | Gemini 2.5 Flash | Stable GA model. 87% gross margin. Upgrade path to Gemini 3 Flash exists when it reaches GA — same key, one string change. |
 | **PREMIUM production** | GPT-5 mini | GPT-5 quality at $0.25/$2.00. Margins jump from 84% → 94% (typical) and 61% → 86% (heavy user). 2.7× cheaper than Claude Haiku 4.5. **See testing caveat below before going live.** |
 
 **API keys needed: 2**
-- `GEMINI_API_KEY` — covers Dev (Gemini 3 Flash) + FREE (Gemini 2.5 Flash-Lite) + GOLD (Gemini 2.5 Flash)
+- `GEMINI_API_KEY` — covers Dev (`gemini-flash-latest` alias) + FREE (Gemini 2.5 Flash-Lite) + GOLD (Gemini 2.5 Flash)
 - `OPENAI_API_KEY` — covers PREMIUM (GPT-5 mini)
 
 ---
@@ -134,8 +134,9 @@ GPT-5 mini was selected on cost/benchmark data, not on validated ESL teaching qu
 ## Future Upgrade Paths
 
 ### Upgrade GOLD to Gemini 3 Flash (when GA)
-Once Gemini 3 Flash exits preview and developer inconsistency reports stabilize:
-- Change `GEMINI_MODEL_BY_PLAN.GOLD` to `"gemini-3-flash"` in `gemini.llm.ts`
+Once Gemini 3 Flash exits preview and gets a stable pinned model ID:
+- Change `GEMINI_MODEL_BY_PLAN.GOLD` to the stable ID (e.g. `"gemini-3-flash"`) in `gemini.llm.ts`
+- Dev `DEV_MODEL` is already on `"gemini-flash-latest"` which points at it — pin it to the stable ID at the same time
 - Cost: ~$1.32 → ~$1.68/user/month (+$0.36) for a meaningful quality jump
 - Same `GEMINI_API_KEY` — no new secrets needed
 
@@ -155,15 +156,16 @@ If business decides full GPT-5 is necessary for PREMIUM differentiation:
 
 ## Code Implementation
 
-FREE and GOLD use the Gemini SDK (pending provider migration — currently using OpenAI as placeholder).  
-PREMIUM uses the OpenAI SDK with `gpt-5-mini`.
+FREE and GOLD use the Gemini SDK (`@google/genai`).  
+PREMIUM uses the OpenAI SDK with `gpt-5-mini`, with automatic Gemini 2.5 Flash fallback on error.  
+Dev uses `gemini-flash-latest` (resolves to gemini-3-flash-preview) for all plans.
 
 ```ts
 // After Gemini migration (src/modules/ai/providers/gemini.llm.ts):
 const GEMINI_MODEL_BY_PLAN: Record<"FREE" | "GOLD", string> = {
   FREE: "gemini-2.5-flash-lite",
   GOLD: "gemini-2.5-flash",
-  // Dev uses "gemini-3-flash" (preview) — selected via NODE_ENV check in ai.service.ts
+  // Dev uses "gemini-flash-latest" alias — selected via NODE_ENV check in ai.service.ts
 };
 
 // PREMIUM (src/modules/ai/providers/openai.llm.ts):
@@ -175,7 +177,7 @@ const MODEL_BY_PLAN: Record<Plan, string> = {
 ```
 
 `ai.service.ts` routes by plan after migration:
-- `NODE_ENV === development` → Gemini 3 Flash (all plans, free tier)
+- `NODE_ENV === development` → `gemini-flash-latest` alias (all plans, free tier, resolves to gemini-3-flash-preview)
 - `FREE` / `GOLD` → `callGeminiLLM()` (Gemini SDK)
 - `PREMIUM` → `callOpenAILLM()` (OpenAI SDK, gpt-5-mini)
 
@@ -187,22 +189,37 @@ const MODEL_BY_PLAN: Record<Plan, string> = {
 
 **Cost to start:** $0 — free tier, no billing required for development.
 
-Steps:
+> **Important — Google does NOT ask you to pick a model when creating the key.**  
+> One API key (`GEMINI_API_KEY`) gives access to every Gemini model.  
+> The model is selected **in code**, per API call. This project uses three Gemini models depending on environment and plan:
+>
+> | Where | Model string in code | Why |
+> |-------|----------------------|-----|
+> | Development (all plans) | `gemini-flash-latest` alias | Resolves to `gemini-3-flash-preview`. Direct `gemini-3-flash` ID returns 404. |
+> | FREE tier (production) | `gemini-2.5-flash-lite` | Stable GA, cheapest |
+> | GOLD tier (production) | `gemini-2.5-flash` | Stable GA, best quality |
+>
+> The key you create works for all three — nothing to configure on Google's side per model.
+
+**Steps to get the key:**
 1. Go to [aistudio.google.com](https://aistudio.google.com)
 2. Sign in with your Google account
 3. Click **"Get API key"** in the left sidebar
-4. Click **"Create API key"** → select or create a Google Cloud project
-5. Copy the key — add it to Infisical as `GEMINI_API_KEY` (dev environment)
+4. Click **"Create API key"** → select or create a Google Cloud project (any project name is fine — it's just a billing/quota container)
+5. Copy the key — it starts with `AIza...`
+6. Add it to Infisical as `GEMINI_API_KEY` (dev environment)
+
+> You created the key correctly. The "which Gemini?" question is answered in `gemini.llm.ts`, not in AI Studio.
 
 **Free tier limits (as of April 2026):**
 - Gemini 2.5 Flash: 10 RPM, 250,000 TPM, 250 RPD
 - Gemini 2.5 Flash-Lite: 15 RPM, 250,000 TPM, 1,500 RPD
-- Gemini 3 Flash (preview): Free access — check AI Studio for current rate limits
+- `gemini-flash-latest` (→ gemini-3-flash-preview): Free access — check AI Studio for current rate limits
 
 **To enable paid tier (production):**
 1. Go to [console.cloud.google.com](https://console.cloud.google.com)
 2. Select your project → **Billing** → link a billing account
-3. Same API key works for both free and paid tiers
+3. Same API key works for both free and paid tiers — no new key needed
 
 **Add to Infisical:**
 ```
@@ -246,7 +263,7 @@ Model ID if reverting: `claude-haiku-4-5-20251001`
 ## Notes for Future Switching
 
 - To revert PREMIUM to Claude Haiku 4.5: add `ANTHROPIC_API_KEY` to Infisical + create `claude.llm.ts` + change one line in `ai.service.ts`
-- To upgrade GOLD to Gemini 3 Flash (when GA): change one string in `gemini.llm.ts` — no new keys
+- To upgrade GOLD to Gemini 3 Flash (when GA): pin `GEMINI_MODEL_BY_PLAN.GOLD` and `DEV_MODEL` to the stable ID in `gemini.llm.ts` — no new keys
 - To upgrade FREE to Gemini 3.1 Flash-Lite (when GA): change one string in `gemini.llm.ts` — no new keys
 - Batch API (50% discount): available on both Gemini and OpenAI for non-real-time calls (e.g., session end summaries)
 - Prompt caching: both Gemini and OpenAI offer 75–90% discount on cached tokens — the system prompt is identical across calls, making it a strong caching candidate
