@@ -23,12 +23,12 @@ const handleSubmit = async () => {
     const response = await authStore.signIn(formData)
 
     if (response.success) {
-        toast.success('Welcome back!')
         router.push('/dashboard')
     } else {
         serverError.value = response.message || 'Invalid username or password'
     }
 }
+
 </script>
 
 <template>

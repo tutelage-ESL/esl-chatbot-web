@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { signUpSchema, type SignUpSchema } from '~/common/schemas/AuthSchema'
 import { useAuthStore } from '~~/stores/auth'
-import { toast } from 'vue-sonner'
 
 definePageMeta({
     layout: 'auth',
@@ -26,7 +25,6 @@ const handleSubmit = async () => {
     const response = await authStore.signUp(formData)
 
     if (response.success) {
-        toast.success('Account created! Signing you in...')
         const loginResponse = await authStore.signIn({
             username: formData.username,
             password: formData.password,

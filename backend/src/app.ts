@@ -15,7 +15,7 @@ const app = express();
 // Security
 app.use(helmet());
 app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
-app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
+// app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
 
 // Body parsing
 app.use(express.json({ limit: "10mb" }));

@@ -43,7 +43,7 @@ const handleSubmit = async () => {
     serverError.value = ''
     const response = await authStore.googleAuth(idToken.value, formData.username)
 
-    if (response.success && !response.data?.needsRegistration) {
+    if (response.success && !response.data?.data?.needsRegistration) {
         sessionStorage.removeItem('googleIdToken')
         sessionStorage.removeItem('googleProfile')
         toast.success('Welcome!')

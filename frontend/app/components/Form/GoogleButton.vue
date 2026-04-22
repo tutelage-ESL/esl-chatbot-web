@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { googleTokenLogin } from 'vue3-google-login'
+import { googleOneTap } from 'vue3-google-login'
 import { useAuthStore } from '~~/stores/auth'
 import { toast } from 'vue-sonner'
 
@@ -16,8 +16,9 @@ const isLoading = ref(false)
 const handleClick = async () => {
     isLoading.value = true
     try {
-        const { access_token: _unused, credential } = (await googleTokenLogin({ clientId: (useRuntimeConfig().public.googleClientId as string) })) as any
-        const idToken = credential || _unused
+        const clientId = useRuntimeConfig().public.googleClientId as string
+        const result = await googleOneTap({ clientId, cancelOnTapOutside: false }) as any
+        const idToken = result?.credential
 
         if (!idToken) {
             toast.error('Google sign-in failed. Please try again.')
@@ -31,9 +32,9 @@ const handleClick = async () => {
             return
         }
 
-        if (response.data?.needsRegistration) {
+        if (response.data?.data?.needsRegistration) {
             sessionStorage.setItem('googleIdToken', idToken)
-            sessionStorage.setItem('googleProfile', JSON.stringify(response.data.profile || {}))
+            sessionStorage.setItem('googleProfile', JSON.stringify(response.data.data.profile || {}))
             router.push('/google-username')
             return
         }
@@ -41,7 +42,7 @@ const handleClick = async () => {
         toast.success('Welcome!')
         router.push('/dashboard')
     } catch (err: any) {
-        if (err?.error !== 'popup_closed_by_user') {
+        if (err?.error !== 'popup_closed_by_user' && err?.error !== 'cancelled') {
             toast.error('Google sign-in was cancelled or failed.')
         }
     } finally {

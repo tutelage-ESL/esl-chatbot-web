@@ -3,7 +3,7 @@
     <FormLabel v-if="label" :for-id="id" :label="label" :required="required" :class-list="labelClassList" />
     <div class="relative w-full">
       <CountryCode :disabled="$attrs.disabled as boolean" v-model="countryCode" v-if="type === 'tel'" />
-      <Iconsax v-if="icon" :name="icon" :color="props.iconConfig?.color" :size="props.iconConfig?.size"
+      <AppIconsax v-if="icon" :name="icon" :color="props.iconConfig?.color" :size="props.iconConfig?.size"
         :type="props.iconConfig?.type" class="absolute  top-1/2 -translate-y-1/2"
         :class="iconPosition === 'start' ? 'start-4' : 'end-4'" />
       <component v-maska="mask" :is="tag" :value="displayValue" @input="onInput" :id="id"

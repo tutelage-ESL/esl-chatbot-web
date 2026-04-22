@@ -1,4 +1,4 @@
-import { toast } from 'vue-sonner';
+import { toast } from 'vue-sonner'
 import { useAuthStore } from '~~/stores/auth';
 
 type HttpOptions = {
@@ -9,6 +9,7 @@ type HttpOptions = {
   requireAuth?: boolean
   headers?: Record<string, string>
   showToast?: boolean
+  toastDelayMs?: number
   includeCredentials?: boolean
   ignoreResponse?: boolean
 }
@@ -22,9 +23,9 @@ type HttpResponse<T = any> = {
 
 export const useHttp = async <T = any>(options: HttpOptions): Promise<HttpResponse<T>> => {
   const config = useRuntimeConfig()
-  const { baseUrl ,url, method, body, requireAuth = false, headers, showToast = false, includeCredentials = false, ignoreResponse = false } = options
+  const { baseUrl ,url, method, body, requireAuth = false, headers, showToast = false, toastDelayMs = 0, includeCredentials = false, ignoreResponse = false } = options
 
-  const BASE_URL = config.BASE_URL || 'http://localhost:8000/api/v1'
+  const BASE_URL = config.public.BASE_URL || 'http://localhost:8000/api/v1'
 
   let API_URL = options.url
   if(url){
@@ -38,8 +39,8 @@ export const useHttp = async <T = any>(options: HttpOptions): Promise<HttpRespon
   }
 
   if (requireAuth) {
-    let token = useAuthStore().getAccessToken || localStorage.getItem('accessToken') || useCookie('accessToken').value;
-    
+    const localToken = import.meta.client ? localStorage.getItem('accessToken') : null
+    const token = useAuthStore().getAccessToken || localToken || useCookie('accessToken').value
     if (token) {
       finalHeaders['Authorization'] = `Bearer ${token}`
     }
@@ -65,6 +66,7 @@ export const useHttp = async <T = any>(options: HttpOptions): Promise<HttpRespon
         finalHeaders,
         includeCredentials,
         showToast,
+        toastDelayMs,
         ignoreResponse,
       });
     }
@@ -73,28 +75,37 @@ export const useHttp = async <T = any>(options: HttpOptions): Promise<HttpRespon
       const data = await res.json()
       const response = { success: false, message: data.error?.message || data.message || `Request failed: ${res.status}`, data: null, status: res.status }
       showToastHandler(response.success, response.message, showToast)
+      await waitForToast(showToast, toastDelayMs)
       return response
     }
-
+    
     if (res.ok && ignoreResponse) {
       const response = { success: true, message: 'Success', data: null, status: res.status }
       return response
     }
-
+    
     const data = await res.json()
     const response = { success: true, message: data.message || 'Success', data, status: res.status }
-    showToastHandler(response.success, response.message, showToast && !!data.message)
+    showToastHandler(response.success, response.message, showToast)
+    await waitForToast(showToast, toastDelayMs)
     return response
   } catch (error: any) {
     const response = { success: false, message: error.message || 'Network error occurred', data: null, status: error.status || 500 }
     showToastHandler(response.success, response.message, showToast)
+    await waitForToast(showToast, toastDelayMs)
     return response
   }
 };
 
+const waitForToast = async (showToast: boolean, toastDelayMs: number) => {
+  if (!showToast || !import.meta.client) return
+  if (!Number.isFinite(toastDelayMs) || toastDelayMs <= 0) return
+  await new Promise((resolve) => setTimeout(resolve, toastDelayMs))
+}
+
 
 const showToastHandler = (success: boolean, message: string, showToast: boolean) => {
-  if (!showToast) return
+  if (!showToast || !import.meta.client) return
   if (!success) return toast.error(message)
   toast.success(message)
 };
@@ -108,6 +119,7 @@ const refreshTokenHandler = async ({
   finalHeaders,
   includeCredentials,
   showToast,
+  toastDelayMs,
   ignoreResponse,
 }: {
   baseUrl?: string;
@@ -118,6 +130,7 @@ const refreshTokenHandler = async ({
   finalHeaders: Record<string, string>;
   includeCredentials: boolean;
   showToast: boolean;
+  toastDelayMs: number;
   ignoreResponse: boolean;
 }): Promise<HttpResponse<any>> => {
 
@@ -127,7 +140,7 @@ const refreshTokenHandler = async ({
 
   if (refreshSuccess) {
     // Retry the request with new token
-    const newToken = useAuthStore().getAccessToken || localStorage.getItem('accessToken');
+    const newToken = useAuthStore().getAccessToken || (import.meta.client ? localStorage.getItem('accessToken') : null);
     if (newToken) {
       finalHeaders['Authorization'] = `Bearer ${newToken}`;
 
@@ -142,6 +155,7 @@ const refreshTokenHandler = async ({
         const data = await retryRes.json();
         const response = { success: false, message: data.error?.message || `Request failed: ${retryRes.status}`, data: null, status: retryRes.status };
         showToastHandler(response.success, response.message, showToast);
+        await waitForToast(showToast, toastDelayMs)
         return response;
       }
 
@@ -150,7 +164,10 @@ const refreshTokenHandler = async ({
           return { success: true, message: 'Success', data: null, status: retryRes.status };
         }
         const retryData = await retryRes.json();
-        return { success: true, message: retryData.message || 'Success', data: retryData, status: retryRes.status };
+        const response = { success: true, message: retryData.message || 'Success', data: retryData, status: retryRes.status };
+        showToastHandler(response.success, response.message, showToast);
+        await waitForToast(showToast, toastDelayMs)
+        return response;
       }
     }
   }
@@ -159,5 +176,6 @@ const refreshTokenHandler = async ({
   await useAuthStore().signOut();
   const response = { success: false, message: 'Session expired. Please login again.', data: null, status: 401 };
   showToastHandler(response.success, response.message, showToast);
+  await waitForToast(showToast, toastDelayMs)
   return response;
 };

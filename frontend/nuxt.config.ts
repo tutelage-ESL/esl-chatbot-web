@@ -4,11 +4,12 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
+  ssr: true,
   css: ['~/assets/css/main.css'],
   runtimeConfig: {
-    BASE_URL: import.meta.env.NUXT_BASE_URL,
     public: {
-      googleClientId: import.meta.env.NUXT_PUBLIC_GOOGLE_CLIENT_ID,
+      BASE_URL: '',
+      googleClientId: '',
     },
   },
   devServer: {

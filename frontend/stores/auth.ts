@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
+import 'pinia-plugin-persistedstate'
 import type { User } from '@/common/model/user'
 import type { SignInSchema, SignUpSchema, ForgotPasswordSchema, ResetPasswordSchema } from '~/common/schemas/AuthSchema'
-import type { id } from 'zod/v4/locales'
 
 interface AuthState {
   user: User | null
@@ -23,7 +23,6 @@ export const useAuthStore = defineStore('useAuthStore', {
     isLoading: false,
     isTokenRefreshed: false,
   }),
-
   actions: {
     async signIn(credentials: SignInSchema) {
       this.isLoading = true;
@@ -35,34 +34,33 @@ export const useAuthStore = defineStore('useAuthStore', {
           username: credentials.username,
           password: credentials.password,
         },
+        showToast: true,
+         toastDelayMs: 1500
       });      
 
       if (response.success){
-        this.accessToken = response.data.accessToken;
-        this.refreshToken = response.data.refreshToken;        
+        this.accessToken = response.data.data.accessToken;
+        this.refreshToken = response.data.data.refreshToken;
 
-        SetToken('accessToken', response.data.accessToken)
-        SetToken('refreshToken', response.data.refreshToken)
+        SetToken('accessToken', response.data.data.accessToken)
+        SetToken('refreshToken', response.data.data.refreshToken)
 
-        localStorage.setItem('accessToken', response.data.accessToken);
-        localStorage.setItem('refreshToken', response.data.refreshToken);
+        localStorage.setItem('accessToken', response.data.data.accessToken);
+        localStorage.setItem('refreshToken', response.data.data.refreshToken);
 
-        //now in here after the success login we call back the api/set-cookie to set the cookies in the server
         await fetch('/api/set-cookie', {
           method: 'POST',
           body: JSON.stringify({
-            accessToken: response.data.accessToken,
-            refreshToken: response.data.refreshToken,
+            accessToken: response.data.data.accessToken,
+            refreshToken: response.data.data.refreshToken,
           }),
           headers: {
             'Content-Type': 'application/json'
           },
           credentials: 'include',
         });
-        
-        // Fetch complete user data with after successful login
-        await this.fetchUser();
-        
+
+        this.setUserFromResponse(response.data.data.user)
       }
       this.isLoading = false;
 
@@ -82,25 +80,49 @@ export const useAuthStore = defineStore('useAuthStore', {
         method: 'POST',
         url: '/auth/register',
         body: signUpData,
-        ignoreResponse: true,
-      })   
-    
+        showToast: true,
+      })
+
+       if (response.success){
+        this.accessToken = response.data.data.accessToken;
+        this.refreshToken = response.data.data.refreshToken;        
+
+        SetToken('accessToken', response.data.data.accessToken)
+        SetToken('refreshToken', response.data.data.refreshToken)
+
+        localStorage.setItem('accessToken', response.data.data.accessToken);
+        localStorage.setItem('refreshToken', response.data.data.refreshToken);
+
+        //now in here after the success login we call back the api/set-cookie to set the cookies in the server
+        await fetch('/api/set-cookie', {
+          method: 'POST',
+          body: JSON.stringify({
+            accessToken: response.data.data.accessToken,
+            refreshToken: response.data.data.refreshToken,
+          }),
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include',
+        });
+        
+        this.setUserFromResponse(response.data.data.user)
+
+      }
       this.isLoading = false
 
       return response
     },
 
-    async fetchUser(): Promise<void> {      
-      this.isCheckedUser = true
+    async fetchUser(): Promise<void> {
       const config = useRuntimeConfig()
-      const baseURL = config.BASE_URL as string | undefined
       this.getTokenFromStorage()
 
       let statusCode: number | null = null
 
       const { data } = await useFetch<User>('/auth/me', {
         method: 'GET',
-        baseURL,
+        baseURL: config.public.BASE_URL,
         key: `user-account-${this.accessToken}`,
         cache:  "no-cache",
         headers: {
@@ -111,26 +133,30 @@ export const useAuthStore = defineStore('useAuthStore', {
         onResponse({ response }) {
           statusCode = response.status
         }
-      })         
+      })
+
+      this.isCheckedUser = true
+
       if(statusCode === 401){
         const refreshSuccess = await this.refreshTokens()
         if (refreshSuccess) {
           return this.fetchUser()
         }
       }
-      
-      if (data.value) {
+
+      const user = (data.value as any)?.data
+      if (user) {
         this.user = {
-          id: data.value.id,
-          username: data.value.username,
-          email: data.value.email,
-          displayName: data.value.displayName,
-          role: data.value.role,
-          avatarUrl: data.value.avatarUrl,
-          isActive: data.value.isActive,
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          displayName: user.displayName,
+          role: user.role,
+          avatarUrl: user.avatarUrl,
+          isActive: user.isActive,
           subscription: {
-            plan: data.value.subscription.plan,
-            status: data.value.subscription.status,
+            plan: user.subscription.plan,
+            status: user.subscription.status,
           }
         }
         this.isAuthenticated = true
@@ -203,27 +229,27 @@ export const useAuthStore = defineStore('useAuthStore', {
         body: username ? { idToken, username } : { idToken },
       })
 
-      if (response.success && response.data?.accessToken) {
-        this.accessToken = response.data.accessToken
-        this.refreshToken = response.data.refreshToken
+      if (response.success && response.data?.data?.accessToken) {
+        this.accessToken = response.data.data.accessToken
+        this.refreshToken = response.data.data.refreshToken
 
-        SetToken('accessToken', response.data.accessToken)
-        SetToken('refreshToken', response.data.refreshToken)
+        SetToken('accessToken', response.data.data.accessToken)
+        SetToken('refreshToken', response.data.data.refreshToken)
 
-        localStorage.setItem('accessToken', response.data.accessToken)
-        localStorage.setItem('refreshToken', response.data.refreshToken)
+        localStorage.setItem('accessToken', response.data.data.accessToken)
+        localStorage.setItem('refreshToken', response.data.data.refreshToken)
 
         await fetch('/api/set-cookie', {
           method: 'POST',
           body: JSON.stringify({
-            accessToken: response.data.accessToken,
-            refreshToken: response.data.refreshToken,
+            accessToken: response.data.data.accessToken,
+            refreshToken: response.data.data.refreshToken,
           }),
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
         })
 
-        await this.fetchUser()
+        this.setUserFromResponse(response.data.data.user)
       }
 
       this.isLoading = false
@@ -231,15 +257,19 @@ export const useAuthStore = defineStore('useAuthStore', {
     },
 
     async signOut() {
-      this.$reset();   
+      const refreshTokenForLogout = this.refreshToken;
+      this.$reset();
 
-      await useHttp({
-        method: 'POST',
-        url: '/auth/logout',
-        body: {
-          refreshToken: this.refreshToken,
-        },
-      });
+      if (refreshTokenForLogout) {
+        await useHttp({
+          method: 'POST',
+          url: '/auth/logout',
+          body: {
+            refreshToken: refreshTokenForLogout,
+          },
+          showToast: true,
+        });
+      }
 
       // Clear cookies via API
       fetch('/api/clear-cookie', {
@@ -262,14 +292,14 @@ export const useAuthStore = defineStore('useAuthStore', {
     },
 
     async refreshTokens() {
-      if(this.isTokenRefreshed) {
-        return false; 
+      if (this.isTokenRefreshed) {
+        return false;
       }
-      
+
       this.getTokenFromStorage()
 
       if (!this.accessToken || !this.refreshToken) {
-        // console.log('User is not authenticated. Skipping token refresh.');
+        this.isTokenRefreshed = true;
         return false;
       }
 
@@ -280,33 +310,55 @@ export const useAuthStore = defineStore('useAuthStore', {
         requireAuth: false,
         showToast: false,
       });
-      
-      if(response.status === 401){
-        await this.signOut();
+
+      if (response.status === 401 || !response?.success || !response?.data) {
+        this.isTokenRefreshed = true;
+        if (response.status === 401) {
+          await this.signOut();
+        }
+        return false;
       }
 
-      if (response?.success && response?.data) {
-          this.isTokenRefreshed = true;
-          this.accessToken = response.data.accessToken;
+      this.isTokenRefreshed = true;
+      this.accessToken = response.data.data.accessToken;
 
-          SetToken('accessToken', response.data.accessToken)
+      SetToken('accessToken', response.data.data.accessToken)
 
-          if (import.meta.client) {
-            localStorage.setItem('accessToken', response.data.accessToken as string);
-          }
+      if (import.meta.client) {
+        localStorage.setItem('accessToken', response.data.data.accessToken as string);
+      }
 
-          const setCookieResponse = await fetch('/api/set-cookie', {
-            method: 'POST',
-            body: JSON.stringify({
-              accessToken: response.data.accessToken,
-            }),
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            credentials: 'include',
-          });
-        }
-      return response.success
+      await fetch('/api/set-cookie', {
+        method: 'POST',
+        body: JSON.stringify({
+          accessToken: response.data.data.accessToken,
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+
+      return true;
+    },
+
+    setUserFromResponse(user: User) {
+      if (!user) return
+      this.user = {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        displayName: user.displayName,
+        role: user.role,
+        avatarUrl: user.avatarUrl,
+        isActive: user.isActive,
+        subscription: {
+          plan: user.subscription.plan,
+          status: user.subscription.status,
+        },
+      }
+      this.isAuthenticated = true
+      this.isCheckedUser = true
     },
 
     getTokenFromStorage() {
@@ -332,7 +384,7 @@ export const useAuthStore = defineStore('useAuthStore', {
     getAccessToken: (state) => state.accessToken,
     getRefreshToken: (state) => state.refreshToken,
   },
-})
+} )
 
 
 const SetToken = (name: string, token: string) => {
