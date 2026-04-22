@@ -7,6 +7,9 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
   runtimeConfig: {
     BASE_URL: import.meta.env.NUXT_BASE_URL,
+    public: {
+      googleClientId: import.meta.env.NUXT_PUBLIC_GOOGLE_CLIENT_ID,
+    },
   },
   devServer: {
     port: 3001,

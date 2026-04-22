@@ -28,8 +28,8 @@
 </template>
 
 <script setup lang="ts">
-import countryCode from '~~/common/data/country-code';
 import { onClickOutside } from '@vueuse/core'
+import countryCode from '~/common/data/country-code'
 
 const code = defineModel<string>({ default: '+964' })
 const show = ref(false)

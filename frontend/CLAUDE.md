@@ -14,7 +14,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working in the 
 - **Utilities:** `@vueuse/core`, `tailwind-merge`, `class-variance-authority`, `clsx`
 - **Icons:** `vue-iconsax`, `@iconify/vue`, `lucide-vue-next`
 - **Notifications:** `vue-sonner`
-- **OTP input:** `vue-input-otp`
+- **OTP input:** custom `FormVerificationInput` (6-digit, paste-friendly)
+- **Google Sign-In:** `vue3-google-login`
 - **Images:** `@nuxt/image`
 - **Marquee:** `nuxt-marquee`
 
@@ -50,7 +51,7 @@ app/
 │
 ├─ components/      # Subfolders are PascalCase, EXCEPT package folders (e.g. `ui` for shadcn — never rename)
 │  ├─ App/          # main UI primitives: Button, Iconsax, Link, Text, Image, ...
-│  ├─ Form/         # form-related components: Input, Error, VerificationInput, ...
+│  ├─ Form/         # form-related components: Form, Input, Label, Error, ServerError, VerificationInput, CopyButton, CountryCode, GoogleButton, AllDone, ...
 │  ├─ Layouts/      # layout components
 │  ├─ Pages/        # page-specific components grouped per page
 │  │  └─ Home/
@@ -77,6 +78,7 @@ Pinia stores live at the **workspace root** in `stores/` (imported as `~~/stores
 - Components auto-import with folder-path PascalCase prefix — `app/components/App/Button.vue` is used as `<AppButton />`, `app/components/Pages/Home/Hero.vue` as `<PagesHomeHero />`.
 - Styling: use Tailwind utilities. Put reusable/global styles in [app/assets/css/main.css](app/assets/css/main.css) as utility classes. Use `<style scoped>` inside a component only for things Tailwind can't express (e.g. `@keyframes`).
 - Fetch data via the `useHttp` composable ([app/composables/useHttp.ts](app/composables/useHttp.ts)) — never call `fetch` directly from components or pages.
+- always check teh components/APP and components/ui and components/Form base on the need and the request to use teh actual available resouces and components
 
 ## API Types (do not edit)
 
@@ -116,17 +118,43 @@ const { success, data, message } = await useHttp<User>({
 
 ## Auth Flow
 
-- **Store:** Pinia store at `~~/stores/auth` (referenced by `useHttp`). It must expose `getAccessToken`, `refreshTokens()`, `signOut()`, and `isTokenRefreshed`. *(Currently not yet created — add under `stores/auth.ts` at the workspace root when building auth.)*
-- **Tokens:** access token in memory + `localStorage` + cookie; refresh handled silently by `useHttp`.
-- **Route guarding:** handled in [app/middleware/middleware.global.ts](app/middleware/middleware.global.ts) by reading `to.meta.requiresAuth` / `to.meta.guestOnly` and redirecting accordingly. The scaffolding is in place but commented — uncomment and wire it up as auth ships.
-- **Google Sign-In:** client ID comes from `NUXT_PUBLIC_GOOGLE_CLIENT_ID` (exposed via `runtimeConfig.public.googleClientId`). Dev test page at [app/pages/google-test.vue](app/pages/google-test.vue).
+- **Store:** Pinia store at [stores/auth.ts](../stores/auth.ts). Exposes state (`user`, `accessToken`, `refreshToken`, `isAuthenticated`, `isLoading`, `isCheckedUser`, `isTokenRefreshed`), getters (`getAccessToken`, `getRefreshToken`, `getUser`, `getIsAuthenticated`, `getIsLoading`), and actions (`signIn`, `signUp`, `googleAuth`, `forgotPassword`, `resetPassword`, `fetchUser`, `refreshTokens`, `signOut`).
+- **Tokens:** access token in memory + `localStorage` + cookie; refresh handled silently by `useHttp` via `refreshTokens()`.
+- **Route guarding:** [app/middleware/middleware.global.ts](app/middleware/middleware.global.ts) calls `fetchUser()` once per session and reads `to.meta.requiresAuth` / `to.meta.guestOnly`. Unauthenticated users on protected routes → `/signin`. Authenticated users on guest-only routes → `/dashboard`.
+- **Landing:** `/` is the public marketing page. `/dashboard` is the authenticated home.
+
+### Auth pages + layout
+
+- Layout: [app/layouts/auth.vue](app/layouts/auth.vue) — split-screen shell (form left, branded ink panel right, hidden below `lg`) with a floating back button (`router.back()` with `/` fallback).
+- Shared form shell: [app/components/Layouts/AuthFormLayout.vue](app/components/Layouts/AuthFormLayout.vue) — `title`/`subtitle` props, default slot for fields, `#alt` slot rendered under an "OR" divider (used for the Google button), optional `footer-text` + `footer-link-text` + `footer-link-to` link.
+- All auth pages use `definePageMeta({ layout: 'auth', guestOnly: true })`:
+  - [signin.vue](app/pages/signin.vue) — username + password + forgot-password link + Google.
+  - [sign-up.vue](app/pages/sign-up.vue) — full register + auto sign-in on success + Google.
+  - [forgot-password.vue](app/pages/forgot-password.vue) — emails a 6-digit OTP; always succeeds (backend never reveals enumeration).
+  - [verify-otp.vue](app/pages/verify-otp.vue) — collects the OTP; backend has no separate verify endpoint, so this is a UX step that passes the OTP to the next page.
+  - [reset-password.vue](app/pages/reset-password.vue) — submits `{ email, otp, newPassword }` to `/auth/reset-password`; on success swaps in `<FormAllDone>` inline and auto-redirects to `/signin` after 3s. **No `/all-done` route** — the all-done state is rendered in place.
+  - [google-username.vue](app/pages/google-username.vue) — handles `needsRegistration: true` from `/auth/google`. Entry requires `sessionStorage.googleIdToken` (set by `<FormGoogleButton>`).
+- Cross-page state (email + OTP between forgot → verify → reset, idToken + profile for Google sign-up) is carried via `sessionStorage` (keys: `resetEmail`, `resetOtp`, `googleIdToken`, `googleProfile`) and cleared on success.
+
+### Validation + error surfaces
+
+- Schemas in [app/common/schemas/AuthSchema.ts](app/common/schemas/AuthSchema.ts): `signInSchema`, `signUpSchema`, `forgotPasswordSchema`, `verifyOtpSchema`, `resetPasswordSchema`, `setPasswordSchema`, `googleUsernameSchema`. Each exports its inferred type.
+- Forms use `<Form :schema :form-data @submit>` from [app/components/Form/Form.vue](app/components/Form/Form.vue); it runs the zod schema on submit and exposes field errors via the default slot (`<template #default="{ errors }">`).
+- **Inline field errors:** pass `:error="errors.fieldName"` to `<FormInput>` (it renders via `<FormError>` internally) or `<FormVerificationInput>`.
+- **Server-error banners:** keep a local `serverError` ref, set it from the `useHttp`/store response, and render `<FormServerError :error="serverError" />` inside the form.
+- **Toasts (`vue-sonner`):** success/info only. Never use toasts for validation — those go inline.
+
+### Google Sign-In
+
+- Package: `vue3-google-login`, registered in [app/plugins/google-login.ts](app/plugins/google-login.ts). Plugin skips registration if `runtimeConfig.public.googleClientId` is empty so local dev without a client ID doesn't crash.
+- Reusable button: [app/components/Form/GoogleButton.vue](app/components/Form/GoogleButton.vue) — `<FormGoogleButton label="Continue with Google" />`. Handles the whole flow: triggers Google, calls `authStore.googleAuth(idToken)`, redirects to `/dashboard` on success, or to `/google-username` when the backend returns `needsRegistration: true`.
+- Backend dev test page (NOT a frontend route): `http://localhost:8000/api/v1/auth/google/test` — serves a Google Sign-In button for copy-pasting an ID token into Swagger.
 
 ## Runtime Config
 
 Defined in [nuxt.config.ts](nuxt.config.ts):
-- `BASE_URL` — server-side base URL (from `NUXT_BASE_URL`)
-
-`NUXT_PUBLIC_GOOGLE_CLIENT_ID` is referenced by the Google Sign-In flow but is **not currently wired into `runtimeConfig.public`**. When implementing auth, add `public: { googleClientId: '' }` to `runtimeConfig` in [nuxt.config.ts](nuxt.config.ts) so it resolves from the env var at runtime.
+- `BASE_URL` — server-side base URL (from `NUXT_BASE_URL`).
+- `public.googleClientId` — Google OAuth client ID (from `NUXT_PUBLIC_GOOGLE_CLIENT_ID`), consumed via `useRuntimeConfig().public.googleClientId`.
 
 Add new public values under `runtimeConfig.public` and consume via `useRuntimeConfig().public.*`.
 

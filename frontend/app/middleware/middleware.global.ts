@@ -20,6 +20,6 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
     }
 
     if (isAuthenticated && guestOnly) {
-        return navigateTo('/');
+        return navigateTo('/dashboard');
     }
 });

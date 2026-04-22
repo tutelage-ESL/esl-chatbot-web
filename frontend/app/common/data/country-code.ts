@@ -13,7 +13,7 @@ interface CountryInterface {
 	currency_code?: string
 	currency_symbol?: string
 }
-const countries: CountryInterface[] = [
+const countryCode: CountryInterface[] = [
 	{
 		name: 'Afghanistan',
 		dial_code: '+93',
@@ -2613,4 +2613,4 @@ const countries: CountryInterface[] = [
 	},
 ]
 
-export default countries
+export default countryCode

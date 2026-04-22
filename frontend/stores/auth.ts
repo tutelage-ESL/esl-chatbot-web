@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import type { User } from '@/common/model/user'
-import type { SignInSchema, SignUpSchema } from '~/common/schemas/AuthSchema'
+import type { SignInSchema, SignUpSchema, ForgotPasswordSchema, ResetPasswordSchema } from '~/common/schemas/AuthSchema'
 import type { id } from 'zod/v4/locales'
 
 interface AuthState {
@@ -169,7 +169,68 @@ export const useAuthStore = defineStore('useAuthStore', {
     //   return response
     // },
 
-    async signOut() {      
+    async forgotPassword(input: ForgotPasswordSchema) {
+      this.isLoading = true
+      const response = await useHttp({
+        method: 'POST',
+        url: '/auth/forgot-password',
+        body: { email: input.email },
+      })
+      this.isLoading = false
+      return response
+    },
+
+    async resetPassword(input: ResetPasswordSchema) {
+      this.isLoading = true
+      const response = await useHttp({
+        method: 'POST',
+        url: '/auth/reset-password',
+        body: {
+          email: input.email,
+          otp: input.otp,
+          newPassword: input.newPassword,
+        },
+      })
+      this.isLoading = false
+      return response
+    },
+
+    async googleAuth(idToken: string, username?: string) {
+      this.isLoading = true
+      const response = await useHttp({
+        method: 'POST',
+        url: '/auth/google',
+        body: username ? { idToken, username } : { idToken },
+      })
+
+      if (response.success && response.data?.accessToken) {
+        this.accessToken = response.data.accessToken
+        this.refreshToken = response.data.refreshToken
+
+        SetToken('accessToken', response.data.accessToken)
+        SetToken('refreshToken', response.data.refreshToken)
+
+        localStorage.setItem('accessToken', response.data.accessToken)
+        localStorage.setItem('refreshToken', response.data.refreshToken)
+
+        await fetch('/api/set-cookie', {
+          method: 'POST',
+          body: JSON.stringify({
+            accessToken: response.data.accessToken,
+            refreshToken: response.data.refreshToken,
+          }),
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+        })
+
+        await this.fetchUser()
+      }
+
+      this.isLoading = false
+      return response
+    },
+
+    async signOut() {
       this.$reset();   
 
       await useHttp({
