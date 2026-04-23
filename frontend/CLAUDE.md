@@ -15,7 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working in the 
 - **Icons:** `vue-iconsax`, `@iconify/vue`, `lucide-vue-next`
 - **Notifications:** `vue-sonner`
 - **OTP input:** custom `FormVerificationInput` (6-digit, paste-friendly)
-- **Google Sign-In:** `vue3-google-login`
+- **Google Sign-In:** Google Identity Services JS SDK loaded directly (no wrapper library)
 - **Images:** `@nuxt/image`
 - **Marquee:** `nuxt-marquee`
 
@@ -146,9 +146,10 @@ const { success, data, message } = await useHttp<User>({
 
 ### Google Sign-In
 
-- Package: `vue3-google-login`, registered in [app/plugins/google-login.ts](app/plugins/google-login.ts). Plugin skips registration if `runtimeConfig.public.googleClientId` is empty so local dev without a client ID doesn't crash.
-- Reusable button: [app/components/Form/GoogleButton.vue](app/components/Form/GoogleButton.vue) — `<FormGoogleButton label="Continue with Google" />`. Handles the whole flow: triggers Google, calls `authStore.googleAuth(idToken)`, redirects to `/dashboard` on success, or to `/google-username` when the backend returns `needsRegistration: true`.
-- Backend dev test page (NOT a frontend route): `http://localhost:8000/api/v1/auth/google/test` — serves a Google Sign-In button for copy-pasting an ID token into Swagger.
+- Uses Google Identity Services (GIS) JS SDK directly — no `vue3-google-login` wrapper. The SDK is lazy-loaded by each component that needs it (`<script src="https://accounts.google.com/gsi/client">`). This avoids "initialize called multiple times" warnings and localhost FedCM edge cases.
+- Reusable button: [app/components/Form/GoogleButton.vue](app/components/Form/GoogleButton.vue) — `<FormGoogleButton label="Continue with Google" />`. Renders as a custom pill-shaped white button visually, with Google's official `renderButton` output layered underneath at `opacity-0` to actually receive the click. This gives full control over the look while keeping Google's native flow (stable, always works). On sign-in, calls `authStore.googleAuth(idToken)`, redirects to `/dashboard` on success, or to `/google-username` when the backend returns `needsRegistration: true`.
+- Client ID is read from `runtimeConfig.public.googleClientId` (set via `NUXT_PUBLIC_GOOGLE_CLIENT_ID`). It must match the `GOOGLE_CLIENT_ID` the backend verifies against, and `http://localhost:3001` must be listed as an Authorized JavaScript origin in Google Cloud Console.
+- Dev-only token generator (NOT a production route): [app/pages/google-test.vue](app/pages/google-test.vue) — programmatically renders Google's sign-in button and displays the raw ID token, for pasting into Swagger. Mirrors the backend's `/api/v1/auth/google/test` page.
 
 ## Runtime Config
 
