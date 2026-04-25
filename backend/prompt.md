@@ -1,12 +1,7 @@
 * Start by reading CLAUDE.md to understand the project structure and conventions.
 
-## update the docs - AI services related
-* as our last conversation we were planning to choose the perfect API-AI services for our project, we need to pick a TTS, STT, and LLM... but I belive that we did not researched very good, for that step by step we discuss about 
-1. MML
-2. STT
-3. TTS
-* Read docs/services/ai-providers.md and docs/ai-providers/ to understand the AI stack decisions we made.
-* this time I'll provide you the website that you can research to get the newest information, and list the best choices and I'll hear your recommendation and we decide on it...
+# authentication error handling
+* 
 
 ## before starting the task:
 * ask me questions if you have any doubts. or want to confirm your understanding.
@@ -26,10 +21,39 @@
 * /compact
 * /context usage
 * /model opusplan
+* /clear
+* /security-review 
+* /review
+* /simplify
+* /update-config
+* /claude-api
+* /fewer-permission-prompts
+
+  1. /security-review — Scans your pending branch changes for security issues. Given you're building JWT auth, Google OAuth, password reset OTPs, and session tokens,
+  this would catch real problems before they ship.                                                                                                                      
+  2. /review — Full PR review: checks logic, edge cases, and code quality across all commits on the branch. Useful before merging Aland-Branch into main.
+  3. /simplify — Reviews recently changed code for redundancy and quality, then fixes what it finds. Good to run after implementing a big feature.
+
+  Moderate value:
+
+  4. /update-config — Sets up hooks in settings.json for automated behaviors, e.g. "always run typecheck before committing" or "show a summary when Claude stops". More 
+  powerful than manually editing settings.
+  5. /claude-api — Specialized for building with the Anthropic SDK (prompt caching, tool use, model selection). Less relevant since you're using Gemini/OpenAI directly,
+   but useful if you ever add Claude as a provider.
+
 
 
 
 * Read docs/services/ai-providers.md and docs/ai-providers/llm.md to understand the AI stack decisions we made.
+
+
+## update the docs - AI services related
+* as our last conversation we were planning to choose the perfect API-AI services for our project, we need to pick a TTS, STT, and LLM... but I belive that we did not researched very good, for that step by step we discuss about 
+1. MML
+2. STT
+3. TTS
+* Read docs/services/ai-providers.md and docs/ai-providers/ to understand the AI stack decisions we made.
+* this time I'll provide you the website that you can research to get the newest information, and list the best choices and I'll hear your recommendation and we decide on it...
 
  We finished planning. The AI module at src/modules/ai/ exists but still uses OpenAI as a placeholder. The goal now is to implement the real providers:
   - Migrate src/modules/ai/providers/openai.llm.ts → replace with Gemini (FREE + GOLD) and Claude Haiku 4.5 (PREMIUM)

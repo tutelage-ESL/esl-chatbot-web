@@ -39,7 +39,8 @@
       "WebFetch(domain:platform.openai.com)",
       "WebFetch(domain:openrouter.ai)",
       "WebFetch(domain:aistudio.google.com)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(gh pr *)"
     ]
   }
 }

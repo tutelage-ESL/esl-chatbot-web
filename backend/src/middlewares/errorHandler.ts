@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
-import { ZodError } from "zod";
+import { ZodError } from "zod/v4";
 import { AppError } from "../utils/AppError.ts";
 import { logger } from "../config/logger.ts";
 
@@ -19,13 +19,22 @@ export function errorHandler(
   }
 
   if (err instanceof ZodError) {
-    const message = err.issues
-      .map((i) => `${i.path.join(".") || "input"}: ${i.message}`)
+    // Build a field → first-error map for easy frontend field highlighting
+    const errors: Record<string, string> = {};
+    for (const issue of err.issues) {
+      const field = issue.path.join(".") || "input";
+      if (!errors[field]) errors[field] = issue.message;
+    }
+    const message = Object.entries(errors)
+      .map(([field, msg]) => `${field}: ${msg}`)
       .join("; ");
-    res.status(400).json({
+
+    // 422 Unprocessable Entity — syntactically valid JSON but fails business validation
+    res.status(422).json({
       success: false,
       message,
       data: null,
+      errors,
     });
     return;
   }

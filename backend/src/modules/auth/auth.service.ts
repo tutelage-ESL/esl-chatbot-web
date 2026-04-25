@@ -1,6 +1,6 @@
 import bcryptjs from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { createHash } from "crypto";
+import { createHash, randomInt } from "crypto";
 import { prisma } from "../../config/database.ts";
 import { env } from "../../config/env.ts";
 import { AppError } from "../../utils/AppError.ts";
@@ -110,7 +110,7 @@ export async function login(input: LoginInput): Promise<LoginResponse> {
 
   // Same error for "not found" and "wrong password" — prevents username enumeration
   if (!user) {
-    throw new AppError(INVALID_CREDENTIALS_MSG, 401);
+    throw new AppError(INVALID_CREDENTIALS_MSG, 400);
   }
 
   if (!user.isActive) {
@@ -121,13 +121,13 @@ export async function login(input: LoginInput): Promise<LoginResponse> {
   if (!user.password) {
     throw new AppError(
       "This account was created with Google Sign-In. Please use the 'Sign in with Google' option.",
-      401
+      400
     );
   }
 
   const passwordValid = await bcryptjs.compare(input.password, user.password);
   if (!passwordValid) {
-    throw new AppError(INVALID_CREDENTIALS_MSG, 401);
+    throw new AppError(INVALID_CREDENTIALS_MSG, 400);
   }
 
   const jwtPayload: JwtPayload = {
@@ -408,8 +408,8 @@ export async function logout(refreshToken: string): Promise<void> {
 // ─── Forgot password (send OTP) ───────────────────────────────────────────────
 
 function generateOtp(): string {
-  // 6-digit numeric OTP — padded to always be 6 chars
-  return String(Math.floor(100000 + Math.random() * 900000));
+  // 6-digit numeric OTP — uses CSPRNG (crypto.randomInt), not Math.random()
+  return String(randomInt(100000, 1000000));
 }
 
 export async function forgotPassword(input: ForgotPasswordInput): Promise<void> {

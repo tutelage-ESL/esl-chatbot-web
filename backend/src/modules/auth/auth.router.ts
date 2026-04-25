@@ -214,7 +214,7 @@ router.post("/register", registerHandler);
  *     description: >
  *       Standard email/password login. Returns an access token (15m) and a refresh
  *       token (7d). If the account was created with Google Sign-In (no password),
- *       a 401 is returned with a clear message directing the user to Google login.
+ *       a 400 is returned with a clear message directing the user to Google login.
  *     requestBody:
  *       required: true
  *       content:
@@ -247,8 +247,8 @@ router.post("/register", registerHandler);
  *                   example: Login successful
  *                 data:
  *                   $ref: '#/components/schemas/AuthResponse'
- *       401:
- *         description: Invalid credentials, or account uses Google Sign-In
+ *       400:
+ *         description: Invalid credentials, or account uses Google Sign-In (no password set)
  *         content:
  *           application/json:
  *             schema:

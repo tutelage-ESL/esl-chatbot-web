@@ -220,6 +220,11 @@ Each module under `src/modules/[name]/` follows:
 - Pagination: `?page=1&limit=20` (max 100)
 - All request inputs validated with Zod (body, params, query)
 - Swagger JSDoc comments on all routes; shared `ErrorResponse` schema defined in `swagger.ts` components
+- HTTP status code conventions:
+  - **400 Bad Request**: submitted data is wrong (invalid credentials on login — wrong username/password, Google-only account attempting password login)
+  - **401 Unauthorized**: token missing, invalid, or expired — triggers frontend refresh interceptor. Only from `authenticate` middleware or token-based operations (refresh, Google token verification)
+  - **403 Forbidden**: valid token but insufficient role, or account deactivated
+  - **422 Unprocessable Entity**: Zod validation failure (malformed/missing fields) — includes structured `errors` object for field-level frontend highlighting
 - Auth middleware pattern: `authenticate` → attaches `req.user`; `authorize("ROLE")` → guards by role
   - 401: no token / invalid token / `req.user` missing when `authorize` runs
   - 403: valid token but insufficient role (`"Access denied. Required role: X or Y"`)
@@ -240,9 +245,9 @@ Each module under `src/modules/[name]/` follows:
 - **HTTP testing:** `supertest` — makes real HTTP requests against the Express app without starting a server
 - **Test type:** Integration tests — tests the full middleware chain as the frontend experiences it
 - **Token generation:** JWTs are signed directly in tests using env secrets (no DB user lookup needed for auth tests — JWTs are stateless)
-- **DB dependency:** 401/403 tests are DB-independent; 200 success tests require DB running (seeded or empty — both return 200)
+- **DB dependency:** 401/403 (middleware) and 422 (Zod validation) tests are DB-independent; 200 success tests require DB running (seeded or empty — both return 200)
 - **File location:** Co-located in `src/modules/[name]/__tests__/[name].router.test.ts`
-- **Error handler:** `ZodError` is handled as 400 with a field-level message; `AppError` maps to its own `statusCode`; all other errors return 500
+- **Error handler:** `ZodError` is handled as 422 with a field-level `errors` map; `AppError` maps to its own `statusCode`; all other errors return 500
 
 ---
 

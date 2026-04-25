@@ -248,24 +248,24 @@ describe("GET /api/v1/users", () => {
     });
   });
 
-  // ── 400: Validation failures ──────────────────────────────────────────────
+  // ── 422: Validation failures ──────────────────────────────────────────────
 
-  describe("400 — Validation failures", () => {
-    it("returns 400 when page is not a valid number", async () => {
+  describe("422 — Validation failures", () => {
+    it("returns 422 when page is not a valid number", async () => {
       const res = await request(app)
         .get("/api/v1/users?page=abc")
         .set("Authorization", `Bearer ${adminToken}`);
 
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(422);
       expect(res.body.success).toBe(false);
     });
 
-    it("returns 400 when limit exceeds the maximum of 100", async () => {
+    it("returns 422 when limit exceeds the maximum of 100", async () => {
       const res = await request(app)
         .get("/api/v1/users?limit=999")
         .set("Authorization", `Bearer ${adminToken}`);
 
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(422);
       expect(res.body.success).toBe(false);
     });
   });

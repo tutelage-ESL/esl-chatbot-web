@@ -30,6 +30,13 @@ const options: swaggerJsdoc.Options = {
             success: { type: "boolean", example: false },
             message: { type: "string" },
             data: { nullable: true, example: null },
+            errors: {
+              type: "object",
+              nullable: true,
+              description: "Field-level validation errors (only present on 422 responses)",
+              additionalProperties: { type: "string" },
+              example: { email: "Invalid email address", password: "Password must be at least 8 characters" },
+            },
           },
         },
       },
