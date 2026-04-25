@@ -1,0 +1,151 @@
+
+
+  @keyframes blink { 50% { opacity: 0; } }
+  .caret { animation: blink 1s steps(1) infinite; }
+
+  @keyframes wave {
+    0%,100% { transform: scaleY(0.3); }
+    50%     { transform: scaleY(1); }
+  }
+
+  @keyframes rise {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+
+  20% {
+    opacity: 1;
+  }
+
+  to {
+    transform: translateY(-220px);
+    opacity: 0;
+  }
+}
+
+@keyframes marq {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* ─── Dashboard shared patterns ────────────────────────────────────────────── */
+
+/* dot background used in hero cards */
+.dot-bg {
+  background-image: radial-gradient(circle, rgba(0,0,0,0.05) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+.dark .dot-bg {
+  background-image: radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px);
+}
+
+/* card base used across dashboard */
+.dash-card {
+  @apply bg-white dark:bg-[#0e0e10] border border-black/[0.06] dark:border-white/[0.06] rounded-xl shadow-soft;
+}
+
+/* ─── Load-in animations (staggered via --delay) ───────────────────────────── */
+
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-card-enter {
+  animation: card-enter 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--delay, 0ms);
+}
+
+/* ─── Waveform bars ─────────────────────────────────────────────────────────── */
+
+@keyframes waveform {
+  0%, 100% { transform: scaleY(0.25); }
+  50%       { transform: scaleY(1); }
+}
+
+.waveform-bar {
+  transform-origin: bottom;
+  animation: waveform 0.9s ease-in-out infinite;
+  animation-delay: var(--delay, 0ms);
+}
+
+/* ─── Pulse ring (record button) ───────────────────────────────────────────── */
+
+@keyframes pulse-ring {
+  0%   { transform: scale(1);   opacity: 0.6; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+.pulse-ring {
+  animation: pulse-ring 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ─── Shimmer (thinking indicator) ─────────────────────────────────────────── */
+
+@keyframes shimmer {
+  0%   { opacity: 0.4; }
+  50%  { opacity: 1; }
+  100% { opacity: 0.4; }
+}
+
+.shimmer-text {
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+/* ─── Progress bar fill-in ──────────────────────────────────────────────────── */
+
+@keyframes fill-bar {
+  from { width: 0%; }
+}
+
+.animate-fill-bar {
+  animation: fill-bar 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--delay, 100ms);
+}
+
+/* ─── Flip card (vocab) ─────────────────────────────────────────────────────── */
+
+.flip-container {
+  perspective: 1000px;
+}
+
+.flip-inner {
+  position: relative;
+  width: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.flip-inner.flipped {
+  transform: rotateY(180deg);
+}
+
+.flip-front,
+.flip-back {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.flip-back {
+  position: absolute;
+  inset: 0;
+  transform: rotateY(180deg);
+}
+
+/* ─── Ring stroke draw-in ───────────────────────────────────────────────────── */
+
+@keyframes ring-draw {
+  from { stroke-dashoffset: 301.59; }
+}
+
+.ring-animate {
+  animation: ring-draw 1s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 200ms;
+}

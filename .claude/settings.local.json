@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/NANO Technology/Downloads/AI \\(1\\)/components/dash/**)"
+    ]
+  }
+}

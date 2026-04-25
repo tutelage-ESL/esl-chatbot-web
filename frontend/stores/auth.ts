@@ -1,19 +1,24 @@
-import { defineStore } from 'pinia'
-import 'pinia-plugin-persistedstate'
-import type { User } from '@/common/model/user'
-import type { SignInSchema, SignUpSchema, ForgotPasswordSchema, ResetPasswordSchema } from '~/common/schemas/AuthSchema'
+import { defineStore } from "pinia";
+import "pinia-plugin-persistedstate";
+import type { User } from "@/common/model/user";
+import type {
+  SignInSchema,
+  SignUpSchema,
+  ForgotPasswordSchema,
+  ResetPasswordSchema,
+} from "~/common/schemas/AuthSchema";
 
 interface AuthState {
-  user: User | null
-  accessToken: string | null
-  refreshToken: string | null
-  isCheckedUser: boolean
-  isAuthenticated: boolean
-  isLoading: boolean
-  isTokenRefreshed?: boolean
+  user: User | null;
+  accessToken: string | null;
+  refreshToken: string | null;
+  isCheckedUser: boolean;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  isTokenRefreshed?: boolean;
 }
 
-export const useAuthStore = defineStore('useAuthStore', {
+export const useAuthStore = defineStore("useAuthStore", {
   state: (): AuthState => ({
     user: null,
     accessToken: null,
@@ -28,39 +33,39 @@ export const useAuthStore = defineStore('useAuthStore', {
       this.isLoading = true;
 
       const response = await useHttp({
-        method: 'POST',
-        url: '/auth/login',
+        method: "POST",
+        url: "/auth/login",
         body: {
           username: credentials.username,
           password: credentials.password,
         },
         showToast: true,
-         toastDelayMs: 1500
-      });      
+        toastDelayMs: 1500,
+      });
 
-      if (response.success){
+      if (response.success) {
         this.accessToken = response.data.data.accessToken;
         this.refreshToken = response.data.data.refreshToken;
 
-        SetToken('accessToken', response.data.data.accessToken)
-        SetToken('refreshToken', response.data.data.refreshToken)
+        SetToken("accessToken", response.data.data.accessToken);
+        SetToken("refreshToken", response.data.data.refreshToken);
 
-        localStorage.setItem('accessToken', response.data.data.accessToken);
-        localStorage.setItem('refreshToken', response.data.data.refreshToken);
+        localStorage.setItem("accessToken", response.data.data.accessToken);
+        localStorage.setItem("refreshToken", response.data.data.refreshToken);
 
-        await fetch('/api/set-cookie', {
-          method: 'POST',
+        await fetch("/api/set-cookie", {
+          method: "POST",
           body: JSON.stringify({
             accessToken: response.data.data.accessToken,
             refreshToken: response.data.data.refreshToken,
           }),
           headers: {
-            'Content-Type': 'application/json'
+            "Content-Type": "application/json",
           },
-          credentials: 'include',
+          credentials: "include",
         });
 
-        this.setUserFromResponse(response.data.data.user)
+        this.setUserFromResponse(response.data.data.user);
       }
       this.isLoading = false;
 
@@ -68,65 +73,82 @@ export const useAuthStore = defineStore('useAuthStore', {
     },
 
     async signUp(credentials: SignUpSchema) {
-      this.isLoading = true
+      this.isLoading = true;
       const signUpData = {
         username: credentials.username,
         email: credentials.email,
         password: credentials.password,
         displayName: credentials.displayName,
-      }
+      };
 
       const response = await useHttp({
-        method: 'POST',
-        url: '/auth/register',
+        method: "POST",
+        url: "/auth/register",
         body: signUpData,
         showToast: true,
-      })
+      });
 
-       if (response.success){
+      if (response.success) {
         this.accessToken = response.data.data.accessToken;
-        this.refreshToken = response.data.data.refreshToken;        
+        this.refreshToken = response.data.data.refreshToken;
 
-        SetToken('accessToken', response.data.data.accessToken)
-        SetToken('refreshToken', response.data.data.refreshToken)
+        SetToken("accessToken", response.data.data.accessToken);
+        SetToken("refreshToken", response.data.data.refreshToken);
 
-        localStorage.setItem('accessToken', response.data.data.accessToken);
-        localStorage.setItem('refreshToken', response.data.data.refreshToken);
+        localStorage.setItem("accessToken", response.data.data.accessToken);
+        localStorage.setItem("refreshToken", response.data.data.refreshToken);
 
         //now in here after the success login we call back the api/set-cookie to set the cookies in the server
-        await fetch('/api/set-cookie', {
-          method: 'POST',
+        await fetch("/api/set-cookie", {
+          method: "POST",
           body: JSON.stringify({
             accessToken: response.data.data.accessToken,
             refreshToken: response.data.data.refreshToken,
           }),
           headers: {
-            'Content-Type': 'application/json'
+            "Content-Type": "application/json",
           },
-          credentials: 'include',
+          credentials: "include",
         });
-        
-        this.setUserFromResponse(response.data.data.user)
 
+        this.setUserFromResponse(response.data.data.user);
       }
-      this.isLoading = false
+      this.isLoading = false;
 
-      return response
+      return response;
     },
 
     async fetchUser(): Promise<void> {
-      this.getTokenFromStorage()
+      const config = useRuntimeConfig();
+      this.getTokenFromStorage();
 
-      const response = await useHttp<User>({
-        method: 'GET',
-        url: '/auth/me',
-        requireAuth: true,
-        showToast: false,
-      })
+      let statusCode: number | null = null;
+      const { data } = await useFetch<User>("/auth/me", {
+        method: "GET",
+        baseURL: config.BASE_URL,
+        key: `user-account-${this.accessToken}`,
+        cache: "no-cache",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept-Language": "en",
+          Authorization: this.accessToken ? `Bearer ${this.accessToken}` : "",
+        },
+        onResponse({ response }) {
+          statusCode = response.status;
+        },
+      });
+      this.isCheckedUser = true;
 
-      this.isCheckedUser = true
+      if (statusCode === 401) {
+    
+        const refreshSuccess = await this.refreshTokens();
+        if (!refreshSuccess) {
+          return this.signOut();
+        }
+        return this.fetchUser();
+      }
 
-      const user = (response.data as any)?.data
+      const user = (data.value as any)?.data;
       if (user) {
         this.user = {
           id: user.id,
@@ -139,12 +161,12 @@ export const useAuthStore = defineStore('useAuthStore', {
           subscription: {
             plan: user.subscription.plan,
             status: user.subscription.status,
-          }
-        }
-        this.isAuthenticated = true
+          },
+        };
+        this.isAuthenticated = true;
       } else {
-        this.user = null
-        this.isAuthenticated = false
+        this.user = null;
+        this.isAuthenticated = false;
       }
     },
 
@@ -178,64 +200,64 @@ export const useAuthStore = defineStore('useAuthStore', {
     // },
 
     async forgotPassword(input: ForgotPasswordSchema) {
-      this.isLoading = true
+      this.isLoading = true;
       const response = await useHttp({
-        method: 'POST',
-        url: '/auth/forgot-password',
+        method: "POST",
+        url: "/auth/forgot-password",
         body: { email: input.email },
-      })
-      this.isLoading = false
-      return response
+      });
+      this.isLoading = false;
+      return response;
     },
 
     async resetPassword(input: ResetPasswordSchema) {
-      this.isLoading = true
+      this.isLoading = true;
       const response = await useHttp({
-        method: 'POST',
-        url: '/auth/reset-password',
+        method: "POST",
+        url: "/auth/reset-password",
         body: {
           email: input.email,
           otp: input.otp,
           newPassword: input.newPassword,
         },
-      })
-      this.isLoading = false
-      return response
+      });
+      this.isLoading = false;
+      return response;
     },
 
     async googleAuth(idToken: string, username?: string) {
-      this.isLoading = true
+      this.isLoading = true;
       const response = await useHttp({
-        method: 'POST',
-        url: '/auth/google',
+        method: "POST",
+        url: "/auth/google",
         body: username ? { idToken, username } : { idToken },
-      })
+      });
 
       if (response.success && response.data?.data?.accessToken) {
-        this.accessToken = response.data.data.accessToken
-        this.refreshToken = response.data.data.refreshToken
+        this.accessToken = response.data.data.accessToken;
+        this.refreshToken = response.data.data.refreshToken;
 
-        SetToken('accessToken', response.data.data.accessToken)
-        SetToken('refreshToken', response.data.data.refreshToken)
+        SetToken("accessToken", response.data.data.accessToken);
+        SetToken("refreshToken", response.data.data.refreshToken);
 
-        localStorage.setItem('accessToken', response.data.data.accessToken)
-        localStorage.setItem('refreshToken', response.data.data.refreshToken)
+        localStorage.setItem("accessToken", response.data.data.accessToken);
+        localStorage.setItem("refreshToken", response.data.data.refreshToken);
 
-        await fetch('/api/set-cookie', {
-          method: 'POST',
+        await fetch("/api/set-cookie", {
+          method: "POST",
           body: JSON.stringify({
             accessToken: response.data.data.accessToken,
             refreshToken: response.data.data.refreshToken,
           }),
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-        })
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+        });
 
-        this.setUserFromResponse(response.data.data.user)
+        this.setUserFromResponse(response.data.data.user);
       }
 
-      this.isLoading = false
-      return response
+      this.isLoading = false;
+      return response;
     },
 
     async signOut() {
@@ -244,8 +266,8 @@ export const useAuthStore = defineStore('useAuthStore', {
 
       if (refreshTokenForLogout) {
         await useHttp({
-          method: 'POST',
-          url: '/auth/logout',
+          method: "POST",
+          url: "/auth/logout",
           body: {
             refreshToken: refreshTokenForLogout,
           },
@@ -254,23 +276,21 @@ export const useAuthStore = defineStore('useAuthStore', {
       }
 
       // Clear cookies via API
-      fetch('/api/clear-cookie', {
-        method: 'POST',
+      fetch("/api/clear-cookie", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
-        credentials: 'include',
+        credentials: "include",
       });
 
-      const accessToken = useCookie('accessToken');
+      const accessToken = useCookie("accessToken");
       accessToken.value = null;
-      const refreshToken = useCookie('refreshToken');
+      const refreshToken = useCookie("refreshToken");
       refreshToken.value = null;
 
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      
-      
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
     },
 
     async refreshTokens() {
@@ -278,16 +298,15 @@ export const useAuthStore = defineStore('useAuthStore', {
         return false;
       }
 
-      this.getTokenFromStorage()
-
+      // this.getTokenFromStorage();
       if (!this.accessToken || !this.refreshToken) {
         this.isTokenRefreshed = true;
         return false;
       }
 
       const response = await useHttp({
-        method: 'POST',
-        url: '/auth/refresh',
+        method: "POST",
+        url: "/auth/refresh",
         body: { refreshToken: this.refreshToken },
         requireAuth: false,
         showToast: false,
@@ -300,32 +319,36 @@ export const useAuthStore = defineStore('useAuthStore', {
         }
         return false;
       }
+ if (response?.success && response?.data) {
+          this.isTokenRefreshed = true;
+          this.accessToken = response.data.accessToken;
+          this.refreshToken = response.data.refreshToken;
 
-      this.isTokenRefreshed = true;
-      this.accessToken = response.data.data.accessToken;
+          SetToken('accessToken', response.data.accessToken)
+          SetToken('refreshToken', response.data.refreshToken)
 
-      SetToken('accessToken', response.data.data.accessToken)
+          if (import.meta.client) {
+            localStorage.setItem('accessToken', response.data.accessToken as string);
+            localStorage.setItem('refreshToken', response.data.refreshToken as string);
+          }
 
-      if (import.meta.client) {
-        localStorage.setItem('accessToken', response.data.data.accessToken as string);
-      }
-
-      await fetch('/api/set-cookie', {
-        method: 'POST',
-        body: JSON.stringify({
-          accessToken: response.data.data.accessToken,
-        }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-      });
-
-      return true;
+          const setCookieResponse = await fetch('/api/set-cookie', {
+            method: 'POST',
+            body: JSON.stringify({
+              accessToken: response.data.accessToken,
+              refreshToken: response.data.refreshToken,
+            }),
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+          });
+        }
+      return response.success
     },
 
     setUserFromResponse(user: User) {
-      if (!user) return
+      if (!user) return;
       this.user = {
         id: user.id,
         username: user.username,
@@ -338,23 +361,23 @@ export const useAuthStore = defineStore('useAuthStore', {
           plan: user.subscription.plan,
           status: user.subscription.status,
         },
-      }
-      this.isAuthenticated = true
-      this.isCheckedUser = true
+      };
+      this.isAuthenticated = true;
+      this.isCheckedUser = true;
     },
 
     getTokenFromStorage() {
       if (import.meta.server) {
-        const accessTokenCookie = useCookie('accessToken')
-        const refreshTokenCookie = useCookie('refreshToken')
-        this.accessToken = accessTokenCookie.value as string
-        this.refreshToken = refreshTokenCookie.value as string
+        const accessTokenCookie = useCookie("accessToken");
+        const refreshTokenCookie = useCookie("refreshToken");
+        this.accessToken = accessTokenCookie.value as string;
+        this.refreshToken = refreshTokenCookie.value as string;
       } else if (import.meta.client) {
-        this.accessToken = localStorage.getItem('accessToken')
-        this.refreshToken = localStorage.getItem('refreshToken')
+        this.accessToken = localStorage.getItem("accessToken");
+        this.refreshToken = localStorage.getItem("refreshToken");
       } else {
-        this.accessToken = localStorage.getItem('accessToken')
-        this.refreshToken = localStorage.getItem('refreshToken')
+        this.accessToken = localStorage.getItem("accessToken");
+        this.refreshToken = localStorage.getItem("refreshToken");
       }
     },
   },
@@ -366,10 +389,9 @@ export const useAuthStore = defineStore('useAuthStore', {
     getAccessToken: (state) => state.accessToken,
     getRefreshToken: (state) => state.refreshToken,
   },
-} )
-
+});
 
 const SetToken = (name: string, token: string) => {
   const accessToken = useCookie(name);
   accessToken.value = token;
-}
+};

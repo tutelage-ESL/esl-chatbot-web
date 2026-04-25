@@ -26,7 +26,7 @@ import { twMerge } from 'tailwind-merge';
 import { type InputTypeHTMLAttribute } from 'vue';
 import { Mask, type MaskInputOptions } from 'maska';
 import CountryCode from './CountryCode.vue';
-import type { FontBasedIconName } from '~/common/types/iconsax-types';
+import type { FontBasedIconName, SvgBasedIconName } from '~/common/types/iconsax-types';
 
 type InputMaskType = string | MaskInputOptions | undefined;
 
@@ -39,7 +39,7 @@ const props = withDefaults(defineProps<{
   rounded?: 'full' | 'lg' | 'xl';
   classList?: string;
   labelClassList?: string
-  icon?: FontBasedIconName;
+  icon?: SvgBasedIconName ;
   mask?: InputMaskType;
   iconPosition?: 'start' | 'end'
   iconConfig?: {

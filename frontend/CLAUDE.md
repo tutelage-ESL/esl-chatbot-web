@@ -79,6 +79,9 @@ Pinia stores live at the **workspace root** in `stores/` (imported as `~~/stores
 - Styling: use Tailwind utilities. Put reusable/global styles in [app/assets/css/main.css](app/assets/css/main.css) as utility classes. Use `<style scoped>` inside a component only for things Tailwind can't express (e.g. `@keyframes`).
 - Fetch data via the `useHttp` composable ([app/composables/useHttp.ts](app/composables/useHttp.ts)) — never call `fetch` directly from components or pages.
 - always check teh components/APP and components/ui and components/Form base on the need and the request to use teh actual available resouces and components
+- most of the time check the components/ui for shad cn components to work with them but every time use the components ffrom the /components/App and componsnts/Form! except these use the shad cn... 
+- and every time use the latest tailwind css utilities! like we had only for example size-10, 12, 14, 18, 10... now everything works 1 till 100000... , and its multiply by 4! so if we use size-4 it means size-[16px] !! and use the same for the opacity like this white/6, white/50 instead of white/[0.06] or white/[0.5]... 
+- on the primary color(the orange one) use white!!
 
 ## API Types (do not edit)
 
@@ -129,7 +132,7 @@ const { success, data, message } = await useHttp<User>({
 - Shared form shell: [app/components/Layouts/AuthFormLayout.vue](app/components/Layouts/AuthFormLayout.vue) — `title`/`subtitle` props, default slot for fields, `#alt` slot rendered under an "OR" divider (used for the Google button), optional `footer-text` + `footer-link-text` + `footer-link-to` link.
 - All auth pages use `definePageMeta({ layout: 'auth', guestOnly: true })`:
   - [signin.vue](app/pages/signin.vue) — username + password + forgot-password link + Google.
-  - [sign-up.vue](app/pages/sign-up.vue) — full register + auto sign-in on success + Google.
+  - [sign-up.vue](app/pages/signup.vue) — full register + auto sign-in on success + Google.
   - [forgot-password.vue](app/pages/forgot-password.vue) — emails a 6-digit OTP; always succeeds (backend never reveals enumeration).
   - [verify-otp.vue](app/pages/verify-otp.vue) — collects the OTP; backend has no separate verify endpoint, so this is a UX step that passes the OTP to the next page.
   - [reset-password.vue](app/pages/reset-password.vue) — submits `{ email, otp, newPassword }` to `/auth/reset-password`; on success swaps in `<FormAllDone>` inline and auto-redirects to `/signin` after 3s. **No `/all-done` route** — the all-done state is rendered in place.
@@ -166,6 +169,52 @@ Add new public values under `runtimeConfig.public` and consume via `useRuntimeCo
 - **Icons:** prefer the `App/Iconsax.vue` wrapper; use `@iconify/vue` directly only when an icon isn't in the Iconsax set.
 - **Toasts:** `vue-sonner` — `useHttp` already integrates it via `showToast: true`.
 - **Naming:** components PascalCase, composables `useXxx`, types and Zod schemas go in `common/types/` and `common/schemas/` respectively (not co-located with components).
+
+## Dashboard Layout & Structure
+
+The authenticated dashboard uses a **fixed sidebar + scrollable body** pattern:
+
+- **Layout:** [app/layouts/dashboard.vue](app/layouts/dashboard.vue) — `flex h-dvh overflow-hidden`. Sidebar is fixed-width, body column (`flex-col flex-1 overflow-hidden`) holds a sticky topbar + `overflow-y-auto` main slot. Only the body scrolls; the sidebar never does.
+- **Sidebar:** [app/components/Dashboard/Sidebar.vue](app/components/Dashboard/Sidebar.vue) — collapsible (232px ↔ 68px via `collapsed` prop + `@toggle` emit). Uses `NuxtLink` for nav items with active-state detection via `useRoute()`. Emits `toggle` up to the layout.
+- **Topbar:** [app/components/Dashboard/Topbar.vue](app/components/Dashboard/Topbar.vue) — sticky breadcrumb + search bar + notifications + user avatar. Reads `useAuthStore().getUser` for initials/username.
+
+### Dashboard Pages (file-based routing under `pages/dashboard/`)
+
+All pages use `definePageMeta({ layout: 'dashboard', requiresAuth: true })`.
+
+| Route | File | Status |
+|---|---|---|
+| `/dashboard` | `pages/dashboard/index.vue` | Overview (fully built) |
+| `/dashboard/chat` | `pages/dashboard/chat.vue` | Stub |
+| `/dashboard/voice` | `pages/dashboard/voice.vue` | Stub |
+| `/dashboard/vocab` | `pages/dashboard/vocab.vue` | Stub |
+| `/dashboard/goals` | `pages/dashboard/goals.vue` | Stub |
+| `/dashboard/lessons` | `pages/dashboard/lessons.vue` | Stub |
+| `/dashboard/profile` | `pages/dashboard/profile.vue` | Built |
+| `/dashboard/settings` | `pages/dashboard/settings.vue` | Built |
+
+### Dashboard Component Folder (`components/Dashboard/`)
+
+```
+components/Dashboard/
+├─ Sidebar.vue          # Collapsible nav sidebar
+├─ Topbar.vue           # Sticky top header
+└─ Overview/            # Overview page sub-components
+   ├─ StatCard.vue      # Single stat tile (label / value / delta / icon)
+   ├─ GreetingHero.vue  # Welcome banner + goal ring + streak
+   ├─ VocabChart.vue    # SVG sparkline for vocabulary growth
+   ├─ NextUp.vue        # Recommended lesson + upcoming list
+   ├─ ActivityHeatmap.vue # 12-week heatmap + recent sessions list
+   └─ DueWords.vue      # SRS due words + level progress bar
+```
+
+Auto-import prefix for these components:
+- `<DashboardSidebar />`, `<DashboardTopbar />`
+- `<DashboardOverviewStatCard />`, `<DashboardOverviewGreetingHero />`, etc.
+
+### Dashboard Types
+
+[app/common/types/dashboard-types.ts](app/common/types/dashboard-types.ts) — all shared types for the dashboard (navigation, stat cards, chart points, sessions, vocabulary, goals, lessons). Import with `import type { ... } from '~/common/types/dashboard-types'`.
 
 ## Related Docs
 

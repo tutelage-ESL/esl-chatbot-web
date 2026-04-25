@@ -2,11 +2,15 @@
 import { ArrowLeft } from 'lucide-vue-next'
 
 const router = useRouter()
+const route = useRoute()
 
+// if we ion the sign in push '/' if we in sign up push back
 const goBack = () => {
-    if (window.history.length > 1) {
+    if (route.path === '/signin') {
+        router.push('/')
+    } else if (route.path === '/signup') {
         router.back()
-    } else {
+    }else {
         router.push('/')
     }
 }

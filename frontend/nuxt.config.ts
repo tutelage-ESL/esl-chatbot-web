@@ -7,9 +7,9 @@ export default defineNuxtConfig({
   ssr: true,
   css: ['~/assets/css/main.css'],
   runtimeConfig: {
+    BASE_URL: process.env.NUXT_PUBLIC_BASE_URL,
     public: {
-      BASE_URL: '',
-      googleClientId: '',
+      googleClientId: process.env.NUXT_PUBLIC_GOOGLE_CLIENT_ID,
     },
   },
   devServer: {

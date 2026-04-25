@@ -37,7 +37,7 @@ const handleSubmit = async () => {
         subtitle="Sign in to continue your English learning journey."
         footer-text="Don't have an account?"
         footer-link-text="Create one"
-        footer-link-to="/sign-up"
+        footer-link-to="/signup"
     >
         <Form :schema="signInSchema" :form-data="formData" @submit="handleSubmit" class="flex flex-col gap-5">
             <template #default="{ errors }">

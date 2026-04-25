@@ -22,11 +22,8 @@ type HttpResponse<T = any> = {
 }
 
 export const useHttp = async <T = any>(options: HttpOptions): Promise<HttpResponse<T>> => {
-  const config = useRuntimeConfig()
   const { baseUrl ,url, method, body, requireAuth = false, headers, showToast = false, toastDelayMs = 0, includeCredentials = false, ignoreResponse = false } = options
-
-  const BASE_URL = config.public.BASE_URL || 'http://localhost:8000/api/v1'
-
+  const BASE_URL = 'http://localhost:8000/api/v1'
   let API_URL = options.url
   if(url){
     API_URL = url.startsWith('/') ? url : `/${url}`
