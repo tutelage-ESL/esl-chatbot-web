@@ -115,36 +115,18 @@ export const useAuthStore = defineStore('useAuthStore', {
     },
 
     async fetchUser(): Promise<void> {
-      const config = useRuntimeConfig()
       this.getTokenFromStorage()
 
-      let statusCode: number | null = null
-
-      const { data } = await useFetch<User>('/auth/me', {
+      const response = await useHttp<User>({
         method: 'GET',
-        baseURL: config.public.BASE_URL,
-        key: `user-account-${this.accessToken}`,
-        cache:  "no-cache",
-        headers: {
-          'Content-Type': 'application/json',
-          "Accept-Language": "en",
-          'Authorization': this.accessToken ? `Bearer ${this.accessToken}` : '',
-        },
-        onResponse({ response }) {
-          statusCode = response.status
-        }
+        url: '/auth/me',
+        requireAuth: true,
+        showToast: false,
       })
 
       this.isCheckedUser = true
 
-      if(statusCode === 401){
-        const refreshSuccess = await this.refreshTokens()
-        if (refreshSuccess) {
-          return this.fetchUser()
-        }
-      }
-
-      const user = (data.value as any)?.data
+      const user = (response.data as any)?.data
       if (user) {
         this.user = {
           id: user.id,
