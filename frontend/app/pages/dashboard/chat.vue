@@ -72,7 +72,7 @@ function onKeydown(e: KeyboardEvent) {
   <div class="flex h-full overflow-hidden animate-card-enter" style="--delay:0ms">
 
     <!-- ── Sessions sidebar ────────────────────────────────────────── -->
-    <div class="w-65 border-r border-black/6 dark:border-white/6 bg-white dark:bg-[#0e0e10] hidden md:flex flex-col shrink-0">
+    <div class="w-65 border-r border-black/6 dark:border-white/6 bg-white dark:bg-[#0e0e10] hidden md:flex flex-col shrink-0 relative z-10">
       <!-- New session -->
       <div class="p-3 border-b border-black/6 dark:border-white/6">
         <AppButton variant="primary" size="36" radius="8" icon="Add" :icon-config="{color: 'white'}" text="New session" class="w-full justify-center text-[12.5px]!" />
@@ -149,7 +149,7 @@ function onKeydown(e: KeyboardEvent) {
               v-model="input"
               rows="1"
               placeholder="Type in English — or press the mic to speak"
-              class="flex-1 resize-none outline-none bg-transparent py-2 px-1 text-[14px] text-brand-ink dark:text-white placeholder:text-zinc-400 font-poppins"
+              class="flex-1 resize-none outline-none bg-transparent py-2 overflow-hidden px-1 text-[14px] text-brand-ink dark:text-white placeholder:text-zinc-400 font-poppins"
               @keydown="onKeydown"
             />
             <button class="w-9 h-9 rounded-lg bg-zinc-100 dark:bg-white/6 flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-white/10 transition">

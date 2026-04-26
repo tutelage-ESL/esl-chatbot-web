@@ -388,6 +388,7 @@ export const useAuthStore = defineStore("useAuthStore", {
     getIsLoading: (state) => state.isLoading,
     getAccessToken: (state) => state.accessToken,
     getRefreshToken: (state) => state.refreshToken,
+    userCurrentRole: (state) => state.user?.role || null,
   },
 });
 

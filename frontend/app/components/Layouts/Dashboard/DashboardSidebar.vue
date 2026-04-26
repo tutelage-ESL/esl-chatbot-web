@@ -149,7 +149,7 @@ function isActive(path: string) {
 
     <!-- Collapse toggle (desktop only) -->
     <button
-      class="hidden md:flex absolute -right-3 top-20 w-6 h-6 rounded-full bg-white dark:bg-[#151517] border border-black/8 dark:border-white/10 shadow-sm items-center justify-center text-zinc-400 hover:text-brand-primary transition-colors z-10"
+      class="hidden md:flex absolute -right-3 top-20 z-30 w-6 h-6 rounded-full bg-white dark:bg-[#151517] border border-border shadow-sm items-center justify-center text-zinc-400 hover:text-brand-primary transition-colors"
       @click="emit('toggle')"
     >
       <AppIconsax

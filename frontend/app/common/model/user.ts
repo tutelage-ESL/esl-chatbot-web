@@ -3,7 +3,7 @@ export type User = {
   username: string;
   email: string;
   displayName: string;
-  role: 'STUDENT' | 'TEACHER' | 'ADMIN';
+  role: 'STUDENT' | 'TUTOR' | 'ADMIN';
   avatarUrl: string;
   isActive: boolean;
   subscription: {
