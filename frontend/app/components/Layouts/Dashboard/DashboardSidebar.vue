@@ -1,23 +1,25 @@
 <script setup lang="ts">
 import type { DashboardNavItem } from '~/common/types/dashboard-types'
 
-defineProps<{ collapsed: boolean }>()
-const emit = defineEmits<{ toggle: [] }>()
+const props = defineProps<{
+  collapsed: boolean
+  mobileOpen: boolean
+}>()
+const emit = defineEmits<{ toggle: []; 'close-mobile': [] }>()
 
 const route = useRoute()
 
-const primaryNav: DashboardNavItem[] = [
-  { id: 'overview', label: 'Overview',   icon: 'Chart',   path: '/dashboard',          badge: undefined },
-  { id: 'chat',     label: 'AI Chat',    icon: 'Messages', path: '/dashboard/chat',    badge: undefined },
-  { id: 'voice',    label: 'Voice Lab',  icon: 'Microphone', path: '/dashboard/voice', badge: undefined },
-  { id: 'vocab',    label: 'Vocabulary', icon: 'Book1',   path: '/dashboard/vocab',    badge: 12 },
-  { id: 'goals',    label: 'Goals',      icon: 'Flag',    path: '/dashboard/goals',    badge: undefined },
-  { id: 'lessons',  label: 'Lessons',    icon: 'Candle',  path: '/dashboard/lessons',  badge: undefined },
-]
+watch(() => route.path, () => {
+  if (props.mobileOpen) emit('close-mobile')
+})
 
-const secondaryNav: DashboardNavItem[] = [
-  { id: 'profile',  label: 'Profile',  icon: 'Profile', path: '/dashboard/profile',   badge: undefined },
-  { id: 'settings', label: 'Settings', icon: 'Setting', path: '/dashboard/settings',  badge: undefined },
+const primaryNav: DashboardNavItem[] = [
+  { id: 'overview', label: 'Overview',   icon: 'Chart',      path: '/dashboard',        badge: undefined },
+  { id: 'chat',     label: 'AI Chat',    icon: 'Messages',   path: '/dashboard/chat',   badge: undefined },
+  { id: 'voice',    label: 'Voice Lab',  icon: 'Microphone', path: '/dashboard/voice',  badge: undefined },
+  { id: 'vocab',    label: 'Vocabulary', icon: 'Book1',      path: '/dashboard/vocab',  badge: 12 },
+  { id: 'goals',    label: 'Goals',      icon: 'Flag',       path: '/dashboard/goals',  badge: undefined },
+  { id: 'lessons',  label: 'Lessons',    icon: 'Candle',     path: '/dashboard/lessons',badge: undefined },
 ]
 
 function isActive(path: string) {
@@ -27,11 +29,26 @@ function isActive(path: string) {
 </script>
 
 <template>
+  <!-- Mobile overlay backdrop -->
+  <Transition name="backdrop-fade">
+    <div
+      v-if="mobileOpen"
+      class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
+      @click="emit('close-mobile')"
+    />
+  </Transition>
+
+  <!-- Sidebar -->
   <aside
     :class="[
-      'relative flex flex-col shrink-0 border-r border-black/6 dark:border-white/6',
+      'flex flex-col shrink-0 border-r border-black/6 dark:border-white/6',
       'bg-white dark:bg-[#0e0e10] transition-all duration-300',
-      collapsed ? 'w-[68px]' : 'w-[232px]',
+      // Desktop: inline, collapsible
+      'md:relative md:translate-x-0',
+      collapsed ? 'md:w-17' : 'md:w-58',
+      // Mobile: fixed overlay
+      'fixed inset-y-0 left-0 z-50 w-58 md:z-auto',
+      mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
     ]"
   >
     <!-- Brand -->
@@ -42,13 +59,22 @@ function isActive(path: string) {
         <AppIconsax name="Candle" color="#000" :size="14" />
       </div>
       <Transition name="fade">
-        <div v-if="!collapsed" class="leading-tight overflow-hidden">
+        <div v-if="!collapsed" class="leading-tight overflow-hidden flex-1">
           <div class="text-[14px] font-semibold tracking-tight text-brand-ink dark:text-white font-poppins">
             Tutelage <span class="text-brand-primary">AI</span>
           </div>
           <div class="text-[10px] text-zinc-400 font-mono">app.tutelage.ai</div>
         </div>
       </Transition>
+
+      <!-- Mobile close button -->
+      <button
+        class="md:hidden ml-auto w-8 h-8 rounded-lg flex items-center justify-center text-zinc-400 hover:text-brand-ink dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5 transition"
+        aria-label="Close sidebar"
+        @click="emit('close-mobile')"
+      >
+        <AppIconsax name="CloseCircle" color="currentColor" :size="16" />
+      </button>
     </div>
 
     <!-- Primary nav -->
@@ -75,7 +101,7 @@ function isActive(path: string) {
       >
         <span
           v-if="isActive(item.path)"
-          class="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r bg-brand-primary"
+          class="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r bg-brand-primary"
         />
         <AppIconsax
           :name="item.icon as any"
@@ -92,32 +118,6 @@ function isActive(path: string) {
           >
             {{ item.badge }}
           </span>
-        </Transition>
-      </NuxtLink>
-
-      <Transition name="fade">
-        <div
-          v-if="!collapsed"
-          class="text-[10px] uppercase tracking-[0.18em] font-semibold text-zinc-400 px-2 mb-1.5 mt-5 font-poppins"
-        >
-          Account
-        </div>
-      </Transition>
-
-      <NuxtLink
-        v-for="item in secondaryNav"
-        :key="item.id"
-        :to="item.path"
-        :class="[
-          'flex items-center gap-3 px-2.5 py-2 rounded-lg text-[13px] font-poppins w-full transition-colors duration-200',
-          isActive(item.path)
-            ? 'bg-brand-primary/10 text-brand-ink dark:text-white font-medium'
-            : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/4 hover:text-brand-ink dark:hover:text-white',
-        ]"
-      >
-        <AppIconsax :name="item.icon as any" color="currentColor" :size="15" />
-        <Transition name="fade">
-          <span v-if="!collapsed">{{ item.label }}</span>
         </Transition>
       </NuxtLink>
     </nav>
@@ -147,9 +147,9 @@ function isActive(path: string) {
       </div>
     </Transition>
 
-    <!-- Collapse toggle -->
+    <!-- Collapse toggle (desktop only) -->
     <button
-      class="absolute -right-3 top-20 w-6 h-6 rounded-full bg-white dark:bg-[#151517] border border-black/8 dark:border-white/10 shadow-sm flex items-center justify-center text-zinc-400 hover:text-brand-primary transition-colors z-10"
+      class="hidden md:flex absolute -right-3 top-20 w-6 h-6 rounded-full bg-white dark:bg-[#151517] border border-black/8 dark:border-white/10 shadow-sm items-center justify-center text-zinc-400 hover:text-brand-primary transition-colors z-10"
       @click="emit('toggle')"
     >
       <AppIconsax
@@ -170,6 +170,15 @@ function isActive(path: string) {
 }
 .fade-enter-from,
 .fade-leave-to {
+  opacity: 0;
+}
+
+.backdrop-fade-enter-active,
+.backdrop-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+.backdrop-fade-enter-from,
+.backdrop-fade-leave-to {
   opacity: 0;
 }
 </style>

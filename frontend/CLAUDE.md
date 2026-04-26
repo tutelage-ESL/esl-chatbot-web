@@ -51,6 +51,7 @@ app/
 │
 ├─ components/      # Subfolders are PascalCase, EXCEPT package folders (e.g. `ui` for shadcn — never rename)
 │  ├─ App/          # main UI primitives: Button, Iconsax, Link, Text, Image, ...
+│  ├─ Block/        # self-contained feature blocks reused across pages (e.g. UserAvatar.vue)
 │  ├─ Form/         # form-related components: Form, Input, Label, Error, ServerError, VerificationInput, CopyButton, CountryCode, GoogleButton, AllDone, ...
 │  ├─ Layouts/      # layout components
 │  ├─ Pages/        # page-specific components grouped per page
@@ -70,7 +71,8 @@ app/
 Pinia stores live at the **workspace root** in `stores/` (imported as `~~/stores/...`), NOT under `app/stores/`. See [useHttp.ts](app/composables/useHttp.ts) importing from `~~/stores/auth`.
 
 **Key rules:**
-- Component folders use **PascalCase** (`App/`, `Form/`, `Pages/`). Package-owned folders (`ui/` for shadcn) stay as the package expects.
+- Component folders use **PascalCase** (`App/`, `Block/`, `Form/`, `Pages/`). Package-owned folders (`ui/` for shadcn) stay as the package expects.
+- `Block/` is for self-contained feature blocks that are reused across multiple pages but don't belong in `App/` (primitives) or `Form/`. Example: `<BlockUserAvatar />` from `components/Block/UserAvatar.vue`.
 - Page-specific sections live under `components/Pages/<PageName>/` — not under `pages/` itself.
 - Skeleton components are grouped under `components/Skeletons/` mirroring the page/component they load for.
 - `common/model/` holds types that correspond 1:1 to backend DB tables. Generated API types live separately in [types/api.ts](types/api.ts).
@@ -174,9 +176,10 @@ Add new public values under `runtimeConfig.public` and consume via `useRuntimeCo
 
 The authenticated dashboard uses a **fixed sidebar + scrollable body** pattern:
 
-- **Layout:** [app/layouts/dashboard.vue](app/layouts/dashboard.vue) — `flex h-dvh overflow-hidden`. Sidebar is fixed-width, body column (`flex-col flex-1 overflow-hidden`) holds a sticky topbar + `overflow-y-auto` main slot. Only the body scrolls; the sidebar never does.
-- **Sidebar:** [app/components/Dashboard/Sidebar.vue](app/components/Dashboard/Sidebar.vue) — collapsible (232px ↔ 68px via `collapsed` prop + `@toggle` emit). Uses `NuxtLink` for nav items with active-state detection via `useRoute()`. Emits `toggle` up to the layout.
-- **Topbar:** [app/components/Dashboard/Topbar.vue](app/components/Dashboard/Topbar.vue) — sticky breadcrumb + search bar + notifications + user avatar. Reads `useAuthStore().getUser` for initials/username.
+- **Layout:** [app/layouts/dashboard.vue](app/layouts/dashboard.vue) — `flex h-dvh overflow-hidden`. Manages `collapsed` (desktop collapse) and `mobileOpen` (mobile overlay) state and passes them to the sidebar.
+- **Sidebar:** [app/components/Layouts/Dashboard/DashboardSidebar.vue](app/components/Layouts/Dashboard/DashboardSidebar.vue) — on desktop: inline collapsible (`w-58` ↔ `w-17`) via `collapsed` prop + `@toggle` emit. On mobile (`< md`): fixed full-height overlay (`z-50`, `translate-x-full` when closed) driven by `mobileOpen` prop + `@close-mobile` emit. A dark backdrop is rendered behind it. Closes automatically on route change. No Account section — profile/settings are accessed via the user avatar popup.
+- **Header:** [app/components/Layouts/Dashboard/DashboardHeader.vue](app/components/Layouts/Dashboard/DashboardHeader.vue) — sticky breadcrumb + search bar + notifications + CTA. On mobile shows a burger icon that emits `open-sidebar`. User avatar is `<BlockUserAvatar />`.
+- **User Avatar:** [app/components/Block/UserAvatar.vue](app/components/Block/UserAvatar.vue) — shadcn `DropdownMenu` showing user name, email, plan badge, then Profile / Settings links and a destructive Sign out item. Reads from `useAuthStore().getUser`.
 
 ### Dashboard Pages (file-based routing under `pages/dashboard/`)
 

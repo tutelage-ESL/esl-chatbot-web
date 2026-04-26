@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import type { SvgBasedIconName } from '~/common/types/iconsax-types'
-import { useAuthStore } from '~~/stores/auth'
 
-const authStore = useAuthStore()
-const user = computed(() => authStore.getUser)
+const emit = defineEmits<{ 'open-sidebar': [] }>()
 
 const route = useRoute()
 
@@ -21,25 +19,20 @@ const pageTitles: Record<string, string> = {
 const pageTitle = computed(() => pageTitles[route.path] ?? 'Dashboard')
 const pageSlug  = computed(() => pageTitle.value.toLowerCase())
 
-const initials = computed(() => {
-  const name = user.value?.username ?? user.value?.email ?? 'U'
-  return name.charAt(0).toUpperCase()
-})
-
 // Command palette
 const cmdOpen = ref(false)
 const cmdQuery = ref('')
 const cmdInput = ref<HTMLInputElement | null>(null)
 
-const navActions: { label: string; icon: SvgBasedIconName; to: string }[] =  [
-  { label: 'Overview',  icon: 'Category',       to: '/dashboard' },
-  { label: 'AI Chat',   icon: 'MessageText',     to: '/dashboard/chat' },
-  { label: 'Voice Lab', icon: 'Microphone2',     to: '/dashboard/voice' },
-  { label: 'Vocabulary',icon: 'Book1',           to: '/dashboard/vocab' },
-  { label: 'Goals',     icon: 'Flag',            to: '/dashboard/goals' },
-  { label: 'Lessons',   icon: 'Teacher',         to: '/dashboard/lessons' },
-  { label: 'Profile',   icon: 'Profile',         to: '/dashboard/profile' },
-  { label: 'Settings',  icon: 'Setting2',        to: '/dashboard/settings' },
+const navActions: { label: string; icon: SvgBasedIconName; to: string }[] = [
+  { label: 'Overview',   icon: 'Category',    to: '/dashboard' },
+  { label: 'AI Chat',    icon: 'MessageText', to: '/dashboard/chat' },
+  { label: 'Voice Lab',  icon: 'Microphone2', to: '/dashboard/voice' },
+  { label: 'Vocabulary', icon: 'Book1',       to: '/dashboard/vocab' },
+  { label: 'Goals',      icon: 'Flag',        to: '/dashboard/goals' },
+  { label: 'Lessons',    icon: 'Teacher',     to: '/dashboard/lessons' },
+  { label: 'Profile',    icon: 'Profile',     to: '/dashboard/profile' },
+  { label: 'Settings',   icon: 'Setting2',    to: '/dashboard/settings' },
 ]
 
 const filteredActions = computed(() => {
@@ -70,9 +63,7 @@ function onKeydown(e: KeyboardEvent) {
     e.preventDefault()
     cmdOpen.value ? closeCmd() : openCmd()
   }
-  if (e.key === 'Escape' && cmdOpen.value) {
-    closeCmd()
-  }
+  if (e.key === 'Escape' && cmdOpen.value) closeCmd()
 }
 
 onMounted(() => window.addEventListener('keydown', onKeydown))
@@ -83,18 +74,29 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   <header
     class="h-16 flex items-center justify-between px-5 sm:px-7 border-b border-black/6 dark:border-white/6 bg-white/70 dark:bg-[#0e0e10]/70 backdrop-blur sticky top-0 z-30 shrink-0"
   >
-    <!-- Breadcrumb -->
-    <UiBreadcrumb>
-      <UiBreadcrumbList class="text-[11px] font-mono flex-nowrap gap-1 sm:gap-1.5">
-        <UiBreadcrumbItem>
-          <UiBreadcrumbLink as="span" class="text-zinc-400 cursor-default">app</UiBreadcrumbLink>
-        </UiBreadcrumbItem>
-        <UiBreadcrumbSeparator />
-        <UiBreadcrumbItem>
-          <UiBreadcrumbPage class="text-brand-ink dark:text-white font-mono text-[11px]">{{ pageSlug }}</UiBreadcrumbPage>
-        </UiBreadcrumbItem>
-      </UiBreadcrumbList>
-    </UiBreadcrumb>
+    <!-- Left: burger (mobile) + breadcrumb -->
+    <div class="flex items-center gap-3">
+      <!-- Mobile burger -->
+      <button
+        class="md:hidden w-9 h-9 rounded-lg flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-brand-ink dark:hover:text-white transition"
+        aria-label="Open sidebar"
+        @click="emit('open-sidebar')"
+      >
+        <AppIconsax name="HambergerMenu" color="currentColor" :size="18" />
+      </button>
+
+      <UiBreadcrumb>
+        <UiBreadcrumbList class="text-[11px] font-mono flex-nowrap gap-1 sm:gap-1.5">
+          <UiBreadcrumbItem>
+            <UiBreadcrumbLink as="span" class="text-zinc-400 cursor-default">app</UiBreadcrumbLink>
+          </UiBreadcrumbItem>
+          <UiBreadcrumbSeparator />
+          <UiBreadcrumbItem>
+            <UiBreadcrumbPage class="text-brand-ink dark:text-white font-mono text-[11px]">{{ pageSlug }}</UiBreadcrumbPage>
+          </UiBreadcrumbItem>
+        </UiBreadcrumbList>
+      </UiBreadcrumb>
+    </div>
 
     <!-- Search bar (md+) -->
     <div class="hidden md:flex items-center gap-2 flex-1 max-w-md mx-8">
@@ -117,9 +119,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
         class="relative w-9 h-9 rounded-lg flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-brand-ink dark:hover:text-white transition"
       >
         <AppIconsax name="Notification" color="currentColor" :size="15" />
-        <span
-          class="absolute top-2 right-2.5 w-1.5 h-1.5 rounded-full bg-brand-primary ring-2 ring-white dark:ring-[#0e0e10]"
-        />
+        <span class="absolute top-2 right-2.5 w-1.5 h-1.5 rounded-full bg-brand-primary ring-2 ring-white dark:ring-[#0e0e10]" />
       </button>
 
       <!-- New session CTA -->
@@ -129,28 +129,14 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
           size="36"
           radius="8"
           icon="Candle"
-          :icon-config="{
-            color: 'white'
-          }"
+          :icon-config="{ color: 'white' }"
           text="New session"
           class="hidden sm:flex text-[12.5px]!"
         />
       </NuxtLink>
 
-      <!-- User avatar -->
-      <div class="ml-1.5 flex items-center gap-2 pl-2 border-l border-black/6 dark:border-white/6">
-        <div
-          class="w-8 h-8 rounded-full bg-linear-to-br from-brand-primary to-[#b45309] text-white flex items-center justify-center text-[12px] font-semibold font-poppins shrink-0"
-        >
-          {{ initials }}
-        </div>
-        <div class="hidden lg:block leading-tight">
-          <AppText size="12" weight="medium" color="brand-ink">
-            {{ user?.username ?? 'User' }}
-          </AppText>
-          <AppText size="10" color="neutral-400" class="font-mono">B2 · Upper-Int.</AppText>
-        </div>
-      </div>
+      <!-- User avatar popup -->
+      <BlockUserAvatar />
     </div>
   </header>
 
@@ -162,12 +148,9 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
         class="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] px-4"
         @click.self="closeCmd"
       >
-        <!-- Backdrop -->
         <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="closeCmd" />
 
-        <!-- Modal -->
         <div class="relative w-full max-w-lg bg-white dark:bg-[#111113] rounded-2xl shadow-[0_24px_80px_rgba(0,0,0,0.22)] border border-black/6 dark:border-white/6 overflow-hidden animate-cmd-enter">
-          <!-- Search input -->
           <div class="flex items-center gap-3 px-4 py-3.5 border-b border-black/6 dark:border-white/6">
             <AppIconsax name="SearchNormal" color="currentColor" :size="15" class="text-zinc-400 shrink-0" />
             <input
@@ -182,7 +165,6 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
             </kbd>
           </div>
 
-          <!-- Results -->
           <div class="py-2 max-h-72 overflow-y-auto">
             <p v-if="filteredActions.length === 0" class="px-4 py-6 text-center text-[12.5px] text-zinc-400">
               No results for "{{ cmdQuery }}"
@@ -223,7 +205,6 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
             </template>
           </div>
 
-          <!-- Footer hint -->
           <div class="px-4 py-2.5 border-t border-black/6 dark:border-white/6 flex items-center gap-3 text-[10.5px] text-zinc-400">
             <span><kbd class="font-mono px-1 py-0.5 rounded bg-zinc-100 dark:bg-white/6 border border-black/5 dark:border-white/10 text-[10px]">↵</kbd> select</span>
             <span><kbd class="font-mono px-1 py-0.5 rounded bg-zinc-100 dark:bg-white/6 border border-black/5 dark:border-white/10 text-[10px]">Esc</kbd> close</span>
