@@ -64,10 +64,10 @@ const dueWords: DueWord[] = [
 </script>
 
 <template>
-  <div class="p-5 sm:p-7 space-y-5">
+  <div class="h-full overflow-y-auto p-5 sm:p-7 space-y-5">
     <!-- Greeting hero — delay 0 -->
     <div class="animate-card-enter" style="--delay:0ms">
-      <DashboardOverviewGreetingHero
+      <PagesDashboardOverviewGreetingHero
         :streak="23"
         :done-mins="17"
         :goal-mins="25"
@@ -85,21 +85,21 @@ const dueWords: DueWord[] = [
         class="animate-card-enter"
         :style="`--delay:${80 + i * 60}ms`"
       >
-        <DashboardOverviewStatCard :card="card" />
+        <PagesDashboardOverviewStatCard :card="card" />
       </div>
     </div>
 
     <!-- Chart + Next up — delay 320ms -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <div class="lg:col-span-2 animate-card-enter" style="--delay:320ms">
-        <DashboardOverviewVocabChart
+        <PagesDashboardOverviewVocabChart
           :points="chartPoints"
           :total-words="1248"
           growth="+12.4%"
         />
       </div>
       <div class="animate-card-enter" style="--delay:380ms">
-        <DashboardOverviewNextUp
+        <PagesDashboardOverviewNextUp
           :recommended="recommended"
           :upcoming="upcomingLessons"
           @start-lesson="router.push('/dashboard/chat')"
@@ -110,14 +110,14 @@ const dueWords: DueWord[] = [
     <!-- Heatmap + Due words — delay 440ms -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <div class="lg:col-span-2 animate-card-enter" style="--delay:440ms">
-        <DashboardOverviewActivityHeatmap
+        <PagesDashboardOverviewActivityHeatmap
           :heat-data="heatData"
           :active-pct="78"
           :recent-sessions="recentSessions"
         />
       </div>
       <div class="animate-card-enter" style="--delay:500ms">
-        <DashboardOverviewDueWords
+        <PagesDashboardOverviewDueWords
           :words="dueWords"
           :total-due="12"
           :level-pct="62"

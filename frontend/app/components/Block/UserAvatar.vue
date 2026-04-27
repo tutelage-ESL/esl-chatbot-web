@@ -34,7 +34,7 @@ async function handleSignOut() {
         <!-- Avatar circle -->
         <div
           class="w-8 h-8 rounded-full bg-linear-to-br from-brand-primary to-[#b45309] text-white flex items-center justify-center text-[12px] font-semibold font-poppins shrink-0">
-          <img v-if="user?.avatarUrl" :src="user.avatarUrl" :alt="user.displayName"
+          <AppImage v-if="user?.avatarUrl" :src="user.avatarUrl" :alt="user.displayName"
             class="w-full h-full rounded-full object-cover" />
           <span v-else>{{ initials }}</span>
         </div>

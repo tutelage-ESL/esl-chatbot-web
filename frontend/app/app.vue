@@ -1,12 +1,10 @@
 <template>
-  <div>
+  <div class="h-dvh overflow-hidden">
     <NuxtLayout>
-      <main>
-        <NuxtPage />
-        <ClientOnly>
-          <Toaster />
-        </ClientOnly>
-      </main>
+      <NuxtPage />
+      <ClientOnly>
+        <Toaster />
+      </ClientOnly>
     </NuxtLayout>
   </div>
 </template>

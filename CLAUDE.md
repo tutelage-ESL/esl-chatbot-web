@@ -31,7 +31,21 @@ cd backend && bun run dev:env   # fallback when Infisical isn't set up, needs a 
 cd frontend && bun run dev      # port 3001
 ```
 
-Full backend command list (including Prisma, tests, type-gen) lives in [backend/CLAUDE.md](backend/CLAUDE.md). Frontend has no lint or test runner configured — commands are in [frontend/CLAUDE.md](frontend/CLAUDE.md).
+Key backend commands:
+
+```bash
+cd backend && bun run typecheck          # TypeScript type check
+cd backend && bun run db:migrate         # Run Prisma migrations (via Infisical)
+cd backend && bun run db:seed            # Seed test data
+cd backend && bun run generate:types     # Regenerate frontend/types/api.ts from Swagger
+cd backend && bun test                   # Integration tests (requires DB running)
+```
+
+Frontend has no lint or test runner configured. Type-check:
+
+```bash
+cd frontend && bunx nuxi typecheck
+```
 
 ## Cross-Workspace: Type Sharing
 
@@ -56,12 +70,39 @@ Backend secrets are managed via **Infisical** (project `esl-chatbot`, envs `dev`
 - Backend dev: **8000**
 - Frontend dev: **3001** (not 3000 — configured in [frontend/nuxt.config.ts](frontend/nuxt.config.ts))
 
+## Subscription & AI Tier System
+
+AI chatbot access is gated by `subscription.status === 'ACTIVE'`. Default after registration: `plan=FREE, status=INACTIVE` (no AI access). Class joining does NOT require a subscription.
+
+| Tier | Sessions/day | Msgs/session (soft+buffer) | Msgs/day hard cap | LLM context | AI model |
+|---|---|---|---|---|---|
+| FREE | 3 | 20 + 10 | 20 | 10 msgs | Gemini 2.5 Flash-Lite |
+| GOLD | 15 | 100 + 10 | — | 20 msgs | Gemini 2.5 Flash |
+| PREMIUM | 50 | 150 + 10 | — | 20 msgs | GPT-5 mini (OpenAI, auto-falls back to Gemini) |
+
+Dev environment always uses `gemini-flash-latest` regardless of plan. Plan limits are enforced in `src/modules/sessions/sessions.service.ts` and `src/modules/messages/messages.service.ts`. Frontend reads them from [frontend/app/common/data/plan-limits.ts](frontend/app/common/data/plan-limits.ts) — keep these two in sync manually when tier limits change.
+
+## Dashboard Layout Height Chain
+
+The dashboard uses a strict flex height chain that must not be broken. Any element that breaks `h-full` propagation will cause the chat page's composer to float in the middle or the page to expand beyond the viewport.
+
+```
+html / body / #__nuxt  →  height: 100%  (global CSS in main.css)
+app.vue <div>          →  h-dvh overflow-hidden
+layout <div>           →  flex h-dvh overflow-hidden
+  <main>               →  flex-1 min-h-0 overflow-hidden  ← NOT overflow-y-auto
+    <slot />           →  page fills h-full
+```
+
+- The layout `<main>` is `overflow-hidden` — each page controls its own scroll.
+- Scrollable pages (overview, voice, vocab, goals, lessons, profile, settings) use `h-full overflow-y-auto` on their root div.
+- The chat page uses `h-full overflow-hidden` on its root and manages three fixed-height columns (sessions sidebar, main thread, coach pane). Only `MessageThread.vue` scrolls via `flex-1 min-h-0 overflow-y-auto`.
+
 ## File Length Rule
 
 **Keep files short. Extract into components aggressively.**
 
 - Vue SFC templates over ~150 lines → split into sub-components. A 500-line template is always wrong.
-- If a section of a page has its own visual identity or could be reused, it is a component.
 - Page files (`pages/`) should contain only layout glue and state — no large inline template blocks.
 - Composables handle all API calls and business logic. Pages/components only call them.
 - Backend: service files over ~300 lines → split by concern. Router files should stay thin (route definitions only, no logic).

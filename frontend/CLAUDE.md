@@ -51,14 +51,21 @@ app/
 │
 ├─ components/      # Subfolders are PascalCase, EXCEPT package folders (e.g. `ui` for shadcn — never rename)
 │  ├─ App/          # main UI primitives: Button, Iconsax, Link, Text, Image, ...
-│  ├─ Block/        # self-contained feature blocks reused across pages (e.g. UserAvatar.vue)
+│  ├─ Block/        # self-contained feature blocks reused across multiple pages (e.g. UserAvatar.vue)
 │  ├─ Form/         # form-related components: Form, Input, Label, Error, ServerError, VerificationInput, CopyButton, CountryCode, GoogleButton, AllDone, ...
-│  ├─ Layouts/      # layout components
-│  ├─ Pages/        # page-specific components grouped per page
-│  │  └─ Home/
-│  │     ├─ Hero.vue
-│  │     └─ About.vue
-│  ├─ Skeletons/    # loading skeletons, grouped per page/component
+│  ├─ Layouts/      # layout shell components (Navbar, Footer, auth shell, dashboard sidebar/header)
+│  │  ├─ Dashboard/ # DashboardSidebar.vue, DashboardHeader.vue — layout chrome only, not page sections
+│  │  └─ Navbar/
+│  ├─ Pages/        # ALL page-specific components, grouped by page/section
+│  │  ├─ Home/      # Hero.vue, Features.vue, Pricing.vue, ...
+│  │  └─ Dashboard/ # dashboard page sections, grouped by route
+│  │     ├─ Overview/   # GreetingHero, StatCard, VocabChart, NextUp, ActivityHeatmap, DueWords
+│  │     ├─ Chat/       # SessionsSidebar, ThreadHeader, MessageThread, MessageBubble, Composer, CoachPane, SessionItem, ThinkingIndicator
+│  │     ├─ Voice/      # PromptCard, ScorePanel, PhonemeGrid
+│  │     ├─ Vocab/      # Flashcard, DeckList
+│  │     ├─ Goals/      # GoalCard, AchievementGrid
+│  │     └─ Lessons/    # CategoryFilter, LessonCard
+│  ├─ Skeletons/    # loading skeletons, mirroring the page/component they load for
 │  └─ ui/           # shadcn — DO NOT rename, DO NOT capitalize
 │
 ├─ composables/     # useXxx() — multiple related exports per file OK
@@ -72,19 +79,24 @@ Pinia stores live at the **workspace root** in `stores/` (imported as `~~/stores
 
 **Key rules:**
 - Component folders use **PascalCase** (`App/`, `Block/`, `Form/`, `Pages/`). Package-owned folders (`ui/` for shadcn) stay as the package expects.
-- `Block/` is for self-contained feature blocks that are reused across multiple pages but don't belong in `App/` (primitives) or `Form/`. Example: `<BlockUserAvatar />` from `components/Block/UserAvatar.vue`.
-- Page-specific sections live under `components/Pages/<PageName>/` — not under `pages/` itself.
+- `Block/` is for self-contained feature blocks reused across multiple pages that don't belong in `App/` (primitives) or `Form/`. Example: `<BlockUserAvatar />` from `components/Block/UserAvatar.vue`.
+- **All page-specific sections live under `components/Pages/<PageName>/`** — never under `pages/` itself. For dashboard pages this means `components/Pages/Dashboard/<Section>/`.
+- **Never create a top-level `components/Dashboard/` folder.** Dashboard sub-components belong under `components/Pages/Dashboard/<Section>/`. Layout chrome (sidebar, topbar) stays in `components/Layouts/Dashboard/`.
 - Skeleton components are grouped under `components/Skeletons/` mirroring the page/component they load for.
 - `common/model/` holds types that correspond 1:1 to backend DB tables. Generated API types live separately in [types/api.ts](types/api.ts).
 - Composables are named `useXxx()` and may export multiple related functions from one file.
-- Components auto-import with folder-path PascalCase prefix — `app/components/App/Button.vue` is used as `<AppButton />`, `app/components/Pages/Home/Hero.vue` as `<PagesHomeHero />`.
+- **Auto-import prefix rule:** Nuxt prefixes components with their full folder path in PascalCase. Examples:
+  - `components/App/Button.vue` → `<AppButton />`
+  - `components/Pages/Home/Hero.vue` → `<PagesHomeHero />`
+  - `components/Pages/Dashboard/Chat/Composer.vue` → `<PagesDashboardChatComposer />`
+  - `components/Layouts/Dashboard/DashboardSidebar.vue` → `<LayoutsDashboardDashboardSidebar />`
+- Always derive the correct tag name from the file path — never guess.
 - Styling: use Tailwind utilities. Put reusable/global styles in [app/assets/css/main.css](app/assets/css/main.css) as utility classes. Use `<style scoped>` inside a component only for things Tailwind can't express (e.g. `@keyframes`).
-- Fetch data via the `useHttp` composable ([app/composables/useHttp.ts](app/composables/useHttp.ts)) — never call `fetch` directly from components or pages.
-- always check teh components/APP and components/ui and components/Form base on the need and the request to use teh actual available resouces and components
-- most of the time check the components/ui for shad cn components to work with them but every time use the components ffrom the /components/App and componsnts/Form! except these use the shad cn... 
-- and every time use the latest tailwind css utilities! like we had only for example size-10, 12, 14, 18, 10... now everything works 1 till 100000... , and its multiply by 4! so if we use size-4 it means size-[16px] !! and use the same for the opacity like this white/6, white/50 instead of white/[0.06] or white/[0.5]... 
-- on the primary color(the orange one) use white!!
-- **Keep Vue files short. If a template exceeds ~150 lines, extract sections into sub-components.** Page files (`pages/`) hold state and layout only — no large inline template blocks. A 300+ line SFC template is always a sign something needs to be split. Use `components/Pages/<PageName>/` for page-specific pieces and `components/Dashboard/<Section>/` for dashboard sections.
+- Always use the latest Tailwind CSS utilities — `size-*`, `gap-*`, `opacity-*` etc. all accept arbitrary integers (e.g. `size-18`). Use shorthand opacity syntax: `white/6`, `white/50` instead of `white/[0.06]`.
+- On the primary brand color (orange), use **white** text.
+- Always check `components/App/`, `components/ui/`, and `components/Form/` before creating a new primitive — use what exists.
+- Fetch data only via the `useHttp` composable ([app/composables/useHttp.ts](app/composables/useHttp.ts)) — never call `fetch` directly.
+- **Keep Vue files short.** If a template exceeds ~150 lines, extract sections into sub-components. Page files (`pages/`) hold state and layout glue only — no large inline template blocks. A 300+ line SFC template is always wrong.
 
 ## API Types (do not edit)
 
@@ -197,24 +209,47 @@ All pages use `definePageMeta({ layout: 'dashboard', requiresAuth: true })`.
 | `/dashboard/profile` | `pages/dashboard/profile.vue` | Built |
 | `/dashboard/settings` | `pages/dashboard/settings.vue` | Built |
 
-### Dashboard Component Folder (`components/Dashboard/`)
+### Dashboard Component Folder (`components/Pages/Dashboard/`)
+
+All dashboard page sub-components live here. **Never use `components/Dashboard/`** — that path is banned.
 
 ```
-components/Dashboard/
-├─ Sidebar.vue          # Collapsible nav sidebar
-├─ Topbar.vue           # Sticky top header
-└─ Overview/            # Overview page sub-components
-   ├─ StatCard.vue      # Single stat tile (label / value / delta / icon)
-   ├─ GreetingHero.vue  # Welcome banner + goal ring + streak
-   ├─ VocabChart.vue    # SVG sparkline for vocabulary growth
-   ├─ NextUp.vue        # Recommended lesson + upcoming list
-   ├─ ActivityHeatmap.vue # 12-week heatmap + recent sessions list
-   └─ DueWords.vue      # SRS due words + level progress bar
+components/Pages/Dashboard/
+├─ Overview/
+│  ├─ StatCard.vue         # Single stat tile (label / value / delta / icon)
+│  ├─ GreetingHero.vue     # Welcome banner + goal ring + streak
+│  ├─ VocabChart.vue       # SVG sparkline for vocabulary growth
+│  ├─ NextUp.vue           # Recommended lesson + upcoming list
+│  ├─ ActivityHeatmap.vue  # 12-week heatmap + recent sessions list
+│  └─ DueWords.vue         # SRS due words + level progress bar
+├─ Chat/
+│  ├─ SessionsSidebar.vue  # Left sessions list panel
+│  ├─ ThreadHeader.vue     # Chat top bar (topic, cefr, actions)
+│  ├─ MessageThread.vue    # Scrollable messages area + empty state
+│  ├─ MessageBubble.vue    # Single message bubble (user or AI)
+│  ├─ ThinkingIndicator.vue# Animated "Maya is thinking…" row
+│  ├─ Composer.vue         # Fixed bottom input bar
+│  ├─ SessionItem.vue      # Single row in the sessions list
+│  └─ CoachPane.vue        # Right live-coaching panel
+├─ Voice/
+│  ├─ PromptCard.vue
+│  ├─ ScorePanel.vue
+│  └─ PhonemeGrid.vue
+├─ Vocab/
+│  ├─ Flashcard.vue
+│  └─ DeckList.vue
+├─ Goals/
+│  ├─ GoalCard.vue
+│  └─ AchievementGrid.vue
+└─ Lessons/
+   ├─ CategoryFilter.vue
+   └─ LessonCard.vue
 ```
 
-Auto-import prefix for these components:
-- `<DashboardSidebar />`, `<DashboardTopbar />`
-- `<DashboardOverviewStatCard />`, `<DashboardOverviewGreetingHero />`, etc.
+Auto-import prefix: `<PagesDashboard{Section}{Component} />`. Examples:
+- `<PagesDashboardOverviewStatCard />`
+- `<PagesDashboardChatComposer />`
+- `<PagesDashboardVoiceScorePanel />`
 
 ### Dashboard Types
 

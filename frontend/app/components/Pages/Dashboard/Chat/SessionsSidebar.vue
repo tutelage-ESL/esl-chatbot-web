@@ -11,13 +11,13 @@ defineProps<{
 
 const emit = defineEmits<{
   'new-session': []
-  'open-session': [id: string]
+  'open-session': [id: string | number]
   'update:search': [val: string]
 }>()
 </script>
 
 <template>
-  <div class="w-65 border-r border-black/6 dark:border-white/6 bg-white dark:bg-[#0e0e10] hidden md:flex flex-col shrink-0 relative z-10">
+  <div class="w-65 border-r border-black/6 dark:border-white/6 bg-white dark:bg-[#0e0e10] hidden md:flex flex-col shrink-0 overflow-hidden relative z-10">
     <!-- New session -->
     <div class="p-3 border-b border-black/6 dark:border-white/6 shrink-0">
       <AppButton
@@ -54,7 +54,7 @@ const emit = defineEmits<{
       <template v-else>
         <template v-if="todayList.length">
           <p class="text-[10px] uppercase tracking-[0.18em] font-semibold text-zinc-400 px-2 py-1.5 font-poppins">Today</p>
-          <DashboardChatSessionItem
+          <PagesDashboardChatSessionItem
             v-for="s in todayList"
             :key="s.id"
             :session="s"
@@ -63,7 +63,7 @@ const emit = defineEmits<{
         </template>
         <template v-if="earlierList.length">
           <p class="text-[10px] uppercase tracking-[0.18em] font-semibold text-zinc-400 px-2 py-1.5 mt-2 font-poppins">Earlier</p>
-          <DashboardChatSessionItem
+          <PagesDashboardChatSessionItem
             v-for="s in earlierList"
             :key="s.id"
             :session="s"

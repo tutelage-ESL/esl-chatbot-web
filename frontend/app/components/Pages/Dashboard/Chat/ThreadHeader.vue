@@ -5,6 +5,7 @@ defineProps<{
   isSessionEnded: boolean
   activeSessionId: string | null
   ending: boolean
+  refreshing?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -47,10 +48,10 @@ const emit = defineEmits<{
       <button
         class="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 transition disabled:opacity-40"
         title="Refresh"
-        :disabled="!activeSessionId"
+        :disabled="!activeSessionId || refreshing"
         @click="emit('refresh')"
       >
-        <AppIconsax name="Refresh" color="currentColor" :size="14" />
+        <AppIconsax name="Refresh" color="currentColor" :size="14" :class="refreshing ? 'animate-spin' : ''" />
       </button>
       <button
         class="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:bg-rose-500/10 hover:text-rose-500 transition disabled:opacity-40"

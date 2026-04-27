@@ -26,7 +26,7 @@ function scoreColor(tone: string) {
 </script>
 
 <template>
-  <aside class="w-75 border-l border-black/6 dark:border-white/6 bg-white dark:bg-[#0e0e10] hidden lg:flex flex-col shrink-0">
+  <aside class="w-75 border-l border-black/6 dark:border-white/6 bg-white dark:bg-[#0e0e10] hidden lg:flex flex-col shrink-0 overflow-hidden">
     <!-- Header -->
     <div class="px-4 h-14 flex items-center justify-between border-b border-black/6 dark:border-white/6 shrink-0">
       <p class="text-[11px] uppercase tracking-[0.18em] font-semibold text-zinc-400 font-poppins">Live coaching</p>

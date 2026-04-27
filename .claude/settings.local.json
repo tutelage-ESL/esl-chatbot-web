@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Read(//c/Users/NANO Technology/Downloads/AI \\(1\\)/components/dash/**)"
+      "Read(//c/Users/NANO Technology/Downloads/AI \\(1\\)/components/dash/**)",
+      "Bash(xargs sed *)"
     ]
   }
 }

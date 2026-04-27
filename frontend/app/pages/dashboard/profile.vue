@@ -13,7 +13,7 @@ const initials = computed(() => {
 </script>
 
 <template>
-  <div class="p-5 sm:p-7 space-y-5">
+  <div class="h-full overflow-y-auto p-5 sm:p-7 space-y-5">
     <!-- Header -->
     <div class="animate-card-enter" style="--delay:0ms">
       <h1 class="text-[28px] font-semibold tracking-[-0.02em] text-brand-ink dark:text-white font-poppins">Profile</h1>

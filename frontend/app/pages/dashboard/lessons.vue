@@ -31,7 +31,7 @@ const filtered = computed(() => {
 </script>
 
 <template>
-  <div class="p-5 sm:p-7 space-y-5">
+  <div class="h-full overflow-y-auto p-5 sm:p-7 space-y-5">
     <!-- Header + search -->
     <div class="flex items-end justify-between flex-wrap gap-3 animate-card-enter" style="--delay:0ms">
       <div>
@@ -52,12 +52,12 @@ const filtered = computed(() => {
 
     <!-- Category pills -->
     <div class="animate-card-enter" style="--delay:80ms">
-      <DashboardLessonsCategoryFilter v-model="activeCategory" />
+      <PagesDashboardLessonsCategoryFilter v-model="activeCategory" />
     </div>
 
     <!-- Lesson cards -->
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      <DashboardLessonsLessonCard
+      <PagesDashboardLessonsLessonCard
         v-for="(lesson, i) in filtered"
         :key="lesson.title"
         :lesson="lesson"

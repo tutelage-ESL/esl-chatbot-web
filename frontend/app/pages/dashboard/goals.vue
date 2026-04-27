@@ -21,7 +21,7 @@ const achievements: Achievement[] = [
 </script>
 
 <template>
-  <div class="p-5 sm:p-7 space-y-5">
+  <div class="h-full overflow-y-auto p-5 sm:p-7 space-y-5">
     <!-- Header -->
     <div class="animate-card-enter" style="--delay:0ms">
       <h1 class="text-[28px] font-semibold tracking-[-0.02em] text-brand-ink dark:text-white font-poppins">Goals</h1>
@@ -30,7 +30,7 @@ const achievements: Achievement[] = [
 
     <!-- Goal cards grid -->
     <div class="grid md:grid-cols-2 gap-4">
-      <DashboardGoalsGoalCard
+      <PagesDashboardGoalsGoalCard
         v-for="(goal, i) in goals"
         :key="goal.title"
         :goal="goal"
@@ -39,6 +39,6 @@ const achievements: Achievement[] = [
     </div>
 
     <!-- Achievements -->
-    <DashboardGoalsAchievementGrid :achievements="achievements" />
+    <PagesDashboardGoalsAchievementGrid :achievements="achievements" />
   </div>
 </template>

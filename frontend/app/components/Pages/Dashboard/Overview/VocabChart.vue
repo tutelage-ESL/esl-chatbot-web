@@ -18,7 +18,7 @@ const svgPath = computed(() => {
   const min = Math.min(...vals)
   const xs = vals.map((_, i) => PAD + (i * (W - PAD * 2)) / (vals.length - 1))
   const ys = vals.map(v => H - PAD - ((v - min) / (max - min)) * (H - PAD * 2))
-  const d = xs.map((x, i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ')
+  const d = xs.map((x, i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${(ys[i] ?? 0).toFixed(1)}`).join(' ')
   const area = `${d} L${W - PAD},${H - PAD} L${PAD},${H - PAD} Z`
   const lastX = xs[xs.length - 1]
   const lastY = ys[ys.length - 1]

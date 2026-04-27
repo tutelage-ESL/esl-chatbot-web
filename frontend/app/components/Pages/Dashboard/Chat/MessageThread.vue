@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useAuthStore } from '~~/stores/auth'
 import type { ChatMessage } from '~/common/types/dashboard-types'
 import type { SvgBasedIconName } from '~/common/types/iconsax-types'
 
@@ -30,7 +31,7 @@ defineExpose({ scrollEl })
 </script>
 
 <template>
-  <div ref="scrollEl" class="flex-1 overflow-y-auto px-6 py-6">
+  <div ref="scrollEl" class="flex-1 min-h-0 overflow-y-auto px-6 py-6">
     <div class="max-w-3xl mx-auto space-y-4 h-full">
 
       <!-- Empty state -->
@@ -87,13 +88,13 @@ defineExpose({ scrollEl })
 
       <!-- Messages -->
       <template v-else>
-        <DashboardChatMessageBubble
+        <PagesDashboardChatMessageBubble
           v-for="(m, i) in messages"
           :key="i"
           :message="m"
           :user-initial="userInitial"
         />
-        <DashboardChatThinkingIndicator v-if="thinking" />
+        <PagesDashboardChatThinkingIndicator v-if="thinking" />
       </template>
     </div>
   </div>

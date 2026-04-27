@@ -22,7 +22,7 @@ const phonemes: PhonemeScore[] = [
 </script>
 
 <template>
-  <div class="p-5 sm:p-7 space-y-5">
+  <div class="h-full overflow-y-auto p-5 sm:p-7 space-y-5">
     <!-- Header -->
     <div class="animate-card-enter" style="--delay:0ms">
       <h1 class="text-[28px] font-semibold tracking-[-0.02em] text-brand-ink dark:text-white font-poppins">Voice Lab</h1>
@@ -32,7 +32,7 @@ const phonemes: PhonemeScore[] = [
     <!-- Prompt + Score row -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <div class="animate-card-enter lg:col-span-2" style="--delay:80ms">
-        <DashboardVoicePromptCard
+        <PagesDashboardVoicePromptCard
           :prompt="prompt"
           :phonemes="phonemes"
           :recording="recording"
@@ -43,13 +43,13 @@ const phonemes: PhonemeScore[] = [
         />
       </div>
       <div class="animate-card-enter" style="--delay:160ms">
-        <DashboardVoiceScorePanel />
+        <PagesDashboardVoiceScorePanel />
       </div>
     </div>
 
     <!-- Phoneme breakdown -->
     <div class="animate-card-enter" style="--delay:240ms">
-      <DashboardVoicePhonemeGrid :phonemes="phonemes" />
+      <PagesDashboardVoicePhonemeGrid :phonemes="phonemes" />
     </div>
   </div>
 </template>

@@ -38,9 +38,13 @@ const thinking = ref(false)
 const sending = ref(false)
 const ending = ref(false)
 const creating = ref(false)
+const refreshing = ref(false)
 const sessionStartedAt = ref<number>(Date.now())
 
 const threadRef = ref<{ scrollEl: HTMLElement | null } | null>(null)
+
+const route = useRoute()
+const router = useRouter()
 
 // ─── Derived ───────────────────────────────────────────────────────────────
 const userMessageCount = computed(() => messageEntities.value.filter((m) => m.role === 'USER').length)
@@ -185,16 +189,22 @@ async function loadSessions(autoPick = false) {
   if (!res.success) return
   rawSessions.value = res.data?.data ?? []
   rebuildSessions()
-  if (autoPick && !activeSessionId.value) {
-    const firstActive = rawSessions.value.find((s) => !s.endedAt) ?? rawSessions.value[0]
-    if (firstActive) await openSession(firstActive.id)
+  if (!activeSessionId.value) {
+    const fromQuery = route.query.session as string | undefined
+    if (fromQuery) {
+      await openSession(fromQuery)
+    } else if (autoPick) {
+      const firstActive = rawSessions.value.find((s) => !s.endedAt) ?? rawSessions.value[0]
+      if (firstActive) await openSession(firstActive.id)
+    }
   }
 }
 
-async function openSession(id: string | number) {
+async function openSession(id: string | number, skipIfSame = true) {
   const sid = String(id)
-  if (activeSessionId.value === sid && activeSession.value) return
+  if (skipIfSame && activeSessionId.value === sid && activeSession.value) return
   activeSessionId.value = sid
+  router.replace({ query: { session: sid } })
   const res = await getSession(sid)
   if (!res.success) { toast.error(res.message || 'Could not load session'); return }
   const detail = res.data?.data
@@ -347,8 +357,10 @@ async function endCurrent() {
 }
 
 async function refreshCurrent() {
-  if (!activeSessionId.value) return
-  await openSession(activeSessionId.value)
+  if (!activeSessionId.value || refreshing.value) return
+  refreshing.value = true
+  await openSession(activeSessionId.value, false)
+  refreshing.value = false
   toast.success('Refreshed')
 }
 
@@ -358,20 +370,18 @@ function fillSuggestion(text: string) {
 }
 
 onMounted(async () => {
-  if (subActive.value) {
-    await loadSessions(true)
-  } else {
+  await loadSessions(subActive.value) // autoPick only when subscribed
+  if (!subActive.value) {
     toast.message('Activate a plan to start chatting with Maya.')
   }
 })
 </script>
 
 <template>
-  <!-- Full viewport minus the topbar — fixed three-column layout -->
   <div class="flex h-full overflow-hidden animate-card-enter" style="--delay:0ms">
 
     <!-- Sessions sidebar (fixed width, self-scrolling) -->
-    <DashboardChatSessionsSidebar
+    <PagesDashboardChatSessionsSidebar
       :sessions="sessions"
       :today-list="todayList"
       :earlier-list="earlierList"
@@ -386,19 +396,20 @@ onMounted(async () => {
     <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
 
       <!-- Thread header (fixed height, never scrolls) -->
-      <DashboardChatThreadHeader
+      <PagesDashboardChatThreadHeader
         :topic="activeSession?.topic"
         :cefr-label="cefrLabel"
         :is-session-ended="isSessionEnded"
         :active-session-id="activeSessionId"
         :ending="ending"
+        :refreshing="refreshing"
         @voice="toast.message('Voice playback — coming soon')"
         @refresh="refreshCurrent"
         @end="endCurrent"
       />
 
       <!-- Message thread (scrollable, grows to fill) -->
-      <DashboardChatMessageThread
+      <PagesDashboardChatMessageThread
         ref="threadRef"
         :messages="messages"
         :thinking="thinking"
@@ -409,7 +420,7 @@ onMounted(async () => {
       />
 
       <!-- Composer (fixed at bottom, never scrolls) -->
-      <DashboardChatComposer
+      <PagesDashboardChatComposer
         v-model="input"
         :sending="sending"
         :thinking="thinking"
@@ -433,6 +444,6 @@ onMounted(async () => {
     </div>
 
     <!-- Live coaching pane (fixed width, right side) -->
-    <DashboardChatCoachPane />
+    <PagesDashboardChatCoachPane />
   </div>
 </template>

@@ -25,7 +25,7 @@ function onRate(_rating: SrsRating) {
 </script>
 
 <template>
-  <div class="p-5 sm:p-7 space-y-5">
+  <div class="h-full overflow-y-auto p-5 sm:p-7 space-y-5">
     <!-- Header -->
     <div class="flex items-end justify-between flex-wrap gap-3 animate-card-enter" style="--delay:0ms">
       <div>
@@ -43,10 +43,10 @@ function onRate(_rating: SrsRating) {
     <!-- Flashcard + sidebar -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <div class="animate-card-enter" style="--delay:80ms">
-        <DashboardVocabFlashcard :card="card" :card-index="1" :total="12" @rate="onRate" />
+        <PagesDashboardVocabFlashcard :card="card" :card-index="1" :total="12" @rate="onRate" />
       </div>
       <div class="animate-card-enter" style="--delay:160ms">
-        <DashboardVocabDeckList :decks="decks" />
+        <PagesDashboardVocabDeckList :decks="decks" />
       </div>
     </div>
   </div>

@@ -41,7 +41,7 @@ async function signOut() {
 </script>
 
 <template>
-  <div class="p-5 sm:p-7 space-y-5 max-w-3xl">
+  <div class="h-full overflow-y-auto p-5 sm:p-7 space-y-5 max-w-3xl">
     <!-- Header -->
     <div class="animate-card-enter" style="--delay:0ms">
       <h1 class="text-[28px] font-semibold tracking-[-0.02em] text-brand-ink dark:text-white font-poppins">Settings</h1>
