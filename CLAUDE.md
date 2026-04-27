@@ -55,3 +55,14 @@ Backend secrets are managed via **Infisical** (project `esl-chatbot`, envs `dev`
 
 - Backend dev: **8000**
 - Frontend dev: **3001** (not 3000 — configured in [frontend/nuxt.config.ts](frontend/nuxt.config.ts))
+
+## File Length Rule
+
+**Keep files short. Extract into components aggressively.**
+
+- Vue SFC templates over ~150 lines → split into sub-components. A 500-line template is always wrong.
+- If a section of a page has its own visual identity or could be reused, it is a component.
+- Page files (`pages/`) should contain only layout glue and state — no large inline template blocks.
+- Composables handle all API calls and business logic. Pages/components only call them.
+- Backend: service files over ~300 lines → split by concern. Router files should stay thin (route definitions only, no logic).
+- The only acceptable reason for a long file is a generated file (e.g. `types/api.ts`) or a file that genuinely cannot be split (e.g. a large Zod schema or a migration).

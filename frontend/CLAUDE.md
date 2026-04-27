@@ -84,6 +84,7 @@ Pinia stores live at the **workspace root** in `stores/` (imported as `~~/stores
 - most of the time check the components/ui for shad cn components to work with them but every time use the components ffrom the /components/App and componsnts/Form! except these use the shad cn... 
 - and every time use the latest tailwind css utilities! like we had only for example size-10, 12, 14, 18, 10... now everything works 1 till 100000... , and its multiply by 4! so if we use size-4 it means size-[16px] !! and use the same for the opacity like this white/6, white/50 instead of white/[0.06] or white/[0.5]... 
 - on the primary color(the orange one) use white!!
+- **Keep Vue files short. If a template exceeds ~150 lines, extract sections into sub-components.** Page files (`pages/`) hold state and layout only — no large inline template blocks. A 300+ line SFC template is always a sign something needs to be split. Use `components/Pages/<PageName>/` for page-specific pieces and `components/Dashboard/<Section>/` for dashboard sections.
 
 ## API Types (do not edit)
 

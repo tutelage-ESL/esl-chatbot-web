@@ -71,7 +71,7 @@ export type HeatWeek = number[] // length 7, values 0-7
 // ─── Chat ─────────────────────────────────────────────────────────────────────
 
 export interface ChatSession {
-  id: number
+  id: number | string
   title: string
   when: string
   active?: boolean

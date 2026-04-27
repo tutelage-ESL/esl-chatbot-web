@@ -358,8 +358,8 @@ export const useAuthStore = defineStore("useAuthStore", {
         avatarUrl: user.avatarUrl,
         isActive: user.isActive,
         subscription: {
-          plan: user.subscription.plan,
-          status: user.subscription.status,
+          plan: user.subscription?.plan,
+          status: user.subscription?.status,
         },
       };
       this.isAuthenticated = true;

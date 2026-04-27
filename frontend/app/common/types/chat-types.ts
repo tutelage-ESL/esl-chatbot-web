@@ -1,0 +1,73 @@
+export type SessionMode = 'TEXT' | 'VOICE'
+export type MessageRole = 'USER' | 'ASSISTANT'
+export type MessageType = 'TEXT' | 'VOICE'
+export type CefrLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2'
+
+export interface SessionListItem {
+  id: string
+  mode: SessionMode
+  topic: string | null
+  summary: string | null
+  startedAt: string
+  endedAt: string | null
+  durationSeconds: number | null
+  messageCount: number
+  averageScore: number | null
+  createdAt: string
+}
+
+export interface MessageEvaluation {
+  grammarScore: number
+  grammarErrors?: Array<{
+    error: string
+    correction: string
+    rule?: string
+    severity?: 'minor' | 'major' | 'critical'
+  }>
+  vocabularyScore: number
+  vocabularyLevel: CefrLevel
+  fluencyScore: number
+  pronunciationScore?: number | null
+  overallScore: number
+  detectedCefrLevel: CefrLevel
+  corrections?: Array<{
+    original: string
+    corrected: string
+    explanation: string
+  }>
+  feedback?: string
+}
+
+export interface SessionEvaluation {
+  topicsCovered?: string[]
+  avgGrammarScore: number
+  avgVocabularyScore: number
+  avgFluencyScore: number
+  avgOverallScore: number
+  detectedCefrLevel: CefrLevel
+  strengths?: string[]
+  weaknesses?: string[]
+  recommendations?: string[]
+  newVocabulary?: string[]
+  totalUserMessages: number
+  totalUserWords: number
+}
+
+export interface ChatMessage {
+  id: string
+  role: MessageRole
+  type: MessageType
+  content: string
+  wordCount?: number | null
+  createdAt: string
+  evaluation?: MessageEvaluation | null
+  // client-only:
+  pending?: boolean
+  streaming?: boolean
+}
+
+export interface SessionDetail extends SessionListItem {
+  userId?: string
+  messages: ChatMessage[]
+  evaluation: SessionEvaluation | null
+}
