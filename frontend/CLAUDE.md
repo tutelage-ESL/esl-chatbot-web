@@ -95,6 +95,19 @@ Pinia stores live at the **workspace root** in `stores/` (imported as `~~/stores
 - Always use the latest Tailwind CSS utilities — `size-*`, `gap-*`, `opacity-*` etc. all accept arbitrary integers (e.g. `size-18`). Use shorthand opacity syntax: `white/6`, `white/50` instead of `white/[0.06]`.
 - On the primary brand color (orange), use **white** text.
 - Always check `components/App/`, `components/ui/`, and `components/Form/` before creating a new primitive — use what exists.
+- **NEVER use raw HTML elements or custom modal/overlay/drawer implementations when a shadcn or custom component exists.** Always prefer the component library. Mandatory substitutions:
+  - Text/headings (`p`, `h1`–`h6`, `span` for content) → `<AppText>` with `size`, `weight`, `color`, `font-family` props. Valid sizes: `10 11 12 13 14 15 16 17 18 20 22 24 30 32 36 40 48`. Valid colors: `black neutral-600 neutral-400 brand-primary brand-ink brand-sub white error` etc. (see `common/types/text-types.ts`).
+  - Buttons → `<AppButton>` with `variant` (`primary` | `secondary`), `size` (`24 28 32 36 38 48`), `radius` (`4 8 12 16`), `icon`, `text`, `loading`, `disabled`. Icon-only buttons omit `text`. Never use `<button>`.
+  - Links / navigation → `<AppLink to="...">` or `<AppButton :to="...">`. Never use `<a>` or `<RouterLink>` directly.
+  - Images → `<AppImage src="..." width height>`. Never use `<img>`.
+  - Icons → `<AppIconsax name="..." color="..." :size="N">`. Never use raw SVG inline or other icon libraries unless the icon isn't in the Iconsax set.
+  - Text inputs / textareas → `<FormInput id v-model label placeholder icon error ...>`. Never use `<input>` or `<textarea>` directly.
+  - Copy-to-clipboard → `useCopyToClipboard(value)` composable (direct call, no destructuring). Never use `navigator.clipboard` directly.
+  - Modals / dialogs → `<UiDialog>` + `<UiDialogContent/Header/Title/Description/Footer/Close>`. Never build a custom fixed-overlay div.
+  - Side drawers / panels → `<UiSheet side="right">` + `<UiSheetContent/Header/Title>`. Never build a custom fixed side panel.
+  - Empty states → `<UiEmpty>` + `<UiEmptyMedia/Content/Title/Description>`. Never write a one-off centered div with an icon and text.
+  - Avatars → `<UiAvatar>` + `<UiAvatarImage>` + `<UiAvatarFallback>`. Never use a raw `<div>` as an avatar.
+  - Skeletons → `<UiSkeleton>`. Never use a raw `animate-pulse` div.
 - Fetch data only via the `useHttp` composable ([app/composables/useHttp.ts](app/composables/useHttp.ts)) — never call `fetch` directly.
 - **Keep Vue files short.** If a template exceeds ~150 lines, extract sections into sub-components. Page files (`pages/`) hold state and layout glue only — no large inline template blocks. A 300+ line SFC template is always wrong.
 
