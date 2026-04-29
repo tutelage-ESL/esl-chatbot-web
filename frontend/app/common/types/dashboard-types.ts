@@ -1,11 +1,14 @@
 // ─── Navigation ───────────────────────────────────────────────────────────────
 
+import type { SvgBasedIconName } from "./iconsax-types"
+
 export type DashboardNavId =
   | 'overview'
   | 'chat'
   | 'voice'
   | 'vocab'
   | 'goals'
+  | 'classes'
   | 'lessons'
   | 'profile'
   | 'settings'
@@ -13,7 +16,7 @@ export type DashboardNavId =
 export interface DashboardNavItem {
   id: DashboardNavId
   label: string
-  icon: string
+  icon: SvgBasedIconName
   badge?: number
   path: string
 }

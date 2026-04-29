@@ -40,9 +40,12 @@ const placeholder = computed(() => {
   if (!props.subActive) return 'Subscribe to chat with Maya…'
   if (props.isSessionEnded) return 'Session ended — start a new one.'
   if (props.hardCapReached) return 'Session message limit reached.'
-  if (!props.activeSessionId) return "Type anything — I'll start a new session for you."
-  return 'Type in English — or press the mic to speak'
+  if (!props.activeSessionId) return "Type a message to start chatting with Maya…"
+  return 'Ask Maya anything in English, or say hi to start a conversation!'
 })
+
+const textareaEl = ref<HTMLTextAreaElement | null>(null)
+defineExpose({ textareaEl })
 
 function onKeydown(e: KeyboardEvent) {
   if (e.key === 'Enter' && !e.shiftKey) {
@@ -79,6 +82,7 @@ function onKeydown(e: KeyboardEvent) {
           <AppIconsax name="Paperclip" color="currentColor" :size="14" />
         </button>
         <textarea
+          ref="textareaEl"
           :value="modelValue"
           rows="1"
           :placeholder="placeholder"
@@ -110,17 +114,17 @@ function onKeydown(e: KeyboardEvent) {
 
       <div class="flex items-center justify-between mt-2 px-1 text-[10.5px] text-zinc-400">
         <div class="flex items-center gap-3 font-poppins">
-          <span class="flex items-center gap-1">
+          <!-- <span class="flex items-center gap-1">
             <AppIconsax name="Candle" color="#a1a1aa" :size="10" />
             Corrections: on
           </span>
-          <span>·</span>
+          <span>·</span> -->
           <span>Level: {{ cefrLabel }}</span>
           <span>·</span>
           <span>{{ plan }}</span>
         </div>
         <span class="font-mono">
-          Session {{ sessionTimer }} · {{ userMessageCount }}/{{ messagesPerSessionHard }} msgs · {{ accuracyLabel }}
+          {{ userMessageCount }}/{{ messagesPerSessionHard }} msgs · {{ accuracyLabel }} token usage
         </span>
       </div>
     </div>

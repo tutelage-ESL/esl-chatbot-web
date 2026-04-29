@@ -16,10 +16,11 @@ watch(() => route.path, () => {
 const primaryNav: DashboardNavItem[] = [
   { id: 'overview', label: 'Overview',   icon: 'Chart',      path: '/dashboard',        badge: undefined },
   { id: 'chat',     label: 'AI Chat',    icon: 'Messages',   path: '/dashboard/chat',   badge: undefined },
+  { id: 'classes',  label: 'Classes',    icon: 'BookSaved',     path: '/dashboard/classes',badge: undefined },
+  { id: 'lessons',  label: 'Lessons',    icon: 'Candle',     path: '/dashboard/lessons',badge: undefined },
   { id: 'voice',    label: 'Voice Lab',  icon: 'Microphone', path: '/dashboard/voice',  badge: undefined },
   { id: 'vocab',    label: 'Vocabulary', icon: 'Book1',      path: '/dashboard/vocab',  badge: 12 },
   { id: 'goals',    label: 'Goals',      icon: 'Flag',       path: '/dashboard/goals',  badge: undefined },
-  { id: 'lessons',  label: 'Lessons',    icon: 'Candle',     path: '/dashboard/lessons',badge: undefined },
 ]
 
 function isActive(path: string) {
@@ -123,7 +124,7 @@ function isActive(path: string) {
     </nav>
 
     <!-- Upgrade card (collapsed hidden) -->
-    <Transition name="fade">
+    <!-- <Transition name="fade">
       <div
         v-if="!collapsed"
         class="m-3 p-3 rounded-xl bg-linear-to-br from-[#151517] to-[#1e1e22] text-white relative overflow-hidden shrink-0"
@@ -145,7 +146,7 @@ function isActive(path: string) {
           />
         </div>
       </div>
-    </Transition>
+    </Transition> -->
 
     <!-- Collapse toggle (desktop only) -->
     <button

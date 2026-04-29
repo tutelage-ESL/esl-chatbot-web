@@ -38,13 +38,13 @@ const emit = defineEmits<{
     </div>
 
     <div class="flex items-center gap-1.5">
-      <button
+      <!-- <button
         class="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 transition"
         title="Voice playback"
         @click="emit('voice')"
       >
         <AppIconsax name="Volume" color="currentColor" :size="14" />
-      </button>
+      </button> -->
       <button
         class="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 transition disabled:opacity-40"
         title="Refresh"
@@ -53,14 +53,14 @@ const emit = defineEmits<{
       >
         <AppIconsax name="Refresh" color="currentColor" :size="14" :class="refreshing ? 'animate-spin' : ''" />
       </button>
-      <button
+      <!-- <button
         class="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:bg-rose-500/10 hover:text-rose-500 transition disabled:opacity-40"
         :title="isSessionEnded ? 'Session ended' : 'End session'"
         :disabled="!activeSessionId || isSessionEnded || ending"
         @click="emit('end')"
       >
         <AppIconsax name="CloseSquare" color="currentColor" :size="14" />
-      </button>
+      </button> -->
     </div>
   </div>
 </template>
