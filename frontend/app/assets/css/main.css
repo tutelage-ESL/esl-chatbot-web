@@ -123,6 +123,29 @@
 	--color-twitter: #1da1f2;
 	--color-linkedin: #0a66c2;
 	--color-whatsapp: #25d366;
+
+  /* ── Dashboard UI surface tokens ──────────────────────────────────────────
+     Use these instead of raw zinc/white/black classes so dark mode and
+     light-mode tweaks happen in one place.
+     ─────────────────────────────────────────────────────────────────────── */
+  --color-surface-page: var(--surface-page);
+  --color-surface-card: var(--surface-card);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-well: var(--surface-well);
+  --color-border-card: var(--border-card);
+  --color-border-inner: var(--border-inner);
+  --color-text-heading: var(--text-heading);
+  --color-text-body: var(--text-body);
+  --color-text-muted: var(--text-muted);
+  --color-text-subtle: var(--text-subtle);
+  --color-status-active-bg: var(--status-active-bg);
+  --color-status-active-text: var(--status-active-text);
+  --color-status-inactive-bg: var(--status-inactive-bg);
+  --color-status-inactive-text: var(--status-inactive-text);
+  --color-status-blocked-bg: var(--status-blocked-bg);
+  --color-status-blocked-text: var(--status-blocked-text);
+  --color-status-expired-bg: var(--status-expired-bg);
+  --color-status-expired-text: var(--status-expired-text);
 }
 
 :root {
@@ -208,6 +231,28 @@
   --sidebar-accent-foreground: var(--ternary-900);
   --sidebar-border: var(--neutral-200);
   --sidebar-ring: var(--primary-400);
+
+  /* ── Dashboard surface tokens (light) ─────────────────────────────────────
+     Change values here to update the whole dashboard UI in one place.
+     ─────────────────────────────────────────────────────────────────────── */
+  --surface-page:    #f0eeeb;   /* page/layout bg — warm off-white, not pure white */
+  --surface-card:    #faf9f7;   /* card bg — slightly warmer than page */
+  --surface-raised:  #f3f1ee;   /* inner boxes, table header, code blocks */
+  --surface-well:    #ebe9e5;   /* icon wells, avatar bg, deepest inset */
+  --border-card:     rgba(0,0,0,0.07);   /* card outer border */
+  --border-inner:    rgba(0,0,0,0.06);   /* dividers inside a card */
+  --text-heading:    #18181b;
+  --text-body:       #3f3f46;
+  --text-muted:      #71717a;
+  --text-subtle:     #a1a1aa;
+  --status-active-bg:       #d1fae5;
+  --status-active-text:     #065f46;
+  --status-inactive-bg:     #f3f1ee;
+  --status-inactive-text:   #71717a;
+  --status-blocked-bg:      #ffedd5;
+  --status-blocked-text:    #c2410c;
+  --status-expired-bg:      #fee2e2;
+  --status-expired-text:    #b91c1c;
 }
 
 .dark {
@@ -243,6 +288,26 @@
   --sidebar-accent-foreground: var(--neutral-50);
   --sidebar-border: var(--neutral-700);
   --sidebar-ring: var(--primary-300);
+
+  /* ── Dashboard surface tokens (dark) ───────────────────────────────────── */
+  --surface-page:    #111113;
+  --surface-card:    #18181b;
+  --surface-raised:  #1f1f23;
+  --surface-well:    #27272a;
+  --border-card:     rgba(255,255,255,0.07);
+  --border-inner:    rgba(255,255,255,0.06);
+  --text-heading:    #fafafa;
+  --text-body:       #d4d4d8;
+  --text-muted:      #a1a1aa;
+  --text-subtle:     #71717a;
+  --status-active-bg:       rgba(16,185,129,0.15);
+  --status-active-text:     #6ee7b7;
+  --status-inactive-bg:     rgba(255,255,255,0.07);
+  --status-inactive-text:   #71717a;
+  --status-blocked-bg:      rgba(249,115,22,0.15);
+  --status-blocked-text:    #fdba74;
+  --status-expired-bg:      rgba(239,68,68,0.15);
+  --status-expired-text:    #fca5a5;
 }
 
 

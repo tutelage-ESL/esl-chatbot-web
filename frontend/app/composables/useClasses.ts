@@ -1,5 +1,3 @@
-import type { SessionListItem } from '~/common/types/chat-types'
-
 export interface ClassMember {
   id: string
   role: 'STUDENT' | 'TUTOR' | 'ADMIN'
@@ -24,10 +22,36 @@ export interface ClassDetail extends ClassItem {
   members: ClassMember[]
 }
 
+export interface AdminClassItem {
+  id: string
+  className: string
+  classCode: string
+  classCategory: string | null
+  classStatus: 'ACTIVE' | 'INACTIVE'
+  classCodeBlocked: boolean
+  classCodeExpiresAt: string | null
+  classCodeRefreshIntervalSeconds: number | null
+  createdAt: string
+  memberCount: number
+}
+
+export interface PaginationMeta {
+  page: number
+  limit: number
+  total: number
+  totalPages: number
+}
+
 interface ListResponse<T> {
   success: boolean
   message?: string
   data: T[]
+}
+interface PaginatedResponse<T> {
+  success: boolean
+  message?: string
+  data: T[]
+  meta: PaginationMeta
 }
 interface SingleResponse<T> {
   success: boolean
@@ -40,6 +64,19 @@ export function useClasses() {
     return await useHttp<ListResponse<ClassItem>>({
       method: 'GET',
       url: '/classes/mine',
+      requireAuth: true,
+    })
+  }
+
+  async function listAllClasses(params?: { page?: number; limit?: number; status?: 'ACTIVE' | 'INACTIVE' }) {
+    const query = new URLSearchParams()
+    if (params?.page) query.set('page', String(params.page))
+    if (params?.limit) query.set('limit', String(params.limit))
+    if (params?.status) query.set('status', params.status)
+    const qs = query.toString()
+    return await useHttp<PaginatedResponse<AdminClassItem>>({
+      method: 'GET',
+      url: `/classes${qs ? `?${qs}` : ''}`,
       requireAuth: true,
     })
   }
@@ -61,6 +98,15 @@ export function useClasses() {
     })
   }
 
+  async function createClass(body: { className: string; classCategory?: string | null; classCodeRefreshIntervalSeconds?: number | null }) {
+    return await useHttp({
+      method: 'POST',
+      url: '/classes',
+      body,
+      requireAuth: true,
+    })
+  }
+
   async function refreshCode(id: string) {
     return await useHttp<SingleResponse<{ classCode: string; classCodeExpiresAt: string | null }>>({
       method: 'POST',
@@ -69,5 +115,23 @@ export function useClasses() {
     })
   }
 
-  return { listMyClasses, getClass, joinClass, refreshCode }
+  async function updateCodeSettings(id: string, intervalSeconds: number | null) {
+    return await useHttp({
+      method: 'PATCH',
+      url: `/classes/${id}/code/settings`,
+      body: { classCodeRefreshIntervalSeconds: intervalSeconds },
+      requireAuth: true,
+    })
+  }
+
+  async function toggleBlock(id: string, blocked: boolean) {
+    return await useHttp({
+      method: 'PATCH',
+      url: `/classes/${id}/code/block`,
+      body: { blocked },
+      requireAuth: true,
+    })
+  }
+
+  return { listMyClasses, listAllClasses, getClass, joinClass, createClass, refreshCode, updateCodeSettings, toggleBlock }
 }

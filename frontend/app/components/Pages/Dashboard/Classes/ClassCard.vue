@@ -19,97 +19,112 @@ const isExpired = computed(() => {
 
 const expiryLabel = computed(() => {
   if (!props.cls.classCodeExpiresAt) return 'No expiry'
-  const d = new Date(props.cls.classCodeExpiresAt)
-  if (isExpired.value) return 'Expired'
-  const diff = Math.floor((d.getTime() - Date.now()) / 1000 / 60)
+  if (isExpired.value) return 'Code expired'
+  const diff = Math.floor((new Date(props.cls.classCodeExpiresAt).getTime() - Date.now()) / 1000 / 60)
   if (diff < 60) return `Expires in ${diff}m`
   if (diff < 1440) return `Expires in ${Math.floor(diff / 60)}h`
   return `Expires in ${Math.floor(diff / 1440)}d`
 })
 
-const roleColorClass = computed(() => {
-  if (props.cls.myRole === 'TUTOR') return 'text-brand-primary bg-brand-primary/10'
-  if (props.cls.myRole === 'ADMIN') return 'text-red-500 bg-red-500/10'
-  return 'text-zinc-500 bg-zinc-100 dark:bg-white/8 dark:text-zinc-300'
+const isTutorOrAdmin = computed(() => props.cls.myRole === 'TUTOR' || props.cls.myRole === 'ADMIN')
+
+const roleStyle = computed(() => {
+  if (props.cls.myRole === 'TUTOR') return 'background:rgba(245,158,11,0.1);color:var(--color-brand-primary)'
+  if (props.cls.myRole === 'ADMIN') return 'background:rgba(239,68,68,0.1);color:#ef4444'
+  return 'background:var(--surface-well);color:var(--text-muted)'
 })
 
-const codeStatusColor = computed(() => {
-  if (props.cls.classCodeBlocked) return '#fb923c'
-  if (isExpired.value) return '#f87171'
-  return '#a1a1aa'
+const roleLabel = computed(() => {
+  if (props.cls.myRole === 'TUTOR') return 'Tutor'
+  if (props.cls.myRole === 'ADMIN') return 'Admin'
+  return 'Student'
+})
+
+const codeStatusStyle = computed(() => {
+  if (props.cls.classCodeBlocked) return 'color:var(--status-blocked-text)'
+  if (isExpired.value) return 'color:var(--status-expired-text)'
+  return 'color:var(--text-subtle)'
+})
+
+const codeStatusIcon = computed(() => {
+  if (props.cls.classCodeBlocked) return 'Lock'
+  if (isExpired.value) return 'CloseCircle'
+  return 'Clock'
 })
 </script>
 
 <template>
   <div
-    class="dash-card p-5 flex flex-col gap-4 cursor-pointer hover:shadow-card transition-shadow"
+    class="dash-card flex flex-col cursor-pointer transition-all duration-200"
+    style="hover:border-color:var(--color-brand-primary)"
     @click="emit('open', cls.id)"
   >
-    <!-- Header -->
-    <div class="flex items-start justify-between gap-3">
-      <div class="flex items-center gap-3 min-w-0">
-        <div class="w-10 h-10 rounded-xl bg-brand-primary/10 border border-brand-primary/20 flex items-center justify-center shrink-0">
-          <AppIconsax name="BookSaved" color="var(--color-brand-primary)" :size="17" />
-        </div>
-        <div class="min-w-0">
-          <AppText size="14" weight="semibold" color="black" class-list="truncate block">{{ cls.className }}</AppText>
-          <AppText v-if="cls.classCategory" size="11" color="neutral-400" class-list="truncate block">{{ cls.classCategory }}</AppText>
-        </div>
+    <!-- Card header -->
+    <div class="p-5 flex items-start gap-3">
+      <div class="size-11 rounded-xl flex items-center justify-center shrink-0" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2)">
+        <AppIconsax name="BookSaved" color="var(--color-brand-primary)" :size="18" />
       </div>
-      <span :class="['shrink-0 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full font-poppins', roleColorClass]">
-        {{ cls.myRole ?? 'STUDENT' }}
-      </span>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-start justify-between gap-2">
+          <AppText size="14" weight="semibold" color="black" class-list="truncate block leading-snug" :style="`color:var(--text-heading)`">{{ cls.className }}</AppText>
+          <span class="shrink-0 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full font-poppins" :style="roleStyle">
+            {{ roleLabel }}
+          </span>
+        </div>
+        <AppText v-if="cls.classCategory" size="12" color="neutral-400" class-list="block mt-0.5 truncate" :style="`color:var(--text-muted)`">{{ cls.classCategory }}</AppText>
+      </div>
     </div>
 
+    <!-- Divider -->
+    <div style="height:1px;background:var(--border-inner);margin:0 1.25rem" />
+
     <!-- Stats row -->
-    <div class="flex items-center gap-4">
-      <div class="flex items-center gap-1">
-        <AppIconsax name="People" color="#a1a1aa" :size="11" />
-        <AppText size="11" color="neutral-400">{{ cls.memberCount }} member{{ cls.memberCount !== 1 ? 's' : '' }}</AppText>
+    <div class="px-5 py-3 flex items-center gap-5">
+      <div class="flex items-center gap-1.5">
+        <AppIconsax name="People" color="var(--color-text-subtle)" :size="13" />
+        <AppText size="12" color="neutral-400" :style="`color:var(--text-muted)`">{{ cls.memberCount }} member{{ cls.memberCount !== 1 ? 's' : '' }}</AppText>
       </div>
-      <div class="flex items-center gap-1">
-        <AppIconsax name="Calendar" color="#a1a1aa" :size="11" />
-        <AppText size="11" color="neutral-400">
-          {{ new Date(cls.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) }}
+      <div class="flex items-center gap-1.5">
+        <AppIconsax name="Calendar" color="var(--color-text-subtle)" :size="13" />
+        <AppText size="12" color="neutral-400" :style="`color:var(--text-muted)`">
+          {{ new Date(cls.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' }) }}
         </AppText>
       </div>
-      <div class="flex items-center gap-1 ml-auto">
-        <AppIconsax name="Clock" :color="codeStatusColor" :size="11" />
-        <AppText
-          size="11"
-          :color="cls.classCodeBlocked ? 'neutral-400' : isExpired ? 'neutral-400' : 'neutral-400'"
-          :class-list="cls.classCodeBlocked ? 'text-orange-400!' : isExpired ? 'text-red-400!' : ''"
-        >
+      <div class="flex items-center gap-1.5 ml-auto">
+        <AppIconsax :name="codeStatusIcon" :size="12" :style="codeStatusStyle" />
+        <AppText size="12" color="neutral-400" :style="codeStatusStyle">
           {{ cls.classCodeBlocked ? 'Blocked' : expiryLabel }}
         </AppText>
       </div>
     </div>
 
     <!-- Code row (tutor/admin only) -->
-    <div
-      v-if="cls.myRole === 'TUTOR' || cls.myRole === 'ADMIN'"
-      class="flex items-center gap-2 p-2.5 rounded-xl bg-zinc-50 dark:bg-white/4 border border-black/5 dark:border-white/5"
-      @click.stop
-    >
-      <AppText size="13" weight="semibold" font-family="mono" class-list="flex-1 tracking-widest select-all">
-        {{ cls.classCode }}
-      </AppText>
-      <AppButton
-        variant="secondary"
-        size="28"
-        radius="8"
-        :icon="copying ? 'TickCircle' : 'Copy'"
-        :icon-config="{ color: copying ? 'var(--color-brand-primary)' : 'currentColor', size: 13 }"
-        @click.stop="emit('copy', cls.classCode)"
-      />
-      <AppButton
-        variant="secondary"
-        size="28"
-        radius="8"
-        icon="Refresh"
-        :icon-config="{ color: 'currentColor', size: 13 }"
-        @click.stop="emit('refresh', cls.id)"
-      />
-    </div>
+    <template v-if="isTutorOrAdmin">
+      <div style="height:1px;background:var(--border-inner);margin:0 1.25rem" />
+      <div class="px-5 py-3 flex items-center gap-2" @click.stop>
+        <div class="flex-1 px-3 py-2 rounded-xl flex items-center" style="background:var(--surface-raised);border:1px solid var(--border-inner)">
+          <AppText size="13" weight="semibold" font-family="mono" class-list="tracking-[0.25em] select-all flex-1" :style="`color:var(--text-heading)`">
+            {{ cls.classCode }}
+          </AppText>
+        </div>
+        <AppButton
+          variant="secondary"
+          size="32"
+          radius="8"
+          :icon="copying ? 'TickCircle' : 'Copy'"
+          :icon-config="{ color: copying ? 'var(--color-brand-primary)' : 'currentColor', size: 14 }"
+          @click.stop="emit('copy', cls.classCode)"
+        />
+        <AppButton
+          variant="secondary"
+          size="32"
+          radius="8"
+          icon="Refresh2"
+          :icon-config="{ color: 'currentColor', size: 14 }"
+          @click.stop="emit('refresh', cls.id)"
+        />
+      </div>
+    </template>
+    <div v-else class="h-3" />
   </div>
 </template>

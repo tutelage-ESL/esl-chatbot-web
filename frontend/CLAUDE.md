@@ -94,10 +94,43 @@ Pinia stores live at the **workspace root** in `stores/` (imported as `~~/stores
 - Styling: use Tailwind utilities. Put reusable/global styles in [app/assets/css/main.css](app/assets/css/main.css) as utility classes. Use `<style scoped>` inside a component only for things Tailwind can't express (e.g. `@keyframes`).
 - Always use the latest Tailwind CSS utilities — `size-*`, `gap-*`, `opacity-*` etc. all accept arbitrary integers (e.g. `size-18`). Use shorthand opacity syntax: `white/6`, `white/50` instead of `white/[0.06]`.
 - On the primary brand color (orange), use **white** text.
+- **Icons on `variant="primary"` buttons must always use `color: 'white'`** in their `:icon-config`. Secondary-variant button icons use `'currentColor'` or a specific hex. Never use a dark/colored icon on a primary button.
 - Always check `components/App/`, `components/ui/`, and `components/Form/` before creating a new primitive — use what exists.
+
+### Color system — dashboard UI tokens
+
+The dashboard UI colour system lives in **[app/assets/css/main.css](app/assets/css/main.css)**. All surface, border, text, and status colours are defined there as CSS custom properties and are the **single source of truth**. To change how the dashboard looks in light or dark mode, edit those values once — do not scatter raw hex/zinc/white/black utility classes across components.
+
+**Token reference:**
+
+| Token | Purpose |
+|---|---|
+| `--surface-page` | Outermost page / layout background |
+| `--surface-card` | Card / panel background (`dash-card`, drawers) |
+| `--surface-raised` | Slightly elevated surfaces inside a card (table header, code block bg, inner stat tile) |
+| `--surface-well` | Deepest inset — icon wells, avatar fallback bg |
+| `--border-card` | Card outer border |
+| `--border-inner` | Dividers and inner borders inside a card |
+| `--text-heading` | Primary headings and bold labels |
+| `--text-body` | Normal body text |
+| `--text-muted` | Secondary / helper text |
+| `--text-subtle` | Tertiary / placeholder / icon tint |
+| `--status-active-bg / -text` | Active/success badge background + text |
+| `--status-inactive-bg / -text` | Inactive/neutral badge |
+| `--status-blocked-bg / -text` | Blocked/warning badge |
+| `--status-expired-bg / -text` | Expired/error badge |
+
+Tailwind exposes them as `bg-surface-card`, `border-border-inner`, `text-text-heading`, etc. (because `@theme inline` maps them). You can also use inline `style` attributes for one-off cases: `style="background:var(--surface-raised)"`.
+
+**Rules:**
+- **Never use `bg-white`, `bg-zinc-*`, `border-black/*`, `border-zinc-*`, `text-zinc-*`, `text-gray-*` in dashboard components.** Use the tokens above instead.
+- Status badges (Active/Inactive/Blocked/Expired) must always use the `--status-*` tokens, not hardcoded emerald/orange/red classes.
+- `dash-card` already applies `var(--surface-card)` and `var(--border-card)` — do not override its background inline.
+- For icon colors that track text tokens, pass `color="var(--color-text-muted)"` etc. to `<AppIconsax>`.
+
 - **NEVER use raw HTML elements or custom modal/overlay/drawer implementations when a shadcn or custom component exists.** Always prefer the component library. Mandatory substitutions:
   - Text/headings (`p`, `h1`–`h6`, `span` for content) → `<AppText>` with `size`, `weight`, `color`, `font-family` props. Valid sizes: `10 11 12 13 14 15 16 17 18 20 22 24 30 32 36 40 48`. Valid colors: `black neutral-600 neutral-400 brand-primary brand-ink brand-sub white error` etc. (see `common/types/text-types.ts`).
-  - Buttons → `<AppButton>` with `variant` (`primary` | `secondary`), `size` (`24 28 32 36 38 48`), `radius` (`4 8 12 16`), `icon`, `text`, `loading`, `disabled`. Icon-only buttons omit `text`. Never use `<button>`.
+  - Buttons → `<AppButton>` with `variant` (`primary` | `secondary`), `size` (`24 28 32 36 38 48`), `radius` (`4 8 12 16`), `icon`, `text`, `loading`, `disabled`. Icon-only buttons omit `text`. Never use `<button>`. **Primary variant: always pass `color: 'white'` in `:icon-config`.**
   - Links / navigation → `<AppLink to="...">` or `<AppButton :to="...">`. Never use `<a>` or `<RouterLink>` directly.
   - Images → `<AppImage src="..." width height>`. Never use `<img>`.
   - Icons → `<AppIconsax name="..." color="..." :size="N">`. Never use raw SVG inline or other icon libraries unless the icon isn't in the Iconsax set.

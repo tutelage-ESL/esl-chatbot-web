@@ -40,9 +40,11 @@
   background-image: radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px);
 }
 
-/* card base used across dashboard */
+/* card base used across dashboard — colours controlled via tokens in main.css */
 .dash-card {
-  @apply bg-white dark:bg-[#0e0e10] border border-black/[0.06] dark:border-white/[0.06] rounded-xl shadow-soft;
+  background-color: var(--surface-card);
+  border: 1px solid var(--border-card);
+  @apply rounded-xl shadow-soft;
 }
 
 /* ─── Load-in animations (staggered via --delay) ───────────────────────────── */
