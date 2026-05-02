@@ -27,8 +27,9 @@ Day-to-day dev — run in two terminals:
 cd backend && bun dev           # uses infisical run; wraps real secrets around bun
 cd backend && bun run dev:env   # fallback when Infisical isn't set up, needs a local .env
 
-# Terminal 2 — Nuxt
-cd frontend && bun run dev      # port 3001
+# Terminal 2 — Nuxt (requires Infisical CLI; see backend/SECRETS.md for setup)
+cd frontend && bun run dev      # uses infisical run; port 3001
+cd frontend && bun run dev:env  # fallback when Infisical isn't set up, needs a local .env
 ```
 
 Key backend commands:

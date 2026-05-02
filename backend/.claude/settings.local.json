@@ -40,7 +40,9 @@
       "WebFetch(domain:openrouter.ai)",
       "WebFetch(domain:aistudio.google.com)",
       "WebSearch",
-      "Bash(gh pr *)"
+      "Bash(gh pr *)",
+      "Bash(winget install:*)",
+      "Bash(powershell.exe -Command \"winget install GitHub.cli\")"
     ]
   }
 }

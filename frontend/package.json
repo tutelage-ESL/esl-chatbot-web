@@ -3,9 +3,11 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "build": "nuxt build",
-    "dev": "nuxt dev",
-    "generate": "nuxt generate",
+    "dev": "infisical run --env=dev -- nuxt dev",
+    "dev:env": "nuxt dev",
+    "build": "infisical run --env=dev -- nuxt build",
+    "build:env": "nuxt build",
+    "generate": "infisical run --env=dev -- nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare"
   },

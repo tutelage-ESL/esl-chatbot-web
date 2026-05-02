@@ -23,10 +23,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working in the 
 
 ```bash
 bun install
-bun run dev        # Dev server on port 3001 (NOT 3000)
-bun run build
-bun run preview
-bun run generate   # Static generation
+bun run dev        # Dev server on port 3001 — requires Infisical CLI (infisical login + infisical init)
+bun run dev:env    # Fallback when Infisical isn't set up; needs a local .env file
+bun run build      # Production build (via Infisical)
+bun run build:env  # Production build without Infisical (needs .env)
+bun run preview    # Serve the built output locally (no secrets needed)
+bun run generate   # Static generation (via Infisical)
 ```
 
 There is no lint step or test runner configured in this workspace.
