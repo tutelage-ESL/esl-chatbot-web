@@ -1,4 +1,4 @@
-import type { Role } from "@prisma/client";
+import type { Prisma, Role, SubStatus } from "@prisma/client";
 import { prisma } from "../../config/database.ts";
 import { AppError } from "../../utils/AppError.ts";
 import type { UserListItem, UserDetail } from "./users.types.ts";
@@ -13,15 +13,30 @@ const USER_LIST_SELECT = {
   role: true,
   phoneNumber: true,
   createdAt: true,
+  subscription: {
+    select: { plan: true, status: true, currentPeriodEnd: true },
+  },
 } as const;
 
 export async function getUsers(
   page: number,
   limit: number,
   role?: Role,
+  search?: string,
+  subscriptionStatus?: SubStatus,
 ): Promise<{ users: UserListItem[]; total: number }> {
   const skip = (page - 1) * limit;
-  const where = role ? { role } : {};
+
+  const where: Prisma.UserWhereInput = {};
+  if (role) where.role = role;
+  if (subscriptionStatus) where.subscription = { status: subscriptionStatus };
+  if (search) {
+    where.OR = [
+      { username: { contains: search, mode: "insensitive" } },
+      { email: { contains: search, mode: "insensitive" } },
+      { displayName: { contains: search, mode: "insensitive" } },
+    ];
+  }
 
   const [users, total] = await prisma.$transaction([
     prisma.user.findMany({
@@ -34,7 +49,7 @@ export async function getUsers(
     prisma.user.count({ where }),
   ]);
 
-  return { users, total };
+  return { users: users as UserListItem[], total };
 }
 
 export async function getUserById(id: string): Promise<UserDetail> {

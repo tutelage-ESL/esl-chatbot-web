@@ -310,7 +310,7 @@ Includes: classes (with full code-lifecycle fields populated) with enrolled user
 - Remaining: email verification on registration, welcome email
 
 ### Phase 3 — User & Class Modules
-- ✅ `GET /users` — paginated user list, filterable by `?role=` (admin only)
+- ✅ `GET /users` — paginated user list, filterable by `?role=`, `?search=` (username/email/displayName), `?subscriptionStatus=`; includes subscription summary (plan/status/expiry) in each row (admin only)
 - ✅ `GET /users/:id` — full user profile: learnerProfile, subscription, metrics, classUsers (admin only)
 - ✅ `GET /classes` — paginated class list with memberCount + code-lifecycle fields, filterable by `?status=` (admin only)
 - ✅ `GET /classes/:id` — class detail with enrolled members (id, role, user: id/username/displayName/avatarUrl). Access: admins or members of the class only (anyone else gets 404). **Refresh-on-read:** triggers a lazy rotation when the caller is an admin or a tutor of this class and the code is currently expired
@@ -320,9 +320,11 @@ Includes: classes (with full code-lifecycle fields populated) with enrolled user
 - ✅ `POST /classes/:id/code/refresh` — tutor of the class (or admin) manually rotates the code; expiry resets per the configured interval
 - ✅ `PATCH /classes/:id/code/settings` — change `classCodeRefreshIntervalSeconds` (null = permanent); recomputes expiry from `classCodeRefreshedAt`
 - ✅ `PATCH /classes/:id/code/block` — block or unblock the code with `{ blocked: boolean }`. Blocking does not change the code value or expiry
+- ✅ `PATCH /admin/users/:id` — update a user's `role` (STUDENT/TUTOR/ADMIN) and/or `isActive` (true/false soft ban); at least one field required
+- ✅ `PUT /admin/users/:id/subscription` — assign/overwrite subscription: `{ plan, durationMonths?: 1|3|6|12, endDate?: ISO }` — one of the two must be provided; sets status=ACTIVE, currentPeriodStart=now
+- ✅ `DELETE /admin/users/:id/subscription` — cancel subscription (sets status=CANCELLED, keeps dates for audit)
 - User CRUD (self-update profile, admin manage users)
 - LearnerProfile CRUD for students
-- Admin: assign tutors, manage all users
 
 ### Phase 4 — Conversation Sessions & Messages
 - ✅ `POST /sessions` — start a new conversation session (requires active subscription, daily caps: FREE=3, PREMIUM=50)

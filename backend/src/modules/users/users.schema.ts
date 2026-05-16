@@ -12,6 +12,8 @@ export const getUsersQuerySchema = z.object({
     .transform((val) => (val ? parseInt(val, 10) : 10))
     .pipe(z.number().int().min(1).max(100)),
   role: z.enum(["STUDENT", "TUTOR", "ADMIN"]).optional(),
+  search: z.string().optional(),
+  subscriptionStatus: z.enum(["ACTIVE", "INACTIVE", "CANCELLED", "PAST_DUE"]).optional(),
 });
 
 export const getUserParamSchema = z.object({

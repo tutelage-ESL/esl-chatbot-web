@@ -42,6 +42,17 @@ const router = Router();
  *           type: string
  *           enum: [STUDENT, TUTOR, ADMIN]
  *         description: Filter by role
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search by username, email, or display name (case-insensitive)
+ *       - in: query
+ *         name: subscriptionStatus
+ *         schema:
+ *           type: string
+ *           enum: [ACTIVE, INACTIVE, CANCELLED, PAST_DUE]
+ *         description: Filter by subscription status
  *     responses:
  *       200:
  *         description: Paginated list of users
@@ -81,6 +92,20 @@ const router = Router();
  *                       phoneNumber:
  *                         type: string
  *                         nullable: true
+ *                       subscription:
+ *                         type: object
+ *                         nullable: true
+ *                         properties:
+ *                           plan:
+ *                             type: string
+ *                             enum: [FREE, GOLD, PREMIUM]
+ *                           status:
+ *                             type: string
+ *                             enum: [ACTIVE, INACTIVE, CANCELLED, PAST_DUE]
+ *                           currentPeriodEnd:
+ *                             type: string
+ *                             format: date-time
+ *                             nullable: true
  *                       createdAt:
  *                         type: string
  *                         format: date-time

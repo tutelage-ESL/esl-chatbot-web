@@ -10,6 +10,11 @@ export interface UserListItem {
   role: Role;
   phoneNumber: string | null;
   createdAt: Date;
+  subscription: {
+    plan: Plan;
+    status: SubStatus;
+    currentPeriodEnd: Date | null;
+  } | null;
 }
 
 export interface UserDetail extends UserListItem {

@@ -7,7 +7,13 @@ import { getUsers, getUserById } from "./users.service.ts";
 
 export const listUsers = asyncHandler(async (req: Request, res: Response) => {
   const query = getUsersQuerySchema.parse(req.query);
-  const { users, total } = await getUsers(query.page, query.limit, query.role);
+  const { users, total } = await getUsers(
+    query.page,
+    query.limit,
+    query.role,
+    query.search,
+    query.subscriptionStatus,
+  );
   const meta = paginationMeta(total, query.page, query.limit);
 
   sendSuccess(res, users, "Users retrieved successfully", 200, meta);
