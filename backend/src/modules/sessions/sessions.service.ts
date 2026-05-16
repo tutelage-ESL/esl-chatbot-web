@@ -43,11 +43,32 @@ export async function createSession(
   // Check subscription — AI chatbot access requires ACTIVE subscription
   const subscription = await prisma.subscription.findUnique({
     where: { userId },
-    select: { status: true, plan: true },
+    select: { status: true, plan: true, currentPeriodEnd: true },
   });
 
   if (!subscription || subscription.status !== "ACTIVE") {
     throw new AppError("Active subscription required to start a conversation", 403);
+  }
+
+  // Lazy expiry: downgrade GOLD/PREMIUM to FREE ACTIVE when the period has ended
+  let plan = subscription.plan;
+  if (
+    subscription.currentPeriodEnd &&
+    subscription.currentPeriodEnd < new Date() &&
+    (plan === "GOLD" || plan === "PREMIUM")
+  ) {
+    await prisma.subscription.update({
+      where: { userId },
+      data: {
+        plan: "FREE",
+        currentPeriodEnd: null,
+        currentPeriodStart: null,
+        paymentProvider: null,
+        externalCustomerId: null,
+        externalSubscriptionId: null,
+      },
+    });
+    plan = "FREE";
   }
 
   // Enforce daily session cap
@@ -62,9 +83,9 @@ export async function createSession(
   });
 
   const maxSessions =
-    subscription.plan === "PREMIUM"
+    plan === "PREMIUM"
       ? PREMIUM_MAX_SESSIONS_PER_DAY
-      : subscription.plan === "GOLD"
+      : plan === "GOLD"
         ? GOLD_MAX_SESSIONS_PER_DAY
         : FREE_MAX_SESSIONS_PER_DAY;
 

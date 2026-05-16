@@ -149,15 +149,19 @@ router.patch("/users/:id", patchUser);
  *               plan:
  *                 type: string
  *                 enum: [FREE, GOLD, PREMIUM]
- *                 description: Subscription tier to assign
+ *                 description: Subscription tier to assign. FREE is permanent (no period dates required).
  *               durationMonths:
  *                 type: integer
  *                 enum: [1, 3, 6, 12]
- *                 description: Duration in months (from today)
+ *                 description: Duration in months (from today). Required for GOLD/PREMIUM unless endDate is provided.
  *               endDate:
  *                 type: string
  *                 format: date-time
- *                 description: Custom end date — must be in the future (ISO 8601)
+ *                 description: Custom end date — must be in the future (ISO 8601). Required for GOLD/PREMIUM unless durationMonths is provided.
+ *               paymentProvider:
+ *                 type: string
+ *                 enum: [CASH, FIB, STRIPE]
+ *                 description: Payment method used. Defaults to CASH (admin manual assignment for institute cash payments).
  *     responses:
  *       200:
  *         description: Subscription assigned successfully
@@ -187,9 +191,15 @@ router.patch("/users/:id", patchUser);
  *                     currentPeriodStart:
  *                       type: string
  *                       format: date-time
+ *                       nullable: true
  *                     currentPeriodEnd:
  *                       type: string
  *                       format: date-time
+ *                       nullable: true
+ *                     paymentProvider:
+ *                       type: string
+ *                       enum: [CASH, FIB, STRIPE]
+ *                       nullable: true
  *                     updatedAt:
  *                       type: string
  *                       format: date-time
@@ -219,7 +229,9 @@ router.patch("/users/:id", patchUser);
  *               $ref: '#/components/schemas/ErrorResponse'
  *   delete:
  *     summary: Cancel a user's subscription — Admin only
- *     description: Sets the subscription status to CANCELLED. Dates are preserved for audit purposes.
+ *     description: >
+ *       Downgrades the user to FREE ACTIVE. They retain AI access at FREE tier limits.
+ *       To block all access, use PATCH /admin/users/:id with isActive=false instead.
  *     tags: [Admin]
  *     security:
  *       - bearerAuth: []

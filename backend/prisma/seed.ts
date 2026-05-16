@@ -172,6 +172,7 @@ async function main() {
       userId: student1.id,
       plan: "PREMIUM",
       status: "ACTIVE",
+      paymentProvider: "CASH",
       currentPeriodStart: new Date(),
       currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     },
@@ -183,7 +184,7 @@ async function main() {
       status: "ACTIVE",
     },
   });
-  console.log("   ✅ 2 subscriptions created (1 PREMIUM, 1 FREE)\n");
+  console.log("   ✅ 2 subscriptions created (1 PREMIUM/CASH, 1 FREE)\n");
 
   // ─── User Metrics ─────────────────────────────────────
   console.log("📊 Creating User Metrics...");

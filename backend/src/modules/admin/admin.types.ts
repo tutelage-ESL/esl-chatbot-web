@@ -1,4 +1,4 @@
-import type { Plan, Role, SubStatus } from "@prisma/client";
+import type { Plan, SubStatus, PaymentProvider } from "@prisma/client";
 
 export interface SubscriptionResult {
   id: string;
@@ -6,5 +6,6 @@ export interface SubscriptionResult {
   status: SubStatus;
   currentPeriodStart: Date | null;
   currentPeriodEnd: Date | null;
+  paymentProvider: PaymentProvider | null;
   updatedAt: Date;
 }

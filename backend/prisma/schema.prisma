@@ -56,8 +56,14 @@ enum Plan {
 enum SubStatus {
   ACTIVE
   INACTIVE
-  CANCELLED
-  PAST_DUE
+  CANCELLED // set by payment webhook on subscription cancellation (Phase 8 — FIB/Stripe)
+  PAST_DUE  // set by payment webhook on failed payment (Phase 8 — FIB/Stripe)
+}
+
+enum PaymentProvider {
+  STRIPE
+  FIB
+  CASH
 }
 
 // ─── Users ───────────────────────────────────────────────
@@ -169,18 +175,19 @@ model LearnerProfile {
 // ─── Subscriptions ───────────────────────────────────────
 
 model Subscription {
-  id                 String    @id @default(uuid())
-  userId             String    @unique
-  plan               Plan      @default(FREE)
-  status             SubStatus @default(ACTIVE)
+  id                 String          @id @default(uuid())
+  userId             String          @unique
+  plan               Plan            @default(FREE)
+  status             SubStatus       @default(INACTIVE)
   currentPeriodStart DateTime?
   currentPeriodEnd   DateTime?
-  monthlyTtsUsage    Int       @default(0)
+  monthlyTtsUsage    Int             @default(0)
   lastUsageReset     DateTime?
 
-  // Stripe (nullable, future integration)
-  stripeCustomerId     String?
-  stripeSubscriptionId String?
+  // Payment provider tracking (null = admin-activated FREE or unverified)
+  paymentProvider       PaymentProvider?
+  externalCustomerId    String?          // stripe customerId (Stripe only)
+  externalSubscriptionId String?         // fibPaymentId (FIB) or stripeSubscriptionId (Stripe)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

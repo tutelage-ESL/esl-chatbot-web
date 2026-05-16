@@ -17,10 +17,13 @@ export const assignSubscriptionBodySchema = z
       .string()
       .datetime({ message: "endDate must be a valid ISO datetime string" })
       .optional(),
+    // Who processed this payment — defaults to CASH (admin manual assignment)
+    paymentProvider: z.enum(["STRIPE", "FIB", "CASH"]).optional(),
   })
-  .refine((data) => data.durationMonths !== undefined || data.endDate !== undefined, {
-    message: "Either 'durationMonths' or 'endDate' must be provided",
-  })
+  .refine(
+    (data) => data.plan === "FREE" || data.durationMonths !== undefined || data.endDate !== undefined,
+    { message: "Either 'durationMonths' or 'endDate' must be provided for GOLD or PREMIUM plans" },
+  )
   .refine(
     (data) => {
       if (data.endDate) return new Date(data.endDate) > new Date();

@@ -163,7 +163,7 @@ Each module under `src/modules/[name]/` follows:
 | Class | classes | has many ClassUsers, optional createdBy (User), classCode lifecycle fields |
 | ClassUser | class_users | belongs to Class + User, has role (TUTOR/STUDENT), unique(classId, userId) |
 | LearnerProfile | learner_profiles | 1:1 with User (students only) |
-| Subscription | subscriptions | 1:1 with User, Stripe fields nullable |
+| Subscription | subscriptions | 1:1 with User, multi-provider payment fields (FIB/STRIPE/CASH) |
 | UserMetrics | user_metrics | 1:1 with User, aggregated dashboard data |
 | ConversationSession | conversation_sessions | belongs to User, has many Messages, optional SessionEvaluation |
 | Message | messages | belongs to User + Session, has type (TEXT/VOICE), optional MessageEvaluation |
@@ -177,7 +177,8 @@ Each module under `src/modules/[name]/` follows:
 - All IDs are UUID v4
 - All tables have createdAt/updatedAt
 - User model has username (unique), email (unique), displayName, password (nullable — null for Google-only accounts), authProvider (LOCAL|GOOGLE), googleId (unique, nullable), avatarUrl, isActive, role, phoneNumber
-- AI chatbot access is gated by Subscription: `status === ACTIVE`. Default after registration: `plan=FREE, status=INACTIVE` (no AI access). Class joining does NOT require a subscription.
+- AI chatbot access is gated by Subscription: `status === ACTIVE`. **Verification = linking a Google account.** Registration flow: LOCAL register → `plan=FREE, status=INACTIVE` (no AI); Google Sign-In / Google merge / `POST /auth/link-google` → `status=ACTIVE` (FREE tier unlocked). Admin-assigned subscriptions are always `ACTIVE`. Class joining does NOT require a subscription.
+- **Subscription lifecycle:** LOCAL user registers → INACTIVE. Links Google → FREE ACTIVE. Buys GOLD/PREMIUM (via FIB/STRIPE/CASH) → paid tier ACTIVE. Subscription period expires → lazy downgrade to FREE ACTIVE at next `POST /sessions`. Admin cancels subscription → FREE ACTIVE (not revoked; use `isActive=false` to block access entirely).
 - Classes have a unique classCode; tutor/student membership tracked via ClassUser join table
 - ClassUser join table links any user (TUTOR or STUDENT) to a class with a `role` field and unique(classId, userId) constraint
 - Class join flow is **direct** (no pending approval): a user submits a class code via `POST /classes/join` and is added as a STUDENT immediately, provided the code is not blocked, not expired, and the class is ACTIVE
@@ -189,6 +190,7 @@ Each module under `src/modules/[name]/` follows:
 - No separate settings table — settings live in LearnerProfile
 - Vocabulary uses SM-2 SRS algorithm fields (srsInterval, srsEase, srsDue)
 - Progress is exactly 1 row per user per calendar day
+- **Subscription payment fields:** `paymentProvider` (enum: STRIPE/FIB/CASH), `externalCustomerId` (Stripe customerId only), `externalSubscriptionId` (fibPaymentId for FIB, stripeSubscriptionId for Stripe). All nullable. Cash payments set `paymentProvider=CASH` only. FREE tier leaves all three null.
 - Cascade delete on all user-owned relations
 - RefreshToken table stores hashed (SHA-256) refresh tokens for server-side revocation; one row per active session/device
 - PasswordResetToken table stores SHA-256-hashed 6-digit OTPs for password reset; 15-minute TTL; single-use (usedAt set on redemption); old tokens deleted when a new OTP is requested
@@ -363,8 +365,9 @@ Includes: classes (with full code-lifecycle fields populated) with enrolled user
 ### Phase 8 — Subscriptions & Billing
 - Plan enforcement middleware (FREE vs PREMIUM limits)
 - TTS usage tracking and monthly reset
-- Stripe integration: customer creation, checkout, webhook handling
-- Plan upgrade/downgrade flows
+- **FIB payment integration** (primary): create payment → QR/deep-link → webhook callback → set `plan=GOLD/PREMIUM, status=ACTIVE, paymentProvider=FIB, externalSubscriptionId=fibPaymentId`
+- **Stripe integration** (future): customer creation, checkout, webhook handling; `paymentProvider=STRIPE, externalCustomerId=stripeCustomerId, externalSubscriptionId=stripeSubscriptionId`
+- Plan upgrade/downgrade flows; expired subscription lazy-downgrade already implemented at session creation
 
 ### Phase 9 — Infrastructure & Polish
 - Redis caching for hot queries (user profiles, session data)

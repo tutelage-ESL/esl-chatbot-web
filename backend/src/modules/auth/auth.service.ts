@@ -240,14 +240,20 @@ export async function googleAuth(input: GoogleAuthInput): Promise<GoogleAuthResp
     });
 
     if (localUser) {
-      user = await prisma.user.update({
-        where: { id: localUser.id },
-        data: {
-          googleId: profile.googleId,
-          // Only update avatar if they don't already have one
-          avatarUrl: localUser.avatarUrl ?? profile.avatarUrl,
-        },
-        include: { subscription: { select: { plan: true, status: true } } },
+      // Link Google + activate FREE subscription (if still INACTIVE) in one transaction
+      user = await prisma.$transaction(async (tx) => {
+        await tx.subscription.updateMany({
+          where: { userId: localUser.id, status: "INACTIVE" },
+          data: { status: "ACTIVE" },
+        });
+        return tx.user.update({
+          where: { id: localUser.id },
+          data: {
+            googleId: profile.googleId,
+            avatarUrl: localUser.avatarUrl ?? profile.avatarUrl,
+          },
+          include: { subscription: { select: { plan: true, status: true } } },
+        });
       });
     }
   }
@@ -266,7 +272,8 @@ export async function googleAuth(input: GoogleAuthInput): Promise<GoogleAuthResp
     const usernameExists = await prisma.user.findUnique({ where: { username: input.username } });
     if (usernameExists) throw new AppError("Username is already taken", 409);
 
-    // Create User + LearnerProfile + Subscription (FREE/INACTIVE) + UserMetrics atomically
+    // Create User + LearnerProfile + Subscription (FREE/ACTIVE) + UserMetrics atomically
+    // Google-authenticated users are verified immediately — FREE tier is active from day one
     const created = await prisma.$transaction(async (tx) => {
       const newUser = await tx.user.create({
         data: {
@@ -282,7 +289,7 @@ export async function googleAuth(input: GoogleAuthInput): Promise<GoogleAuthResp
 
       await tx.learnerProfile.create({ data: { userId: newUser.id } });
       await tx.subscription.create({
-        data: { userId: newUser.id, plan: "FREE", status: "INACTIVE" },
+        data: { userId: newUser.id, plan: "FREE", status: "ACTIVE" },
       });
       await tx.userMetrics.create({ data: { userId: newUser.id } });
 
@@ -301,7 +308,7 @@ export async function googleAuth(input: GoogleAuthInput): Promise<GoogleAuthResp
         role: created.role,
         avatarUrl: created.avatarUrl,
         isActive: created.isActive,
-        subscription: { plan: "FREE", status: "INACTIVE" },
+        subscription: { plan: "FREE", status: "ACTIVE" },
       },
       accessToken,
       refreshToken,
@@ -540,13 +547,20 @@ export async function linkGoogle(userId: string, input: LinkGoogleInput): Promis
     select: { avatarUrl: true },
   });
 
-  const updated = await prisma.user.update({
-    where: { id: userId },
-    data: {
-      googleId: profile.googleId,
-      avatarUrl: existing.avatarUrl ?? profile.avatarUrl,
-    },
-    include: { subscription: { select: { plan: true, status: true } } },
+  // Link Google + activate FREE subscription (if still INACTIVE) in one transaction
+  const updated = await prisma.$transaction(async (tx) => {
+    await tx.subscription.updateMany({
+      where: { userId, status: "INACTIVE" },
+      data: { status: "ACTIVE" },
+    });
+    return tx.user.update({
+      where: { id: userId },
+      data: {
+        googleId: profile.googleId,
+        avatarUrl: existing.avatarUrl ?? profile.avatarUrl,
+      },
+      include: { subscription: { select: { plan: true, status: true } } },
+    });
   });
 
   return {

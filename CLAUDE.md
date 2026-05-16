@@ -73,7 +73,7 @@ Backend secrets are managed via **Infisical** (project `esl-chatbot`, envs `dev`
 
 ## Subscription & AI Tier System
 
-AI chatbot access is gated by `subscription.status === 'ACTIVE'`. Default after registration: `plan=FREE, status=INACTIVE` (no AI access). Class joining does NOT require a subscription.
+AI chatbot access is gated by `subscription.status === 'ACTIVE'`. **Verification = linking a Google account.** LOCAL register → `plan=FREE, status=INACTIVE` (no AI). Google Sign-In / `POST /auth/link-google` → `status=ACTIVE` (FREE tier active). Class joining does NOT require a subscription. Paid plans (GOLD/PREMIUM) are assigned by admin (cash/FIB/Stripe) and expire lazily at next session creation — downgrading to FREE ACTIVE.
 
 | Tier | Sessions/day | Msgs/session (soft+buffer) | Msgs/day hard cap | LLM context | AI model |
 |---|---|---|---|---|---|
