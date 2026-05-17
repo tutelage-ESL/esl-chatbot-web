@@ -153,6 +153,8 @@ Each module under `src/modules/[name]/` follows:
 | MessageRole | USER, ASSISTANT |
 | MessageType | TEXT, VOICE |
 | GoalStatus | ACTIVE, COMPLETED, PAUSED, CANCELLED |
+| GoalType | VOCABULARY, SPEAKING, GRAMMAR, CONVERSATION, STUDY_TIME |
+| AiPersonality | FRIENDLY, FORMAL, CASUAL, ENCOURAGING, STRICT, PATIENT |
 | Plan | FREE, GOLD, PREMIUM |
 | SubStatus | ACTIVE, INACTIVE, CANCELLED, PAST_DUE |
 
@@ -170,7 +172,7 @@ Each module under `src/modules/[name]/` follows:
 | MessageEvaluation | message_evaluations | 1:1 with Message (USER messages only), stores grammar/vocab/fluency scores and corrections |
 | SessionEvaluation | session_evaluations | 1:1 with ConversationSession, aggregate scores + strengths/weaknesses/recommendations |
 | Vocabulary | vocabularies | belongs to User, SRS fields, unique(userId, word) |
-| Goal | goals | belongs to User, optional tutor assigner |
+| Goal | goals | belongs to User, optional tutor assigner. Type is GoalType enum (VOCABULARY/SPEAKING/GRAMMAR/CONVERSATION/STUDY_TIME). No timeframe or milestones columns. |
 | Progress | progress | daily snapshot, unique(userId, date) |
 
 ### Key Design Decisions
@@ -187,7 +189,7 @@ Each module under `src/modules/[name]/` follows:
   1. **Join attempt with an expired code** — code is rotated internally and the join is rejected with HTTP 410 (Gone). The user must obtain the new code from the tutor.
   2. **`GET /classes/:id` by an admin or by a tutor of the class** — code is rotated before the response is built, so opening the class detail is enough to see a fresh code.
   3. **`GET /classes/mine`** — for each class where the caller is a TUTOR with a currently expired code, the code is rotated before the list is built. Student memberships do NOT trigger rotation, so students cannot bump the rotation by spamming reads.
-- No separate settings table — settings live in LearnerProfile
+- No separate settings table — settings live in LearnerProfile. Key fields: `currentLevel`/`targetLevel` (CEFR A1–C2), `aiPersonality` (AiPersonality enum: FRIENDLY/FORMAL/CASUAL/ENCOURAGING/STRICT/PATIENT), `topicsOfInterest` (JSON string[]), `voiceSpeed` (0.5–2.0), `theme` (light/dark), `weeklyGoalMinutes` (5–840). Updated via `PATCH /users/me/learner-profile`.
 - Vocabulary uses SM-2 SRS algorithm fields (srsInterval, srsEase, srsDue)
 - Progress is exactly 1 row per user per calendar day
 - **Subscription payment fields:** `paymentProvider` (enum: STRIPE/FIB/CASH), `externalCustomerId` (Stripe customerId only), `externalSubscriptionId` (fibPaymentId for FIB, stripeSubscriptionId for Stripe). All nullable. Cash payments set `paymentProvider=CASH` only. FREE tier leaves all three null.
@@ -328,8 +330,9 @@ Includes: classes (with full code-lifecycle fields populated) with enrolled user
 - ✅ `PATCH /admin/users/:id` — update a user's `role` (STUDENT/TUTOR/ADMIN) and/or `isActive` (true/false soft ban); at least one field required
 - ✅ `PUT /admin/users/:id/subscription` — assign/overwrite subscription: `{ plan, durationMonths?: 1|3|6|12, endDate?: ISO }` — one of the two must be provided; sets status=ACTIVE, currentPeriodStart=now
 - ✅ `DELETE /admin/users/:id/subscription` — cancel subscription (sets status=CANCELLED, keeps dates for audit)
-- User CRUD (self-update profile, admin manage users)
-- LearnerProfile CRUD for students
+- ✅ `GET /users/me` — own full profile (displayName, phoneNumber, avatarUrl, authProvider, learnerProfile with all settings, subscription plan/status)
+- ✅ `PATCH /users/me` — update own basic profile: `displayName`, `phoneNumber`, `avatarUrl`
+- ✅ `PATCH /users/me/learner-profile` — update learner settings: currentLevel/targetLevel (CEFR A1–C2), learningPurpose, topicsOfInterest, aiPersonality (FRIENDLY/FORMAL/CASUAL/ENCOURAGING/STRICT/PATIENT), voiceSpeed, autoSpeak, uiLanguage, theme (light/dark), weeklyGoalMinutes, timezone
 
 ### Phase 4 — Conversation Sessions & Messages
 - ✅ `POST /sessions` — start a new conversation session (requires active subscription, daily caps: FREE=3, PREMIUM=50)
@@ -352,10 +355,15 @@ Includes: classes (with full code-lifecycle fields populated) with enrolled user
 - Category management
 
 ### Phase 6 — Goals & Progress
-- Goal CRUD (student self-set + tutor-assigned)
+- ✅ `GET /goals` — list own goals; tutors/admins can add `?studentId=` (tutor must have the student in their class). Filterable by `?status=` and `?type=`
+- ✅ `POST /goals` — create a goal. Students create for self (no `assignedToUserId`). Tutors/admins provide `assignedToUserId` to assign to a student in their class.
+- ✅ `GET /goals/:id` — get single goal (own or assigned by caller or admin)
+- ✅ `PATCH /goals/:id` — update description, target, difficulty, status, progress, targetDate, actionPlan. Setting status=COMPLETED auto-sets completedDate + progress=100.
+- ✅ `DELETE /goals/:id` — delete goal (own or tutor-assigned or admin)
+- **GoalType enum:** VOCABULARY, SPEAKING, GRAMMAR, CONVERSATION, STUDY_TIME
+- **Removed from schema:** `timeframe` (redundant with startDate/targetDate) and `milestones` (deferred to later phase)
 - Progress daily snapshot creation (cron job or on-demand)
-- Milestone tracking within goals
-- Goal status transitions (ACTIVE → COMPLETED/PAUSED/CANCELLED)
+- Goal status transitions (ACTIVE → COMPLETED/PAUSED/CANCELLED) ✅ already handled in PATCH
 - Dashboard aggregation queries
 
 ### Phase 7 — Metrics & Dashboard

@@ -47,6 +47,23 @@ enum GoalStatus {
   CANCELLED
 }
 
+enum GoalType {
+  VOCABULARY
+  SPEAKING
+  GRAMMAR
+  CONVERSATION
+  STUDY_TIME
+}
+
+enum AiPersonality {
+  FRIENDLY
+  FORMAL
+  CASUAL
+  ENCOURAGING
+  STRICT
+  PATIENT
+}
+
 enum Plan {
   FREE
   GOLD
@@ -156,7 +173,7 @@ model LearnerProfile {
   targetLevel       String?
   learningPurpose   String?
   topicsOfInterest  Json?
-  aiPersonality     String?
+  aiPersonality     AiPersonality?
   voiceSpeed        Float   @default(1.0)
   autoSpeak         Boolean @default(false)
   uiLanguage        String  @default("en")
@@ -357,14 +374,12 @@ model Goal {
   id                 String     @id @default(uuid())
   userId             String
   assignedByTutorId  String?
-  type               String
+  type               GoalType
   description        String
   target             Int
-  timeframe          String?
   difficulty         String?
   status             GoalStatus @default(ACTIVE)
   progress           Float      @default(0)
-  milestones         Json?
   actionPlan         String?
   startDate          DateTime   @default(now())
   targetDate         DateTime?

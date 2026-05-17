@@ -6,6 +6,7 @@ import sessionsRouter from "../../modules/sessions/sessions.router.ts";
 import messagesRouter from "../../modules/messages/messages.router.ts";
 import aiRouter from "../../modules/ai/ai.router.ts";
 import adminRouter from "../../modules/admin/admin.router.ts";
+import goalsRouter from "../../modules/goals/goals.router.ts";
 
 const router = Router();
 
@@ -16,10 +17,10 @@ router.use("/classes", classesRouter);
 router.use("/sessions", sessionsRouter);
 router.use("/sessions", messagesRouter);
 router.use("/admin", adminRouter);
+router.use("/goals", goalsRouter);
 
 // Routers to be mounted in upcoming phases:
 // router.use("/vocabulary", vocabularyRouter);
-// router.use("/goals", goalsRouter);
 // router.use("/progress", progressRouter);
 // router.use("/metrics", metricsRouter);
 // router.use("/subscriptions", subscriptionsRouter);

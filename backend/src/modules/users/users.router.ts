@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { listUsers, getUser } from "./users.controller.ts";
+import { listUsers, getUser, getMe, updateMe, updateLearnerProfile } from "./users.controller.ts";
 import { authenticate } from "../../middlewares/authenticate.ts";
 import { authorize } from "../../middlewares/authorize.ts";
 
@@ -9,8 +9,161 @@ const router = Router();
  * @swagger
  * tags:
  *   name: Users
- *   description: User management — admin only
+ *   description: User profile and management
  */
+
+// ─── Self-profile routes (any authenticated user) ─────────────────────────────
+
+/**
+ * @swagger
+ * /users/me:
+ *   get:
+ *     summary: Get own profile (full, including learner settings)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Own profile with learner settings and subscription
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Profile retrieved successfully
+ *                 data:
+ *                   $ref: '#/components/schemas/MyProfile'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ */
+router.get("/me", authenticate, getMe);
+
+/**
+ * @swagger
+ * /users/me:
+ *   patch:
+ *     summary: Update own basic profile (displayName, phoneNumber, avatarUrl)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               displayName:
+ *                 type: string
+ *                 minLength: 1
+ *                 maxLength: 100
+ *               phoneNumber:
+ *                 type: string
+ *                 maxLength: 20
+ *                 nullable: true
+ *               avatarUrl:
+ *                 type: string
+ *                 format: uri
+ *                 nullable: true
+ *     responses:
+ *       200:
+ *         description: Updated profile
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/MyProfile'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       422:
+ *         $ref: '#/components/responses/ValidationError'
+ */
+router.patch("/me", authenticate, updateMe);
+
+/**
+ * @swagger
+ * /users/me/learner-profile:
+ *   patch:
+ *     summary: Update learner settings (levels, topics, AI preferences, app settings)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               currentLevel:
+ *                 type: string
+ *                 enum: [A1, A2, B1, B2, C1, C2]
+ *                 nullable: true
+ *               targetLevel:
+ *                 type: string
+ *                 enum: [A1, A2, B1, B2, C1, C2]
+ *                 nullable: true
+ *               learningPurpose:
+ *                 type: string
+ *                 maxLength: 500
+ *                 nullable: true
+ *               topicsOfInterest:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 nullable: true
+ *               aiPersonality:
+ *                 type: string
+ *                 enum: [FRIENDLY, FORMAL, CASUAL, ENCOURAGING, STRICT, PATIENT]
+ *                 nullable: true
+ *               voiceSpeed:
+ *                 type: number
+ *                 minimum: 0.5
+ *                 maximum: 2.0
+ *               autoSpeak:
+ *                 type: boolean
+ *               uiLanguage:
+ *                 type: string
+ *                 example: en
+ *               theme:
+ *                 type: string
+ *                 enum: [light, dark]
+ *               weeklyGoalMinutes:
+ *                 type: integer
+ *                 minimum: 5
+ *                 maximum: 840
+ *               timezone:
+ *                 type: string
+ *                 example: Asia/Baghdad
+ *     responses:
+ *       200:
+ *         description: Updated learner profile
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/LearnerProfile'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       422:
+ *         $ref: '#/components/responses/ValidationError'
+ */
+router.patch("/me/learner-profile", authenticate, updateLearnerProfile);
+
+// ─── Admin-only routes ────────────────────────────────────────────────────────
 
 /**
  * @swagger

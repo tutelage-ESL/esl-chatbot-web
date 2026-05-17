@@ -1,4 +1,4 @@
-import type { Role, Plan, SubStatus, ClassStatus } from "@prisma/client";
+import type { Role, Plan, SubStatus, ClassStatus, AuthProvider, AiPersonality } from "@prisma/client";
 
 export interface UserListItem {
   id: string;
@@ -56,4 +56,39 @@ export interface UserDetail extends UserListItem {
       classStatus: ClassStatus;
     };
   }[];
+}
+
+// ─── Self-profile ──────────────────────────────────────────────────────────────
+
+export interface MyProfile {
+  id: string;
+  username: string;
+  email: string;
+  displayName: string;
+  avatarUrl: string | null;
+  phoneNumber: string | null;
+  role: Role;
+  isActive: boolean;
+  authProvider: AuthProvider;
+  createdAt: Date;
+  updatedAt: Date;
+  subscription: {
+    plan: Plan;
+    status: SubStatus;
+    currentPeriodEnd: Date | null;
+  } | null;
+  learnerProfile: {
+    id: string;
+    currentLevel: string | null;
+    targetLevel: string | null;
+    learningPurpose: string | null;
+    topicsOfInterest: unknown;
+    aiPersonality: AiPersonality | null;
+    voiceSpeed: number;
+    autoSpeak: boolean;
+    uiLanguage: string;
+    theme: string;
+    weeklyGoalMinutes: number;
+    timezone: string;
+  } | null;
 }
