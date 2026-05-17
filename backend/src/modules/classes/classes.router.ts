@@ -8,6 +8,9 @@ import {
   setBlockedHandler,
   joinByCodeHandler,
   listMyClassesHandler,
+  listClassStudentsHandler,
+  getClassStudentHandler,
+  removeMemberHandler,
 } from "./classes.controller.ts";
 import { authenticate } from "../../middlewares/authenticate.ts";
 import { authorize } from "../../middlewares/authorize.ts";
@@ -443,5 +446,158 @@ router.patch(
  *       404: { description: Class not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  */
 router.patch("/:id/code/block", authenticate, authorize("TUTOR", "ADMIN"), setBlockedHandler);
+
+// ─────────────────────────────────────────────────────────
+// STUDENT LIST (tutor in class / admin)
+// ─────────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /classes/{id}/students:
+ *   get:
+ *     summary: List students in a class with progress data (Tutor in class or Admin)
+ *     description: |
+ *       Returns all STUDENT members of the class along with a progress snapshot:
+ *       current English level, estimated CEFR level from AI evaluations, study
+ *       streak, study time, and vocabulary counts (total + due for SRS review today).
+ *
+ *       Only tutors of the class and admins can call this endpoint.
+ *       Students cannot view other students' progress data.
+ *     tags: [Classes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: List of students with progress snapshots
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 message: { type: string }
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       userId: { type: string, format: uuid }
+ *                       username: { type: string }
+ *                       displayName: { type: string }
+ *                       avatarUrl: { type: string, nullable: true }
+ *                       joinedAt: { type: string, format: date-time }
+ *                       currentLevel: { type: string, nullable: true, description: Self-reported English level from learner profile }
+ *                       targetLevel: { type: string, nullable: true }
+ *                       currentStreak: { type: integer }
+ *                       estimatedLevel: { type: string, nullable: true, description: AI-estimated CEFR level from session evaluations }
+ *                       totalStudyTimeMinutes: { type: integer }
+ *                       grammarSkill: { type: number, description: 0–100 skill score }
+ *                       vocabularySkill: { type: number, description: 0–100 skill score }
+ *                       vocabTotal: { type: integer, description: Total vocabulary cards saved }
+ *                       vocabDueToday: { type: integer, description: SRS cards due for review today }
+ *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       403: { description: Caller is a student (not tutor or admin), content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       404: { description: Class not found or caller not a member, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ */
+router.get("/:id/students", authenticate, listClassStudentsHandler);
+
+// ─────────────────────────────────────────────────────────
+// STUDENT DETAIL (tutor in class / admin)
+// ─────────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /classes/{id}/students/{userId}:
+ *   get:
+ *     summary: Get full progress detail for a single student (Tutor in class or Admin)
+ *     description: |
+ *       Returns the student's full learner profile, all metric skill scores, and
+ *       vocabulary stats. The `userId` must be a STUDENT member of this class.
+ *     tags: [Classes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *         description: Class ID
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *         description: Student's user ID
+ *     responses:
+ *       200:
+ *         description: Full student detail
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 message: { type: string }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     userId: { type: string, format: uuid }
+ *                     username: { type: string }
+ *                     displayName: { type: string }
+ *                     avatarUrl: { type: string, nullable: true }
+ *                     joinedAt: { type: string, format: date-time }
+ *                     learnerProfile: { type: object, nullable: true, description: Student's learner profile settings and preferences }
+ *                     metrics: { type: object, nullable: true, description: Aggregated skill metrics }
+ *                     vocabTotal: { type: integer }
+ *                     vocabDueToday: { type: integer }
+ *       400: { description: Target user is not a student, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       403: { description: Caller is a student, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       404: { description: Class or student not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ */
+router.get("/:id/students/:userId", authenticate, getClassStudentHandler);
+
+// ─────────────────────────────────────────────────────────
+// REMOVE MEMBER (self-leave / tutor / admin)
+// ─────────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /classes/{id}/members/{userId}:
+ *   delete:
+ *     summary: Remove a member from the class (or self-leave)
+ *     description: |
+ *       **Self-leave:** any member can remove themselves from any class they belong to.
+ *
+ *       **Tutor:** can remove STUDENT members of their own class. Cannot remove other tutors.
+ *
+ *       **Admin:** can remove any member from any class.
+ *
+ *       **Guard:** the last tutor of a class cannot be removed. If a class has only one
+ *       tutor, that tutor must first add another tutor before leaving or being removed.
+ *     tags: [Classes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *         description: Class ID
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *         description: ID of the member to remove (use own ID to leave)
+ *     responses:
+ *       200:
+ *         description: Member removed (or left) successfully
+ *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       403: { description: Insufficient permissions to remove this member, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       404: { description: Class or member not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       409: { description: Cannot remove the last tutor, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ */
+router.delete("/:id/members/:userId", authenticate, removeMemberHandler);
 
 export default router;

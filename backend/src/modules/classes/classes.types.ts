@@ -1,5 +1,55 @@
 import type { ClassStatus, Role } from "@prisma/client";
 
+/** Tutor/admin view of a student in a class — includes progress snapshot. */
+export interface ClassStudentSummary {
+  userId: string;
+  username: string;
+  displayName: string;
+  avatarUrl: string | null;
+  joinedAt: Date;
+  currentLevel: string | null;
+  targetLevel: string | null;
+  currentStreak: number;
+  estimatedLevel: string | null;
+  totalStudyTimeMinutes: number;
+  grammarSkill: number;
+  vocabularySkill: number;
+  vocabTotal: number;
+  vocabDueToday: number;
+}
+
+/** Full student detail seen by a tutor or admin. */
+export interface ClassStudentDetail {
+  userId: string;
+  username: string;
+  displayName: string;
+  avatarUrl: string | null;
+  joinedAt: Date;
+  learnerProfile: {
+    currentLevel: string | null;
+    targetLevel: string | null;
+    learningPurpose: string | null;
+    topicsOfInterest: unknown;
+    weeklyGoalMinutes: number;
+    timezone: string;
+    aiPersonality: string | null;
+  } | null;
+  metrics: {
+    currentStreak: number;
+    longestStreak: number;
+    estimatedLevel: string | null;
+    totalStudyTimeMinutes: number;
+    lessonsCompleted: number;
+    grammarSkill: number;
+    vocabularySkill: number;
+    readingSkill: number;
+    writingSkill: number;
+    lastStudyDate: Date | null;
+  } | null;
+  vocabTotal: number;
+  vocabDueToday: number;
+}
+
 export interface ClassListItem {
   id: string;
   className: string;

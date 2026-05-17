@@ -10,6 +10,7 @@ import {
   updateCodeSettingsSchema,
   setBlockedSchema,
   joinByCodeSchema,
+  classMemberParamSchema,
 } from "./classes.schema.ts";
 import {
   getClasses,
@@ -20,6 +21,9 @@ import {
   setClassCodeBlocked,
   joinClassByCode,
   listMyClasses,
+  getClassStudents,
+  getClassStudentDetail,
+  removeMember,
 } from "./classes.service.ts";
 
 // ── Read (admin) ───────────────────────────────────────────
@@ -92,4 +96,29 @@ export const listMyClassesHandler = asyncHandler(async (req: Request, res: Respo
   if (!req.user) throw new AppError("Authentication required", 401);
   const classes = await listMyClasses(req.user.id);
   sendSuccess(res, classes, "Your classes retrieved");
+});
+
+// ── Student monitoring (tutor / admin) ────────────────────
+
+export const listClassStudentsHandler = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.user) throw new AppError("Authentication required", 401);
+  const { id } = getClassParamSchema.parse(req.params);
+  const students = await getClassStudents(id, req.user.id, req.user.role);
+  sendSuccess(res, students, "Students retrieved successfully");
+});
+
+export const getClassStudentHandler = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.user) throw new AppError("Authentication required", 401);
+  const { id, userId } = classMemberParamSchema.parse(req.params);
+  const student = await getClassStudentDetail(id, userId, req.user.id, req.user.role);
+  sendSuccess(res, student, "Student detail retrieved successfully");
+});
+
+// ── Remove member (self-leave / tutor / admin) ────────────
+
+export const removeMemberHandler = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.user) throw new AppError("Authentication required", 401);
+  const { id, userId } = classMemberParamSchema.parse(req.params);
+  await removeMember(id, userId, req.user.id, req.user.role);
+  sendSuccess(res, null, userId === req.user.id ? "Left class successfully" : "Member removed successfully");
 });

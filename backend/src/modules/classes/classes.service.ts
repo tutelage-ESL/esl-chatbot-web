@@ -11,6 +11,8 @@ import type {
   ClassDetail,
   ClassCodeInfo,
   JoinClassResult,
+  ClassStudentSummary,
+  ClassStudentDetail,
 } from "./classes.types.ts";
 
 // ── Shared refresh helper ─────────────────────────────────
@@ -502,6 +504,256 @@ export async function joinClassByCode(
     }
     throw err;
   }
+}
+
+// ── Student monitoring (tutor / admin) ────────────────────
+
+/**
+ * Return all STUDENT members of a class with progress data.
+ * Requires the caller to be a tutor of the class or an admin.
+ */
+export async function getClassStudents(
+  classId: string,
+  actorUserId: string,
+  actorRole: string,
+): Promise<ClassStudentSummary[]> {
+  const isAdmin = actorRole === "ADMIN";
+
+  const cls = await prisma.class.findUnique({
+    where: { id: classId },
+    select: { id: true },
+  });
+  if (!cls) throw new AppError("Class not found", 404);
+
+  if (!isAdmin) {
+    const membership = await prisma.classUser.findUnique({
+      where: { classId_userId: { classId, userId: actorUserId } },
+      select: { role: true },
+    });
+    if (!membership) throw new AppError("Class not found", 404);
+    if (membership.role !== "TUTOR") {
+      throw new AppError("Only tutors and admins can view student progress", 403);
+    }
+  }
+
+  const members = await prisma.classUser.findMany({
+    where: { classId, role: "STUDENT" },
+    select: {
+      createdAt: true,
+      user: {
+        select: {
+          id: true,
+          username: true,
+          displayName: true,
+          avatarUrl: true,
+          learnerProfile: { select: { currentLevel: true, targetLevel: true } },
+          metrics: {
+            select: {
+              currentStreak: true,
+              estimatedLevel: true,
+              totalStudyTimeMinutes: true,
+              grammarSkill: true,
+              vocabularySkill: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  if (members.length === 0) return [];
+
+  const studentIds = members.map((m) => m.user.id);
+  const now = new Date();
+
+  const [vocabTotals, vocabDueCounts] = await Promise.all([
+    prisma.vocabulary.groupBy({
+      by: ["userId"],
+      where: { userId: { in: studentIds } },
+      orderBy: { userId: "asc" },
+      _count: { _all: true },
+    }),
+    prisma.vocabulary.groupBy({
+      by: ["userId"],
+      where: { userId: { in: studentIds }, srsDue: { lte: now } },
+      orderBy: { userId: "asc" },
+      _count: { _all: true },
+    }),
+  ]);
+
+  const vocabTotalMap = new Map(
+    vocabTotals.map((v) => [v.userId, (v._count as { _all: number })._all]),
+  );
+  const vocabDueMap = new Map(
+    vocabDueCounts.map((v) => [v.userId, (v._count as { _all: number })._all]),
+  );
+
+  return members.map((m) => ({
+    userId: m.user.id,
+    username: m.user.username,
+    displayName: m.user.displayName,
+    avatarUrl: m.user.avatarUrl,
+    joinedAt: m.createdAt,
+    currentLevel: m.user.learnerProfile?.currentLevel ?? null,
+    targetLevel: m.user.learnerProfile?.targetLevel ?? null,
+    currentStreak: m.user.metrics?.currentStreak ?? 0,
+    estimatedLevel: m.user.metrics?.estimatedLevel ?? null,
+    totalStudyTimeMinutes: m.user.metrics?.totalStudyTimeMinutes ?? 0,
+    grammarSkill: m.user.metrics?.grammarSkill ?? 0,
+    vocabularySkill: m.user.metrics?.vocabularySkill ?? 0,
+    vocabTotal: vocabTotalMap.get(m.user.id) ?? 0,
+    vocabDueToday: vocabDueMap.get(m.user.id) ?? 0,
+  }));
+}
+
+/**
+ * Full progress detail for a single student in the class.
+ * Requires the caller to be a tutor of the class or an admin.
+ */
+export async function getClassStudentDetail(
+  classId: string,
+  studentId: string,
+  actorUserId: string,
+  actorRole: string,
+): Promise<ClassStudentDetail> {
+  const isAdmin = actorRole === "ADMIN";
+
+  if (!isAdmin) {
+    const membership = await prisma.classUser.findUnique({
+      where: { classId_userId: { classId, userId: actorUserId } },
+      select: { role: true },
+    });
+    if (!membership) throw new AppError("Class not found", 404);
+    if (membership.role !== "TUTOR") {
+      throw new AppError("Only tutors and admins can view student detail", 403);
+    }
+  } else {
+    const cls = await prisma.class.findUnique({ where: { id: classId }, select: { id: true } });
+    if (!cls) throw new AppError("Class not found", 404);
+  }
+
+  const targetMembership = await prisma.classUser.findUnique({
+    where: { classId_userId: { classId, userId: studentId } },
+    select: { role: true, createdAt: true },
+  });
+  if (!targetMembership) throw new AppError("Student not found in this class", 404);
+  if (targetMembership.role !== "STUDENT") {
+    throw new AppError("That user is not a student in this class", 400);
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: studentId },
+    select: {
+      id: true,
+      username: true,
+      displayName: true,
+      avatarUrl: true,
+      learnerProfile: {
+        select: {
+          currentLevel: true,
+          targetLevel: true,
+          learningPurpose: true,
+          topicsOfInterest: true,
+          weeklyGoalMinutes: true,
+          timezone: true,
+          aiPersonality: true,
+        },
+      },
+      metrics: {
+        select: {
+          currentStreak: true,
+          longestStreak: true,
+          estimatedLevel: true,
+          totalStudyTimeMinutes: true,
+          lessonsCompleted: true,
+          grammarSkill: true,
+          vocabularySkill: true,
+          readingSkill: true,
+          writingSkill: true,
+          lastStudyDate: true,
+        },
+      },
+      _count: { select: { vocabularies: true } },
+    },
+  });
+  if (!user) throw new AppError("Student not found", 404);
+
+  const vocabDueToday = await prisma.vocabulary.count({
+    where: { userId: studentId, srsDue: { lte: new Date() } },
+  });
+
+  return {
+    userId: user.id,
+    username: user.username,
+    displayName: user.displayName,
+    avatarUrl: user.avatarUrl,
+    joinedAt: targetMembership.createdAt,
+    learnerProfile: user.learnerProfile,
+    metrics: user.metrics,
+    vocabTotal: user._count.vocabularies,
+    vocabDueToday,
+  };
+}
+
+// ── Remove member ──────────────────────────────────────────
+
+/**
+ * Remove a member from a class.
+ *
+ * Authorization:
+ *  - Any member can remove themselves (self-leave).
+ *  - A tutor of the class can remove STUDENT members (not other tutors).
+ *  - An admin can remove any member.
+ *
+ * Guard: the last tutor of a class cannot be removed.
+ */
+export async function removeMember(
+  classId: string,
+  targetUserId: string,
+  actorUserId: string,
+  actorRole: string,
+): Promise<void> {
+  const isAdmin = actorRole === "ADMIN";
+  const isSelf = actorUserId === targetUserId;
+
+  const cls = await prisma.class.findUnique({
+    where: { id: classId },
+    select: { id: true },
+  });
+  if (!cls) throw new AppError("Class not found", 404);
+
+  const targetMembership = await prisma.classUser.findUnique({
+    where: { classId_userId: { classId, userId: targetUserId } },
+    select: { role: true },
+  });
+  if (!targetMembership) throw new AppError("Member not found in this class", 404);
+
+  if (!isSelf && !isAdmin) {
+    const actorMembership = await prisma.classUser.findUnique({
+      where: { classId_userId: { classId, userId: actorUserId } },
+      select: { role: true },
+    });
+    if (!actorMembership) throw new AppError("Class not found", 404);
+    if (actorMembership.role !== "TUTOR") {
+      throw new AppError("Only tutors and admins can remove members", 403);
+    }
+    if (targetMembership.role !== "STUDENT") {
+      throw new AppError("Tutors can only remove student members", 403);
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    if (targetMembership.role === "TUTOR") {
+      const tutorCount = await tx.classUser.count({ where: { classId, role: "TUTOR" } });
+      if (tutorCount <= 1) {
+        throw new AppError("Cannot remove the last tutor from a class", 409);
+      }
+    }
+    await tx.classUser.delete({
+      where: { classId_userId: { classId, userId: targetUserId } },
+    });
+  });
 }
 
 // ── List classes the current user belongs to ──────────────

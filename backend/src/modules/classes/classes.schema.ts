@@ -58,6 +58,11 @@ export const joinByCodeSchema = z.object({
   classCode: z.string().trim().min(1, "Class code is required").max(32),
 });
 
+export const classMemberParamSchema = z.object({
+  id: z.string().uuid("Invalid class ID"),
+  userId: z.string().uuid("Invalid user ID"),
+});
+
 // ── Inferred types ───────────────────────────────────────
 
 export type GetClassesQuery = z.infer<typeof getClassesQuerySchema>;

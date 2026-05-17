@@ -322,6 +322,9 @@ Includes: classes (with full code-lifecycle fields populated) with enrolled user
 - ✅ `POST /classes/:id/code/refresh` — tutor of the class (or admin) manually rotates the code; expiry resets per the configured interval
 - ✅ `PATCH /classes/:id/code/settings` — change `classCodeRefreshIntervalSeconds` (null = permanent); recomputes expiry from `classCodeRefreshedAt`
 - ✅ `PATCH /classes/:id/code/block` — block or unblock the code with `{ blocked: boolean }`. Blocking does not change the code value or expiry
+- ✅ `GET /classes/:id/students` — tutor of the class (or admin) lists all STUDENT members with a progress snapshot: self-reported level, AI-estimated CEFR, streak, study time, grammar/vocab skill scores, vocab total + SRS cards due today
+- ✅ `GET /classes/:id/students/:userId` — tutor (or admin) fetches full learner profile + all metric skill scores + vocab stats for a specific student in the class
+- ✅ `DELETE /classes/:id/members/:userId` — remove a member. Self-leave: any member can leave. Tutor: can remove STUDENT members only. Admin: can remove anyone. Guard: last tutor cannot be removed.
 - ✅ `PATCH /admin/users/:id` — update a user's `role` (STUDENT/TUTOR/ADMIN) and/or `isActive` (true/false soft ban); at least one field required
 - ✅ `PUT /admin/users/:id/subscription` — assign/overwrite subscription: `{ plan, durationMonths?: 1|3|6|12, endDate?: ISO }` — one of the two must be provided; sets status=ACTIVE, currentPeriodStart=now
 - ✅ `DELETE /admin/users/:id/subscription` — cancel subscription (sets status=CANCELLED, keeps dates for audit)

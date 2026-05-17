@@ -4,6 +4,300 @@
  */
 
 export interface paths {
+    "/admin/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update a user's role and/or active status — Admin only */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description User UUID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /**
+                         * @description New role for the user
+                         * @enum {string}
+                         */
+                        role?: "STUDENT" | "TUTOR" | "ADMIN";
+                        /** @description Set to false to deactivate (soft ban), true to re-activate */
+                        isActive?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description User updated successfully */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @example true */
+                            success?: boolean;
+                            /** @example User updated successfully */
+                            message?: string;
+                            data?: {
+                                /** Format: uuid */
+                                id?: string;
+                                username?: string;
+                                email?: string;
+                                displayName?: string;
+                                /** @enum {string} */
+                                role?: "STUDENT" | "TUTOR" | "ADMIN";
+                                isActive?: boolean;
+                                subscription?: {
+                                    /** @enum {string} */
+                                    plan?: "FREE" | "GOLD" | "PREMIUM";
+                                    /** @enum {string} */
+                                    status?: "ACTIVE" | "INACTIVE" | "CANCELLED" | "PAST_DUE";
+                                    /** Format: date-time */
+                                    currentPeriodEnd?: string | null;
+                                } | null;
+                            };
+                        };
+                    };
+                };
+                /** @description Missing or invalid access token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Authenticated but not an admin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description User not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Validation error — at least one field required */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/admin/users/{id}/subscription": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Assign or update a subscription for a user — Admin only
+         * @description Sets the user's subscription to ACTIVE with the chosen plan. Provide either `durationMonths` (1, 3, 6, or 12) for a standard period, or a custom `endDate` (ISO datetime) for a non-standard deal. Existing subscriptions are overwritten. `currentPeriodStart` is always set to now.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description User UUID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /**
+                         * @description Subscription tier to assign. FREE is permanent (no period dates required).
+                         * @enum {string}
+                         */
+                        plan: "FREE" | "GOLD" | "PREMIUM";
+                        /**
+                         * @description Duration in months (from today). Required for GOLD/PREMIUM unless endDate is provided.
+                         * @enum {integer}
+                         */
+                        durationMonths?: 1 | 3 | 6 | 12;
+                        /**
+                         * Format: date-time
+                         * @description Custom end date — must be in the future (ISO 8601). Required for GOLD/PREMIUM unless durationMonths is provided.
+                         */
+                        endDate?: string;
+                        /**
+                         * @description Payment method used. Defaults to CASH (admin manual assignment for institute cash payments).
+                         * @enum {string}
+                         */
+                        paymentProvider?: "CASH" | "FIB" | "STRIPE";
+                    };
+                };
+            };
+            responses: {
+                /** @description Subscription assigned successfully */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @example true */
+                            success?: boolean;
+                            /** @example Subscription assigned successfully */
+                            message?: string;
+                            data?: {
+                                /** Format: uuid */
+                                id?: string;
+                                /** @enum {string} */
+                                plan?: "FREE" | "GOLD" | "PREMIUM";
+                                /** @enum {string} */
+                                status?: "ACTIVE" | "INACTIVE" | "CANCELLED" | "PAST_DUE";
+                                /** Format: date-time */
+                                currentPeriodStart?: string | null;
+                                /** Format: date-time */
+                                currentPeriodEnd?: string | null;
+                                /** @enum {string|null} */
+                                paymentProvider?: "CASH" | "FIB" | "STRIPE" | null;
+                                /** Format: date-time */
+                                updatedAt?: string;
+                            };
+                        };
+                    };
+                };
+                /** @description Missing or invalid access token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Authenticated but not an admin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description User not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Validation error — plan required; provide durationMonths or endDate */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Cancel a user's subscription — Admin only
+         * @description Downgrades the user to FREE ACTIVE. They retain AI access at FREE tier limits. To block all access, use PATCH /admin/users/:id with isActive=false instead.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description User UUID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Subscription cancelled successfully */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @example true */
+                            success?: boolean;
+                            /** @example Subscription cancelled successfully */
+                            message?: string;
+                            /** @example null */
+                            data?: unknown;
+                        };
+                    };
+                };
+                /** @description Missing or invalid access token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Authenticated but not an admin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description User not found or has no subscription */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/register": {
         parameters: {
             query?: never;
@@ -98,7 +392,7 @@ export interface paths {
         put?: never;
         /**
          * Login with username and password
-         * @description Standard email/password login. Returns an access token (15m) and a refresh token (7d). If the account was created with Google Sign-In (no password), a 401 is returned with a clear message directing the user to Google login.
+         * @description Standard email/password login. Returns an access token (15m) and a refresh token (7d). If the account was created with Google Sign-In (no password), a 400 is returned with a clear message directing the user to Google login.
          */
         post: {
             parameters: {
@@ -133,8 +427,8 @@ export interface paths {
                         };
                     };
                 };
-                /** @description Invalid credentials, or account uses Google Sign-In */
-                401: {
+                /** @description Invalid credentials, or account uses Google Sign-In (no password set) */
+                400: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -1444,6 +1738,290 @@ export interface paths {
         };
         trace?: never;
     };
+    "/classes/{id}/students": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List students in a class with progress data (Tutor in class or Admin)
+         * @description Returns all STUDENT members of the class along with a progress snapshot:
+         *     current English level, estimated CEFR level from AI evaluations, study
+         *     streak, study time, and vocabulary counts (total + due for SRS review today).
+         *
+         *     Only tutors of the class and admins can call this endpoint.
+         *     Students cannot view other students' progress data.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of students with progress snapshots */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            message?: string;
+                            data?: {
+                                /** Format: uuid */
+                                userId?: string;
+                                username?: string;
+                                displayName?: string;
+                                avatarUrl?: string | null;
+                                /** Format: date-time */
+                                joinedAt?: string;
+                                /** @description Self-reported English level from learner profile */
+                                currentLevel?: string | null;
+                                targetLevel?: string | null;
+                                currentStreak?: number;
+                                /** @description AI-estimated CEFR level from session evaluations */
+                                estimatedLevel?: string | null;
+                                totalStudyTimeMinutes?: number;
+                                /** @description 0–100 skill score */
+                                grammarSkill?: number;
+                                /** @description 0–100 skill score */
+                                vocabularySkill?: number;
+                                /** @description Total vocabulary cards saved */
+                                vocabTotal?: number;
+                                /** @description SRS cards due for review today */
+                                vocabDueToday?: number;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Caller is a student (not tutor or admin) */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Class not found or caller not a member */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/classes/{id}/students/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get full progress detail for a single student (Tutor in class or Admin)
+         * @description Returns the student's full learner profile, all metric skill scores, and
+         *     vocabulary stats. The `userId` must be a STUDENT member of this class.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Class ID */
+                    id: string;
+                    /** @description Student's user ID */
+                    userId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Full student detail */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            message?: string;
+                            data?: {
+                                /** Format: uuid */
+                                userId?: string;
+                                username?: string;
+                                displayName?: string;
+                                avatarUrl?: string | null;
+                                /** Format: date-time */
+                                joinedAt?: string;
+                                /** @description Student's learner profile settings and preferences */
+                                learnerProfile?: Record<string, never> | null;
+                                /** @description Aggregated skill metrics */
+                                metrics?: Record<string, never> | null;
+                                vocabTotal?: number;
+                                vocabDueToday?: number;
+                            };
+                        };
+                    };
+                };
+                /** @description Target user is not a student */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Caller is a student */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Class or student not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/classes/{id}/members/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a member from the class (or self-leave)
+         * @description **Self-leave:** any member can remove themselves from any class they belong to.
+         *
+         *     **Tutor:** can remove STUDENT members of their own class. Cannot remove other tutors.
+         *
+         *     **Admin:** can remove any member from any class.
+         *
+         *     **Guard:** the last tutor of a class cannot be removed. If a class has only one
+         *     tutor, that tutor must first add another tutor before leaving or being removed.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Class ID */
+                    id: string;
+                    /** @description ID of the member to remove (use own ID to leave) */
+                    userId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Member removed (or left) successfully */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Insufficient permissions to remove this member */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Class or member not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Cannot remove the last tutor */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/sessions/{sessionId}/messages": {
         parameters: {
             query?: never;
@@ -1529,8 +2107,9 @@ export interface paths {
          *     Returns the user message, AI response, and evaluation in one call.
          *
          *     Per-session message limits (user messages only):
-         *     - FREE plan: 50 messages (soft) + 10 buffer (hard)
-         *     - PREMIUM plan: 150 messages (soft) + 10 buffer (hard)
+         *     - FREE plan: 20 messages (soft) + 10 buffer · 20 messages/day cap across all sessions · 10-message AI context
+         *     - GOLD plan: 100 messages (soft) + 10 buffer · 20-message AI context
+         *     - PREMIUM plan: 150 messages (soft) + 10 buffer · 20-message AI context
          */
         post: {
             parameters: {
@@ -1707,6 +2286,7 @@ export interface paths {
          *
          *     Daily session limits apply:
          *     - FREE plan: 3 sessions/day
+         *     - GOLD plan: 15 sessions/day
          *     - PREMIUM plan: 50 sessions/day
          */
         post: {
@@ -1950,6 +2530,10 @@ export interface paths {
                     limit?: number;
                     /** @description Filter by role */
                     role?: "STUDENT" | "TUTOR" | "ADMIN";
+                    /** @description Search by username, email, or display name (case-insensitive) */
+                    search?: string;
+                    /** @description Filter by subscription status */
+                    subscriptionStatus?: "ACTIVE" | "INACTIVE" | "CANCELLED" | "PAST_DUE";
                 };
                 header?: never;
                 path?: never;
@@ -1979,6 +2563,14 @@ export interface paths {
                                 /** @enum {string} */
                                 role?: "STUDENT" | "TUTOR" | "ADMIN";
                                 phoneNumber?: string | null;
+                                subscription?: {
+                                    /** @enum {string} */
+                                    plan?: "FREE" | "GOLD" | "PREMIUM";
+                                    /** @enum {string} */
+                                    status?: "ACTIVE" | "INACTIVE" | "CANCELLED" | "PAST_DUE";
+                                    /** Format: date-time */
+                                    currentPeriodEnd?: string | null;
+                                } | null;
                                 /** Format: date-time */
                                 createdAt?: string;
                             }[];
@@ -2183,6 +2775,16 @@ export interface components {
             message?: string;
             /** @example null */
             data?: unknown;
+            /**
+             * @description Field-level validation errors (only present on 422 responses)
+             * @example {
+             *       "email": "Invalid email address",
+             *       "password": "Password must be at least 8 characters"
+             *     }
+             */
+            errors?: {
+                [key: string]: string;
+            } | null;
         };
         AuthUser: {
             /** Format: uuid */
