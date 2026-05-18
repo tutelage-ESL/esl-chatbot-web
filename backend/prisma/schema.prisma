@@ -83,6 +83,11 @@ enum PaymentProvider {
   CASH
 }
 
+enum VocabSource {
+  MANUAL
+  SESSION
+}
+
 // ─── Users ───────────────────────────────────────────────
 
 model User {
@@ -221,17 +226,14 @@ model UserMetrics {
   userId                String    @unique
   totalStudyTimeMinutes Int       @default(0)
   totalWordsTyped       Int       @default(0)
-  lessonsCompleted      Int       @default(0)
   currentStreak         Int       @default(0)
   longestStreak         Int       @default(0)
   lastStudyDate         DateTime?
   estimatedLevel        String?
   grammarSkill          Float     @default(0)
   vocabularySkill       Float     @default(0)
-  readingSkill          Float     @default(0)
-  writingSkill          Float     @default(0)
+  fluencySkill          Float     @default(0)
   speakingSkill         Float     @default(0)
-  listeningSkill        Float     @default(0)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -356,8 +358,9 @@ model Vocabulary {
   reviewCount    Int       @default(0)
   correctCount   Int       @default(0)
   incorrectCount Int       @default(0)
-  masteryLevel   Int       @default(0)
+  masteryLevel   Int         @default(0)
   lastPracticed  DateTime?
+  source         VocabSource @default(MANUAL)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -401,6 +404,7 @@ model Progress {
   id                  String   @id @default(uuid())
   userId              String
   date                DateTime @db.Date
+  sessionsCount       Int      @default(0)
   studyMinutes        Int      @default(0)
   messagesCount       Int      @default(0)
   wordsTyped          Int      @default(0)

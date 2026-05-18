@@ -292,13 +292,11 @@ export async function endSession(
   });
 
   // Generate a session evaluation summary from individual message evaluations
-  if (evaluatedMessages.length > 0) {
-    const totalUserMessages = evaluatedMessages.length;
-    const totalUserWords = session.messages.reduce(
-      (sum, m) => sum + (m.wordCount ?? 0),
-      0,
-    );
+  const totalUserMessages = evaluatedMessages.length;
+  const totalUserWords = session.messages.reduce((sum, m) => sum + (m.wordCount ?? 0), 0);
+  const studyMinutes = Math.max(1, Math.round(durationSeconds / 60));
 
+  if (evaluatedMessages.length > 0) {
     const avgGrammar =
       evaluatedMessages.reduce((s, m) => s + (m.evaluation?.grammarScore ?? 0), 0) /
       totalUserMessages;
@@ -312,10 +310,8 @@ export async function endSession(
       evaluatedMessages.reduce((s, m) => s + (m.evaluation?.overallScore ?? 0), 0) /
       totalUserMessages;
 
-    // Determine CEFR level from average overall score
     const cefrLevel = scoreTocefrLevel(avgOverall);
 
-    // Build strengths/weaknesses from score analysis
     const scores = { grammar: avgGrammar, vocabulary: avgVocab, fluency: avgFluency };
     const strengths: string[] = [];
     const weaknesses: string[] = [];
@@ -343,9 +339,113 @@ export async function endSession(
         totalUserWords,
       },
     });
+
+    // Update progress and metrics after session ends
+    await updateProgressAndMetrics(
+      userId,
+      studyMinutes,
+      totalUserMessages,
+      totalUserWords,
+      cefrLevel,
+      avgGrammar,
+      avgVocab,
+      avgFluency,
+    );
+  } else {
+    // Session with no evaluated messages still counts toward progress
+    await updateProgressAndMetrics(userId, studyMinutes, 0, totalUserWords, null, 0, 0, 0);
   }
 
   return getSessionById(sessionId, userId);
+}
+
+// ── Progress + metrics upsert ─────────────────────────────────
+
+async function updateProgressAndMetrics(
+  userId: string,
+  studyMinutes: number,
+  messagesCount: number,
+  wordsTyped: number,
+  cefrLevel: string | null,
+  avgGrammar: number,
+  avgVocab: number,
+  avgFluency: number,
+): Promise<void> {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const skillSnapshot =
+    avgGrammar > 0 || avgVocab > 0 || avgFluency > 0
+      ? { grammar: Math.round(avgGrammar), vocabulary: Math.round(avgVocab), fluency: Math.round(avgFluency) }
+      : undefined;
+
+  // Upsert today's progress row
+  await prisma.progress.upsert({
+    where: { userId_date: { userId, date: today } },
+    create: {
+      userId,
+      date: today,
+      sessionsCount: 1,
+      studyMinutes,
+      messagesCount,
+      wordsTyped,
+      ...(skillSnapshot && { skillSnapshot }),
+    },
+    update: {
+      sessionsCount: { increment: 1 },
+      studyMinutes: { increment: studyMinutes },
+      messagesCount: { increment: messagesCount },
+      wordsTyped: { increment: wordsTyped },
+      ...(skillSnapshot && { skillSnapshot }),
+    },
+  });
+
+  // Update lifetime metrics
+  const existingMetrics = await prisma.userMetrics.findUnique({
+    where: { userId },
+    select: {
+      currentStreak: true,
+      longestStreak: true,
+      lastStudyDate: true,
+      grammarSkill: true,
+      vocabularySkill: true,
+      fluencySkill: true,
+    },
+  });
+
+  if (!existingMetrics) return;
+
+  // Streak calculation
+  const lastStudy = existingMetrics.lastStudyDate;
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const studiedYesterday = lastStudy && lastStudy >= yesterday && lastStudy < today;
+  const studiedToday = lastStudy && lastStudy >= today;
+  const newStreak = studiedToday
+    ? existingMetrics.currentStreak
+    : studiedYesterday
+      ? existingMetrics.currentStreak + 1
+      : 1;
+  const longestStreak = Math.max(existingMetrics.longestStreak, newStreak);
+
+  // Exponential moving average for skills (85% old + 15% new session)
+  const ema = (old: number, newVal: number) =>
+    newVal > 0 ? Math.round((old * 0.85 + newVal * 0.15) * 10) / 10 : old;
+
+  await prisma.userMetrics.update({
+    where: { userId },
+    data: {
+      totalStudyTimeMinutes: { increment: studyMinutes },
+      totalWordsTyped: { increment: wordsTyped },
+      currentStreak: newStreak,
+      longestStreak,
+      lastStudyDate: today,
+      ...(cefrLevel && { estimatedLevel: cefrLevel }),
+      ...(avgGrammar > 0 && { grammarSkill: ema(existingMetrics.grammarSkill, avgGrammar) }),
+      ...(avgVocab > 0 && { vocabularySkill: ema(existingMetrics.vocabularySkill, avgVocab) }),
+      ...(avgFluency > 0 && { fluencySkill: ema(existingMetrics.fluencySkill, avgFluency) }),
+    },
+  });
 }
 
 // ── Helpers ───────────────────────────────────────────────

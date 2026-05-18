@@ -40,11 +40,14 @@ export interface UserDetail extends UserListItem {
     id: string;
     totalStudyTimeMinutes: number;
     totalWordsTyped: number;
-    lessonsCompleted: number;
     currentStreak: number;
     longestStreak: number;
     lastStudyDate: Date | null;
     estimatedLevel: string | null;
+    grammarSkill: number;
+    vocabularySkill: number;
+    fluencySkill: number;
+    speakingSkill: number;
   } | null;
   classUsers: {
     id: string;

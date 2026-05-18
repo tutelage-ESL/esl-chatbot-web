@@ -39,11 +39,10 @@ export interface ClassStudentDetail {
     longestStreak: number;
     estimatedLevel: string | null;
     totalStudyTimeMinutes: number;
-    lessonsCompleted: number;
     grammarSkill: number;
     vocabularySkill: number;
-    readingSkill: number;
-    writingSkill: number;
+    fluencySkill: number;
+    speakingSkill: number;
     lastStudyDate: Date | null;
   } | null;
   vocabTotal: number;

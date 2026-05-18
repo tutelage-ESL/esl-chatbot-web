@@ -157,6 +157,7 @@ Each module under `src/modules/[name]/` follows:
 | AiPersonality | FRIENDLY, FORMAL, CASUAL, ENCOURAGING, STRICT, PATIENT |
 | Plan | FREE, GOLD, PREMIUM |
 | SubStatus | ACTIVE, INACTIVE, CANCELLED, PAST_DUE |
+| VocabSource | MANUAL, SESSION |
 
 ### Models
 | Model | Table | Key Relations |
@@ -190,8 +191,9 @@ Each module under `src/modules/[name]/` follows:
   2. **`GET /classes/:id` by an admin or by a tutor of the class** — code is rotated before the response is built, so opening the class detail is enough to see a fresh code.
   3. **`GET /classes/mine`** — for each class where the caller is a TUTOR with a currently expired code, the code is rotated before the list is built. Student memberships do NOT trigger rotation, so students cannot bump the rotation by spamming reads.
 - No separate settings table — settings live in LearnerProfile. Key fields: `currentLevel`/`targetLevel` (CEFR A1–C2), `aiPersonality` (AiPersonality enum: FRIENDLY/FORMAL/CASUAL/ENCOURAGING/STRICT/PATIENT), `topicsOfInterest` (JSON string[]), `voiceSpeed` (0.5–2.0), `theme` (light/dark), `weeklyGoalMinutes` (5–840). Updated via `PATCH /users/me/learner-profile`.
-- Vocabulary uses SM-2 SRS algorithm fields (srsInterval, srsEase, srsDue)
-- Progress is exactly 1 row per user per calendar day
+- Vocabulary uses SM-2 SRS algorithm fields (srsInterval, srsEase, srsDue). Has a `source` field (VocabSource enum: MANUAL/SESSION) — MANUAL = user added, SESSION = auto-detected by AI. `masteryLevel` (0-5) is computed from srsInterval: 0=new, 1=seen(1d), 2=learning(≤3d), 3=familiar(≤7d), 4=proficient(≤21d), 5=mastered(>21d). Words are stored in lowercase and must be unique per user.
+- Progress is exactly 1 row per user per calendar day. Updated automatically at session end (sessionsCount, studyMinutes, messagesCount, wordsTyped, skillSnapshot) and at vocabulary review (vocabularyPracticed).
+- **UserMetrics skill fields:** grammarSkill, vocabularySkill, fluencySkill, speakingSkill (all Float 0–100). Updated via EMA (85% old + 15% new session) when a session ends. `lessonsCompleted`, `readingSkill`, `writingSkill`, `listeningSkill` were removed — they had no data source in the current pipeline. Re-add when a Lesson model is built.
 - **Subscription payment fields:** `paymentProvider` (enum: STRIPE/FIB/CASH), `externalCustomerId` (Stripe customerId only), `externalSubscriptionId` (fibPaymentId for FIB, stripeSubscriptionId for Stripe). All nullable. Cash payments set `paymentProvider=CASH` only. FREE tier leaves all three null.
 - Cascade delete on all user-owned relations
 - RefreshToken table stores hashed (SHA-256) refresh tokens for server-side revocation; one row per active session/device
@@ -348,11 +350,16 @@ Includes: classes (with full code-lifecycle fields populated) with enrolled user
 - Remaining: real AI provider integration, TTS/STT pipeline, Socket.io real-time messaging
 
 ### Phase 5 — Vocabulary & SRS System
-- CRUD for vocabulary items
-- SM-2 spaced repetition algorithm implementation
-- Review queue: fetch due cards, submit review result, update SRS fields
-- Bulk import/export vocabulary
-- Category management
+- ✅ `GET /vocabulary` — list user's vocabulary, filterable by `?due=true/false`, `?source=MANUAL/SESSION`, `?category=`, `?search=`; paginated
+- ✅ `GET /vocabulary/due` — fetch up to 50 SRS cards due today (ordered by most overdue)
+- ✅ `POST /vocabulary` — add a word manually; word stored in lowercase; 409 if duplicate
+- ✅ `GET /vocabulary/:id` — get a single vocabulary item
+- ✅ `PATCH /vocabulary/:id` — update definition, pronunciation, example, partOfSpeech, difficulty, category
+- ✅ `DELETE /vocabulary/:id` — delete a word
+- ✅ `POST /vocabulary/:id/review` — submit SM-2 review (quality 0–5); updates srsInterval, srsEase, srsDue, masteryLevel, correctCount/incorrectCount; also increments today's progress.vocabularyPracticed
+- ✅ SM-2 algorithm implemented in `vocabulary.service.ts` — masteryLevel derived from srsInterval (0=new, 1=seen, 2=learning, 3=familiar, 4=proficient, 5=mastered)
+- ✅ `source` field (VocabSource: MANUAL/SESSION) — tracks whether words were user-added or AI-detected
+- Remaining: bulk import/export, auto-add from session newVocabulary (needs AI to populate that field)
 
 ### Phase 6 — Goals & Progress
 - ✅ `GET /goals` — list own goals; tutors/admins can add `?studentId=` (tutor must have the student in their class). Filterable by `?status=` and `?type=`
@@ -362,16 +369,22 @@ Includes: classes (with full code-lifecycle fields populated) with enrolled user
 - ✅ `DELETE /goals/:id` — delete goal (own or tutor-assigned or admin)
 - **GoalType enum:** VOCABULARY, SPEAKING, GRAMMAR, CONVERSATION, STUDY_TIME
 - **Removed from schema:** `timeframe` (redundant with startDate/targetDate) and `milestones` (deferred to later phase)
-- Progress daily snapshot creation (cron job or on-demand)
+- ✅ Progress daily snapshot auto-updated at session end (`POST /sessions/:id/end`) — increments sessionsCount, studyMinutes, messagesCount, wordsTyped, writes skillSnapshot
+- ✅ Progress vocabularyPracticed incremented on each vocab review (`POST /vocabulary/:id/review`)
 - Goal status transitions (ACTIVE → COMPLETED/PAUSED/CANCELLED) ✅ already handled in PATCH
-- Dashboard aggregation queries
+- ✅ `GET /progress` — paginated list of daily progress entries, filterable by `?startDate=` / `?endDate=` (YYYY-MM-DD)
+- ✅ `GET /progress/today` — today's progress entry (created on-demand if not exists)
+- ✅ `GET /progress/summary` — chart-ready day-by-day data for last 7/14/30 days (`?days=7`)
+- Dashboard aggregation queries (remaining)
 
 ### Phase 7 — Metrics & Dashboard
-- UserMetrics auto-update on session end, message send, vocabulary review
-- Streak calculation logic (current + longest)
-- Skill level estimation based on AI evaluations
-- Tutor dashboard: view all students' metrics
-- Admin dashboard: platform-wide analytics
+- ✅ `GET /metrics/me` — own lifetime metrics (streak, study time, skill scores)
+- ✅ `GET /metrics/:userId` — tutor/admin view of a student's metrics (tutor must share a class)
+- ✅ UserMetrics auto-updated at session end: totalStudyTimeMinutes, totalWordsTyped, currentStreak, longestStreak, lastStudyDate, estimatedLevel, skill EMA (grammarSkill, vocabularySkill, fluencySkill)
+- ✅ Streak calculation: consecutive-day check against lastStudyDate; streak resets if user skips a day
+- ✅ Skill scores use EMA (85% old + 15% new session) to smooth out single-session spikes
+- ✅ speakingSkill updated from pronunciationScore (voice sessions only — currently placeholder)
+- Admin dashboard: platform-wide analytics (remaining)
 
 ### Phase 8 — Subscriptions & Billing
 - Plan enforcement middleware (FREE vs PREMIUM limits)

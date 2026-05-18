@@ -193,17 +193,14 @@ async function main() {
       userId: student1.id,
       totalStudyTimeMinutes: 480,
       totalWordsTyped: 3200,
-      lessonsCompleted: 12,
       currentStreak: 5,
       longestStreak: 8,
       lastStudyDate: new Date(),
       estimatedLevel: "B1",
       grammarSkill: 65,
       vocabularySkill: 70,
-      readingSkill: 72,
-      writingSkill: 60,
+      fluencySkill: 68,
       speakingSkill: 55,
-      listeningSkill: 68,
     },
   });
   await prisma.userMetrics.create({
@@ -211,17 +208,14 @@ async function main() {
       userId: student2.id,
       totalStudyTimeMinutes: 180,
       totalWordsTyped: 1100,
-      lessonsCompleted: 5,
       currentStreak: 2,
       longestStreak: 4,
       lastStudyDate: new Date(),
       estimatedLevel: "A2",
       grammarSkill: 40,
       vocabularySkill: 45,
-      readingSkill: 50,
-      writingSkill: 35,
+      fluencySkill: 42,
       speakingSkill: 30,
-      listeningSkill: 42,
     },
   });
   console.log("   ✅ 2 user metrics records created\n");
@@ -379,12 +373,12 @@ async function main() {
   // ─── Vocabulary ───────────────────────────────────────
   console.log("📖 Creating Vocabulary items...");
   const vocabItems = [
-    { userId: student1.id, word: "accomplish", definition: "To succeed in doing something", pronunciation: "/əˈkɑːmplɪʃ/", example: "She accomplished all her goals this year.", partOfSpeech: "verb", difficulty: 3, category: "academic", masteryLevel: 3, reviewCount: 5, correctCount: 4, incorrectCount: 1 },
-    { userId: student1.id, word: "reluctant", definition: "Unwilling and hesitant", pronunciation: "/rɪˈlʌktənt/", example: "He was reluctant to share his opinion.", partOfSpeech: "adjective", difficulty: 3, category: "academic", masteryLevel: 2, reviewCount: 3, correctCount: 2, incorrectCount: 1 },
-    { userId: student1.id, word: "appetizer", definition: "A small dish served before the main course", pronunciation: "/ˈæpɪtaɪzər/", example: "We ordered soup as an appetizer.", partOfSpeech: "noun", difficulty: 2, category: "food", masteryLevel: 4, reviewCount: 6, correctCount: 6, incorrectCount: 0 },
-    { userId: student2.id, word: "introduce", definition: "To present someone or yourself to others", pronunciation: "/ˌɪntrəˈdjuːs/", example: "Let me introduce myself.", partOfSpeech: "verb", difficulty: 1, category: "social", masteryLevel: 3, reviewCount: 4, correctCount: 3, incorrectCount: 1 },
-    { userId: student2.id, word: "hobby", definition: "An activity done for enjoyment in spare time", pronunciation: "/ˈhɑːbi/", example: "My hobby is reading books.", partOfSpeech: "noun", difficulty: 1, category: "daily life", masteryLevel: 4, reviewCount: 5, correctCount: 5, incorrectCount: 0 },
-    { userId: student2.id, word: "delicious", definition: "Highly pleasant to taste", pronunciation: "/dɪˈlɪʃəs/", example: "The sushi was delicious.", partOfSpeech: "adjective", difficulty: 1, category: "food", masteryLevel: 2, reviewCount: 3, correctCount: 2, incorrectCount: 1 },
+    { userId: student1.id, word: "accomplish", definition: "To succeed in doing something", pronunciation: "/əˈkɑːmplɪʃ/", example: "She accomplished all her goals this year.", partOfSpeech: "verb", difficulty: 3, category: "academic", source: "MANUAL" as const, masteryLevel: 3, reviewCount: 5, correctCount: 4, incorrectCount: 1 },
+    { userId: student1.id, word: "reluctant", definition: "Unwilling and hesitant", pronunciation: "/rɪˈlʌktənt/", example: "He was reluctant to share his opinion.", partOfSpeech: "adjective", difficulty: 3, category: "academic", source: "MANUAL" as const, masteryLevel: 2, reviewCount: 3, correctCount: 2, incorrectCount: 1 },
+    { userId: student1.id, word: "appetizer", definition: "A small dish served before the main course", pronunciation: "/ˈæpɪtaɪzər/", example: "We ordered soup as an appetizer.", partOfSpeech: "noun", difficulty: 2, category: "food", source: "SESSION" as const, masteryLevel: 4, reviewCount: 6, correctCount: 6, incorrectCount: 0 },
+    { userId: student2.id, word: "introduce", definition: "To present someone or yourself to others", pronunciation: "/ˌɪntrəˈdjuːs/", example: "Let me introduce myself.", partOfSpeech: "verb", difficulty: 1, category: "social", source: "SESSION" as const, masteryLevel: 3, reviewCount: 4, correctCount: 3, incorrectCount: 1 },
+    { userId: student2.id, word: "hobby", definition: "An activity done for enjoyment in spare time", pronunciation: "/ˈhɑːbi/", example: "My hobby is reading books.", partOfSpeech: "noun", difficulty: 1, category: "daily life", source: "SESSION" as const, masteryLevel: 4, reviewCount: 5, correctCount: 5, incorrectCount: 0 },
+    { userId: student2.id, word: "delicious", definition: "Highly pleasant to taste", pronunciation: "/dɪˈlɪʃəs/", example: "The sushi was delicious.", partOfSpeech: "adjective", difficulty: 1, category: "food", source: "MANUAL" as const, masteryLevel: 2, reviewCount: 3, correctCount: 2, incorrectCount: 1 },
   ];
 
   for (const item of vocabItems) {
@@ -449,11 +443,11 @@ async function main() {
   twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
 
   const progressEntries = [
-    { userId: student1.id, date: twoDaysAgo, studyMinutes: 45, messagesCount: 12, wordsTyped: 320, vocabularyPracticed: 8, goalsAdvanced: 1, pronunciationScore: 72.0, skillSnapshot: { grammar: 62, vocabulary: 67, reading: 70, writing: 58, speaking: 52, listening: 65 } },
-    { userId: student1.id, date: yesterday, studyMinutes: 60, messagesCount: 18, wordsTyped: 480, vocabularyPracticed: 10, goalsAdvanced: 2, pronunciationScore: 75.0, skillSnapshot: { grammar: 64, vocabulary: 69, reading: 71, writing: 59, speaking: 54, listening: 67 } },
-    { userId: student1.id, date: today, studyMinutes: 30, messagesCount: 6, wordsTyped: 180, vocabularyPracticed: 5, goalsAdvanced: 1, pronunciationScore: 78.0, skillSnapshot: { grammar: 65, vocabulary: 70, reading: 72, writing: 60, speaking: 55, listening: 68 } },
-    { userId: student2.id, date: yesterday, studyMinutes: 25, messagesCount: 8, wordsTyped: 150, vocabularyPracticed: 4, goalsAdvanced: 1, pronunciationScore: 60.0, skillSnapshot: { grammar: 38, vocabulary: 43, reading: 48, writing: 33, speaking: 28, listening: 40 } },
-    { userId: student2.id, date: today, studyMinutes: 20, messagesCount: 4, wordsTyped: 110, vocabularyPracticed: 3, goalsAdvanced: 0, pronunciationScore: 62.0, skillSnapshot: { grammar: 40, vocabulary: 45, reading: 50, writing: 35, speaking: 30, listening: 42 } },
+    { userId: student1.id, date: twoDaysAgo, sessionsCount: 2, studyMinutes: 45, messagesCount: 12, wordsTyped: 320, vocabularyPracticed: 8, goalsAdvanced: 1, pronunciationScore: 72.0, skillSnapshot: { grammar: 62, vocabulary: 67, fluency: 65 } },
+    { userId: student1.id, date: yesterday, sessionsCount: 3, studyMinutes: 60, messagesCount: 18, wordsTyped: 480, vocabularyPracticed: 10, goalsAdvanced: 2, pronunciationScore: 75.0, skillSnapshot: { grammar: 64, vocabulary: 69, fluency: 67 } },
+    { userId: student1.id, date: today, sessionsCount: 1, studyMinutes: 30, messagesCount: 6, wordsTyped: 180, vocabularyPracticed: 5, goalsAdvanced: 1, pronunciationScore: 78.0, skillSnapshot: { grammar: 65, vocabulary: 70, fluency: 68 } },
+    { userId: student2.id, date: yesterday, sessionsCount: 1, studyMinutes: 25, messagesCount: 8, wordsTyped: 150, vocabularyPracticed: 4, goalsAdvanced: 1, pronunciationScore: 60.0, skillSnapshot: { grammar: 38, vocabulary: 43, fluency: 40 } },
+    { userId: student2.id, date: today, sessionsCount: 1, studyMinutes: 20, messagesCount: 4, wordsTyped: 110, vocabularyPracticed: 3, goalsAdvanced: 0, pronunciationScore: 62.0, skillSnapshot: { grammar: 40, vocabulary: 45, fluency: 42 } },
   ];
 
   for (const entry of progressEntries) {
