@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  getVocabularyStatsHandler,
   listVocabularyHandler,
   getDueCardsHandler,
   addVocabularyHandler,
@@ -18,6 +19,48 @@ const router = Router();
  *   name: Vocabulary
  *   description: Personal vocabulary list with SM-2 spaced repetition (SRS)
  */
+
+/**
+ * @swagger
+ * /vocabulary/stats:
+ *   get:
+ *     summary: Get vocabulary statistics summary
+ *     description: |
+ *       Returns aggregate stats about the authenticated user's vocabulary:
+ *       total word count, how many cards are due for SRS review today, how many
+ *       words were added in the last 7 days, and a breakdown by mastery level
+ *       (new → seen → learning → familiar → proficient → mastered).
+ *     tags: [Vocabulary]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Vocabulary statistics
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     total: { type: integer, description: Total words in vocabulary }
+ *                     dueToday: { type: integer, description: SRS cards due for review today }
+ *                     learnedThisWeek: { type: integer, description: Words added in the last 7 days }
+ *                     byMasteryLevel:
+ *                       type: object
+ *                       properties:
+ *                         new: { type: integer, description: "masteryLevel 0 — never reviewed" }
+ *                         seen: { type: integer, description: "masteryLevel 1 — reviewed once (≤1 day interval)" }
+ *                         learning: { type: integer, description: "masteryLevel 2 — in progress (≤3 day interval)" }
+ *                         familiar: { type: integer, description: "masteryLevel 3 — familiar (≤7 day interval)" }
+ *                         proficient: { type: integer, description: "masteryLevel 4 — proficient (≤21 day interval)" }
+ *                         mastered: { type: integer, description: "masteryLevel 5 — mastered (>21 day interval)" }
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ */
+router.get("/stats", authenticate, getVocabularyStatsHandler);
 
 /**
  * @swagger

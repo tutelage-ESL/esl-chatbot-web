@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../../config/database.ts";
 import { AppError } from "../../utils/AppError.ts";
-import type { VocabularyItem, ReviewResult } from "./vocabulary.types.ts";
+import type { VocabularyItem, VocabularyStats, ReviewResult } from "./vocabulary.types.ts";
 import type {
   addVocabularySchema,
   updateVocabularySchema,
@@ -65,6 +65,40 @@ function sm2(
   }
 
   return { interval, ease };
+}
+
+// ── Vocabulary stats ──────────────────────────────────────────
+
+export async function getVocabularyStats(userId: string): Promise<VocabularyStats> {
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  const [total, dueToday, learnedThisWeek, byLevel] = await Promise.all([
+    prisma.vocabulary.count({ where: { userId } }),
+    prisma.vocabulary.count({ where: { userId, srsDue: { lte: now } } }),
+    prisma.vocabulary.count({ where: { userId, createdAt: { gte: weekAgo } } }),
+    prisma.vocabulary.groupBy({
+      by: ["masteryLevel"],
+      where: { userId },
+      _count: { _all: true },
+    }),
+  ]);
+
+  const levelMap = new Map(byLevel.map((r) => [r.masteryLevel, (r._count as { _all: number })._all]));
+
+  return {
+    total,
+    dueToday,
+    learnedThisWeek,
+    byMasteryLevel: {
+      new: levelMap.get(0) ?? 0,
+      seen: levelMap.get(1) ?? 0,
+      learning: levelMap.get(2) ?? 0,
+      familiar: levelMap.get(3) ?? 0,
+      proficient: levelMap.get(4) ?? 0,
+      mastered: levelMap.get(5) ?? 0,
+    },
+  };
 }
 
 // ── List vocabulary ───────────────────────────────────────────

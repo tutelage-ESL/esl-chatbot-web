@@ -1282,7 +1282,7 @@ export interface paths {
                                 className?: string;
                                 classCode?: string;
                                 /** @enum {string} */
-                                role?: "STUDENT" | "TUTOR" | "ADMIN";
+                                role?: "STUDENT" | "TUTOR";
                                 /** Format: date-time */
                                 joinedAt?: string;
                             };
@@ -1478,7 +1478,101 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update class name, category, or status (Tutor in class or Admin)
+         * @description Updates one or more class fields. At least one field must be provided.
+         *
+         *     Setting `classStatus` to `INACTIVE` prevents new join attempts via the class code
+         *     (join returns 409). Existing members are not removed.
+         *
+         *     Authorization: tutor of the class or admin. Students cannot update class details.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description New class name */
+                        className?: string;
+                        /** @description Category label (null clears it) */
+                        classCategory?: string | null;
+                        /**
+                         * @description INACTIVE prevents new joins; existing members are kept
+                         * @enum {string}
+                         */
+                        classStatus?: "ACTIVE" | "INACTIVE";
+                    };
+                };
+            };
+            responses: {
+                /** @description Updated class detail */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            message?: string;
+                            /** @description Full class detail including updated members list */
+                            data?: Record<string, never>;
+                        };
+                    };
+                };
+                /** @description Invalid body or no fields provided */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Caller is not a tutor of this class */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Class not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/classes/{id}/code/refresh": {
@@ -2022,6 +2116,223 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/goals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List goals
+         * @description Students see their own goals. Tutors/admins can add `?studentId=` to view a specific student's goals (tutors must have the student in one of their classes).
+         */
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                    limit?: number;
+                    status?: "ACTIVE" | "COMPLETED" | "PAUSED" | "CANCELLED";
+                    type?: "VOCABULARY" | "SPEAKING" | "GRAMMAR" | "CONVERSATION" | "STUDY_TIME";
+                    /** @description Tutor/admin only — view a specific student's goals */
+                    studentId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Paginated goal list */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: components["schemas"]["Goal"][];
+                            meta?: components["schemas"]["PaginationMeta"];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        /**
+         * Create a goal
+         * @description Students create goals for themselves. Tutors/admins provide `assignedToUserId` to assign a goal to a student.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /**
+                         * Format: uuid
+                         * @description Target student (tutor/admin only — omit when creating own goal)
+                         */
+                        assignedToUserId?: string;
+                        /** @enum {string} */
+                        type: "VOCABULARY" | "SPEAKING" | "GRAMMAR" | "CONVERSATION" | "STUDY_TIME";
+                        description: string;
+                        /** @description Numeric goal target (e.g. 50 words, 10 sessions, 30 minutes) */
+                        target: number;
+                        /** @enum {string} */
+                        difficulty?: "EASY" | "MEDIUM" | "HARD" | "EXPERT";
+                        /** Format: date-time */
+                        targetDate?: string;
+                        actionPlan?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Goal created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: components["schemas"]["Goal"];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                422: components["responses"]["ValidationError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/goals/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a single goal */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Goal detail */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: components["schemas"]["Goal"];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        /**
+         * Delete a goal
+         * @description Students can delete their own goals. Tutors can delete goals they assigned. Admins can delete any goal.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Goal deleted */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Update a goal
+         * @description Update description, target, difficulty, status, progress, targetDate, or actionPlan. Setting status to COMPLETED auto-sets completedDate and progress to 100.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        description?: string;
+                        target?: number;
+                        /** @enum {string|null} */
+                        difficulty?: "EASY" | "MEDIUM" | "HARD" | "EXPERT" | null;
+                        /** @enum {string} */
+                        status?: "ACTIVE" | "COMPLETED" | "PAUSED" | "CANCELLED";
+                        progress?: number;
+                        /** Format: date-time */
+                        targetDate?: string | null;
+                        actionPlan?: string | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description Updated goal */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: components["schemas"]["Goal"];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                422: components["responses"]["ValidationError"];
+            };
+        };
+        trace?: never;
+    };
     "/sessions/{sessionId}/messages": {
         parameters: {
             query?: never;
@@ -2219,6 +2530,237 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/metrics/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get own metrics
+         * @description Returns the authenticated user's lifetime learning metrics (streaks, study time, skill scores).
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description User metrics */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: components["schemas"]["UserMetrics"];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/metrics/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a student's metrics (tutor/admin)
+         * @description Tutors can view metrics for students in their class. Admins can view any user.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    userId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Student metrics */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: components["schemas"]["UserMetrics"];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List daily progress entries
+         * @description Returns paginated daily progress records. Optionally filter by date range.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                    limit?: number;
+                    /** @description Filter from this date (YYYY-MM-DD) */
+                    startDate?: string;
+                    /** @description Filter up to this date (YYYY-MM-DD) */
+                    endDate?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Paginated progress entries */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: components["schemas"]["ProgressEntry"][];
+                            meta?: components["schemas"]["PaginationMeta"];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/progress/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get today's progress entry
+         * @description Returns today's progress row, creating it if it doesn't exist yet.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Today's progress entry */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: components["schemas"]["ProgressEntry"];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/progress/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get progress chart data
+         * @description Returns a lightweight day-by-day summary for the last 7, 14, or 30 days — suitable for bar/line charts on the dashboard.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    days?: 7 | 14 | 30;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Array of daily summaries */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: components["schemas"]["ProgressSummaryDay"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                422: components["responses"]["ValidationError"];
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2513,6 +3055,232 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/users/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get own profile (full, including learner settings) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Own profile with learner settings and subscription */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @example true */
+                            success?: boolean;
+                            /** @example Profile retrieved successfully */
+                            message?: string;
+                            data?: components["schemas"]["MyProfile"];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update own basic profile (displayName, phoneNumber, avatarUrl) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        displayName?: string;
+                        phoneNumber?: string | null;
+                        /** Format: uri */
+                        avatarUrl?: string | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description Updated profile */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: components["schemas"]["MyProfile"];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                422: components["responses"]["ValidationError"];
+            };
+        };
+        trace?: never;
+    };
+    "/users/me/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get aggregated dashboard data for the authenticated user
+         * @description Returns all data needed to render the student dashboard in a single request,
+         *     avoiding 5+ separate API calls on page load.
+         *
+         *     Includes:
+         *     - **todayProgress** — today's session count, study minutes, messages, words typed, vocab practiced, goals advanced
+         *     - **metrics** — lifetime skill scores (grammar/vocab/fluency/speaking), current streak, total study time, estimated CEFR level
+         *     - **activeGoalsCount** — number of goals with status ACTIVE
+         *     - **vocabDueTodayCount** — SRS cards due for review today
+         *     - **lastSession** — most recent session with its evaluation summary (null if no sessions yet)
+         *
+         *     This endpoint is safe to call for any role. All values default to zero when no data exists yet.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Dashboard data */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: {
+                                todayProgress?: {
+                                    sessionsCount?: number;
+                                    studyMinutes?: number;
+                                    messagesCount?: number;
+                                    wordsTyped?: number;
+                                    vocabularyPracticed?: number;
+                                    goalsAdvanced?: number;
+                                };
+                                metrics?: {
+                                    currentStreak?: number;
+                                    longestStreak?: number;
+                                    totalStudyTimeMinutes?: number;
+                                    estimatedLevel?: string | null;
+                                    grammarSkill?: number;
+                                    vocabularySkill?: number;
+                                    fluencySkill?: number;
+                                    speakingSkill?: number;
+                                };
+                                activeGoalsCount?: number;
+                                vocabDueTodayCount?: number;
+                                lastSession?: {
+                                    /** Format: uuid */
+                                    id?: string;
+                                    topic?: string | null;
+                                    /** Format: date-time */
+                                    endedAt?: string | null;
+                                    durationSeconds?: number | null;
+                                    evaluation?: {
+                                        avgOverallScore?: number;
+                                        detectedCefrLevel?: string;
+                                    } | null;
+                                } | null;
+                            };
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/me/learner-profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update learner settings (levels, topics, AI preferences, app settings) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string|null} */
+                        currentLevel?: "A1" | "A2" | "B1" | "B2" | "C1" | "C2" | null;
+                        /** @enum {string|null} */
+                        targetLevel?: "A1" | "A2" | "B1" | "B2" | "C1" | "C2" | null;
+                        learningPurpose?: string | null;
+                        topicsOfInterest?: string[] | null;
+                        /** @enum {string|null} */
+                        aiPersonality?: "FRIENDLY" | "FORMAL" | "CASUAL" | "ENCOURAGING" | "STRICT" | "PATIENT" | null;
+                        voiceSpeed?: number;
+                        autoSpeak?: boolean;
+                        /** @example en */
+                        uiLanguage?: string;
+                        /** @enum {string} */
+                        theme?: "light" | "dark";
+                        weeklyGoalMinutes?: number;
+                        /** @example Asia/Baghdad */
+                        timezone?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Updated learner profile */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: components["schemas"]["LearnerProfile"];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                422: components["responses"]["ValidationError"];
+            };
+        };
+        trace?: never;
+    };
     "/users": {
         parameters: {
             query?: never;
@@ -2681,7 +3449,7 @@ export interface paths {
                                     /** Format: uuid */
                                     id?: string;
                                     /** @enum {string} */
-                                    plan?: "FREE" | "PREMIUM";
+                                    plan?: "FREE" | "GOLD" | "PREMIUM";
                                     /** @enum {string} */
                                     status?: "ACTIVE" | "INACTIVE" | "CANCELLED" | "PAST_DUE";
                                     /** Format: date-time */
@@ -2694,12 +3462,15 @@ export interface paths {
                                     id?: string;
                                     totalStudyTimeMinutes?: number;
                                     totalWordsTyped?: number;
-                                    lessonsCompleted?: number;
                                     currentStreak?: number;
                                     longestStreak?: number;
                                     /** Format: date-time */
                                     lastStudyDate?: string | null;
                                     estimatedLevel?: string | null;
+                                    grammarSkill?: number;
+                                    vocabularySkill?: number;
+                                    fluencySkill?: number;
+                                    speakingSkill?: number;
                                 } | null;
                                 classUsers?: {
                                     /** Format: uuid */
@@ -2765,6 +3536,392 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/vocabulary/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get vocabulary statistics summary
+         * @description Returns aggregate stats about the authenticated user's vocabulary:
+         *     total word count, how many cards are due for SRS review today, how many
+         *     words were added in the last 7 days, and a breakdown by mastery level
+         *     (new → seen → learning → familiar → proficient → mastered).
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Vocabulary statistics */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: {
+                                /** @description Total words in vocabulary */
+                                total?: number;
+                                /** @description SRS cards due for review today */
+                                dueToday?: number;
+                                /** @description Words added in the last 7 days */
+                                learnedThisWeek?: number;
+                                byMasteryLevel?: {
+                                    /** @description masteryLevel 0 — never reviewed */
+                                    new?: number;
+                                    /** @description masteryLevel 1 — reviewed once (≤1 day interval) */
+                                    seen?: number;
+                                    /** @description masteryLevel 2 — in progress (≤3 day interval) */
+                                    learning?: number;
+                                    /** @description masteryLevel 3 — familiar (≤7 day interval) */
+                                    familiar?: number;
+                                    /** @description masteryLevel 4 — proficient (≤21 day interval) */
+                                    proficient?: number;
+                                    /** @description masteryLevel 5 — mastered (>21 day interval) */
+                                    mastered?: number;
+                                };
+                            };
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vocabulary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List vocabulary
+         * @description Returns the authenticated user's vocabulary list. Filter by due status, source, category, or keyword search.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                    limit?: number;
+                    /** @description Filter cards due today (true) or not yet due (false) */
+                    due?: "true" | "false";
+                    /** @description Filter by how the word was added */
+                    source?: "MANUAL" | "SESSION";
+                    /** @description Filter by category (case-insensitive partial match) */
+                    category?: string;
+                    /** @description Search word or definition (case-insensitive) */
+                    search?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Paginated vocabulary list */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: components["schemas"]["VocabularyItem"][];
+                            meta?: components["schemas"]["PaginationMeta"];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        /**
+         * Add a word to vocabulary
+         * @description Manually add a new word. Words are stored in lowercase. Returns 409 if the word already exists in the user's list.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        word: string;
+                        definition: string;
+                        pronunciation?: string;
+                        example?: string;
+                        /** @description e.g. noun, verb, adjective */
+                        partOfSpeech?: string;
+                        /** @default 1 */
+                        difficulty?: number;
+                        category?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Word added */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: components["schemas"]["VocabularyItem"];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description Word already in vocabulary */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                422: components["responses"]["ValidationError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vocabulary/due": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get cards due for SRS review today
+         * @description Returns up to 50 vocabulary cards whose `srsDue` is today or earlier, ordered by most overdue first.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of due cards */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: components["schemas"]["VocabularyItem"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vocabulary/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a vocabulary item */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Vocabulary item */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: components["schemas"]["VocabularyItem"];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        /** Delete a vocabulary item */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Word deleted */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Update a vocabulary item
+         * @description Update editable fields (definition, pronunciation, example, partOfSpeech, difficulty, category). SRS fields are managed via the review endpoint.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        definition?: string;
+                        pronunciation?: string | null;
+                        example?: string | null;
+                        partOfSpeech?: string | null;
+                        difficulty?: number;
+                        category?: string | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description Updated vocabulary item */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: components["schemas"]["VocabularyItem"];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+                422: components["responses"]["ValidationError"];
+            };
+        };
+        trace?: never;
+    };
+    "/vocabulary/{id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit an SRS review for a word
+         * @description Submit a quality rating (0–5) for a vocabulary card. The SM-2 algorithm
+         *     updates the next review interval and ease factor.
+         *
+         *     Quality scale:
+         *     - **0**: Complete blackout (wrong, very hard)
+         *     - **1**: Wrong but familiar
+         *     - **2**: Wrong but easy hint was enough
+         *     - **3**: Correct with difficulty
+         *     - **4**: Correct with hesitation
+         *     - **5**: Perfect recall
+         *
+         *     Ratings 0–2 reset the interval to 1 day. Ratings 3–5 advance the schedule.
+         *     Also increments today's `vocabularyPracticed` in the progress table.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        quality: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Review recorded — returns updated SRS fields */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: components["schemas"]["ReviewResult"];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+                422: components["responses"]["ValidationError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2784,6 +3941,109 @@ export interface components {
              */
             errors?: {
                 [key: string]: string;
+            } | null;
+        };
+        PaginationMeta: {
+            /** @example 1 */
+            page?: number;
+            /** @example 20 */
+            limit?: number;
+            /** @example 42 */
+            total?: number;
+            /** @example 3 */
+            totalPages?: number;
+        };
+        LearnerProfile: {
+            /** Format: uuid */
+            id?: string;
+            /** @enum {string|null} */
+            currentLevel?: "A1" | "A2" | "B1" | "B2" | "C1" | "C2" | null;
+            /** @enum {string|null} */
+            targetLevel?: "A1" | "A2" | "B1" | "B2" | "C1" | "C2" | null;
+            learningPurpose?: string | null;
+            topicsOfInterest?: string[] | null;
+            /** @enum {string|null} */
+            aiPersonality?: "FRIENDLY" | "FORMAL" | "CASUAL" | "ENCOURAGING" | "STRICT" | "PATIENT" | null;
+            /** @example 1 */
+            voiceSpeed?: number;
+            /** @example false */
+            autoSpeak?: boolean;
+            /** @example en */
+            uiLanguage?: string;
+            /**
+             * @example light
+             * @enum {string}
+             */
+            theme?: "light" | "dark";
+            /** @example 60 */
+            weeklyGoalMinutes?: number;
+            /** @example Asia/Baghdad */
+            timezone?: string;
+        } | null;
+        MyProfile: {
+            /** Format: uuid */
+            id?: string;
+            username?: string;
+            /** Format: email */
+            email?: string;
+            displayName?: string;
+            /** Format: uri */
+            avatarUrl?: string | null;
+            phoneNumber?: string | null;
+            /** @enum {string} */
+            role?: "STUDENT" | "TUTOR" | "ADMIN";
+            isActive?: boolean;
+            /** @enum {string} */
+            authProvider?: "LOCAL" | "GOOGLE";
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+            subscription?: {
+                /** @enum {string} */
+                plan?: "FREE" | "GOLD" | "PREMIUM";
+                /** @enum {string} */
+                status?: "ACTIVE" | "INACTIVE" | "CANCELLED" | "PAST_DUE";
+                /** Format: date-time */
+                currentPeriodEnd?: string | null;
+            } | null;
+            learnerProfile?: components["schemas"]["LearnerProfile"];
+        };
+        Goal: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            userId?: string;
+            /** Format: uuid */
+            assignedByTutorId?: string | null;
+            /** @enum {string} */
+            type?: "VOCABULARY" | "SPEAKING" | "GRAMMAR" | "CONVERSATION" | "STUDY_TIME";
+            description?: string;
+            target?: number;
+            /** @enum {string|null} */
+            difficulty?: "EASY" | "MEDIUM" | "HARD" | "EXPERT" | null;
+            /** @enum {string} */
+            status?: "ACTIVE" | "COMPLETED" | "PAUSED" | "CANCELLED";
+            progress?: number;
+            actionPlan?: string | null;
+            /** Format: date-time */
+            startDate?: string;
+            /** Format: date-time */
+            targetDate?: string | null;
+            /** Format: date-time */
+            completedDate?: string | null;
+            /** Format: date-time */
+            lastProgressUpdate?: string | null;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+            assignedByTutor?: {
+                /** Format: uuid */
+                id?: string;
+                displayName?: string;
+                /** Format: uri */
+                avatarUrl?: string | null;
             } | null;
         };
         AuthUser: {
@@ -2831,6 +4091,64 @@ export interface components {
             /** Format: date-time */
             classCodeRefreshedAt?: string;
         };
+        UserMetrics: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            userId?: string;
+            /** @description Cumulative study time in minutes */
+            totalStudyTimeMinutes?: number;
+            totalWordsTyped?: number;
+            /** @description Current consecutive study day streak */
+            currentStreak?: number;
+            longestStreak?: number;
+            /** Format: date-time */
+            lastStudyDate?: string | null;
+            /** @description AI-estimated CEFR level (A1–C2) */
+            estimatedLevel?: string | null;
+            /** @description 0–100 rolling average grammar score */
+            grammarSkill?: number;
+            vocabularySkill?: number;
+            fluencySkill?: number;
+            /** @description 0–100 from pronunciation scores (voice sessions only) */
+            speakingSkill?: number;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        ProgressEntry: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            userId?: string;
+            /** Format: date */
+            date?: string;
+            /** @description Number of chat sessions started that day */
+            sessionsCount?: number;
+            studyMinutes?: number;
+            messagesCount?: number;
+            wordsTyped?: number;
+            /** @description Number of SRS vocab cards reviewed */
+            vocabularyPracticed?: number;
+            goalsAdvanced?: number;
+            pronunciationScore?: number | null;
+            /** @description Skill scores at end of day (grammar, vocabulary, fluency, speaking) */
+            skillSnapshot?: Record<string, never> | null;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        ProgressSummaryDay: {
+            /** Format: date */
+            date?: string;
+            sessionsCount?: number;
+            studyMinutes?: number;
+            messagesCount?: number;
+            wordsTyped?: number;
+            vocabularyPracticed?: number;
+        };
         SessionListItem: {
             /** Format: uuid */
             id?: string;
@@ -2844,7 +4162,6 @@ export interface components {
             endedAt?: string | null;
             durationSeconds?: number | null;
             messageCount?: number;
-            averageScore?: number | null;
             /** Format: date-time */
             createdAt?: string;
         };
@@ -2883,6 +4200,8 @@ export interface components {
             avgVocabularyScore?: number;
             avgFluencyScore?: number;
             avgOverallScore?: number;
+            /** @description null for text sessions */
+            avgPronunciationScore?: number | null;
             /** @enum {string} */
             detectedCefrLevel?: "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
             strengths?: string[];
@@ -2892,8 +4211,98 @@ export interface components {
             totalUserMessages?: number;
             totalUserWords?: number;
         };
+        VocabularyItem: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            userId?: string;
+            word?: string;
+            definition?: string;
+            pronunciation?: string | null;
+            example?: string | null;
+            partOfSpeech?: string | null;
+            difficulty?: number;
+            category?: string | null;
+            /**
+             * @description How the word was added — MANUAL by user, SESSION auto-detected by AI
+             * @enum {string}
+             */
+            source?: "MANUAL" | "SESSION";
+            /** @description Days until next review */
+            srsInterval?: number;
+            /**
+             * Format: date-time
+             * @description When this card is next due for review
+             */
+            srsDue?: string;
+            /** @description SM-2 ease factor (1.3–2.5) */
+            srsEase?: number;
+            reviewCount?: number;
+            correctCount?: number;
+            incorrectCount?: number;
+            /** @description 0=new, 1=seen(1 day), 2=learning(≤3d), 3=familiar(≤7d), 4=proficient(≤21d), 5=mastered(>21d) */
+            masteryLevel?: number;
+            /** Format: date-time */
+            lastPracticed?: string | null;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        ReviewResult: {
+            /** Format: uuid */
+            id?: string;
+            word?: string;
+            srsInterval?: number;
+            /** Format: date-time */
+            srsDue?: string;
+            srsEase?: number;
+            masteryLevel?: number;
+            reviewCount?: number;
+            correctCount?: number;
+            incorrectCount?: number;
+            /** Format: date-time */
+            lastPracticed?: string;
+        };
     };
-    responses: never;
+    responses: {
+        /** @description Missing or invalid access token */
+        Unauthorized: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description Authenticated but insufficient permissions */
+        Forbidden: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description Resource not found */
+        NotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description Zod validation failure — malformed or missing fields */
+        ValidationError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+    };
     parameters: never;
     requestBodies: never;
     headers: never;

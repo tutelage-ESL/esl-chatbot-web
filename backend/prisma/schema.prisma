@@ -15,6 +15,11 @@ enum Role {
   ADMIN
 }
 
+enum ClassRole {
+  STUDENT
+  TUTOR
+}
+
 enum AuthProvider {
   LOCAL
   GOOGLE
@@ -53,6 +58,13 @@ enum GoalType {
   GRAMMAR
   CONVERSATION
   STUDY_TIME
+}
+
+enum GoalDifficulty {
+  EASY
+  MEDIUM
+  HARD
+  EXPERT
 }
 
 enum AiPersonality {
@@ -154,10 +166,10 @@ model Class {
 }
 
 model ClassUser {
-  id      String @id @default(uuid())
+  id      String    @id @default(uuid())
   classId String
   userId  String
-  role    Role
+  role    ClassRole
 
   class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -256,7 +268,6 @@ model ConversationSession {
   endedAt           DateTime?
   durationSeconds   Int?
   messageCount      Int         @default(0)
-  averageScore      Float?
 
   user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages   Message[]
@@ -321,11 +332,12 @@ model SessionEvaluation {
   id                String @id @default(uuid())
   sessionId         String @unique
   topicsCovered     Json   // string[]
-  avgGrammarScore   Float
-  avgVocabularyScore Float
-  avgFluencyScore   Float
-  avgOverallScore   Float
-  detectedCefrLevel String // overall session CEFR level
+  avgGrammarScore      Float
+  avgVocabularyScore   Float
+  avgFluencyScore      Float
+  avgOverallScore      Float
+  avgPronunciationScore Float? // null for text sessions
+  detectedCefrLevel    String // overall session CEFR level
   strengths         Json   // string[]
   weaknesses        Json   // string[]
   recommendations   Json   // string[]
@@ -380,7 +392,7 @@ model Goal {
   type               GoalType
   description        String
   target             Int
-  difficulty         String?
+  difficulty         GoalDifficulty?
   status             GoalStatus @default(ACTIVE)
   progress           Float      @default(0)
   actionPlan         String?
@@ -435,6 +447,7 @@ model PasswordResetToken {
 
   createdAt DateTime @default(now())
 
+  @@index([userId])
   @@map("password_reset_tokens")
 }
 
@@ -450,5 +463,6 @@ model RefreshToken {
 
   createdAt DateTime @default(now())
 
+  @@index([userId])
   @@map("refresh_tokens")
 }

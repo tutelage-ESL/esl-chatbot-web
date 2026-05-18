@@ -58,6 +58,14 @@ export const joinByCodeSchema = z.object({
   classCode: z.string().trim().min(1, "Class code is required").max(32),
 });
 
+export const updateClassSchema = z
+  .object({
+    className: z.string().trim().min(1, "Class name cannot be empty").max(100).optional(),
+    classCategory: z.string().trim().max(100).nullable().optional(),
+    classStatus: z.enum(["ACTIVE", "INACTIVE"]).optional(),
+  })
+  .refine((d) => Object.keys(d).length > 0, { message: "At least one field required" });
+
 export const classMemberParamSchema = z.object({
   id: z.string().uuid("Invalid class ID"),
   userId: z.string().uuid("Invalid user ID"),
@@ -70,3 +78,4 @@ export type CreateClassBody = z.infer<typeof createClassSchema>;
 export type UpdateCodeSettingsBody = z.infer<typeof updateCodeSettingsSchema>;
 export type SetBlockedBody = z.infer<typeof setBlockedSchema>;
 export type JoinByCodeBody = z.infer<typeof joinByCodeSchema>;
+export type UpdateClassBody = z.infer<typeof updateClassSchema>;

@@ -9,7 +9,6 @@ export interface SessionListItem {
   endedAt: Date | null;
   durationSeconds: number | null;
   messageCount: number;
-  averageScore: number | null;
   createdAt: Date;
 }
 
@@ -52,6 +51,7 @@ export interface SessionEvaluationData {
   avgVocabularyScore: number;
   avgFluencyScore: number;
   avgOverallScore: number;
+  avgPronunciationScore: number | null;
   detectedCefrLevel: string;
   strengths: unknown;
   weaknesses: unknown;

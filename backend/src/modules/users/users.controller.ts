@@ -14,6 +14,7 @@ import {
   getMyProfile,
   updateMyProfile,
   updateMyLearnerProfile,
+  getDashboard,
 } from "./users.service.ts";
 
 export const listUsers = asyncHandler(async (req: Request, res: Response) => {
@@ -38,6 +39,11 @@ export const getUser = asyncHandler(async (req: Request, res: Response) => {
 });
 
 // ─── Self-profile ─────────────────────────────────────────────────────────────
+
+export const getDashboardHandler = asyncHandler(async (req: Request, res: Response) => {
+  const data = await getDashboard(req.user!.id);
+  sendSuccess(res, data, "Dashboard data retrieved successfully");
+});
 
 export const getMe = asyncHandler(async (req: Request, res: Response) => {
   const profile = await getMyProfile(req.user!.id);

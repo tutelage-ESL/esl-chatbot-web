@@ -7,7 +7,7 @@ export interface GoalItem {
   type: GoalType;
   description: string;
   target: number;
-  difficulty: string | null;
+  difficulty: "EASY" | "MEDIUM" | "HARD" | "EXPERT" | null;
   status: GoalStatus;
   progress: number;
   actionPlan: string | null;

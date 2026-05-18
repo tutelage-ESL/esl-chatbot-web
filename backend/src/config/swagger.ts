@@ -108,7 +108,7 @@ const options: swaggerJsdoc.Options = {
             },
             description: { type: "string" },
             target: { type: "integer", minimum: 1 },
-            difficulty: { type: "string", enum: ["easy", "medium", "hard"], nullable: true },
+            difficulty: { type: "string", enum: ["EASY", "MEDIUM", "HARD", "EXPERT"], nullable: true },
             status: { type: "string", enum: ["ACTIVE", "COMPLETED", "PAUSED", "CANCELLED"] },
             progress: { type: "number", minimum: 0, maximum: 100 },
             actionPlan: { type: "string", nullable: true },

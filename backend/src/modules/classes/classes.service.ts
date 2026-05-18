@@ -9,6 +9,7 @@ import {
 import type {
   ClassListItem,
   ClassDetail,
+  ClassMember,
   ClassCodeInfo,
   JoinClassResult,
   ClassStudentSummary,
@@ -158,7 +159,7 @@ async function readClassDetail(id: string): Promise<ClassDetail> {
 
   return {
     ...cls,
-    members: cls.users,
+    members: cls.users as ClassMember[],
   };
 }
 
@@ -203,6 +204,33 @@ export async function getClassById(
 }
 
 // ── Create / update class ──────────────────────────────────
+
+export interface UpdateClassInput {
+  className?: string;
+  classCategory?: string | null;
+  classStatus?: "ACTIVE" | "INACTIVE";
+}
+
+export async function updateClass(
+  classId: string,
+  actorUserId: string,
+  actorRole: string,
+  input: UpdateClassInput,
+): Promise<ClassDetail> {
+  await assertTutorOfClass(classId, actorUserId, actorRole);
+
+  await prisma.class
+    .update({
+      where: { id: classId },
+      data: input,
+    })
+    .catch((err: { code?: string }) => {
+      if (err.code === "P2025") throw new AppError("Class not found", 404);
+      throw err;
+    });
+
+  return readClassDetail(classId);
+}
 
 export interface CreateClassInput {
   className: string;
@@ -494,7 +522,7 @@ export async function joinClassByCode(
       classId: cls.id,
       className: cls.className,
       classCode: cls.classCode,
-      role: membership.role,
+      role: membership.role as "STUDENT" | "TUTOR",
       joinedAt: membership.createdAt,
     };
   } catch (err) {
@@ -763,7 +791,7 @@ export interface MyClassListItem {
   classCode: string;
   classCategory: string | null;
   classStatus: ClassStatus;
-  myRole: "STUDENT" | "TUTOR" | "ADMIN";
+  myRole: "STUDENT" | "TUTOR";
   memberCount: number;
   joinedAt: Date;
   // Code lifecycle (only useful for tutors but harmless to expose):
@@ -826,7 +854,7 @@ export async function listMyClasses(userId: string): Promise<MyClassListItem[]> 
     classCode: m.class.classCode,
     classCategory: m.class.classCategory,
     classStatus: m.class.classStatus,
-    myRole: m.role,
+    myRole: m.role as "STUDENT" | "TUTOR",
     memberCount: m.class._count.users,
     joinedAt: m.createdAt,
     classCodeBlocked: m.class.classCodeBlocked,

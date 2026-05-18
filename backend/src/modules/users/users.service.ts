@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import type { Role, SubStatus } from "@prisma/client";
 import { prisma } from "../../config/database.ts";
 import { AppError } from "../../utils/AppError.ts";
-import type { UserListItem, UserDetail, MyProfile } from "./users.types.ts";
+import type { UserListItem, UserDetail, MyProfile, DashboardData } from "./users.types.ts";
 import type { UpdateMyProfileInput, UpdateLearnerProfileInput } from "./users.schema.ts";
 
 const USER_LIST_SELECT = {
@@ -172,6 +172,102 @@ export async function updateMyProfile(
   });
 
   return getMyProfile(userId);
+}
+
+export async function getDashboard(userId: string): Promise<DashboardData> {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const now = new Date();
+
+  const [todayProgress, metrics, activeGoalsCount, vocabDueTodayCount, lastSession] =
+    await Promise.all([
+      // Today's progress row (or zeroed defaults if none yet)
+      prisma.progress.findUnique({
+        where: { userId_date: { userId, date: today } },
+        select: {
+          sessionsCount: true,
+          studyMinutes: true,
+          messagesCount: true,
+          wordsTyped: true,
+          vocabularyPracticed: true,
+          goalsAdvanced: true,
+        },
+      }),
+      // Lifetime metrics (upsert so it always exists)
+      prisma.userMetrics.upsert({
+        where: { userId },
+        create: { userId },
+        update: {},
+        select: {
+          currentStreak: true,
+          longestStreak: true,
+          totalStudyTimeMinutes: true,
+          estimatedLevel: true,
+          grammarSkill: true,
+          vocabularySkill: true,
+          fluencySkill: true,
+          speakingSkill: true,
+        },
+      }),
+      // Count of ACTIVE goals
+      prisma.goal.count({ where: { userId, status: "ACTIVE" } }),
+      // SRS cards due today
+      prisma.vocabulary.count({ where: { userId, srsDue: { lte: now } } }),
+      // Most recent session with evaluation summary
+      prisma.conversationSession.findFirst({
+        where: { userId },
+        orderBy: { startedAt: "desc" },
+        select: {
+          id: true,
+          topic: true,
+          endedAt: true,
+          durationSeconds: true,
+          evaluation: {
+            select: {
+              avgOverallScore: true,
+              detectedCefrLevel: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+  return {
+    todayProgress: {
+      sessionsCount: todayProgress?.sessionsCount ?? 0,
+      studyMinutes: todayProgress?.studyMinutes ?? 0,
+      messagesCount: todayProgress?.messagesCount ?? 0,
+      wordsTyped: todayProgress?.wordsTyped ?? 0,
+      vocabularyPracticed: todayProgress?.vocabularyPracticed ?? 0,
+      goalsAdvanced: todayProgress?.goalsAdvanced ?? 0,
+    },
+    metrics: {
+      currentStreak: metrics.currentStreak,
+      longestStreak: metrics.longestStreak,
+      totalStudyTimeMinutes: metrics.totalStudyTimeMinutes,
+      estimatedLevel: metrics.estimatedLevel,
+      grammarSkill: metrics.grammarSkill,
+      vocabularySkill: metrics.vocabularySkill,
+      fluencySkill: metrics.fluencySkill,
+      speakingSkill: metrics.speakingSkill,
+    },
+    activeGoalsCount,
+    vocabDueTodayCount,
+    lastSession: lastSession
+      ? {
+          id: lastSession.id,
+          topic: lastSession.topic,
+          endedAt: lastSession.endedAt,
+          durationSeconds: lastSession.durationSeconds,
+          evaluation: lastSession.evaluation
+            ? {
+                avgOverallScore: lastSession.evaluation.avgOverallScore,
+                detectedCefrLevel: lastSession.evaluation.detectedCefrLevel,
+              }
+            : null,
+        }
+      : null,
+  };
 }
 
 export async function updateMyLearnerProfile(

@@ -186,8 +186,15 @@ async function main() {
   });
   console.log("   ✅ 2 subscriptions created (1 PREMIUM/CASH, 1 FREE)\n");
 
+  // Subscriptions for tutor and admin (FREE ACTIVE — gives chatbot access for testing)
+  await prisma.subscription.create({ data: { userId: tutor.id, plan: "FREE", status: "ACTIVE" } });
+  await prisma.subscription.create({ data: { userId: admin.id, plan: "FREE", status: "ACTIVE" } });
+
   // ─── User Metrics ─────────────────────────────────────
   console.log("📊 Creating User Metrics...");
+  // Zeroed metrics for admin and tutor so GET /metrics/me works for all roles
+  await prisma.userMetrics.create({ data: { userId: admin.id } });
+  await prisma.userMetrics.create({ data: { userId: tutor.id } });
   await prisma.userMetrics.create({
     data: {
       userId: student1.id,
@@ -218,7 +225,7 @@ async function main() {
       speakingSkill: 30,
     },
   });
-  console.log("   ✅ 2 user metrics records created\n");
+  console.log("   ✅ 4 user metrics records created (admin, tutor, ali, yuki)\n");
 
   // ─── Conversation Sessions, Messages & Evaluations ─────
   console.log("💬 Creating Conversation Sessions, Messages & Evaluations...");
@@ -232,7 +239,6 @@ async function main() {
       endedAt: new Date(Date.now() - 1.5 * 60 * 60 * 1000),
       durationSeconds: 1800,
       messageCount: 6,
-      averageScore: 78.5,
     },
   });
 
@@ -311,7 +317,6 @@ async function main() {
       endedAt: new Date(Date.now() - 3.5 * 60 * 60 * 1000),
       durationSeconds: 1200,
       messageCount: 4,
-      averageScore: 62.5,
     },
   });
 
@@ -395,7 +400,7 @@ async function main() {
       type: "VOCABULARY",
       description: "Learn 50 new business English words",
       target: 50,
-      difficulty: "medium",
+      difficulty: "MEDIUM",
       status: "ACTIVE",
       progress: 30,
       actionPlan: "Review 5 new words daily using flashcards. Focus on tech and business vocabulary.",
@@ -409,7 +414,7 @@ async function main() {
       type: "STUDY_TIME",
       description: "Study English for 30 minutes every day",
       target: 30,
-      difficulty: "easy",
+      difficulty: "EASY",
       status: "ACTIVE",
       progress: 60,
       lastProgressUpdate: new Date(),
@@ -422,7 +427,7 @@ async function main() {
       type: "CONVERSATION",
       description: "Complete 10 conversation sessions",
       target: 10,
-      difficulty: "medium",
+      difficulty: "MEDIUM",
       status: "ACTIVE",
       progress: 10,
       targetDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),

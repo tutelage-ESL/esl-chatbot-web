@@ -3,6 +3,7 @@ import {
   listClasses,
   getClass,
   createClassHandler,
+  updateClassHandler,
   refreshCodeHandler,
   updateCodeSettingsHandler,
   setBlockedHandler,
@@ -227,7 +228,7 @@ router.post("/", authenticate, authorize("TUTOR", "ADMIN"), createClassHandler);
  *                     classId: { type: string, format: uuid }
  *                     className: { type: string }
  *                     classCode: { type: string }
- *                     role: { type: string, enum: [STUDENT, TUTOR, ADMIN] }
+ *                     role: { type: string, enum: [STUDENT, TUTOR] }
  *                     joinedAt: { type: string, format: date-time }
  *       400: { description: Validation error, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
@@ -302,6 +303,71 @@ router.get("/mine", authenticate, listMyClassesHandler);
  *       404: { description: Class not found or caller not a member, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  */
 router.get("/:id", authenticate, getClass);
+
+// ─────────────────────────────────────────────────────────
+// UPDATE CLASS (tutor in class / admin)
+// ─────────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /classes/{id}:
+ *   patch:
+ *     summary: Update class name, category, or status (Tutor in class or Admin)
+ *     description: |
+ *       Updates one or more class fields. At least one field must be provided.
+ *
+ *       Setting `classStatus` to `INACTIVE` prevents new join attempts via the class code
+ *       (join returns 409). Existing members are not removed.
+ *
+ *       Authorization: tutor of the class or admin. Students cannot update class details.
+ *     tags: [Classes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               className:
+ *                 type: string
+ *                 minLength: 1
+ *                 maxLength: 100
+ *                 description: New class name
+ *               classCategory:
+ *                 type: string
+ *                 maxLength: 100
+ *                 nullable: true
+ *                 description: Category label (null clears it)
+ *               classStatus:
+ *                 type: string
+ *                 enum: [ACTIVE, INACTIVE]
+ *                 description: INACTIVE prevents new joins; existing members are kept
+ *     responses:
+ *       200:
+ *         description: Updated class detail
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 message: { type: string }
+ *                 data:
+ *                   type: object
+ *                   description: Full class detail including updated members list
+ *       400: { description: Invalid body or no fields provided, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       403: { description: Caller is not a tutor of this class, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       404: { description: Class not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       422: { description: Validation error, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ */
+router.patch("/:id", authenticate, authorize("TUTOR", "ADMIN"), updateClassHandler);
 
 // ─────────────────────────────────────────────────────────
 // REFRESH CODE (tutor in class / admin)

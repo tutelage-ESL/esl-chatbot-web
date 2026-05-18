@@ -23,6 +23,20 @@ export interface VocabularyItem {
   updatedAt: Date;
 }
 
+export interface VocabularyStats {
+  total: number;
+  dueToday: number;
+  learnedThisWeek: number;
+  byMasteryLevel: {
+    new: number;      // masteryLevel 0
+    seen: number;     // masteryLevel 1
+    learning: number; // masteryLevel 2
+    familiar: number; // masteryLevel 3
+    proficient: number; // masteryLevel 4
+    mastered: number; // masteryLevel 5
+  };
+}
+
 export interface ReviewResult {
   id: string;
   word: string;

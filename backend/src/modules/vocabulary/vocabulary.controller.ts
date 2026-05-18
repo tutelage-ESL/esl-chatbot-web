@@ -10,6 +10,7 @@ import {
   vocabIdParamSchema,
 } from "./vocabulary.schema.ts";
 import {
+  getVocabularyStats,
   listVocabulary,
   getDueCards,
   addVocabulary,
@@ -18,6 +19,11 @@ import {
   deleteVocabulary,
   reviewVocabulary,
 } from "./vocabulary.service.ts";
+
+export const getVocabularyStatsHandler = asyncHandler(async (req: Request, res: Response) => {
+  const stats = await getVocabularyStats(req.user!.id);
+  sendSuccess(res, stats, "Vocabulary stats retrieved successfully");
+});
 
 export const listVocabularyHandler = asyncHandler(async (req: Request, res: Response) => {
   const query = listVocabularyQuerySchema.parse(req.query);

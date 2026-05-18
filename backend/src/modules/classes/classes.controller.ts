@@ -7,6 +7,7 @@ import {
   getClassesQuerySchema,
   getClassParamSchema,
   createClassSchema,
+  updateClassSchema,
   updateCodeSettingsSchema,
   setBlockedSchema,
   joinByCodeSchema,
@@ -16,6 +17,7 @@ import {
   getClasses,
   getClassById,
   createClass,
+  updateClass,
   refreshClassCode,
   updateClassCodeSettings,
   setClassCodeBlocked,
@@ -49,6 +51,16 @@ export const createClassHandler = asyncHandler(async (req: Request, res: Respons
   const body = createClassSchema.parse(req.body);
   const cls = await createClass(req.user.id, body);
   sendSuccess(res, cls, "Class created successfully", 201);
+});
+
+// ── Update class (tutor in class / admin) ────────────────
+
+export const updateClassHandler = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.user) throw new AppError("Authentication required", 401);
+  const { id } = getClassParamSchema.parse(req.params);
+  const body = updateClassSchema.parse(req.body);
+  const cls = await updateClass(id, req.user.id, req.user.role, body);
+  sendSuccess(res, cls, "Class updated successfully");
 });
 
 // ── Code management (tutor in class / admin) ─────────────

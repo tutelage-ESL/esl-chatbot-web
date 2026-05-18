@@ -119,7 +119,6 @@ const SESSION_LIST_SELECT = {
   endedAt: true,
   durationSeconds: true,
   messageCount: true,
-  averageScore: true,
   createdAt: true,
 } satisfies Prisma.ConversationSessionSelect;
 
@@ -170,7 +169,6 @@ export async function getSessionById(
       endedAt: true,
       durationSeconds: true,
       messageCount: true,
-      averageScore: true,
       createdAt: true,
       messages: {
         select: {
@@ -207,6 +205,7 @@ export async function getSessionById(
           avgVocabularyScore: true,
           avgFluencyScore: true,
           avgOverallScore: true,
+          avgPronunciationScore: true,
           detectedCefrLevel: true,
           strengths: true,
           weaknesses: true,
@@ -249,6 +248,7 @@ export async function endSession(
               vocabularyScore: true,
               fluencyScore: true,
               overallScore: true,
+              pronunciationScore: true,
             },
           },
         },
@@ -271,11 +271,6 @@ export async function endSession(
 
   // Compute averages from message evaluations
   const evaluatedMessages = session.messages.filter((m) => m.evaluation);
-  const avgScore =
-    evaluatedMessages.length > 0
-      ? evaluatedMessages.reduce((sum, m) => sum + (m.evaluation?.overallScore ?? 0), 0) /
-        evaluatedMessages.length
-      : null;
 
   const totalMessages = await prisma.message.count({
     where: { sessionId },
@@ -287,7 +282,6 @@ export async function endSession(
       endedAt,
       durationSeconds,
       messageCount: totalMessages,
-      averageScore: avgScore,
     },
   });
 
@@ -320,6 +314,15 @@ export async function endSession(
       else if (score < 50) weaknesses.push(`${skill} needs improvement`);
     }
 
+    const pronouncedMessages = evaluatedMessages.filter(
+      (m) => m.evaluation?.pronunciationScore != null,
+    );
+    const avgPronunciation =
+      pronouncedMessages.length > 0
+        ? pronouncedMessages.reduce((s, m) => s + (m.evaluation?.pronunciationScore ?? 0), 0) /
+          pronouncedMessages.length
+        : null;
+
     await prisma.sessionEvaluation.create({
       data: {
         sessionId,
@@ -328,6 +331,7 @@ export async function endSession(
         avgVocabularyScore: Math.round(avgVocab * 10) / 10,
         avgFluencyScore: Math.round(avgFluency * 10) / 10,
         avgOverallScore: Math.round(avgOverall * 10) / 10,
+        avgPronunciationScore: avgPronunciation !== null ? Math.round(avgPronunciation * 10) / 10 : null,
         detectedCefrLevel: cefrLevel,
         strengths,
         weaknesses,

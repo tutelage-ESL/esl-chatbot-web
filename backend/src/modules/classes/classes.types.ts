@@ -1,4 +1,4 @@
-import type { ClassStatus, Role } from "@prisma/client";
+import type { ClassStatus } from "@prisma/client";
 
 /** Tutor/admin view of a student in a class — includes progress snapshot. */
 export interface ClassStudentSummary {
@@ -64,7 +64,7 @@ export interface ClassListItem {
 
 export interface ClassMember {
   id: string;
-  role: Role;
+  role: "STUDENT" | "TUTOR";
   user: {
     id: string;
     username: string;
@@ -104,6 +104,6 @@ export interface JoinClassResult {
   classId: string;
   className: string;
   classCode: string;
-  role: Role;
+  role: "STUDENT" | "TUTOR";
   joinedAt: Date;
 }

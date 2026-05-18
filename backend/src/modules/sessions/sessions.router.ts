@@ -28,7 +28,6 @@ const router = Router();
  *         endedAt: { type: string, format: date-time, nullable: true }
  *         durationSeconds: { type: integer, nullable: true }
  *         messageCount: { type: integer }
- *         averageScore: { type: number, nullable: true }
  *         createdAt: { type: string, format: date-time }
  *     MessageEvaluation:
  *       type: object
@@ -75,6 +74,7 @@ const router = Router();
  *         avgVocabularyScore: { type: number }
  *         avgFluencyScore: { type: number }
  *         avgOverallScore: { type: number }
+ *         avgPronunciationScore: { type: number, nullable: true, description: "null for text sessions" }
  *         detectedCefrLevel: { type: string, enum: [A1, A2, B1, B2, C1, C2] }
  *         strengths: { type: array, items: { type: string } }
  *         weaknesses: { type: array, items: { type: string } }

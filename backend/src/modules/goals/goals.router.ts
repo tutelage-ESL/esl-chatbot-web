@@ -108,7 +108,7 @@ router.get("/", authenticate, listGoalsHandler);
  *                 description: Numeric goal target (e.g. 50 words, 10 sessions, 30 minutes)
  *               difficulty:
  *                 type: string
- *                 enum: [easy, medium, hard]
+ *                 enum: [EASY, MEDIUM, HARD, EXPERT]
  *               targetDate:
  *                 type: string
  *                 format: date-time
@@ -203,7 +203,7 @@ router.get("/:id", authenticate, getGoalHandler);
  *                 minimum: 1
  *               difficulty:
  *                 type: string
- *                 enum: [easy, medium, hard]
+ *                 enum: [EASY, MEDIUM, HARD, EXPERT]
  *                 nullable: true
  *               status:
  *                 type: string

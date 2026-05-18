@@ -147,6 +147,7 @@ Each module under `src/modules/[name]/` follows:
 | Enum | Values |
 |------|--------|
 | Role | STUDENT, TUTOR, ADMIN |
+| ClassRole | STUDENT, TUTOR — used exclusively on ClassUser.role; ADMIN is a global platform role and never appears as a class-membership role |
 | AuthProvider | LOCAL, GOOGLE |
 | ClassStatus | ACTIVE, INACTIVE |
 | SessionMode | TEXT, VOICE |
@@ -154,6 +155,7 @@ Each module under `src/modules/[name]/` follows:
 | MessageType | TEXT, VOICE |
 | GoalStatus | ACTIVE, COMPLETED, PAUSED, CANCELLED |
 | GoalType | VOCABULARY, SPEAKING, GRAMMAR, CONVERSATION, STUDY_TIME |
+| GoalDifficulty | EASY, MEDIUM, HARD, EXPERT — used on Goal.difficulty (previously a freetext String) |
 | AiPersonality | FRIENDLY, FORMAL, CASUAL, ENCOURAGING, STRICT, PATIENT |
 | Plan | FREE, GOLD, PREMIUM |
 | SubStatus | ACTIVE, INACTIVE, CANCELLED, PAST_DUE |
@@ -164,16 +166,16 @@ Each module under `src/modules/[name]/` follows:
 |-------|-------|---------------|
 | User | users | 1:1 profile/subscription/metrics, has many classUsers, has many createdClasses (TUTOR/ADMIN as creator) |
 | Class | classes | has many ClassUsers, optional createdBy (User), classCode lifecycle fields |
-| ClassUser | class_users | belongs to Class + User, has role (TUTOR/STUDENT), unique(classId, userId) |
+| ClassUser | class_users | belongs to Class + User, has role ClassRole (TUTOR or STUDENT only), unique(classId, userId) |
 | LearnerProfile | learner_profiles | 1:1 with User (students only) |
 | Subscription | subscriptions | 1:1 with User, multi-provider payment fields (FIB/STRIPE/CASH) |
 | UserMetrics | user_metrics | 1:1 with User, aggregated dashboard data |
-| ConversationSession | conversation_sessions | belongs to User, has many Messages, optional SessionEvaluation |
+| ConversationSession | conversation_sessions | belongs to User, has many Messages, optional SessionEvaluation. No averageScore — use SessionEvaluation.avgOverallScore |
 | Message | messages | belongs to User + Session, has type (TEXT/VOICE), optional MessageEvaluation |
 | MessageEvaluation | message_evaluations | 1:1 with Message (USER messages only), stores grammar/vocab/fluency scores and corrections |
-| SessionEvaluation | session_evaluations | 1:1 with ConversationSession, aggregate scores + strengths/weaknesses/recommendations |
+| SessionEvaluation | session_evaluations | 1:1 with ConversationSession, aggregate scores + strengths/weaknesses/recommendations. avgPronunciationScore is nullable (null for text sessions, populated for voice sessions) |
 | Vocabulary | vocabularies | belongs to User, SRS fields, unique(userId, word) |
-| Goal | goals | belongs to User, optional tutor assigner. Type is GoalType enum (VOCABULARY/SPEAKING/GRAMMAR/CONVERSATION/STUDY_TIME). No timeframe or milestones columns. |
+| Goal | goals | belongs to User, optional tutor assigner. Type is GoalType enum. Difficulty is GoalDifficulty enum (EASY/MEDIUM/HARD/EXPERT). No timeframe or milestones columns. |
 | Progress | progress | daily snapshot, unique(userId, date) |
 
 ### Key Design Decisions
@@ -183,7 +185,7 @@ Each module under `src/modules/[name]/` follows:
 - AI chatbot access is gated by Subscription: `status === ACTIVE`. **Verification = linking a Google account.** Registration flow: LOCAL register → `plan=FREE, status=INACTIVE` (no AI); Google Sign-In / Google merge / `POST /auth/link-google` → `status=ACTIVE` (FREE tier unlocked). Admin-assigned subscriptions are always `ACTIVE`. Class joining does NOT require a subscription.
 - **Subscription lifecycle:** LOCAL user registers → INACTIVE. Links Google → FREE ACTIVE. Buys GOLD/PREMIUM (via FIB/STRIPE/CASH) → paid tier ACTIVE. Subscription period expires → lazy downgrade to FREE ACTIVE at next `POST /sessions`. Admin cancels subscription → FREE ACTIVE (not revoked; use `isActive=false` to block access entirely).
 - Classes have a unique classCode; tutor/student membership tracked via ClassUser join table
-- ClassUser join table links any user (TUTOR or STUDENT) to a class with a `role` field and unique(classId, userId) constraint
+- ClassUser join table links any user to a class using the `ClassRole` enum (TUTOR or STUDENT — ADMIN is a global platform role and never stored in ClassUser). Admins can see all classes globally without joining them. An admin who also teaches a class joins as TUTOR.
 - Class join flow is **direct** (no pending approval): a user submits a class code via `POST /classes/join` and is added as a STUDENT immediately, provided the code is not blocked, not expired, and the class is ACTIVE
 - **Class code lifecycle:** each Class has `classCode`, `classCodeExpiresAt` (nullable — null = permanent), `classCodeRefreshIntervalSeconds` (nullable — null = no auto refresh), `classCodeBlocked` (boolean), and `classCodeRefreshedAt`. Tutors of the class (or admins) can rotate, change the refresh interval, or block/unblock the code via dedicated endpoints. Codes are 8-char uppercase alphanumeric (excludes ambiguous chars like 0/O/1/I/L) generated in `classes/classCode.util.ts`
 - **Lazy auto-refresh on expiry:** the service rotates an expired code on demand, so no cron job is needed. Three triggers, all routed through the shared `refreshIfExpired(classId)` helper in `classes.service.ts`:
@@ -199,7 +201,7 @@ Each module under `src/modules/[name]/` follows:
 - RefreshToken table stores hashed (SHA-256) refresh tokens for server-side revocation; one row per active session/device
 - PasswordResetToken table stores SHA-256-hashed 6-digit OTPs for password reset; 15-minute TTL; single-use (usedAt set on redemption); old tokens deleted when a new OTP is requested
 - **Message evaluation flow:** each user message is evaluated by the AI for grammar (0-100), vocabulary (0-100 + CEFR level), fluency (0-100), overall score (weighted: 35% grammar + 35% vocab + 30% fluency), corrections (original/corrected/explanation), and feedback. Evaluations are stored in `message_evaluations` (1:1 with Message). Students see inline corrections after each message.
-- **Session evaluation:** generated on `POST /sessions/:id/end`. Aggregates all message evaluations into averages, detects session-level CEFR, identifies strengths/weaknesses/recommendations, and lists new vocabulary for SRS. Stored in `session_evaluations` (1:1 with ConversationSession).
+- **Session evaluation:** generated on `POST /sessions/:id/end`. Aggregates all message evaluations into averages (grammar, vocabulary, fluency, overall, and pronunciationScore for voice messages only → `avgPronunciationScore Float?`), detects session-level CEFR, identifies strengths/weaknesses/recommendations, and lists new vocabulary for SRS. Stored in `session_evaluations`. The old `ConversationSession.averageScore` field was removed — use `SessionEvaluation.avgOverallScore` instead.
 - **Message type vs session mode:** `SessionMode` (TEXT/VOICE) is the starting mode. Individual `Message.type` (TEXT/VOICE) allows mixed-mode sessions — no separate MIXED enum needed.
 - **Session limits:** soft limit shows a warning; hard limit (soft+10) blocks further messages. Daily session cap prevents runaway costs.
 - **FREE tier cost controls:** 20 msg/session soft limit, 20 msg/day hard cap across all sessions, 10-message LLM context window (vs 20 for GOLD/PREMIUM). Reduces FREE tier AI cost ~65% vs naive design.
@@ -291,7 +293,7 @@ Run `bun run db:seed` to populate the database with test data:
 - **Student 2:** student_yuki / yuki@tutelage.com (FREE, A2 level)
 - **Password for all:** `password123`
 
-Includes: classes (with full code-lifecycle fields populated) with enrolled users (tutor + students via ClassUser), learner profiles, subscriptions, metrics, conversation sessions with messages, vocabulary with SRS data, goals, and daily progress snapshots.
+Includes: classes (with full code-lifecycle fields populated) with enrolled users (tutor + students via ClassUser), learner profiles, subscriptions (all 4 users get one — admin/tutor get FREE ACTIVE), metrics (all 4 users get a row — admin/tutor zeroed), conversation sessions with messages, vocabulary with SRS data, goals, and daily progress snapshots.
 
 ---
 
@@ -368,6 +370,7 @@ Includes: classes (with full code-lifecycle fields populated) with enrolled user
 - ✅ `PATCH /goals/:id` — update description, target, difficulty, status, progress, targetDate, actionPlan. Setting status=COMPLETED auto-sets completedDate + progress=100.
 - ✅ `DELETE /goals/:id` — delete goal (own or tutor-assigned or admin)
 - **GoalType enum:** VOCABULARY, SPEAKING, GRAMMAR, CONVERSATION, STUDY_TIME
+- **GoalDifficulty enum:** EASY, MEDIUM, HARD, EXPERT — stored on `Goal.difficulty` (nullable). Was previously a freetext String; enum enforces valid values.
 - **Removed from schema:** `timeframe` (redundant with startDate/targetDate) and `milestones` (deferred to later phase)
 - ✅ Progress daily snapshot auto-updated at session end (`POST /sessions/:id/end`) — increments sessionsCount, studyMinutes, messagesCount, wordsTyped, writes skillSnapshot
 - ✅ Progress vocabularyPracticed incremented on each vocab review (`POST /vocabulary/:id/review`)
@@ -378,7 +381,7 @@ Includes: classes (with full code-lifecycle fields populated) with enrolled user
 - Dashboard aggregation queries (remaining)
 
 ### Phase 7 — Metrics & Dashboard
-- ✅ `GET /metrics/me` — own lifetime metrics (streak, study time, skill scores)
+- ✅ `GET /metrics/me` — own lifetime metrics (streak, study time, skill scores). Auto-creates a zeroed metrics row via upsert if none exists — never returns 404
 - ✅ `GET /metrics/:userId` — tutor/admin view of a student's metrics (tutor must share a class)
 - ✅ UserMetrics auto-updated at session end: totalStudyTimeMinutes, totalWordsTyped, currentStreak, longestStreak, lastStudyDate, estimatedLevel, skill EMA (grammarSkill, vocabularySkill, fluencySkill)
 - ✅ Streak calculation: consecutive-day check against lastStudyDate; streak resets if user skips a day
@@ -403,3 +406,26 @@ Includes: classes (with full code-lifecycle fields populated) with enrolled user
 - Comprehensive error logging and monitoring
 - API documentation completion (Swagger)
 - Integration and unit tests
+
+---
+
+## API Backlog — Deferred (identified 2026-05-18 during dashboard audit)
+
+These were identified during a full API audit and agreed to implement after the dashboard is polished.
+Check them off (✅) as they are built.
+
+### Classes
+- [ ] `PATCH /classes/:id` — tutor or admin updates class name, category, or status (ACTIVE/INACTIVE). Simple PATCH with all fields optional. Authorization: tutor of the class or admin. Currently there is no way to rename a class or deactivate it after creation.
+- [ ] `GET /classes/:id/analytics` — class-wide aggregated analytics for tutors: average skill scores (grammar/vocab/fluency) across all students, most common grammar weaknesses (from MessageEvaluation.grammarErrors), vocabulary coverage. Tutor + admin only.
+- [ ] `GET /classes/:id/announcements` + `POST /classes/:id/announcements` — tutor broadcasts a text update or homework note to the class. Simple model: `{ classId, authorId, content, createdAt }`. Students see the list on the class page. No replies needed at first.
+
+### Sessions & Conversation
+- [ ] `GET /sessions/stats` — session history summary for charts: sessions per day over last N days, average session duration, most common topics. Filterable by `?days=30`. Own stats only (students); tutor/admin can add `?userId=`.
+
+### Subscriptions
+- [ ] `GET /users/me/subscription` — dedicated endpoint returning the authenticated user's full subscription record (plan, status, currentPeriodStart, currentPeriodEnd, paymentProvider). Currently this data is embedded in `GET /users/me` but a dedicated endpoint is cleaner for the subscription management page and avoids re-fetching the full profile.
+- [ ] **FIB payment flow** — `POST /subscriptions/initiate-fib` (creates payment intent, returns QR/deep-link) + `POST /subscriptions/webhook/fib` (receives callback, sets plan=GOLD/PREMIUM, status=ACTIVE, externalSubscriptionId=fibPaymentId). See existing Phase 8 notes for context.
+
+### Admin & Notifications
+- [ ] `GET /admin/dashboard` — platform-wide stats for the admin panel: total users by role, active subscriptions by plan (FREE/GOLD/PREMIUM counts), daily/weekly active users (users with a session in last 1/7 days), total sessions today, revenue by payment method (CASH/FIB/STRIPE). Single aggregated query, no pagination needed.
+- [ ] `GET /users/me/notifications` — in-app notification feed: streak milestones (7-day, 30-day), goal completed, tutor assigned a new goal, class announcement posted. Simple append-only model: `{ id, type, message, read, createdAt }`. Needs a `Notification` model in the schema.

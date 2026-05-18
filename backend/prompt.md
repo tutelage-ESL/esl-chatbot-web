@@ -1,13 +1,16 @@
 * Start by reading CLAUDE.md to understand the project structure and conventions.
+## All APIs check before adding new API for user dashboard
+* check the model and database one more time, and make sure all the APIs work properly
+* and make sure logically all the API has no error, they do what they needs to do for that project
+* we might have some issuees or some API that worth discussion, if you suspected and lemme know what is the problem and what do you recommend and then I will decide...
+* after all that done, leave some recommendations of APIs for the project that sooner or later we might add, we ether agree on adding them immediately or else we perfect the dashboard and add them later
 
-# authentication error handling
-* 
 
-## before starting the task:
+## routine before starting the task:
 * ask me questions if you have any doubts. or want to confirm your understanding.
 * provide recommendations to improve the task.
 
-## After completing the task:
+## routine After completing the task:
 * make sure to update the related files according to changes related to it.
 * update any related API, routes and stuff
 * update the swagger documentation to the frontend team if needed.
@@ -46,6 +49,43 @@
 
 * Read docs/services/ai-providers.md and docs/ai-providers/llm.md to understand the AI stack decisions we made.
 
+## progress & user matrics vocabularies
+* these 3 tables needs to be checked, 1st explain me the table point and then each column so I can understand and decide, then tell me if there's anything extra or suspection from your side
+* the tables are: progress, user_matrics, and vocabularies
+* so check them to know if they are perfect for our project or not, what to be updated or added or removed.
+* and after those we need to check to know if we have the proper APIs for it or not. 
+
+## database and API review
+* I need you to check all the tables(models) of the database to insure that we have no errors so far, not logical not syntax not anything
+* make sure the logic of it works perfectly for our idea,
+* anything suspection you can let me know and we will decide on it
+* we fix the mistakes accordingly
+* after all tables checked, we will check APIs later after this
+
+## updateing subscrption and adding FIB & Cash payer
++ check the relation between user subscription table, I think we may have to change some columns, check the columns and make sure it supports our project logic idea
+* as you know, user as they register and get verified(they verifired if they get link to their gmail account) so they get FREE tier plan, and that free they can use it forever but their limit is set it, if they hit the limit they have to wait to reset, or buy a subscription, to understand how it works exacly read docs of "C:\Users\Aland\OneDrive\Desktop\Projects\esl-chatbot-web\backend\docs\ai-providers" and "C:\Users\Aland\OneDrive\Desktop\Projects\esl-chatbot-web\backend\docs\payment"
+* so ensure our database works for that idea, my frontend complained and said when I register my account by default from subscription status is INACTIVE , and it blocks me of testing the free session, and he's right, as we said by defualt they get FREE tier plan if they have their gmail account linked ether by OTP or Google SignIn, so check the database if that was ok, we have to check the APIs to insure it. ultrathink
+
+## user data profile
+* check the database, more likely focus on (users, learner profile, goals) make sure it supports our project idea clearly, without extra data
+* explain the 3 mention tables with their column, I dont understand all the columns, they look a bit too much, maybe I am wrong and we need them but I just dont understand
+* so explain them to me, and lemme hear your recommend, what is suspection from your side too? so we can update that part, and we will need to prepare API for updating those,
+currently user just simply register, without updating his profile in learner profile, so we would need API for that after coonfirming what we need
+
+## class of tutor and student
+* previously we made the application that allows tutor make classes and students can join, but the core is missing
+* when the class created and student joined, now what? what was the point? I think not much should be there, just the tutors can monitor his/her students
+* and maybe in future we allow tutor to post blogs and student could comment, just like google classRoom.
+* do you have any idea or something cool  and usefull? I think for now we should not waste much time in those, since our project purpose mainly is for the AI chat bot and stuff, agreed or what?
+
+## admin dashboard
+1. admin must see all the users (teacher, student or other admins) or search for them
+2. admin must be able to see all the classes or search for them
+3. they also could see active users and those who has subscription with their limits
+4. they can also give tier for users (we use this method for cash payer, they pay in cash and the admin from his end give him subscption accordng to his tier)
+5. they might be able to deactive users account or remove their subsctption
+* I think its a good way to manage them, what else you think needed or extra?
 
 ## update the docs - AI services related
 * as our last conversation we were planning to choose the perfect API-AI services for our project, we need to pick a TTS, STT, and LLM... but I belive that we did not researched very good, for that step by step we discuss about 
@@ -366,3 +406,15 @@ raw model IDs
 * I think Claude Haiku 4.5 is enough to know about
 
 
+## about the issues 
+1. yes, we could have some admins that are tutor as well so not global, but maybe in the class he doesn't look weirdly as admin role and not everyone can see him as admin, beside yes admin can see the classes and its students even without joining them, is that clear? our database supports that idea?
+2. I think granularity with more accuracy is better, and yeah we need that enum for it.
+3. yeah, Add avgPronunciationScore Float? to SessionEvaluation (nullable — null for text sessions)
+4. actually yes, I think you are right they are redundant. then remove one of them carefully (I think its a recommended way)
+5. yes, for sure we need index, right
+
+## Answers of your 4 questioned
+1. I answered already 
+2. I answered already
+3. remove
+4. yeah

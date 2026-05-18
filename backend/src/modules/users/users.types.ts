@@ -61,6 +61,41 @@ export interface UserDetail extends UserListItem {
   }[];
 }
 
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+
+export interface DashboardData {
+  todayProgress: {
+    sessionsCount: number;
+    studyMinutes: number;
+    messagesCount: number;
+    wordsTyped: number;
+    vocabularyPracticed: number;
+    goalsAdvanced: number;
+  };
+  metrics: {
+    currentStreak: number;
+    longestStreak: number;
+    totalStudyTimeMinutes: number;
+    estimatedLevel: string | null;
+    grammarSkill: number;
+    vocabularySkill: number;
+    fluencySkill: number;
+    speakingSkill: number;
+  };
+  activeGoalsCount: number;
+  vocabDueTodayCount: number;
+  lastSession: {
+    id: string;
+    topic: string | null;
+    endedAt: Date | null;
+    durationSeconds: number | null;
+    evaluation: {
+      avgOverallScore: number;
+      detectedCefrLevel: string;
+    } | null;
+  } | null;
+}
+
 // ─── Self-profile ──────────────────────────────────────────────────────────────
 
 export interface MyProfile {

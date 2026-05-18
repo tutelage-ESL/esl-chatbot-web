@@ -20,11 +20,12 @@ const METRICS_SELECT = {
 } as const;
 
 export async function getMyMetrics(userId: string): Promise<MetricsData> {
-  const metrics = await prisma.userMetrics.findUnique({
+  const metrics = await prisma.userMetrics.upsert({
     where: { userId },
+    create: { userId },
+    update: {},
     select: METRICS_SELECT,
   });
-  if (!metrics) throw new AppError("Metrics not found", 404);
   return metrics;
 }
 

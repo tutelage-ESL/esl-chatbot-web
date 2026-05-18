@@ -1,5 +1,12 @@
 import { Router } from "express";
-import { listUsers, getUser, getMe, updateMe, updateLearnerProfile } from "./users.controller.ts";
+import {
+  listUsers,
+  getUser,
+  getDashboardHandler,
+  getMe,
+  updateMe,
+  updateLearnerProfile,
+} from "./users.controller.ts";
 import { authenticate } from "../../middlewares/authenticate.ts";
 import { authorize } from "../../middlewares/authorize.ts";
 
@@ -41,6 +48,79 @@ const router = Router();
  *       401:
  *         $ref: '#/components/responses/Unauthorized'
  */
+/**
+ * @swagger
+ * /users/me/dashboard:
+ *   get:
+ *     summary: Get aggregated dashboard data for the authenticated user
+ *     description: |
+ *       Returns all data needed to render the student dashboard in a single request,
+ *       avoiding 5+ separate API calls on page load.
+ *
+ *       Includes:
+ *       - **todayProgress** — today's session count, study minutes, messages, words typed, vocab practiced, goals advanced
+ *       - **metrics** — lifetime skill scores (grammar/vocab/fluency/speaking), current streak, total study time, estimated CEFR level
+ *       - **activeGoalsCount** — number of goals with status ACTIVE
+ *       - **vocabDueTodayCount** — SRS cards due for review today
+ *       - **lastSession** — most recent session with its evaluation summary (null if no sessions yet)
+ *
+ *       This endpoint is safe to call for any role. All values default to zero when no data exists yet.
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Dashboard data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     todayProgress:
+ *                       type: object
+ *                       properties:
+ *                         sessionsCount: { type: integer }
+ *                         studyMinutes: { type: integer }
+ *                         messagesCount: { type: integer }
+ *                         wordsTyped: { type: integer }
+ *                         vocabularyPracticed: { type: integer }
+ *                         goalsAdvanced: { type: integer }
+ *                     metrics:
+ *                       type: object
+ *                       properties:
+ *                         currentStreak: { type: integer }
+ *                         longestStreak: { type: integer }
+ *                         totalStudyTimeMinutes: { type: integer }
+ *                         estimatedLevel: { type: string, nullable: true }
+ *                         grammarSkill: { type: number }
+ *                         vocabularySkill: { type: number }
+ *                         fluencySkill: { type: number }
+ *                         speakingSkill: { type: number }
+ *                     activeGoalsCount: { type: integer }
+ *                     vocabDueTodayCount: { type: integer }
+ *                     lastSession:
+ *                       nullable: true
+ *                       type: object
+ *                       properties:
+ *                         id: { type: string, format: uuid }
+ *                         topic: { type: string, nullable: true }
+ *                         endedAt: { type: string, format: date-time, nullable: true }
+ *                         durationSeconds: { type: integer, nullable: true }
+ *                         evaluation:
+ *                           nullable: true
+ *                           type: object
+ *                           properties:
+ *                             avgOverallScore: { type: number }
+ *                             detectedCefrLevel: { type: string }
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ */
+router.get("/me/dashboard", authenticate, getDashboardHandler);
+
 router.get("/me", authenticate, getMe);
 
 /**
@@ -386,7 +466,7 @@ router.get("/", authenticate, authorize("ADMIN"), listUsers);
  *                           format: uuid
  *                         plan:
  *                           type: string
- *                           enum: [FREE, PREMIUM]
+ *                           enum: [FREE, GOLD, PREMIUM]
  *                         status:
  *                           type: string
  *                           enum: [ACTIVE, INACTIVE, CANCELLED, PAST_DUE]
@@ -409,8 +489,6 @@ router.get("/", authenticate, authorize("ADMIN"), listUsers);
  *                           type: integer
  *                         totalWordsTyped:
  *                           type: integer
- *                         lessonsCompleted:
- *                           type: integer
  *                         currentStreak:
  *                           type: integer
  *                         longestStreak:
@@ -422,6 +500,14 @@ router.get("/", authenticate, authorize("ADMIN"), listUsers);
  *                         estimatedLevel:
  *                           type: string
  *                           nullable: true
+ *                         grammarSkill:
+ *                           type: number
+ *                         vocabularySkill:
+ *                           type: number
+ *                         fluencySkill:
+ *                           type: number
+ *                         speakingSkill:
+ *                           type: number
  *                     classUsers:
  *                       type: array
  *                       items:
