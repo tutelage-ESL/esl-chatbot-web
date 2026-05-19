@@ -4,6 +4,7 @@ import {
   listSessionsHandler,
   getSessionHandler,
   endSessionHandler,
+  getSessionStatsHandler,
 } from "./sessions.controller.ts";
 import { authenticate } from "../../middlewares/authenticate.ts";
 
@@ -131,6 +132,61 @@ const router = Router();
  *                     totalPages: { type: integer }
  *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  */
+// ─────────────────────────────────────────────────────────
+// SESSION STATS
+// ─────────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /sessions/stats:
+ *   get:
+ *     summary: Session history stats for charts
+ *     description: |
+ *       Returns per-day session counts and duration totals for the last N days
+ *       (default 30, max 90), plus overall totals.
+ *
+ *       Students see their own stats. Tutors and admins can pass `?userId=` to
+ *       view a specific user's stats.
+ *     tags: [Sessions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: days
+ *         schema: { type: integer, minimum: 1, maximum: 90, default: 30 }
+ *         description: Number of calendar days to look back (including today)
+ *       - in: query
+ *         name: userId
+ *         schema: { type: string, format: uuid }
+ *         description: Target user — tutor/admin only; defaults to own ID
+ *     responses:
+ *       200:
+ *         description: Session stats
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     days: { type: integer }
+ *                     totalSessions: { type: integer }
+ *                     averageDurationSeconds: { type: integer }
+ *                     dailyStats:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           date: { type: string, format: date, example: "2026-05-01" }
+ *                           sessionCount: { type: integer }
+ *                           totalDurationSeconds: { type: integer }
+ *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       403: { description: Caller lacks permission to view target user's stats, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       422: { description: Invalid query params, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ */
+router.get("/stats", authenticate, getSessionStatsHandler);
+
 router.get("/", authenticate, listSessionsHandler);
 
 // ─────────────────────────────────────────────────────────

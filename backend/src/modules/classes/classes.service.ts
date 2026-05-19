@@ -14,6 +14,7 @@ import type {
   JoinClassResult,
   ClassStudentSummary,
   ClassStudentDetail,
+  ClassAnalytics,
 } from "./classes.types.ts";
 
 // ── Shared refresh helper ─────────────────────────────────
@@ -781,6 +782,99 @@ export async function removeMember(
       where: { classId_userId: { classId, userId: targetUserId } },
     });
   });
+}
+
+// ── Class analytics (tutor / admin) ───────────────────────
+
+export async function getClassAnalytics(
+  classId: string,
+  actorUserId: string,
+  actorRole: string,
+): Promise<ClassAnalytics> {
+  await assertTutorOfClass(classId, actorUserId, actorRole);
+
+  const cls = await prisma.class.findUnique({
+    where: { id: classId },
+    select: { id: true, className: true },
+  });
+  if (!cls) throw new AppError("Class not found", 404);
+
+  const studentMembers = await prisma.classUser.findMany({
+    where: { classId, role: "STUDENT" },
+    select: { userId: true },
+  });
+
+  if (studentMembers.length === 0) {
+    return {
+      classId,
+      className: cls.className,
+      studentCount: 0,
+      averageSkills: { grammar: 0, vocabulary: 0, fluency: 0 },
+      mostCommonGrammarErrors: [],
+      vocabularyCoverage: 0,
+    };
+  }
+
+  const studentIds = studentMembers.map((m) => m.userId);
+
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const [metricsAgg, recentEvaluations, vocabGroups] = await Promise.all([
+    prisma.userMetrics.aggregate({
+      where: { userId: { in: studentIds } },
+      _avg: { grammarSkill: true, vocabularySkill: true, fluencySkill: true },
+    }),
+    prisma.messageEvaluation.findMany({
+      where: {
+        message: {
+          session: { userId: { in: studentIds }, startedAt: { gte: thirtyDaysAgo } },
+        },
+      },
+      select: { grammarErrors: true },
+      take: 500,
+    }),
+    prisma.vocabulary.groupBy({
+      by: ["userId"],
+      where: { userId: { in: studentIds } },
+      _count: { _all: true },
+    }),
+  ]);
+
+  // Tally grammar error rules/descriptions across all evaluations
+  const errorCounts = new Map<string, number>();
+  for (const ev of recentEvaluations) {
+    const errors = ev.grammarErrors as Array<{ error?: string; rule?: string }>;
+    if (Array.isArray(errors)) {
+      for (const e of errors) {
+        const key = e.rule ?? e.error ?? "Unknown";
+        errorCounts.set(key, (errorCounts.get(key) ?? 0) + 1);
+      }
+    }
+  }
+  const topErrors = Array.from(errorCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([error, count]) => ({ error, count }));
+
+  const totalVocab = vocabGroups.reduce(
+    (sum, v) => sum + (v._count as { _all: number })._all,
+    0,
+  );
+  const avgVocabCoverage = Math.round(totalVocab / studentMembers.length);
+
+  return {
+    classId,
+    className: cls.className,
+    studentCount: studentMembers.length,
+    averageSkills: {
+      grammar: Math.round((metricsAgg._avg.grammarSkill ?? 0) * 10) / 10,
+      vocabulary: Math.round((metricsAgg._avg.vocabularySkill ?? 0) * 10) / 10,
+      fluency: Math.round((metricsAgg._avg.fluencySkill ?? 0) * 10) / 10,
+    },
+    mostCommonGrammarErrors: topErrors,
+    vocabularyCoverage: avgVocabCoverage,
+  };
 }
 
 // ── List classes the current user belongs to ──────────────

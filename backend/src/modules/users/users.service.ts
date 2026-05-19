@@ -270,6 +270,23 @@ export async function getDashboard(userId: string): Promise<DashboardData> {
   };
 }
 
+export async function getMySubscription(userId: string) {
+  const sub = await prisma.subscription.findUnique({
+    where: { userId },
+    select: {
+      id: true,
+      plan: true,
+      status: true,
+      currentPeriodStart: true,
+      currentPeriodEnd: true,
+      paymentProvider: true,
+      updatedAt: true,
+    },
+  });
+  if (!sub) throw new AppError("Subscription not found", 404);
+  return sub;
+}
+
 export async function updateMyLearnerProfile(
   userId: string,
   input: UpdateLearnerProfileInput,

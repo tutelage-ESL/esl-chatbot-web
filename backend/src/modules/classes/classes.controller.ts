@@ -26,6 +26,7 @@ import {
   getClassStudents,
   getClassStudentDetail,
   removeMember,
+  getClassAnalytics,
 } from "./classes.service.ts";
 
 // ── Read (admin) ───────────────────────────────────────────
@@ -124,6 +125,15 @@ export const getClassStudentHandler = asyncHandler(async (req: Request, res: Res
   const { id, userId } = classMemberParamSchema.parse(req.params);
   const student = await getClassStudentDetail(id, userId, req.user.id, req.user.role);
   sendSuccess(res, student, "Student detail retrieved successfully");
+});
+
+// ── Class analytics (tutor / admin) ──────────────────────
+
+export const getClassAnalyticsHandler = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.user) throw new AppError("Authentication required", 401);
+  const { id } = getClassParamSchema.parse(req.params);
+  const analytics = await getClassAnalytics(id, req.user.id, req.user.role);
+  sendSuccess(res, analytics, "Class analytics retrieved");
 });
 
 // ── Remove member (self-leave / tutor / admin) ────────────

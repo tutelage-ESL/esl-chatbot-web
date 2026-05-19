@@ -1,6 +1,7 @@
 import type { Prisma, GoalStatus, GoalType, Role } from "@prisma/client";
 import { prisma } from "../../config/database.ts";
 import { AppError } from "../../utils/AppError.ts";
+import { createNotification } from "../notifications/notifications.service.ts";
 import type { GoalItem } from "./goals.types.ts";
 import type { CreateGoalInput, UpdateGoalInput, ListGoalsQuery } from "./goals.schema.ts";
 
@@ -114,6 +115,15 @@ export async function createGoal(
     select: GOAL_SELECT,
   });
 
+  // Notify student when a tutor assigns them a goal
+  if (assignedByTutorId) {
+    await createNotification(
+      userId,
+      "GOAL_ASSIGNED",
+      `Your tutor assigned you a new goal: ${input.description.slice(0, 80)}`,
+    ).catch(() => {});
+  }
+
   return goal as GoalItem;
 }
 
@@ -171,6 +181,15 @@ export async function updateGoal(
     data,
     select: GOAL_SELECT,
   });
+
+  // Notify user when their goal is completed
+  if (input.status === "COMPLETED" && goal.status !== "COMPLETED") {
+    await createNotification(
+      goal.userId,
+      "GOAL_COMPLETED",
+      `You completed a goal: ${goal.description.slice(0, 80)}`,
+    ).catch(() => {});
+  }
 
   return updated as GoalItem;
 }

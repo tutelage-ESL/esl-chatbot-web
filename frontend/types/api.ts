@@ -114,6 +114,96 @@ export interface paths {
         };
         trace?: never;
     };
+    "/admin/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Platform-wide admin dashboard stats — Admin only
+         * @description Returns a single aggregated snapshot of platform health:
+         *     - Total users by role (STUDENT/TUTOR/ADMIN)
+         *     - Active subscriptions by plan (FREE/GOLD/PREMIUM)
+         *     - Daily active users (had a session today) and weekly active users (last 7 days)
+         *     - Total sessions started today
+         *     - Active paid subscriptions grouped by payment provider (CASH/FIB/STRIPE)
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Dashboard stats */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: {
+                                users?: {
+                                    total?: number;
+                                    byRole?: {
+                                        STUDENT?: number;
+                                        TUTOR?: number;
+                                        ADMIN?: number;
+                                    };
+                                };
+                                subscriptions?: {
+                                    FREE?: number;
+                                    GOLD?: number;
+                                    PREMIUM?: number;
+                                };
+                                activeUsers?: {
+                                    /** @description Users with a session today */
+                                    daily?: number;
+                                    /** @description Users with a session in the last 7 days */
+                                    weekly?: number;
+                                };
+                                totalSessionsToday?: number;
+                                /** @description Count of active paid subscriptions per payment provider */
+                                revenueByProvider?: {
+                                    [key: string]: number;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not an admin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/users/{id}/subscription": {
         parameters: {
             query?: never;
@@ -293,6 +383,184 @@ export interface paths {
                 };
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/classes/{id}/announcements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List announcements for a class
+         * @description Returns announcements for the class, newest first. Any class member
+         *     (tutor or student) can read announcements. Admins can read any class.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    /** @description Class ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Paginated list of announcements */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: {
+                                /** Format: uuid */
+                                id?: string;
+                                /** Format: uuid */
+                                classId?: string;
+                                /** Format: uuid */
+                                authorId?: string;
+                                content?: string;
+                                /** Format: date-time */
+                                createdAt?: string;
+                                author?: {
+                                    /** Format: uuid */
+                                    id?: string;
+                                    displayName?: string;
+                                    avatarUrl?: string | null;
+                                };
+                            }[];
+                            meta?: {
+                                page?: number;
+                                limit?: number;
+                                total?: number;
+                                totalPages?: number;
+                            };
+                        };
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Class not found or caller not a member */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Post an announcement to a class (Tutor in class or Admin)
+         * @description Creates a new announcement visible to all class members.
+         *     Also creates a `CLASS_ANNOUNCEMENT` notification for every
+         *     student in the class.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Class ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        content: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Announcement created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: {
+                                /** Format: uuid */
+                                id?: string;
+                                /** Format: uuid */
+                                classId?: string;
+                                /** Format: uuid */
+                                authorId?: string;
+                                content?: string;
+                                /** Format: date-time */
+                                createdAt?: string;
+                                author?: {
+                                    /** Format: uuid */
+                                    id?: string;
+                                    displayName?: string;
+                                    avatarUrl?: string | null;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Caller is a student (not tutor or admin) */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Class not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1932,6 +2200,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/classes/{id}/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Aggregated analytics for a class (Tutor in class or Admin)
+         * @description Returns class-wide aggregated analytics:
+         *     - Average grammar/vocabulary/fluency skill scores across all students
+         *     - Most common grammar error types from the last 30 days of message evaluations (top 5)
+         *     - Average vocabulary coverage (average word count per student)
+         *
+         *     Only tutors of the class and admins can call this endpoint.
+         *     Returns zero values if the class has no student members yet.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Class analytics */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: {
+                                /** Format: uuid */
+                                classId?: string;
+                                className?: string;
+                                studentCount?: number;
+                                averageSkills?: {
+                                    /** @description 0–100 */
+                                    grammar?: number;
+                                    /** @description 0–100 */
+                                    vocabulary?: number;
+                                    /** @description 0–100 */
+                                    fluency?: number;
+                                };
+                                mostCommonGrammarErrors?: {
+                                    error?: string;
+                                    count?: number;
+                                }[];
+                                /** @description Average number of vocabulary words per student */
+                                vocabularyCoverage?: number;
+                            };
+                        };
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Caller is a student (not tutor or admin) */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Class not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/classes/{id}/students/{userId}": {
         parameters: {
             query?: never;
@@ -2627,6 +2991,133 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/users/me/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List own notifications (newest first)
+         * @description Returns the authenticated user's notification feed, paginated and
+         *     sorted newest-first. Filter by `?read=false` to show only unread.
+         *
+         *     Notification types:
+         *     - `STREAK_MILESTONE` — reached a 7-day or 30-day streak
+         *     - `GOAL_COMPLETED` — a goal was marked completed
+         *     - `GOAL_ASSIGNED` — a tutor assigned you a new goal
+         *     - `CLASS_ANNOUNCEMENT` — new announcement in one of your classes
+         */
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                    limit?: number;
+                    /** @description Filter by read status. Omit to return all. */
+                    read?: "true" | "false";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Paginated notification feed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: {
+                                /** Format: uuid */
+                                id?: string;
+                                /** @enum {string} */
+                                type?: "STREAK_MILESTONE" | "GOAL_COMPLETED" | "GOAL_ASSIGNED" | "CLASS_ANNOUNCEMENT";
+                                message?: string;
+                                read?: boolean;
+                                /** Format: date-time */
+                                createdAt?: string;
+                            }[];
+                            meta?: {
+                                page?: number;
+                                limit?: number;
+                                total?: number;
+                                totalPages?: number;
+                            };
+                        };
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/me/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Mark all unread notifications as read */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description All notifications marked as read */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            /** @example null */
+                            data?: unknown;
+                        };
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/progress": {
         parameters: {
             query?: never;
@@ -2894,6 +3385,97 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sessions/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Session history stats for charts
+         * @description Returns per-day session counts and duration totals for the last N days
+         *     (default 30, max 90), plus overall totals.
+         *
+         *     Students see their own stats. Tutors and admins can pass `?userId=` to
+         *     view a specific user's stats.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Number of calendar days to look back (including today) */
+                    days?: number;
+                    /** @description Target user — tutor/admin only; defaults to own ID */
+                    userId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Session stats */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: {
+                                days?: number;
+                                totalSessions?: number;
+                                averageDurationSeconds?: number;
+                                dailyStats?: {
+                                    /**
+                                     * Format: date
+                                     * @example 2026-05-01
+                                     */
+                                    date?: string;
+                                    sessionCount?: number;
+                                    totalDurationSeconds?: number;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Caller lacks permission to view target user's stats */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Invalid query params */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3208,6 +3790,83 @@ export interface paths {
                     };
                 };
                 401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/me/subscription": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get own subscription details
+         * @description Returns the full subscription record for the authenticated user:
+         *     plan, status, period dates, and payment provider.
+         *     Returns 404 if the user somehow has no subscription row.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Subscription details */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: {
+                                /** Format: uuid */
+                                id?: string;
+                                /** @enum {string} */
+                                plan?: "FREE" | "GOLD" | "PREMIUM";
+                                /** @enum {string} */
+                                status?: "ACTIVE" | "INACTIVE" | "CANCELLED" | "PAST_DUE";
+                                /** Format: date-time */
+                                currentPeriodStart?: string | null;
+                                /** Format: date-time */
+                                currentPeriodEnd?: string | null;
+                                /** @enum {string|null} */
+                                paymentProvider?: "CASH" | "FIB" | "STRIPE" | null;
+                                /** Format: date-time */
+                                updatedAt?: string;
+                            };
+                        };
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description No subscription found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
             };
         };
         put?: never;

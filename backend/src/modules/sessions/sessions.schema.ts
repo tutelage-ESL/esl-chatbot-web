@@ -27,5 +27,15 @@ export const listSessionsQuerySchema = z.object({
     .transform((val) => (val === "true" ? true : val === "false" ? false : undefined)),
 });
 
+export const sessionStatsQuerySchema = z.object({
+  days: z
+    .string()
+    .optional()
+    .transform((val) => (val ? parseInt(val, 10) : 30))
+    .pipe(z.number().int().min(1).max(90)),
+  userId: z.string().uuid("Invalid user ID").optional(),
+});
+
 export type CreateSessionBody = z.infer<typeof createSessionSchema>;
 export type ListSessionsQuery = z.infer<typeof listSessionsQuerySchema>;
+export type SessionStatsQuery = z.infer<typeof sessionStatsQuerySchema>;

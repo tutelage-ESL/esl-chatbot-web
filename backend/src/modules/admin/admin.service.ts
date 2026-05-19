@@ -1,7 +1,7 @@
 import { prisma } from "../../config/database.ts";
 import { AppError } from "../../utils/AppError.ts";
 import type { PaymentProvider } from "@prisma/client";
-import type { SubscriptionResult } from "./admin.types.ts";
+import type { SubscriptionResult, AdminDashboardData } from "./admin.types.ts";
 import type { UpdateUserBody, AssignSubscriptionBody } from "./admin.schema.ts";
 
 function computeEndDate(durationMonths: number): Date {
@@ -95,6 +95,67 @@ export async function assignSubscription(
       updatedAt: true,
     },
   });
+}
+
+export async function getAdminDashboardStats(): Promise<AdminDashboardData> {
+  const now = new Date();
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+  const weekAgo = new Date(now);
+  weekAgo.setDate(weekAgo.getDate() - 7);
+
+  const [usersByRole, subsByPlan, dailyUsers, weeklyUsers, totalSessionsToday, paymentByProvider] =
+    await Promise.all([
+      prisma.user.groupBy({ by: ["role"], _count: { _all: true } }),
+      prisma.subscription.groupBy({
+        by: ["plan"],
+        where: { status: "ACTIVE" },
+        _count: { _all: true },
+      }),
+      prisma.conversationSession.findMany({
+        where: { startedAt: { gte: todayStart } },
+        distinct: ["userId"],
+        select: { userId: true },
+      }),
+      prisma.conversationSession.findMany({
+        where: { startedAt: { gte: weekAgo } },
+        distinct: ["userId"],
+        select: { userId: true },
+      }),
+      prisma.conversationSession.count({ where: { startedAt: { gte: todayStart } } }),
+      prisma.subscription.groupBy({
+        by: ["paymentProvider"],
+        where: { status: "ACTIVE", plan: { not: "FREE" }, paymentProvider: { not: null } },
+        _count: { _all: true },
+      }),
+    ]);
+
+  const roleMap = new Map(usersByRole.map((r) => [r.role, (r._count as { _all: number })._all]));
+  const planMap = new Map(subsByPlan.map((s) => [s.plan, (s._count as { _all: number })._all]));
+  const providerMap = Object.fromEntries(
+    paymentByProvider
+      .filter((p) => p.paymentProvider != null)
+      .map((p) => [p.paymentProvider!, (p._count as { _all: number })._all]),
+  );
+
+  return {
+    users: {
+      total: Array.from(roleMap.values()).reduce((a, b) => a + b, 0),
+      byRole: {
+        STUDENT: roleMap.get("STUDENT") ?? 0,
+        TUTOR: roleMap.get("TUTOR") ?? 0,
+        ADMIN: roleMap.get("ADMIN") ?? 0,
+      },
+    },
+    subscriptions: {
+      FREE: planMap.get("FREE") ?? 0,
+      GOLD: planMap.get("GOLD") ?? 0,
+      PREMIUM: planMap.get("PREMIUM") ?? 0,
+    },
+    activeUsers: { daily: dailyUsers.length, weekly: weeklyUsers.length },
+    totalSessionsToday,
+    revenueByProvider: providerMap,
+  };
 }
 
 export async function cancelSubscription(userId: string): Promise<void> {

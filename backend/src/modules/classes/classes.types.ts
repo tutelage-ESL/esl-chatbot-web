@@ -107,3 +107,17 @@ export interface JoinClassResult {
   role: "STUDENT" | "TUTOR";
   joinedAt: Date;
 }
+
+export interface GrammarErrorEntry {
+  error: string;
+  count: number;
+}
+
+export interface ClassAnalytics {
+  classId: string;
+  className: string;
+  studentCount: number;
+  averageSkills: { grammar: number; vocabulary: number; fluency: number };
+  mostCommonGrammarErrors: GrammarErrorEntry[];
+  vocabularyCoverage: number;
+}

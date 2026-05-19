@@ -12,6 +12,7 @@ import {
   getUsers,
   getUserById,
   getMyProfile,
+  getMySubscription,
   updateMyProfile,
   updateMyLearnerProfile,
   getDashboard,
@@ -48,6 +49,11 @@ export const getDashboardHandler = asyncHandler(async (req: Request, res: Respon
 export const getMe = asyncHandler(async (req: Request, res: Response) => {
   const profile = await getMyProfile(req.user!.id);
   sendSuccess(res, profile, "Profile retrieved successfully");
+});
+
+export const getMySubscriptionHandler = asyncHandler(async (req: Request, res: Response) => {
+  const sub = await getMySubscription(req.user!.id);
+  sendSuccess(res, sub, "Subscription retrieved successfully");
 });
 
 export const updateMe = asyncHandler(async (req: Request, res: Response) => {

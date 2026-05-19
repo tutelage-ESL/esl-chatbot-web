@@ -4,6 +4,7 @@ import {
   getUser,
   getDashboardHandler,
   getMe,
+  getMySubscriptionHandler,
   updateMe,
   updateLearnerProfile,
 } from "./users.controller.ts";
@@ -120,6 +121,42 @@ const router = Router();
  *         $ref: '#/components/responses/Unauthorized'
  */
 router.get("/me/dashboard", authenticate, getDashboardHandler);
+
+/**
+ * @swagger
+ * /users/me/subscription:
+ *   get:
+ *     summary: Get own subscription details
+ *     description: |
+ *       Returns the full subscription record for the authenticated user:
+ *       plan, status, period dates, and payment provider.
+ *       Returns 404 if the user somehow has no subscription row.
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Subscription details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: string, format: uuid }
+ *                     plan: { type: string, enum: [FREE, GOLD, PREMIUM] }
+ *                     status: { type: string, enum: [ACTIVE, INACTIVE, CANCELLED, PAST_DUE] }
+ *                     currentPeriodStart: { type: string, format: date-time, nullable: true }
+ *                     currentPeriodEnd: { type: string, format: date-time, nullable: true }
+ *                     paymentProvider: { type: string, enum: [CASH, FIB, STRIPE], nullable: true }
+ *                     updatedAt: { type: string, format: date-time }
+ *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       404: { description: No subscription found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ */
+router.get("/me/subscription", authenticate, getMySubscriptionHandler);
 
 router.get("/me", authenticate, getMe);
 

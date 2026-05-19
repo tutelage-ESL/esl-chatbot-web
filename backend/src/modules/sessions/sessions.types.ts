@@ -60,3 +60,16 @@ export interface SessionEvaluationData {
   totalUserMessages: number;
   totalUserWords: number;
 }
+
+export interface SessionDayStat {
+  date: string;
+  sessionCount: number;
+  totalDurationSeconds: number;
+}
+
+export interface SessionStatsData {
+  days: number;
+  totalSessions: number;
+  averageDurationSeconds: number;
+  dailyStats: SessionDayStat[];
+}

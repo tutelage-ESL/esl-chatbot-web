@@ -100,6 +100,13 @@ enum VocabSource {
   SESSION
 }
 
+enum NotificationType {
+  STREAK_MILESTONE
+  GOAL_COMPLETED
+  GOAL_ASSIGNED
+  CLASS_ANNOUNCEMENT
+}
+
 // ─── Users ───────────────────────────────────────────────
 
 model User {
@@ -131,6 +138,8 @@ model User {
   progress       Progress[]
   refreshTokens       RefreshToken[]
   passwordResetTokens PasswordResetToken[]
+  notifications  Notification[]
+  announcements  Announcement[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -156,7 +165,8 @@ model Class {
   classCodeBlocked                Boolean   @default(false)
   classCodeRefreshedAt            DateTime  @default(now())
 
-  users     ClassUser[]
+  users         ClassUser[]
+  announcements Announcement[]
   createdBy User?       @relation("ClassCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
@@ -465,4 +475,37 @@ model RefreshToken {
 
   @@index([userId])
   @@map("refresh_tokens")
+}
+
+// ─── Announcements ───────────────────────────────────────
+
+model Announcement {
+  id       String @id @default(uuid())
+  classId  String
+  authorId String
+  content  String
+
+  class  Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+  author User  @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@map("announcements")
+}
+
+// ─── Notifications ───────────────────────────────────────
+
+model Notification {
+  id      String           @id @default(uuid())
+  userId  String
+  type    NotificationType
+  message String
+  read    Boolean          @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("notifications")
 }

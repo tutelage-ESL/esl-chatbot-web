@@ -1,10 +1,12 @@
 import type { Prisma, SessionMode } from "@prisma/client";
 import { prisma } from "../../config/database.ts";
 import { AppError } from "../../utils/AppError.ts";
+import { createNotification } from "../notifications/notifications.service.ts";
 import type {
   SessionListItem,
   SessionDetail,
   SessionEvaluationData,
+  SessionStatsData,
 } from "./sessions.types.ts";
 
 // ── Constants ─────────────────────────────────────────────
@@ -450,6 +452,88 @@ async function updateProgressAndMetrics(
       ...(avgFluency > 0 && { fluencySkill: ema(existingMetrics.fluencySkill, avgFluency) }),
     },
   });
+
+  // Fire streak milestone notifications (7-day and 30-day)
+  const prevStreak = existingMetrics.currentStreak;
+  for (const milestone of [7, 30]) {
+    if (prevStreak < milestone && newStreak >= milestone) {
+      await createNotification(
+        userId,
+        "STREAK_MILESTONE",
+        `Amazing! You've reached a ${milestone}-day study streak!`,
+      ).catch(() => {});
+    }
+  }
+}
+
+// ── Session stats ─────────────────────────────────────────
+
+export async function getSessionStats(
+  targetUserId: string,
+  days: number,
+  actorUserId: string,
+  actorRole: string,
+): Promise<SessionStatsData> {
+  // When viewing another user's stats, enforce class-membership (same pattern as metrics)
+  if (targetUserId !== actorUserId) {
+    if (actorRole === "TUTOR") {
+      const sharedClass = await prisma.classUser.findFirst({
+        where: {
+          userId: actorUserId,
+          role: "TUTOR",
+          class: { users: { some: { userId: targetUserId } } },
+        },
+        select: { id: true },
+      });
+      if (!sharedClass) throw new AppError("Student not found or not in your class", 404);
+    } else if (actorRole !== "ADMIN") {
+      throw new AppError("Access denied", 403);
+    }
+  }
+
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days + 1);
+  startDate.setHours(0, 0, 0, 0);
+
+  const sessions = await prisma.conversationSession.findMany({
+    where: { userId: targetUserId, startedAt: { gte: startDate } },
+    select: { startedAt: true, durationSeconds: true, endedAt: true },
+    orderBy: { startedAt: "asc" },
+  });
+
+  // Build a zero-filled map for every day in the range
+  const dayMap = new Map<string, { count: number; totalDuration: number }>();
+  for (let i = 0; i < days; i++) {
+    const d = new Date(startDate);
+    d.setDate(d.getDate() + i);
+    dayMap.set(d.toISOString().split("T")[0]!, { count: 0, totalDuration: 0 });
+  }
+
+  for (const s of sessions) {
+    const key = s.startedAt.toISOString().split("T")[0]!;
+    const entry = dayMap.get(key);
+    if (entry) {
+      entry.count += 1;
+      entry.totalDuration += s.durationSeconds ?? 0;
+    }
+  }
+
+  const dailyStats = Array.from(dayMap.entries()).map(([date, { count, totalDuration }]) => ({
+    date,
+    sessionCount: count,
+    totalDurationSeconds: totalDuration,
+  }));
+
+  const endedSessions = sessions.filter((s) => s.endedAt && s.durationSeconds != null);
+  const averageDurationSeconds =
+    endedSessions.length > 0
+      ? Math.round(
+          endedSessions.reduce((sum, s) => sum + (s.durationSeconds ?? 0), 0) /
+            endedSessions.length,
+        )
+      : 0;
+
+  return { days, totalSessions: sessions.length, averageDurationSeconds, dailyStats };
 }
 
 // ── Helpers ───────────────────────────────────────────────

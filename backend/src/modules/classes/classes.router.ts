@@ -12,6 +12,7 @@ import {
   listClassStudentsHandler,
   getClassStudentHandler,
   removeMemberHandler,
+  getClassAnalyticsHandler,
 } from "./classes.controller.ts";
 import { authenticate } from "../../middlewares/authenticate.ts";
 import { authorize } from "../../middlewares/authorize.ts";
@@ -569,6 +570,67 @@ router.patch("/:id/code/block", authenticate, authorize("TUTOR", "ADMIN"), setBl
  *       403: { description: Caller is a student (not tutor or admin), content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  *       404: { description: Class not found or caller not a member, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  */
+// ─────────────────────────────────────────────────────────
+// CLASS ANALYTICS (tutor in class / admin)
+// ─────────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /classes/{id}/analytics:
+ *   get:
+ *     summary: Aggregated analytics for a class (Tutor in class or Admin)
+ *     description: |
+ *       Returns class-wide aggregated analytics:
+ *       - Average grammar/vocabulary/fluency skill scores across all students
+ *       - Most common grammar error types from the last 30 days of message evaluations (top 5)
+ *       - Average vocabulary coverage (average word count per student)
+ *
+ *       Only tutors of the class and admins can call this endpoint.
+ *       Returns zero values if the class has no student members yet.
+ *     tags: [Classes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Class analytics
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     classId: { type: string, format: uuid }
+ *                     className: { type: string }
+ *                     studentCount: { type: integer }
+ *                     averageSkills:
+ *                       type: object
+ *                       properties:
+ *                         grammar: { type: number, description: 0–100 }
+ *                         vocabulary: { type: number, description: 0–100 }
+ *                         fluency: { type: number, description: 0–100 }
+ *                     mostCommonGrammarErrors:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           error: { type: string }
+ *                           count: { type: integer }
+ *                     vocabularyCoverage:
+ *                       type: integer
+ *                       description: Average number of vocabulary words per student
+ *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       403: { description: Caller is a student (not tutor or admin), content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       404: { description: Class not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ */
+router.get("/:id/analytics", authenticate, getClassAnalyticsHandler);
+
 router.get("/:id/students", authenticate, listClassStudentsHandler);
 
 // ─────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { authenticate } from "../../middlewares/authenticate.ts";
 import { authorize } from "../../middlewares/authorize.ts";
-import { patchUser, putSubscription, deleteSubscription } from "./admin.controller.ts";
+import { patchUser, putSubscription, deleteSubscription, getDashboardHandler } from "./admin.controller.ts";
 
 const router = Router();
 
@@ -115,6 +115,64 @@ router.use(authenticate, authorize("ADMIN"));
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
+/**
+ * @swagger
+ * /admin/dashboard:
+ *   get:
+ *     summary: Platform-wide admin dashboard stats — Admin only
+ *     description: |
+ *       Returns a single aggregated snapshot of platform health:
+ *       - Total users by role (STUDENT/TUTOR/ADMIN)
+ *       - Active subscriptions by plan (FREE/GOLD/PREMIUM)
+ *       - Daily active users (had a session today) and weekly active users (last 7 days)
+ *       - Total sessions started today
+ *       - Active paid subscriptions grouped by payment provider (CASH/FIB/STRIPE)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Dashboard stats
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     users:
+ *                       type: object
+ *                       properties:
+ *                         total: { type: integer }
+ *                         byRole:
+ *                           type: object
+ *                           properties:
+ *                             STUDENT: { type: integer }
+ *                             TUTOR: { type: integer }
+ *                             ADMIN: { type: integer }
+ *                     subscriptions:
+ *                       type: object
+ *                       properties:
+ *                         FREE: { type: integer }
+ *                         GOLD: { type: integer }
+ *                         PREMIUM: { type: integer }
+ *                     activeUsers:
+ *                       type: object
+ *                       properties:
+ *                         daily: { type: integer, description: Users with a session today }
+ *                         weekly: { type: integer, description: Users with a session in the last 7 days }
+ *                     totalSessionsToday: { type: integer }
+ *                     revenueByProvider:
+ *                       type: object
+ *                       description: Count of active paid subscriptions per payment provider
+ *                       additionalProperties: { type: integer }
+ *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       403: { description: Not an admin, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ */
+router.get("/dashboard", getDashboardHandler);
+
 router.patch("/users/:id", patchUser);
 
 /**

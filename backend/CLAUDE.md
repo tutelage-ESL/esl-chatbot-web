@@ -415,17 +415,17 @@ These were identified during a full API audit and agreed to implement after the 
 Check them off (✅) as they are built.
 
 ### Classes
-- [ ] `PATCH /classes/:id` — tutor or admin updates class name, category, or status (ACTIVE/INACTIVE). Simple PATCH with all fields optional. Authorization: tutor of the class or admin. Currently there is no way to rename a class or deactivate it after creation.
-- [ ] `GET /classes/:id/analytics` — class-wide aggregated analytics for tutors: average skill scores (grammar/vocab/fluency) across all students, most common grammar weaknesses (from MessageEvaluation.grammarErrors), vocabulary coverage. Tutor + admin only.
-- [ ] `GET /classes/:id/announcements` + `POST /classes/:id/announcements` — tutor broadcasts a text update or homework note to the class. Simple model: `{ classId, authorId, content, createdAt }`. Students see the list on the class page. No replies needed at first.
+- ✅ `PATCH /classes/:id` — tutor or admin updates class name, category, or status (ACTIVE/INACTIVE). Simple PATCH with all fields optional. Authorization: tutor of the class or admin.
+- ✅ `GET /classes/:id/analytics` — class-wide aggregated analytics for tutors: average skill scores (grammar/vocab/fluency) across all students, most common grammar weaknesses (from MessageEvaluation.grammarErrors), vocabulary coverage. Tutor + admin only.
+- ✅ `GET /classes/:id/announcements` + `POST /classes/:id/announcements` — tutor broadcasts a text update or homework note to the class. Simple model: `{ classId, authorId, content, createdAt }`. Students see the list on the class page. No replies needed at first. POST fires `CLASS_ANNOUNCEMENT` notification to all student members.
 
 ### Sessions & Conversation
-- [ ] `GET /sessions/stats` — session history summary for charts: sessions per day over last N days, average session duration, most common topics. Filterable by `?days=30`. Own stats only (students); tutor/admin can add `?userId=`.
+- ✅ `GET /sessions/stats` — session history summary for charts: sessions per day over last N days, average session duration. Filterable by `?days=30` (max 90). Own stats only (students); tutor/admin can add `?userId=`.
 
 ### Subscriptions
-- [ ] `GET /users/me/subscription` — dedicated endpoint returning the authenticated user's full subscription record (plan, status, currentPeriodStart, currentPeriodEnd, paymentProvider). Currently this data is embedded in `GET /users/me` but a dedicated endpoint is cleaner for the subscription management page and avoids re-fetching the full profile.
+- ✅ `GET /users/me/subscription` — dedicated endpoint returning the authenticated user's full subscription record (plan, status, currentPeriodStart, currentPeriodEnd, paymentProvider).
 - [ ] **FIB payment flow** — `POST /subscriptions/initiate-fib` (creates payment intent, returns QR/deep-link) + `POST /subscriptions/webhook/fib` (receives callback, sets plan=GOLD/PREMIUM, status=ACTIVE, externalSubscriptionId=fibPaymentId). See existing Phase 8 notes for context.
 
 ### Admin & Notifications
-- [ ] `GET /admin/dashboard` — platform-wide stats for the admin panel: total users by role, active subscriptions by plan (FREE/GOLD/PREMIUM counts), daily/weekly active users (users with a session in last 1/7 days), total sessions today, revenue by payment method (CASH/FIB/STRIPE). Single aggregated query, no pagination needed.
-- [ ] `GET /users/me/notifications` — in-app notification feed: streak milestones (7-day, 30-day), goal completed, tutor assigned a new goal, class announcement posted. Simple append-only model: `{ id, type, message, read, createdAt }`. Needs a `Notification` model in the schema.
+- ✅ `GET /admin/dashboard` — platform-wide stats for the admin panel: total users by role, active subscriptions by plan (FREE/GOLD/PREMIUM counts), daily/weekly active users (users with a session in last 1/7 days), total sessions today, revenue by payment method (CASH/FIB/STRIPE). Single aggregated query, no pagination needed.
+- ✅ `GET /users/me/notifications` + `PATCH /users/me/notifications/read-all` — in-app notification feed: streak milestones (7-day, 30-day), goal completed, tutor assigned a new goal, class announcement posted. Types: `STREAK_MILESTONE`, `GOAL_COMPLETED`, `GOAL_ASSIGNED`, `CLASS_ANNOUNCEMENT`. Filter by `?read=false`. Notification model added to schema.

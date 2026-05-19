@@ -6,7 +6,12 @@ import {
   assignSubscriptionBodySchema,
   adminUserParamSchema,
 } from "./admin.schema.ts";
-import { updateUser, assignSubscription, cancelSubscription } from "./admin.service.ts";
+import {
+  updateUser,
+  assignSubscription,
+  cancelSubscription,
+  getAdminDashboardStats,
+} from "./admin.service.ts";
 
 export const patchUser = asyncHandler(async (req: Request, res: Response) => {
   const { id } = adminUserParamSchema.parse(req.params);
@@ -26,4 +31,9 @@ export const deleteSubscription = asyncHandler(async (req: Request, res: Respons
   const { id } = adminUserParamSchema.parse(req.params);
   await cancelSubscription(id);
   sendSuccess(res, null, "Subscription cancelled successfully");
+});
+
+export const getDashboardHandler = asyncHandler(async (_req: Request, res: Response) => {
+  const data = await getAdminDashboardStats();
+  sendSuccess(res, data, "Dashboard stats retrieved");
 });
