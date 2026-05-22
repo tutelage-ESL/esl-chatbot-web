@@ -1,8 +1,9 @@
 # STT Provider — Decision & Reference
 
-> Decided: 2026-04-17 (Reconfirmed: 2026-04-17 — no changes after full re-research)  
-> Status: **Confirmed** — Deepgram Nova-3 (Dev + FREE) · Azure Speech (GOLD + PREMIUM)  
+> Decided: 2026-04-17 (Reconfirmed: 2026-04-17 — no changes after full re-research)
+> Status: **Confirmed** — Deepgram Nova-3 (Dev + FREE) · Azure Speech (GOLD + PREMIUM)
 > Implementation: Phase 5+ (not needed for text-only Phase 4)
+> **SDK versions:** `@deepgram/sdk@5.x` · `microsoft-cognitiveservices-speech-sdk@1.50.x`
 
 ---
 
@@ -87,72 +88,124 @@ Both modes: **$0.0167/min** — same price, different `pronunciationAssessmentCo
 
 ---
 
+## Audio Format Support Matrix
+
+| Format | MIME type | Source | Deepgram | Azure SDK v1.50 |
+|--------|-----------|--------|----------|-----------------|
+| WebM/Opus | `audio/webm` | Chrome, Edge, Firefox | ✅ | ✅ (`WEBM_OPUS = 7`) |
+| OGG/Opus | `audio/ogg` | Firefox alt | ✅ | ✅ (`OGG_OPUS = 6`) |
+| MP4/AAC | `audio/mp4` | Safari | ✅ | ❌ No AAC format tag → falls back to Deepgram |
+| MP3 | `audio/mpeg` | Legacy | ✅ | ✅ (`MP3 = 4`) |
+| WAV/PCM | `audio/wav` | Web Audio API | ✅ | ✅ (default PCM) |
+
+> Safari users on GOLD/PREMIUM will not receive pronunciation scores — their MP4 audio routes to Deepgram. To fix this in the future: either re-encode MP4 to OGG on the client side before uploading (using Web Audio API), or upgrade the Azure SDK once it adds an AAC format tag.
+
+---
+
 ## API Setup Guide
 
 ### 1. Deepgram API Key (Dev + FREE tier)
 
-> $200 free credit on account creation. No credit card required to start.
+> $200 free credit on account creation. No credit card required to start. Credit is valid for **1 year** from signup.
 
-**Steps:**
-1. Go to [console.deepgram.com](https://console.deepgram.com)
-2. Click **Sign Up** — email or GitHub
-3. Confirm your email
-4. You are automatically credited **$200** (valid 1 year from signup)
-5. Go to **Settings → API Keys** → **Create a New API Key**
-6. Name it (e.g., `esl-chatbot-dev`) → set permissions to **Member**
-7. Copy the key — shown only once
+**Step-by-step:**
 
-**Add to Infisical:**
+1. Go to **[console.deepgram.com](https://console.deepgram.com)**
+2. Click **Sign Up** — use your email (or GitHub / Google login)
+3. Confirm your email address (check spam if not received)
+4. Once logged in, you will see **"$200 credits"** in the top-right balance — this is automatic, no action needed
+5. In the left sidebar, click **"API Keys"**
+6. Click **"+ Create a New API Key"**
+7. Fill in:
+   - **Comment / Name:** `esl-chatbot-dev`
+   - **Permissions:** `Member` (not Owner — no billing access needed)
+   - **Expiration:** leave blank (never expires unless you revoke it)
+8. Click **"Create Key"**
+9. **Copy the key immediately** — it is shown only once. If you close the dialog without copying, you must delete and recreate.
+
+**Add to Infisical dev environment:**
 ```
 Key name:  DEEPGRAM_API_KEY
-Value:     your-deepgram-api-key
-Env:       dev + prod (FREE tier)
+Value:     your-deepgram-api-key-here
+Env:       dev
 ```
 
-**Models available:**
-- `nova-3` — recommended (best accuracy for accented ESL speech)
-- `nova-2` — older, slightly cheaper, still good
+> For production (FREE tier), add the same key to the `prod` environment in Infisical.
 
-**Monitoring usage:**
-- Dashboard → **Usage** → watch your $200 balance
-- Set a usage alert at $180 so you have time to plan the switch to Groq
+**Monitoring your credit balance:**
+- Dashboard → left sidebar → **"Usage"** → "Balance" tab
+- Set up a usage alert: go to **"Settings"** → **"Alerts"** → alert at $180 (gives ~$20 to plan the Groq switch)
+- Credit expires **1 year from signup date** — calendar it
+
+**Models available:**
+- `nova-3` — recommended (best accuracy for accented ESL speech as of 2026)
+- `nova-2` — older, slightly cheaper, still good; one-line change in `deepgram.stt.ts`
 
 ---
 
 ### 2. Azure Speech Services (GOLD + PREMIUM)
 
-> F0 free tier: 5 audio hours/month shared between STT and Pronunciation Assessment — sufficient for dev testing.
+> F0 free tier: **5 audio hours/month** shared between STT and Pronunciation Assessment — more than enough for dev/testing. Switch to S0 (pay-as-you-go) before going to production.
 
-**Steps:**
-1. Go to [portal.azure.com](https://portal.azure.com) → sign in or create a free account
-2. Click **"+ Create a resource"** → search **"Speech"** → select **Speech** (under Azure AI services)
-3. Click **Create** and fill in:
-   - **Subscription:** your Azure subscription (free account gives $200 credit)
-   - **Resource group:** click **"Create new"** → name it `esl-chatbot-rg`
-   - **Region:** pick the region closest to your users
-     - Middle East users → `UAE North` or `East US`
-     - Europe users → `West Europe` or `North Europe`
-   - **Name:** `esl-chatbot-speech`
-   - **Pricing tier:** `Free F0` for dev, `Standard S0` for production
-4. Click **Review + Create** → **Create** (takes ~1 min)
-5. Once deployed, click **"Go to resource"**
-6. In the left menu: **Keys and Endpoint** → copy **KEY 1** and note the **Location**
+**Step-by-step:**
 
-**Add to Infisical:**
+1. Go to **[portal.azure.com](https://portal.azure.com)**
+   - If you don't have an Azure account: click **"Start for free"** — you get $200 Azure credit valid for 30 days, plus 12 months of free services. No cost to start.
+
+2. Once logged in, click **"+ Create a resource"** in the top-left
+
+3. In the search box, type **"Speech"** → select **"Speech"** (the one under "Azure AI services", published by Microsoft)
+
+4. Click **"Create"**
+
+5. Fill in the form:
+   | Field | What to enter |
+   |-------|--------------|
+   | **Subscription** | Your Azure subscription (free account works) |
+   | **Resource group** | Click "Create new" → name it `esl-chatbot-rg` |
+   | **Region** | See region guide below ↓ |
+   | **Name** | `esl-chatbot-speech` |
+   | **Pricing tier** | `Free F0` (for dev/testing) |
+
+   **Region guide — pick the closest to your users:**
+   | User location | Recommended region | Region slug |
+   |---------------|-------------------|-------------|
+   | Kurdistan / Iraq | UAE North (closest to Middle East) | `uaenorth` |
+   | Europe | West Europe | `westeurope` |
+   | US East | East US | `eastus` |
+   | US West | West US | `westus` |
+
+   > The region slug is the value you'll put in `AZURE_SPEECH_REGION`. Write down the slug exactly — it must match the portal.
+
+6. Click **"Review + Create"** → then **"Create"**
+   - Deployment takes ~60 seconds
+
+7. Click **"Go to resource"** (or find it in "All resources")
+
+8. In the left menu, click **"Keys and Endpoint"**
+   - You will see **KEY 1**, **KEY 2**, and **Location/Region**
+   - Copy **KEY 1** — this is your `AZURE_SPEECH_KEY`
+   - The **Location** (e.g., `UAE North`) — use the slug form (e.g., `uaenorth`) for `AZURE_SPEECH_REGION`
+
+   > **Important:** the region in the portal says "UAE North" but the slug in the code must be `uaenorth` (lowercase, no space). Find the exact slug by clicking on the resource and looking at the JSON view, or check the Azure region documentation.
+
+**Add to Infisical dev environment:**
 ```
 Key name:  AZURE_SPEECH_KEY
-Value:     abc123...your-key
-Env:       dev (F0 free tier), prod (S0 pay-as-you-go)
+Value:     abc123...your-key-1-here
+Env:       dev
 
 Key name:  AZURE_SPEECH_REGION
-Value:     eastus   ← use the exact region slug from the portal (e.g. westeurope, uaenorth)
-Env:       dev + prod
+Value:     uaenorth    ← use the exact region slug (e.g. westeurope, eastus, uaenorth)
+Env:       dev
 ```
 
-**Switching F0 → S0 for production:**
-- You cannot upgrade an existing F0 resource to S0 — create a new resource with S0 tier
-- Delete the F0 resource after creating S0 (Azure charges $0 for unused F0)
-- Update `AZURE_SPEECH_KEY` in Infisical (region stays the same if you pick same region)
+**⚠️ Upgrading F0 → S0 for production:**
+- You **cannot upgrade** an existing F0 resource to S0 — you must create a new resource
+- Steps: repeat the same creation above, but pick **"Standard S0"** for pricing tier
+- Delete the old F0 resource after creating S0 (Azure charges $0 for idle F0 resources, but clean up anyway)
+- Update `AZURE_SPEECH_KEY` in Infisical (same region is fine if you created S0 in the same region)
+- The `AZURE_SPEECH_REGION` value stays the same
 
 ---
 
@@ -160,9 +213,26 @@ Env:       dev + prod
 
 When the $200 Deepgram credit is exhausted or nearing expiry, options in order of preference:
 
-1. **Switch FREE tier to Groq Whisper Turbo** — $0.00067/min (6× cheaper than Deepgram paid), batch only (no streaming). One-line change in code.
+1. **Switch FREE tier to Groq Whisper Turbo** — $0.00067/min (6× cheaper than Deepgram paid), batch only (no streaming). One-line change in `deepgram.stt.ts` (change model, client, and API call).
 2. **Switch FREE tier to OpenAI gpt-4o-mini-transcribe** — $0.003/min, real-time streaming preserved, better accuracy than Whisper. 4× cheaper than Deepgram paid rate, but no free tier. Worth considering if streaming quality matters more than rock-bottom cost.
 3. **Pay Deepgram** — at ~1,000 FREE users × 50 min/month = $215/month. Growth pricing kicks in at $0.0065/min (~$195/month). Viable if the user base justifies it.
 4. **New Deepgram account** — technically possible; use business judgment.
 
-Switching providers is a one-line change in `src/modules/ai/providers/` — no controller or service changes needed.
+Switching providers is a change in `src/modules/ai/providers/` — no controller or service changes needed.
+
+---
+
+## Linux Production Deployment Note
+
+The Azure Speech SDK (`microsoft-cognitiveservices-speech-sdk`) requires **GStreamer** for compressed audio decoding (WebM/Opus, OGG/Opus) on Linux.
+
+Install GStreamer before deploying:
+```bash
+# Ubuntu/Debian
+sudo apt-get install -y libgstreamer1.0-0 gstreamer1.0-plugins-base gstreamer1.0-plugins-good
+
+# Alpine Linux (Docker)
+apk add gstreamer gst-plugins-base gst-plugins-good
+```
+
+**Windows development** (this project): native audio codecs are used — no extra install needed. ✅

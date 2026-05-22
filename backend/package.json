@@ -40,6 +40,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@deepgram/sdk": "^5.3.0",
     "@google/genai": "^1.50.1",
     "@prisma/client": "6",
     "bcryptjs": "^3.0.3",
@@ -49,7 +50,9 @@
     "express-rate-limit": "^8.3.1",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
+    "microsoft-cognitiveservices-speech-sdk": "^1.50.0",
     "morgan": "^1.10.1",
+    "msedge-tts": "^2.0.5",
     "multer": "^2.1.1",
     "openai": "^6.34.0",
     "resend": "^6.12.0",

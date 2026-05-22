@@ -1,7 +1,13 @@
 import { env } from "../../config/env.ts";
+import { AppError } from "../../utils/AppError.ts";
 import { callGeminiLLM } from "./providers/gemini.llm.ts";
 import { callOpenAILLM } from "./providers/openai.llm.ts";
-import type { AIResponse, ConversationMessage, LearnerContext } from "./ai.types.ts";
+import { edgeTTS } from "./providers/edge.tts.ts";
+import { azureTTS } from "./providers/azure.tts.ts";
+import { openaiTTS } from "./providers/openai.tts.ts";
+import { deepgramSTT } from "./providers/deepgram.stt.ts";
+import { azureSTT } from "./providers/azure.stt.ts";
+import type { AIResponse, ConversationMessage, LearnerContext, STTResult } from "./ai.types.ts";
 import type { Plan } from "@prisma/client";
 
 const isDev = env.NODE_ENV === "development";
@@ -104,5 +110,70 @@ export async function generateAIResponse(
   }
 
   return heuristicResponse(userMessage);
+}
+
+// TTS routing:
+//   Development       → Edge TTS (msedge-tts npm, no key, dev-only)
+//   FREE + GOLD prod  → Azure Neural TTS (AZURE_SPEECH_KEY, same key as STT)
+//   PREMIUM prod      → OpenAI TTS-1-HD (OPENAI_API_KEY, same key as LLM); fallback to Azure
+//   No TTS key        → returns empty Buffer (voice message still works, just no playback audio)
+export async function generateTTS(text: string, plan: Plan): Promise<Buffer> {
+  if (isDev) {
+    try {
+      return await edgeTTS(text);
+    } catch (err) {
+      // Edge TTS is dev-only and can fail (unofficial endpoint) — non-fatal in dev
+      console.warn("[TTS] Edge TTS failed in dev, returning empty buffer:", err instanceof Error ? err.message : err);
+      return Buffer.alloc(0);
+    }
+  }
+
+  if (plan === "PREMIUM" && env.OPENAI_API_KEY) {
+    try {
+      return await openaiTTS(text);
+    } catch (err) {
+      console.error("[TTS] OpenAI failed, falling back to Azure:", err instanceof Error ? err.message : err);
+      if (env.AZURE_SPEECH_KEY) return azureTTS(text);
+      throw err;
+    }
+  }
+
+  if (env.AZURE_SPEECH_KEY) return azureTTS(text);
+
+  // No TTS provider configured — voice message still processes (STT + LLM), just no AI audio
+  return Buffer.alloc(0);
+}
+
+// STT routing:
+//   Development       → Deepgram Nova-3 (DEEPGRAM_API_KEY, $200 free credit)
+//   FREE prod         → Deepgram Nova-3
+//   GOLD prod         → Azure Speech + Pronunciation (basic: accuracy/fluency/completeness)
+//   PREMIUM prod      → Azure Speech + Pronunciation (full: + prosody score)
+//   audio/mp4 (Safari)→ falls back to Deepgram regardless of plan (Azure SDK lacks AAC support)
+//   No STT key        → throws 503 (voice messages require STT)
+export async function transcribeAudio(
+  audioBuffer: Buffer,
+  mimeType: string,
+  plan: Plan,
+): Promise<STTResult> {
+  const baseMime = (mimeType.split(";")[0] ?? mimeType).trim();
+  const mp4 = baseMime === "audio/mp4"; // Safari — Azure SDK v1.50 has no AAC format tag
+
+  // GOLD + PREMIUM → Azure with pronunciation (unless MP4, which Azure can't decode)
+  if (!isDev && (plan === "GOLD" || plan === "PREMIUM") && env.AZURE_SPEECH_KEY && !mp4) {
+    return azureSTT(audioBuffer, mimeType, plan as "GOLD" | "PREMIUM");
+  }
+
+  // Dev + FREE (+ GOLD/PREMIUM MP4 fallback) → Deepgram
+  if (env.DEEPGRAM_API_KEY) {
+    return deepgramSTT(audioBuffer, mimeType);
+  }
+
+  // Last resort: Azure even for Dev/FREE if Deepgram not set
+  if (env.AZURE_SPEECH_KEY && !mp4) {
+    return azureSTT(audioBuffer, mimeType, "GOLD");
+  }
+
+  throw new AppError("Speech-to-text service not configured. Add DEEPGRAM_API_KEY to Infisical.", 503);
 }
  

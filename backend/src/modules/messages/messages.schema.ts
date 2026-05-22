@@ -22,5 +22,15 @@ export const listMessagesQuerySchema = z.object({
     .pipe(z.number().int().min(1).max(100)),
 });
 
+// Optional fields from multipart form body for voice messages
+export const voiceMessageSchema = z.object({
+  audioDurationSec: z
+    .string()
+    .optional()
+    .transform((v) => (v !== undefined ? parseFloat(v) : undefined))
+    .pipe(z.number().min(0).max(600).optional()),
+});
+
 export type SendMessageBody = z.infer<typeof sendMessageSchema>;
 export type ListMessagesQuery = z.infer<typeof listMessagesQuerySchema>;
+export type VoiceMessageBody = z.infer<typeof voiceMessageSchema>;

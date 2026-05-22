@@ -39,3 +39,32 @@ export interface LearnerContext {
   learningPurpose: string | null;
   aiPersonality: string | null;
 }
+
+export interface PronunciationIssue {
+  word: string;
+  issue: string;
+  suggestion: string;
+}
+
+export interface PronunciationResult {
+  accuracyScore: number;
+  fluencyScore: number;
+  completenessScore: number;
+  prosodyScore: number | null; // null for GOLD (basic assessment), number for PREMIUM (full)
+  overallScore: number;
+  issues: PronunciationIssue[];
+}
+
+export interface STTWord {
+  word: string;
+  start: number;
+  end: number;
+  confidence: number;
+}
+
+export interface STTResult {
+  transcript: string;
+  confidence: number;
+  words: STTWord[];
+  pronunciation?: PronunciationResult; // populated for GOLD/PREMIUM via Azure, absent for Dev/FREE
+}

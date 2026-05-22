@@ -7,8 +7,10 @@ import {
   sendMessageSchema,
   messageParamsSchema,
   listMessagesQuerySchema,
+  voiceMessageSchema,
 } from "./messages.schema.ts";
 import { sendMessage, listMessages } from "./messages.service.ts";
+import { sendVoiceMessage } from "./voice-messages.service.ts";
 
 export const sendMessageHandler = asyncHandler(async (req: Request, res: Response) => {
   if (!req.user) throw new AppError("Authentication required", 401);
@@ -30,4 +32,24 @@ export const listMessagesHandler = asyncHandler(async (req: Request, res: Respon
   );
   const meta = paginationMeta(total, query.page, query.limit);
   sendSuccess(res, messages, "Messages retrieved", 200, meta);
+});
+
+export const sendVoiceMessageHandler = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.user) throw new AppError("Authentication required", 401);
+  const { sessionId } = messageParamsSchema.parse(req.params);
+
+  if (!req.file?.buffer) {
+    throw new AppError("Audio file required. Send multipart/form-data with field 'audio'.", 400);
+  }
+
+  const body = voiceMessageSchema.parse(req.body);
+  const result = await sendVoiceMessage(
+    req.user.id,
+    sessionId,
+    req.file.buffer,
+    req.file.mimetype,
+    body.audioDurationSec,
+  );
+
+  sendSuccess(res, result, "Voice message sent", 201);
 });

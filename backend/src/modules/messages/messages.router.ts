@@ -1,6 +1,7 @@
 import { Router } from "express";
-import { sendMessageHandler, listMessagesHandler } from "./messages.controller.ts";
+import { sendMessageHandler, listMessagesHandler, sendVoiceMessageHandler } from "./messages.controller.ts";
 import { authenticate } from "../../middlewares/authenticate.ts";
+import { uploadAudio } from "../../middlewares/upload.ts";
 
 const router = Router();
 
@@ -154,5 +155,129 @@ router.get("/:sessionId/messages", authenticate, listMessagesHandler);
  *       429: { description: Message limit reached, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  */
 router.post("/:sessionId/messages", authenticate, sendMessageHandler);
+
+// ─────────────────────────────────────────────────────────
+// SEND VOICE MESSAGE
+// ─────────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /sessions/{sessionId}/voice-message:
+ *   post:
+ *     summary: Send a voice message — audio → STT → LLM → TTS
+ *     description: |
+ *       Accepts a multipart audio upload, transcribes it (STT), generates an AI response
+ *       (same evaluation pipeline as text messages), synthesises TTS audio, and returns
+ *       everything in one response.
+ *
+ *       **STT routing by plan:**
+ *       - Dev + FREE → Deepgram Nova-3 (`DEEPGRAM_API_KEY`)
+ *       - GOLD + PREMIUM → Azure Speech + Pronunciation Assessment (`AZURE_SPEECH_KEY`)
+ *         - GOLD: accuracy + fluency + completeness
+ *         - PREMIUM: + prosody score
+ *
+ *       **TTS routing by plan:**
+ *       - Dev → Edge TTS (no key)
+ *       - FREE + GOLD → Azure Neural TTS (`AZURE_SPEECH_KEY`)
+ *       - PREMIUM → OpenAI TTS-1-HD (`OPENAI_API_KEY`)
+ *
+ *       **Accepted audio formats:**
+ *       - `audio/webm` — Chrome, Edge, Firefox (default MediaRecorder output)
+ *       - `audio/ogg` — Firefox alternative
+ *       - `audio/mp4` — Safari (AAC codec; no pronunciation assessment — falls back to Deepgram)
+ *       - `audio/mpeg` — MP3
+ *       - `audio/wav` — WAV
+ *
+ *       Same per-session and per-day limits as text messages apply.
+ *
+ *       **Note (Session 1):** `audioUrl` is always `null` — R2 audio storage is wired in Session 2.
+ *       AI audio is returned as `audioBase64` in the response instead.
+ *     tags: [Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sessionId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [audio]
+ *             properties:
+ *               audio:
+ *                 type: string
+ *                 format: binary
+ *                 description: Audio recording (WebM/OGG/MP4/WAV/MP3, max 10MB)
+ *               audioDurationSec:
+ *                 type: number
+ *                 minimum: 0
+ *                 maximum: 600
+ *                 description: Optional recording duration in seconds (used to store on the message)
+ *     responses:
+ *       201:
+ *         description: Voice message processed — transcript, AI reply, evaluation, and TTS audio returned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 message: { type: string }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     userMessage:
+ *                       type: object
+ *                       properties:
+ *                         id: { type: string, format: uuid }
+ *                         role: { type: string, example: USER }
+ *                         type: { type: string, example: VOICE }
+ *                         content: { type: string, description: Transcript of the student's speech }
+ *                         wordCount: { type: integer, nullable: true }
+ *                         audioDurationSec: { type: number, nullable: true }
+ *                         createdAt: { type: string, format: date-time }
+ *                     assistantMessage:
+ *                       type: object
+ *                       properties:
+ *                         id: { type: string, format: uuid }
+ *                         role: { type: string, example: ASSISTANT }
+ *                         type: { type: string, example: VOICE }
+ *                         content: { type: string, description: AI tutor's text reply }
+ *                         wordCount: { type: integer, nullable: true }
+ *                         createdAt: { type: string, format: date-time }
+ *                     evaluation:
+ *                       allOf:
+ *                         - { $ref: '#/components/schemas/MessageEvaluation' }
+ *                         - type: object
+ *                           properties:
+ *                             pronunciationScore: { type: integer, nullable: true, description: 0-100 overall pronunciation score (GOLD+PREMIUM only) }
+ *                             pronunciationIssues: { type: array, nullable: true, items: { type: object } }
+ *                     audioBase64:
+ *                       type: string
+ *                       nullable: true
+ *                       description: Base64-encoded MP3 audio of the AI reply. Null if TTS not configured.
+ *                     pronunciation:
+ *                       nullable: true
+ *                       description: Pronunciation assessment detail (GOLD+PREMIUM only; null for Dev/FREE or MP4 audio)
+ *                       type: object
+ *                       properties:
+ *                         accuracyScore: { type: integer }
+ *                         fluencyScore: { type: integer }
+ *                         completenessScore: { type: integer }
+ *                         prosodyScore: { type: integer, nullable: true }
+ *                         overallScore: { type: integer }
+ *                         issues: { type: array, items: { type: object } }
+ *       400: { description: No audio file or unsupported format, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       404: { description: Session not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       409: { description: Session already ended, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       422: { description: No speech detected in audio, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       429: { description: Message limit reached, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       503: { description: STT service not configured, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ */
+router.post("/:sessionId/voice-message", authenticate, uploadAudio.single("audio"), sendVoiceMessageHandler);
 
 export default router;

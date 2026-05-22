@@ -4,6 +4,7 @@
 > Status: **Confirmed** — Edge TTS (Dev) · Azure Neural TTS (FREE + GOLD) · OpenAI TTS-1-HD (PREMIUM)
 > Implementation: Phase 4.5+ (not needed for text-only Phase 4)
 > Future path: Gemini 3.1 Flash TTS (watch for GA — same key as LLM, top-2 quality)
+> **SDK versions:** `msedge-tts@2.x` · `microsoft-cognitiveservices-speech-sdk@1.50.x` · `openai@6.x`
 
 ---
 
@@ -65,7 +66,7 @@ Assumptions: AI reply ≈ 400 chars. Voice-active = uses voice sessions.
 
 | Environment | Provider | Reason |
 |-------------|----------|--------|
-| **Development** | Edge TTS (npm) | Zero cost, zero API key, zero configuration. Uses Microsoft Edge's TTS endpoint via the `edge-tts` npm package. Same Azure Neural voice profiles as production — developer experience matches real voice quality. No SLA, dev-only. |
+| **Development** | Edge TTS (msedge-tts npm) | Zero cost, zero API key, zero configuration. Uses Microsoft Edge's TTS endpoint via the `msedge-tts` npm package. Same Azure Neural voice profiles as production — developer experience matches real voice quality. No SLA, dev-only. |
 | **FREE production** | Azure Neural TTS | 500k chars/month free — covers all FREE voice users until meaningful scale. Same `AZURE_SPEECH_KEY` already set for STT. No new key, no new SDK, no new service. |
 | **GOLD production** | Azure Neural TTS | Same key and SDK as STT + pronunciation assessment — one package, one key covers all GOLD audio needs. $1.60/user/month for voice-active users on $9.99 revenue. Quality matches the $9.99 tier expectation. |
 | **PREMIUM production** | **OpenAI TTS-1-HD** | PREMIUM users pay $24.99/month and deserve a noticeably better voice experience than GOLD. TTS-1-HD delivers significantly more natural, expressive English speech. The `OPENAI_API_KEY` is already in the stack for GPT-5 mini (LLM) — zero new keys, zero new infrastructure. |
@@ -151,7 +152,7 @@ Azure has 400+ voices. Best for an ESL tutor:
 
 | Voice ID | Style | Best for |
 |----------|-------|---------|
-| `en-US-JennyNeural` | Conversational, warm | Default — friendly and clear for general ESL |
+| `en-US-JennyNeural` | Conversational, warm | **Default** — friendly and clear for general ESL |
 | `en-US-AriaNeural` | Natural, expressive | More dynamic responses, intermediate/advanced students |
 | `en-GB-SoniaNeural` | British English | UK English learners |
 | `en-AU-NatashaNeural` | Australian English | Australian accent learners |
@@ -166,9 +167,11 @@ OpenAI TTS-1-HD has 13 voices. Best for an ESL tutor:
 
 | Voice | Style | Best for |
 |-------|-------|---------|
+| `nova` | Warm, friendly | **Default** — encouraging tone, good for beginners |
 | `alloy` | Neutral, professional | Balanced tutor voice — clear and trustworthy |
-| `nova` | Warm, friendly | Encouraging tone — good for beginners |
 | `shimmer` | Soft, gentle | Patient delivery — ideal for anxious learners |
+
+Speed is set to `0.95` (slightly slower than default 1.0) — measurably better ESL comprehension without sounding unnatural.
 
 ---
 
@@ -176,111 +179,71 @@ OpenAI TTS-1-HD has 13 voices. Best for an ESL tutor:
 
 ### 1. Edge TTS — Development (No API Key)
 
+**No setup required.** The `msedge-tts` npm package is already installed (`bun add msedge-tts`). It uses Microsoft Edge's Read Aloud API endpoint without any authentication.
+
 ```bash
-bun add edge-tts
+# Already installed — nothing to do
+# bun add msedge-tts  ← done
 ```
 
-```ts
-import { EdgeTTS } from "edge-tts";
+> ⚠️ Dev-only. This is an unofficial endpoint with no commercial SLA. It works reliably in server-side Node.js/Bun environments but cannot be used in production (no rate limit guarantees, can be blocked).
 
-const tts = new EdgeTTS();
-const audio = await tts.synthesize("Great sentence structure!", {
-  voice: "en-US-JennyNeural",
-  rate: "+0%",
-  volume: "+0%",
-});
-// audio is a Buffer — send as audio/mpeg response
-```
-
-**No API key, no rate limits, no billing.**
-⚠️ Dev only — unofficial endpoint, no commercial SLA.
+**Testing:** Just run `bun dev` and send a voice message — you will hear the AI reply without any API keys set.
 
 ---
 
 ### 2. Azure Neural TTS — FREE + GOLD Production
 
-Uses the **same Azure Speech resource** created for STT — no new resource, no new key.
+**No new resource needed.** Azure TTS uses the **same `AZURE_SPEECH_KEY` and `AZURE_SPEECH_REGION`** you set up for STT (see `stt.md` for the full Azure setup guide).
 
 ```
-AZURE_SPEECH_KEY     ← already set
-AZURE_SPEECH_REGION  ← already set
+AZURE_SPEECH_KEY     ← already set when you followed the STT setup guide
+AZURE_SPEECH_REGION  ← already set when you followed the STT setup guide
 ```
 
-```bash
-bun add microsoft-cognitiveservices-speech-sdk
-```
+That's it — no additional configuration.
 
-```ts
-import * as sdk from "microsoft-cognitiveservices-speech-sdk";
+**How to verify TTS works:** Start the dev server in production mode (`NODE_ENV=production`) with the Azure key set. Send a voice message as a FREE or GOLD user — the response should include a non-null `audioBase64`.
 
-const speechConfig = sdk.SpeechConfig.fromSubscription(
-  env.AZURE_SPEECH_KEY,
-  env.AZURE_SPEECH_REGION,
-);
-speechConfig.speechSynthesisVoiceName = "en-US-JennyNeural";
-
-const synthesizer = new sdk.SpeechSynthesizer(speechConfig);
-synthesizer.speakTextAsync("Great sentence! Your grammar was excellent.", (result) => {
-  // result.audioData is a Buffer — send as audio/mpeg
-  synthesizer.close();
-});
-```
-
-**Free tier:** 500,000 chars/month (F0 dev + S0 prod both include this).
-**Paid:** $16/1M chars, pay-as-you-go, no minimum.
+**Free tier:** F0 includes **500,000 characters/month** shared between TTS and STT (STT uses audio duration, not characters — so TTS is the primary free-tier consumer). At ~400 chars/AI reply, the free tier covers ~1,250 AI voice replies/month — plenty for dev and early-stage FREE users.
 
 ---
 
 ### 3. OpenAI TTS-1-HD — PREMIUM Production
 
-Uses the **same `OPENAI_API_KEY`** already required for GPT-5 mini (PREMIUM LLM). No new key, no new setup.
+**No new key needed.** OpenAI TTS uses the **same `OPENAI_API_KEY`** you set up for the PREMIUM LLM (GPT-5 mini).
 
 ```
-OPENAI_API_KEY  ← already set for GPT-5 mini
+OPENAI_API_KEY  ← already set for GPT-5 mini (PREMIUM LLM)
 ```
 
-```ts
-import OpenAI from "openai";
-import { env } from "../../../config/env.ts";
+That's it — no additional configuration. The key gives access to both the LLM (Chat Completions) and TTS (Audio Speech) APIs.
 
-const client = new OpenAI({ apiKey: env.OPENAI_API_KEY });
+**How to verify TTS works:** Log in as a PREMIUM user and send a voice message — the response `audioBase64` field will be an MP3 encoded as base64 with a noticeably more natural voice than Azure.
 
-const response = await client.audio.speech.create({
-  model: "tts-1-hd",
-  voice: "nova",          // warm, encouraging — good for ESL
-  input: "Great sentence structure! Let me show you one small improvement.",
-  response_format: "mp3",
-  speed: 0.95,            // slightly slower than default — clearer for ESL learners
-});
+**If OpenAI TTS fails:** The system automatically falls back to Azure TTS for PREMIUM users (see `ai.service.ts: generateTTS`). The AI reply text is always returned — only the audio is affected. This means even if `OPENAI_API_KEY` is not set or has billing issues, PREMIUM voice sessions still work (with Azure-quality audio instead).
 
-const buffer = Buffer.from(await response.arrayBuffer());
-// send as audio/mpeg
-```
-
-**No free tier.** Pay-as-you-go at $30/1M chars.
-**Tip:** `speed: 0.95` delivers slightly slower, clearer speech — measurably better for ESL comprehension without sounding unnatural.
+**No free tier.** Pay-as-you-go at $30/1M chars from the first character. Billing is tied to the same OpenAI account as GPT-5 mini — check usage at [platform.openai.com/usage](https://platform.openai.com/usage).
 
 ---
 
-## Phase 4.5 Implementation Plan
+## Phase 4.5 Implementation Reference
 
-When implementing TTS (Phase 4.5), create these provider files:
+Provider files created in this session:
 
 ```
 src/modules/ai/providers/
-├── edge.tts.ts       ← dev only — edge-tts npm, no key
+├── edge.tts.ts       ← dev only — msedge-tts npm, no key
 ├── azure.tts.ts      ← FREE + GOLD — Azure Neural, AZURE_SPEECH_KEY
 ├── openai.tts.ts     ← PREMIUM — TTS-1-HD, OPENAI_API_KEY
 └── gemini.tts.ts     ← future — Gemini 3.1 Flash TTS (create when GA)
 ```
 
-`ai.service.ts` provider routing:
+`ai.service.ts` provider routing (`generateTTS`):
 ```ts
-function selectTTSProvider(plan: Plan, env: NodeEnv): TTSProvider {
-  if (env === "development") return "edge";
-  if (plan === "PREMIUM")    return "openai";   // TTS-1-HD
-  return "azure";                               // Neural TTS (FREE + GOLD)
-}
+if (dev)      → edgeTTS(text)          // msedge-tts, no key
+if (PREMIUM)  → openaiTTS(text)         // TTS-1-HD, auto-fallback to Azure
+else          → azureTTS(text)          // Neural TTS (FREE + GOLD)
 ```
 
-TTS audio is returned as an `audio/mpeg` buffer — the frontend plays it directly in the `<audio>` element.
+TTS audio is returned as base64 MP3 in the `audioBase64` field of the voice message response. In Session 2, TTS audio will also be uploaded to R2 and stored as `Message.audioUrl`.
