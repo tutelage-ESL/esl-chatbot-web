@@ -13,8 +13,15 @@ import metricsRouter from "../../modules/metrics/metrics.router.ts";
 import announcementsRouter from "../../modules/announcements/announcements.router.ts";
 import notificationsRouter from "../../modules/notifications/notifications.router.ts";
 import subscriptionsRouter from "../../modules/subscriptions/subscriptions.router.ts";
+import devRouter from "./dev.router.ts";
+import { env } from "../../config/env.ts";
 
 const router = Router();
+
+// Dev test pages — must be mounted before any route that uses dynamic :id segments
+if (env.NODE_ENV !== "production") {
+  router.use("/dev", devRouter);
+}
 
 router.use("/auth", authRouter);
 router.use("/ai", aiRouter);
