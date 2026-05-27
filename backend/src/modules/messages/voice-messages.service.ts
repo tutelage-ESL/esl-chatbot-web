@@ -10,6 +10,7 @@ import {
   DEFAULT_LLM_CONTEXT_MESSAGES,
 } from "../sessions/sessions.service.ts";
 import { generateAIResponse, generateTTS, transcribeAudio } from "../ai/ai.service.ts";
+import { uploadToR2, deleteFromR2, audioExtFromMime } from "../../lib/r2-upload.ts";
 import type { VoiceMessageResult } from "./messages.types.ts";
 import type { Plan } from "@prisma/client";
 
@@ -18,16 +19,16 @@ import type { Plan } from "@prisma/client";
 // Flow:
 //   1. Validate session (same ownership/status checks as sendMessage)
 //   2. Check subscription limits (same caps as sendMessage)
-//   3. STT: transcribe audio buffer → transcript text
-//   4. LLM: generateAIResponse with transcript (exact same pipeline as text messages)
-//   5. TTS: generateTTS with AI reply → MP3 audio buffer
-//   6. DB: store user message (VOICE, content=transcript) + evaluation + AI message (VOICE)
-//   7. Return: messages + evaluation + audioBase64 + pronunciation scores
+//   3. STT: transcribe audio buffer → transcript text (BEFORE R2 upload to avoid orphans)
+//   4. Upload recording to R2 — keyed by pre-generated userMsgId
+//   5. LLM: generateAIResponse with transcript
+//   6. TTS: generateTTS with AI reply → MP3 audio buffer
+//   7. Upload TTS to R2 — keyed by pre-generated assistantMsgId
+//   8. DB: store user message + evaluation + AI message (with audioUrl on both)
+//   9. Return: messages + evaluation + audioBase64 + pronunciation scores
 //
-// Note (Session 1): audioUrl stays null — audio is NOT stored to R2 yet.
-//   - Student recording: not persisted (session audio is ephemeral in Session 1)
-//   - TTS audio: returned as audioBase64 in response, not stored
-//   R2 storage is wired in Session 2.
+// R2 cleanup: any file uploaded before a failure (LLM throw or DB error) is deleted
+// so no orphaned objects accumulate in the bucket.
 
 export async function sendVoiceMessage(
   userId: string,
@@ -89,7 +90,16 @@ export async function sendVoiceMessage(
     }
   }
 
-  // ── 3. STT — transcribe audio ──────────────────────────────────────────────
+  // Pre-generate IDs so R2 keys can be derived before the DB transaction
+  const userMsgId = crypto.randomUUID();
+  const assistantMsgId = crypto.randomUUID();
+  const recordingKey = `audio/recordings/${sessionId}/${userMsgId}${audioExtFromMime(mimeType)}`;
+  const ttsKey = `audio/tts/${sessionId}/${assistantMsgId}.mp3`;
+
+  // Track successfully uploaded keys so they can be deleted if a later step fails
+  const uploadedKeys: string[] = [];
+
+  // ── 3. STT — transcribe first so an empty transcript never orphans an R2 file
   const sttResult = await transcribeAudio(audioBuffer, mimeType, plan);
   const transcript = sttResult.transcript.trim();
 
@@ -97,136 +107,162 @@ export async function sendVoiceMessage(
     throw new AppError("No speech detected in audio. Please speak clearly and try again.", 422);
   }
 
-  // ── 4. LLM — AI response + evaluation ─────────────────────────────────────
-  const learnerProfile = await prisma.learnerProfile.findUnique({
-    where: { userId },
-    select: {
-      currentLevel: true,
-      targetLevel: true,
-      learningPurpose: true,
-      aiPersonality: true,
-    },
+  // ── 3b. Upload recording (transcript is valid — safe to persist now) ───────
+  const recordingUrl = await uploadToR2(recordingKey, audioBuffer, mimeType).catch((err) => {
+    console.error("[R2] Recording upload failed:", err instanceof Error ? err.message : err);
+    return null;
   });
+  if (recordingUrl) uploadedKeys.push(recordingKey);
 
-  const contextLimit = plan === "FREE" ? FREE_LLM_CONTEXT_MESSAGES : DEFAULT_LLM_CONTEXT_MESSAGES;
-  const recentMessages = await prisma.message.findMany({
-    where: { sessionId },
-    select: { role: true, content: true },
-    orderBy: { createdAt: "desc" },
-    take: contextLimit,
-  });
-  recentMessages.reverse();
-
-  const aiResult = await generateAIResponse(transcript, recentMessages, learnerProfile, plan);
-
-  // ── 5. TTS — synthesize AI reply ───────────────────────────────────────────
-  let ttsBuffer: Buffer;
   try {
-    ttsBuffer = await generateTTS(aiResult.reply, plan);
-  } catch (err) {
-    // TTS failure is non-fatal — voice message still stores, just no audio playback
-    console.error("[TTS] Failed, continuing without audio:", err instanceof Error ? err.message : err);
-    ttsBuffer = Buffer.alloc(0);
-  }
-
-  const wordCount = transcript.split(/\s+/).filter(Boolean).length;
-  const aiWordCount = aiResult.reply.split(/\s+/).filter(Boolean).length;
-  const pronunciation = sttResult.pronunciation ?? null;
-  const pronScore = pronunciation ? pronunciation.overallScore : null;
-  const pronIssues = pronunciation?.issues.length ? pronunciation.issues : null;
-
-  // ── 6. Persist in a single transaction ────────────────────────────────────
-  const result = await prisma.$transaction(async (tx) => {
-    const userMsg = await tx.message.create({
-      data: {
-        userId,
-        sessionId,
-        role: "USER",
-        type: "VOICE",
-        content: transcript,
-        wordCount,
-        audioDurationSec: audioDurationSec ?? null,
-        // audioUrl: null — populated in Session 2 after R2 integration
-      },
+    // ── 4. LLM — AI response + evaluation ───────────────────────────────────
+    const learnerProfile = await prisma.learnerProfile.findUnique({
+      where: { userId },
       select: {
-        id: true,
-        role: true,
-        type: true,
-        content: true,
-        wordCount: true,
-        audioDurationSec: true,
-        createdAt: true,
+        currentLevel: true,
+        targetLevel: true,
+        learningPurpose: true,
+        aiPersonality: true,
       },
     });
 
-    const evaluation = await tx.messageEvaluation.create({
-      data: {
-        messageId: userMsg.id,
-        grammarScore: aiResult.evaluation.grammarScore,
-        grammarErrors: aiResult.evaluation.grammarErrors as unknown as object[],
-        vocabularyScore: aiResult.evaluation.vocabularyScore,
-        vocabularyLevel: aiResult.evaluation.vocabularyLevel,
-        fluencyScore: aiResult.evaluation.fluencyScore,
-        overallScore: aiResult.evaluation.overallScore,
-        detectedCefrLevel: aiResult.evaluation.detectedCefrLevel,
-        corrections: aiResult.evaluation.corrections as unknown as object[],
-        feedback: aiResult.evaluation.feedback,
-        pronunciationScore: pronScore,
-        pronunciationIssues: pronIssues !== null ? (pronIssues as unknown as object[]) : undefined,
-      },
-      select: {
-        grammarScore: true,
-        grammarErrors: true,
-        vocabularyScore: true,
-        vocabularyLevel: true,
-        fluencyScore: true,
-        overallScore: true,
-        detectedCefrLevel: true,
-        corrections: true,
-        feedback: true,
-        pronunciationScore: true,
-        pronunciationIssues: true,
-      },
+    const contextLimit = plan === "FREE" ? FREE_LLM_CONTEXT_MESSAGES : DEFAULT_LLM_CONTEXT_MESSAGES;
+    const recentMessages = await prisma.message.findMany({
+      where: { sessionId },
+      select: { role: true, content: true },
+      orderBy: { createdAt: "desc" },
+      take: contextLimit,
+    });
+    recentMessages.reverse();
+
+    const aiResult = await generateAIResponse(transcript, recentMessages, learnerProfile, plan);
+
+    // ── 5. TTS — synthesize AI reply ─────────────────────────────────────────
+    let ttsBuffer: Buffer;
+    try {
+      ttsBuffer = await generateTTS(aiResult.reply, plan);
+    } catch (err) {
+      console.error("[TTS] Failed, continuing without audio:", err instanceof Error ? err.message : err);
+      ttsBuffer = Buffer.alloc(0);
+    }
+
+    // ── 5b. Upload TTS audio to R2 ───────────────────────────────────────────
+    let ttsUrl: string | null = null;
+    if (ttsBuffer.length > 0) {
+      ttsUrl = await uploadToR2(ttsKey, ttsBuffer, "audio/mpeg").catch((err) => {
+        console.error("[R2] TTS upload failed:", err instanceof Error ? err.message : err);
+        return null;
+      });
+      if (ttsUrl) uploadedKeys.push(ttsKey);
+    }
+
+    const wordCount = transcript.split(/\s+/).filter(Boolean).length;
+    const aiWordCount = aiResult.reply.split(/\s+/).filter(Boolean).length;
+    const pronunciation = sttResult.pronunciation ?? null;
+    const pronScore = pronunciation ? pronunciation.overallScore : null;
+    const pronIssues = pronunciation?.issues.length ? pronunciation.issues : null;
+
+    // ── 6. Persist in a single transaction ──────────────────────────────────
+    const result = await prisma.$transaction(async (tx) => {
+      const userMsg = await tx.message.create({
+        data: {
+          id: userMsgId,
+          userId,
+          sessionId,
+          role: "USER",
+          type: "VOICE",
+          content: transcript,
+          wordCount,
+          audioDurationSec: audioDurationSec ?? null,
+          audioUrl: recordingUrl,
+        },
+        select: {
+          id: true,
+          role: true,
+          type: true,
+          content: true,
+          wordCount: true,
+          audioDurationSec: true,
+          audioUrl: true,
+          createdAt: true,
+        },
+      });
+
+      const evaluation = await tx.messageEvaluation.create({
+        data: {
+          messageId: userMsg.id,
+          grammarScore: aiResult.evaluation.grammarScore,
+          grammarErrors: aiResult.evaluation.grammarErrors as unknown as object[],
+          vocabularyScore: aiResult.evaluation.vocabularyScore,
+          vocabularyLevel: aiResult.evaluation.vocabularyLevel,
+          fluencyScore: aiResult.evaluation.fluencyScore,
+          overallScore: aiResult.evaluation.overallScore,
+          detectedCefrLevel: aiResult.evaluation.detectedCefrLevel,
+          corrections: aiResult.evaluation.corrections as unknown as object[],
+          feedback: aiResult.evaluation.feedback,
+          pronunciationScore: pronScore,
+          pronunciationIssues: pronIssues !== null ? (pronIssues as unknown as object[]) : undefined,
+        },
+        select: {
+          grammarScore: true,
+          grammarErrors: true,
+          vocabularyScore: true,
+          vocabularyLevel: true,
+          fluencyScore: true,
+          overallScore: true,
+          detectedCefrLevel: true,
+          corrections: true,
+          feedback: true,
+          pronunciationScore: true,
+          pronunciationIssues: true,
+        },
+      });
+
+      const assistantMsg = await tx.message.create({
+        data: {
+          id: assistantMsgId,
+          userId,
+          sessionId,
+          role: "ASSISTANT",
+          type: "VOICE",
+          content: aiResult.reply,
+          wordCount: aiWordCount,
+          audioUrl: ttsUrl,
+        },
+        select: {
+          id: true,
+          role: true,
+          type: true,
+          content: true,
+          wordCount: true,
+          audioUrl: true,
+          createdAt: true,
+        },
+      });
+
+      const totalMessages = await tx.message.count({ where: { sessionId } });
+      await tx.conversationSession.update({
+        where: { id: sessionId },
+        data: { messageCount: totalMessages },
+      });
+
+      return {
+        userMessage: userMsg as VoiceMessageResult["userMessage"],
+        assistantMessage: assistantMsg as VoiceMessageResult["assistantMessage"],
+        evaluation,
+      };
     });
 
-    const assistantMsg = await tx.message.create({
-      data: {
-        userId,
-        sessionId,
-        role: "ASSISTANT",
-        type: "VOICE",
-        content: aiResult.reply,
-        wordCount: aiWordCount,
-        // audioUrl: null — populated in Session 2 after R2 integration
-      },
-      select: {
-        id: true,
-        role: true,
-        type: true,
-        content: true,
-        wordCount: true,
-        createdAt: true,
-      },
-    });
-
-    const totalMessages = await tx.message.count({ where: { sessionId } });
-    await tx.conversationSession.update({
-      where: { id: sessionId },
-      data: { messageCount: totalMessages },
-    });
+    const audioBase64 = ttsBuffer.length > 0 ? ttsBuffer.toString("base64") : null;
 
     return {
-      userMessage: userMsg as VoiceMessageResult["userMessage"],
-      assistantMessage: assistantMsg as VoiceMessageResult["assistantMessage"],
-      evaluation,
+      ...result,
+      audioBase64,
+      pronunciation: sttResult.pronunciation ?? null,
     };
-  });
-
-  const audioBase64 = ttsBuffer.length > 0 ? ttsBuffer.toString("base64") : null;
-
-  return {
-    ...result,
-    audioBase64,
-    pronunciation: pronunciation,
-  };
+  } catch (err) {
+    // Delete any R2 objects uploaded before the failure so the bucket stays clean
+    await Promise.allSettled(uploadedKeys.map((k) => deleteFromR2(k).catch(() => {})));
+    throw err;
+  }
 }

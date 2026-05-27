@@ -107,6 +107,14 @@ enum NotificationType {
   CLASS_ANNOUNCEMENT
 }
 
+enum FibSubStatus {
+  DRAFT
+  TRIAL
+  ACTIVE
+  REJECTED
+  CANCELLED
+}
+
 // ─── Users ───────────────────────────────────────────────
 
 model User {
@@ -138,8 +146,9 @@ model User {
   progress       Progress[]
   refreshTokens       RefreshToken[]
   passwordResetTokens PasswordResetToken[]
-  notifications  Notification[]
-  announcements  Announcement[]
+  notifications    Notification[]
+  announcements    Announcement[]
+  fibSubscriptions FibSubscription[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -508,4 +517,27 @@ model Notification {
 
   @@index([userId])
   @@map("notifications")
+}
+
+// ─── FIB Subscription Audit ──────────────────────────────
+
+model FibSubscription {
+  id                String       @id @default(uuid())
+  userId            String
+  fibSubscriptionId String       @unique // UUID issued by FIB on createSubscription
+  plan              Plan                 // GOLD or PREMIUM
+  intervalMonths    Int                  // 1 | 3 | 6 | 12
+  amountIQD         Int                  // amount sent to FIB at creation (locked in)
+  fibStatus         FibSubStatus @default(DRAFT)
+  validUntil        DateTime?            // QR code expiry from createSubscription response
+  activatedAt       DateTime?            // set when fibStatus first becomes ACTIVE or TRIAL
+  cancelledAt       DateTime?            // set when fibStatus becomes CANCELLED or REJECTED
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("fib_subscriptions")
 }

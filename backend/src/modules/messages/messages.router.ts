@@ -189,8 +189,9 @@ router.post("/:sessionId/messages", authenticate, sendMessageHandler);
  *
  *       Same per-session and per-day limits as text messages apply.
  *
- *       **Note (Session 1):** `audioUrl` is always `null` — R2 audio storage is wired in Session 2.
- *       AI audio is returned as `audioBase64` in the response instead.
+ *       Both `userMessage.audioUrl` (student recording) and `assistantMessage.audioUrl` (TTS MP3)
+ *       are populated when Cloudflare R2 is configured (`R2_*` env vars). `null` otherwise.
+ *       `audioBase64` always contains the TTS audio for immediate playback (when TTS is configured).
  *     tags: [Messages]
  *     security:
  *       - bearerAuth: []
@@ -238,6 +239,7 @@ router.post("/:sessionId/messages", authenticate, sendMessageHandler);
  *                         content: { type: string, description: Transcript of the student's speech }
  *                         wordCount: { type: integer, nullable: true }
  *                         audioDurationSec: { type: number, nullable: true }
+ *                         audioUrl: { type: string, nullable: true, description: R2 URL of the student recording. Null if R2 not configured. }
  *                         createdAt: { type: string, format: date-time }
  *                     assistantMessage:
  *                       type: object
@@ -247,6 +249,7 @@ router.post("/:sessionId/messages", authenticate, sendMessageHandler);
  *                         type: { type: string, example: VOICE }
  *                         content: { type: string, description: AI tutor's text reply }
  *                         wordCount: { type: integer, nullable: true }
+ *                         audioUrl: { type: string, nullable: true, description: R2 URL of the TTS MP3. Null if R2 or TTS not configured. }
  *                         createdAt: { type: string, format: date-time }
  *                     evaluation:
  *                       allOf:

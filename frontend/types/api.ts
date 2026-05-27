@@ -2900,6 +2900,195 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/sessions/{sessionId}/voice-message": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a voice message — audio → STT → LLM → TTS
+         * @description Accepts a multipart audio upload, transcribes it (STT), generates an AI response
+         *     (same evaluation pipeline as text messages), synthesises TTS audio, and returns
+         *     everything in one response.
+         *
+         *     **STT routing by plan:**
+         *     - Dev + FREE → Deepgram Nova-3 (`DEEPGRAM_API_KEY`)
+         *     - GOLD + PREMIUM → Azure Speech + Pronunciation Assessment (`AZURE_SPEECH_KEY`)
+         *       - GOLD: accuracy + fluency + completeness
+         *       - PREMIUM: + prosody score
+         *
+         *     **TTS routing by plan:**
+         *     - Dev → Edge TTS (no key)
+         *     - FREE + GOLD → Azure Neural TTS (`AZURE_SPEECH_KEY`)
+         *     - PREMIUM → OpenAI TTS-1-HD (`OPENAI_API_KEY`)
+         *
+         *     **Accepted audio formats:**
+         *     - `audio/webm` — Chrome, Edge, Firefox (default MediaRecorder output)
+         *     - `audio/ogg` — Firefox alternative
+         *     - `audio/mp4` — Safari (AAC codec; no pronunciation assessment — falls back to Deepgram)
+         *     - `audio/mpeg` — MP3
+         *     - `audio/wav` — WAV
+         *
+         *     Same per-session and per-day limits as text messages apply.
+         *
+         *     **Note (Session 1):** `audioUrl` is always `null` — R2 audio storage is wired in Session 2.
+         *     AI audio is returned as `audioBase64` in the response instead.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    sessionId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": {
+                        /**
+                         * Format: binary
+                         * @description Audio recording (WebM/OGG/MP4/WAV/MP3, max 10MB)
+                         */
+                        audio: string;
+                        /** @description Optional recording duration in seconds (used to store on the message) */
+                        audioDurationSec?: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Voice message processed — transcript, AI reply, evaluation, and TTS audio returned */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            message?: string;
+                            data?: {
+                                userMessage?: {
+                                    /** Format: uuid */
+                                    id?: string;
+                                    /** @example USER */
+                                    role?: string;
+                                    /** @example VOICE */
+                                    type?: string;
+                                    /** @description Transcript of the student's speech */
+                                    content?: string;
+                                    wordCount?: number | null;
+                                    audioDurationSec?: number | null;
+                                    /** Format: date-time */
+                                    createdAt?: string;
+                                };
+                                assistantMessage?: {
+                                    /** Format: uuid */
+                                    id?: string;
+                                    /** @example ASSISTANT */
+                                    role?: string;
+                                    /** @example VOICE */
+                                    type?: string;
+                                    /** @description AI tutor's text reply */
+                                    content?: string;
+                                    wordCount?: number | null;
+                                    /** Format: date-time */
+                                    createdAt?: string;
+                                };
+                                evaluation?: components["schemas"]["MessageEvaluation"] & {
+                                    /** @description 0-100 overall pronunciation score (GOLD+PREMIUM only) */
+                                    pronunciationScore?: number | null;
+                                    pronunciationIssues?: Record<string, never>[] | null;
+                                };
+                                /** @description Base64-encoded MP3 audio of the AI reply. Null if TTS not configured. */
+                                audioBase64?: string | null;
+                                /** @description Pronunciation assessment detail (GOLD+PREMIUM only; null for Dev/FREE or MP4 audio) */
+                                pronunciation?: {
+                                    accuracyScore?: number;
+                                    fluencyScore?: number;
+                                    completenessScore?: number;
+                                    prosodyScore?: number | null;
+                                    overallScore?: number;
+                                    issues?: Record<string, never>[];
+                                } | null;
+                            };
+                        };
+                    };
+                };
+                /** @description No audio file or unsupported format */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Session not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Session already ended */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description No speech detected in audio */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Message limit reached */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description STT service not configured */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/metrics/me": {
         parameters: {
             query?: never;
@@ -3628,6 +3817,231 @@ export interface paths {
                     content: {
                         "application/json": components["schemas"]["ErrorResponse"];
                     };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/subscriptions/initiate-fib": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Initiate a FIB subscription (returns QR code + app link) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        plan: "GOLD" | "PREMIUM";
+                        /** @enum {integer} */
+                        intervalMonths: 1 | 3 | 6 | 12;
+                    };
+                };
+            };
+            responses: {
+                /** @description FIB subscription created — show QR code to user */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: {
+                                fibSubscriptionId?: string;
+                                readableCode?: string;
+                                /** @description base64 PNG data URI */
+                                qrCode?: string;
+                                appLink?: string;
+                                /** Format: date-time */
+                                validUntil?: string;
+                            };
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description Active subscription conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                422: components["responses"]["ValidationError"];
+                /** @description FIB credentials not configured */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/subscriptions/fib/{subscriptionId}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get FIB subscription status (also syncs to DB if status changed) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    subscriptionId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Current FIB subscription status */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: {
+                                /** @enum {string} */
+                                fibStatus?: "DRAFT" | "TRIAL" | "ACTIVE" | "REJECTED" | "CANCELLED";
+                                /** @enum {string} */
+                                plan?: "GOLD" | "PREMIUM";
+                                intervalMonths?: number;
+                                amountIQD?: number;
+                                /** Format: date-time */
+                                activeUntil?: string | null;
+                                /** Format: date-time */
+                                lastPaymentAt?: string | null;
+                            };
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description Subscription not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/subscriptions/fib/{subscriptionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Cancel an active or pending FIB subscription */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    subscriptionId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Subscription cancelled — plan downgraded to FREE ACTIVE */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description Subscription not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Already cancelled */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/subscriptions/webhook/fib": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** FIB status callback (called by FIB — not for direct use) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        subscriptionId?: string;
+                        /** @enum {string} */
+                        status?: "DRAFT" | "TRIAL" | "ACTIVE" | "REJECTED" | "CANCELLED";
+                    };
+                };
+            };
+            responses: {
+                /** @description Acknowledged */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
                 };
             };
         };

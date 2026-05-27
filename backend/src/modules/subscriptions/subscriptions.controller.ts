@@ -1,0 +1,50 @@
+import type { Request, Response } from "express";
+import { asyncHandler } from "../../utils/asyncHandler.ts";
+import { sendSuccess } from "../../utils/apiResponse.ts";
+import {
+  initiateFibSchema,
+  fibSubscriptionIdParamSchema,
+  fibWebhookSchema,
+} from "./subscriptions.schema.ts";
+import {
+  initiateFibSubscription,
+  getFibStatus,
+  cancelFibSubscription,
+  handleFibWebhook,
+} from "./subscriptions.service.ts";
+
+export const initiateFibHandler = asyncHandler(
+  async (req: Request, res: Response) => {
+    const input = initiateFibSchema.parse(req.body);
+    const result = await initiateFibSubscription(req.user!.id, input);
+    sendSuccess(res, result, "Subscription initiated successfully", 201);
+  },
+);
+
+export const getFibStatusHandler = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { subscriptionId } = fibSubscriptionIdParamSchema.parse(req.params);
+    const result = await getFibStatus(req.user!.id, subscriptionId);
+    sendSuccess(res, result, "Subscription status retrieved");
+  },
+);
+
+export const cancelFibHandler = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { subscriptionId } = fibSubscriptionIdParamSchema.parse(req.params);
+    await cancelFibSubscription(req.user!.id, subscriptionId);
+    sendSuccess(res, null, "Subscription cancelled successfully");
+  },
+);
+
+// Webhook is fire-and-forget: acknowledge FIB immediately, process async.
+// Not wrapped in asyncHandler so that errors after res.sendStatus(200) don't
+// trigger the error middleware (which would try to set headers already sent).
+export const fibWebhookHandler = (req: Request, res: Response): void => {
+  res.sendStatus(200);
+  const body = fibWebhookSchema.safeParse(req.body);
+  if (!body.success) return;
+  handleFibWebhook(body.data.subscriptionId).catch(() => {
+    // Silent — errors are safe to swallow here; FIB will retry the webhook
+  });
+};

@@ -1,0 +1,171 @@
+import { Router } from "express";
+import { readFileSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
+import { authenticate } from "../../middlewares/authenticate.ts";
+import { env } from "../../config/env.ts";
+import {
+  initiateFibHandler,
+  getFibStatusHandler,
+  cancelFibHandler,
+  fibWebhookHandler,
+} from "./subscriptions.controller.ts";
+
+const router = Router();
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+/**
+ * @swagger
+ * tags:
+ *   name: Subscriptions
+ *   description: FIB subscription billing (GOLD/PREMIUM plans)
+ */
+
+/**
+ * @swagger
+ * /subscriptions/initiate-fib:
+ *   post:
+ *     summary: Initiate a FIB subscription (returns QR code + app link)
+ *     tags: [Subscriptions]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [plan, intervalMonths]
+ *             properties:
+ *               plan:
+ *                 type: string
+ *                 enum: [GOLD, PREMIUM]
+ *               intervalMonths:
+ *                 type: integer
+ *                 enum: [1, 3, 6, 12]
+ *     responses:
+ *       201:
+ *         description: FIB subscription created — show QR code to user
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     fibSubscriptionId: { type: string }
+ *                     readableCode: { type: string }
+ *                     qrCode: { type: string, description: base64 PNG data URI }
+ *                     appLink: { type: string }
+ *                     validUntil: { type: string, format: date-time }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       409: { description: Active subscription conflict }
+ *       422: { $ref: '#/components/responses/ValidationError' }
+ *       503: { description: FIB credentials not configured }
+ */
+router.post("/initiate-fib", authenticate, initiateFibHandler);
+
+/**
+ * @swagger
+ * /subscriptions/fib/{subscriptionId}/status:
+ *   get:
+ *     summary: Get FIB subscription status (also syncs to DB if status changed)
+ *     tags: [Subscriptions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: subscriptionId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Current FIB subscription status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     fibStatus:
+ *                       type: string
+ *                       enum: [DRAFT, TRIAL, ACTIVE, REJECTED, CANCELLED]
+ *                     plan: { type: string, enum: [GOLD, PREMIUM] }
+ *                     intervalMonths: { type: integer }
+ *                     amountIQD: { type: integer }
+ *                     activeUntil: { type: string, format: date-time, nullable: true }
+ *                     lastPaymentAt: { type: string, format: date-time, nullable: true }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       404: { description: Subscription not found }
+ */
+router.get("/fib/:subscriptionId/status", authenticate, getFibStatusHandler);
+
+/**
+ * @swagger
+ * /subscriptions/fib/{subscriptionId}:
+ *   delete:
+ *     summary: Cancel an active or pending FIB subscription
+ *     tags: [Subscriptions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: subscriptionId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Subscription cancelled — plan downgraded to FREE ACTIVE
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       404: { description: Subscription not found }
+ *       409: { description: Already cancelled }
+ */
+router.delete("/fib/:subscriptionId", authenticate, cancelFibHandler);
+
+/**
+ * @swagger
+ * /subscriptions/webhook/fib:
+ *   post:
+ *     summary: FIB status callback (called by FIB — not for direct use)
+ *     tags: [Subscriptions]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               subscriptionId: { type: string }
+ *               status:
+ *                 type: string
+ *                 enum: [DRAFT, TRIAL, ACTIVE, REJECTED, CANCELLED]
+ *     responses:
+ *       200:
+ *         description: Acknowledged
+ */
+router.post("/webhook/fib", fibWebhookHandler);
+
+// Dev-only: browser test interface for the FIB subscription flow
+if (env.NODE_ENV !== "production") {
+  router.get("/fib-test", (_req, res) => {
+    const html = readFileSync(join(__dirname, "fib-test.html"), "utf-8");
+    res.setHeader("Content-Type", "text/html");
+    res.setHeader(
+      "Content-Security-Policy",
+      [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline'",
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' data:",
+        "connect-src 'self'",
+      ].join("; "),
+    );
+    res.send(html);
+  });
+}
+
+export default router;

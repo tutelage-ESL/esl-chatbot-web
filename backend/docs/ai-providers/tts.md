@@ -246,4 +246,4 @@ if (PREMIUM)  → openaiTTS(text)         // TTS-1-HD, auto-fallback to Azure
 else          → azureTTS(text)          // Neural TTS (FREE + GOLD)
 ```
 
-TTS audio is returned as base64 MP3 in the `audioBase64` field of the voice message response. In Session 2, TTS audio will also be uploaded to R2 and stored as `Message.audioUrl`.
+TTS audio is returned as base64 MP3 in the `audioBase64` field of the voice message response. When Cloudflare R2 is configured, TTS audio is also uploaded to `audio/tts/{sessionId}/{messageId}.mp3` and stored as `Message.audioUrl` for persistent replay.

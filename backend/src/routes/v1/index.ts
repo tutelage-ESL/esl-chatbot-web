@@ -12,6 +12,7 @@ import progressRouter from "../../modules/progress/progress.router.ts";
 import metricsRouter from "../../modules/metrics/metrics.router.ts";
 import announcementsRouter from "../../modules/announcements/announcements.router.ts";
 import notificationsRouter from "../../modules/notifications/notifications.router.ts";
+import subscriptionsRouter from "../../modules/subscriptions/subscriptions.router.ts";
 
 const router = Router();
 
@@ -28,8 +29,6 @@ router.use("/goals", goalsRouter);
 router.use("/vocabulary", vocabularyRouter);
 router.use("/progress", progressRouter);
 router.use("/metrics", metricsRouter);
-
-// Routers to be mounted in upcoming phases:
-// router.use("/subscriptions", subscriptionsRouter);
+router.use("/subscriptions", subscriptionsRouter);
 
 export default router;

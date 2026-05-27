@@ -38,6 +38,7 @@ export interface VoiceMessageResult {
     content: string; // transcript from STT
     wordCount: number | null;
     audioDurationSec: number | null;
+    audioUrl: string | null; // R2 URL of the student recording (null if R2 not configured)
     createdAt: Date;
   };
   assistantMessage: {
@@ -46,6 +47,7 @@ export interface VoiceMessageResult {
     type: "VOICE";
     content: string;
     wordCount: number | null;
+    audioUrl: string | null; // R2 URL of the TTS MP3 (null if TTS/R2 failed or not configured)
     createdAt: Date;
   };
   evaluation: {
