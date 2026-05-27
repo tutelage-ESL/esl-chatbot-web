@@ -19,7 +19,7 @@ context efficiency tips, and memory system explained for this project.
 - **Cache:** Redis (placeholder — integrate later)
 - **Email:** Resend (`src/config/resend.ts`) — active for password reset OTP; SendGrid scaffolded as fallback (`src/config/sendgrid.ts`)
 - **File Uploads:** Multer
-- **Realtime:** Socket.io (placeholder — integrate later)
+- **Realtime:** Socket.io v4 — `/chat` namespace (real-time message send) + `/notifications` namespace (server-push). See `src/socket/`
 - **Security:** Helmet, express-rate-limit, cors
 - **Logging:** Winston + Morgan
 - **API Docs:** Swagger (OpenAPI 3.0 via swagger-jsdoc)
@@ -124,7 +124,7 @@ src/
 ├── routes/v1/       # mounts all module routers under /api/v1
 ├── types/           # express.d.ts (req.user augmentation)
 ├── jobs/            # cron job placeholders
-├── socket/          # socket.io handler placeholder
+├── socket/          # Socket.io: index.ts (init), chat.socket.ts (/chat ns), notifications.socket.ts (/notifications ns), io-instance.ts (getIO singleton)
 ├── app.ts           # Express setup, middleware stack, routes
 └── index.ts         # Server entry point
 ```
@@ -349,7 +349,7 @@ Includes: classes (with full code-lifecycle fields populated) with enrolled user
 - ✅ SessionEvaluation table: aggregate scores, strengths, weaknesses, recommendations, detected CEFR level
 - ✅ Message type field (TEXT/VOICE) — sessions can contain both types (mixed mode)
 - ✅ AI integration — `src/modules/ai/` module with plan-based model selection (PREMIUM→gpt-5-mini via OpenAI; FREE/GOLD→Gemini pending migration); heuristic fallback when no API key
-- Remaining: real AI provider integration, TTS/STT pipeline, Socket.io real-time messaging
+- Remaining: real AI provider integration ✅ (done), TTS/STT pipeline ✅ (done), Socket.io real-time messaging ✅ (done)
 
 ### Phase 5 — Vocabulary & SRS System
 - ✅ `GET /vocabulary` — list user's vocabulary, filterable by `?due=true/false`, `?source=MANUAL/SESSION`, `?category=`, `?search=`; paginated
@@ -401,7 +401,7 @@ Includes: classes (with full code-lifecycle fields populated) with enrolled user
 - Rate limiting per-plan (stricter for FREE)
 - Email notifications (SendGrid): welcome, password reset, weekly digest
 - File upload handling (audio recordings, avatars)
-- Socket.io real-time chat implementation
+- ✅ Socket.io real-time chat — `/chat` namespace (message:send pipeline) + `/notifications` namespace (server-push). JWT auth at handshake. See `src/socket/`. To push a notification from any service: `getIO().of('/notifications').to('user:{userId}').emit('notification:new', data)`
 - Cron jobs: daily progress snapshots, SRS reset, streak calculation
 - Comprehensive error logging and monitoring
 - API documentation completion (Swagger)

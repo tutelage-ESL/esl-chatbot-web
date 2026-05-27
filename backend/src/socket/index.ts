@@ -1,7 +1,68 @@
-// Socket.io handler placeholder
-// Will handle real-time chat communication in a later phase
+import { Server, type Socket } from "socket.io";
+import type { IncomingMessage, ServerResponse } from "http";
+import type { Server as HttpServer } from "http";
+import jwt from "jsonwebtoken";
+import type { Role } from "@prisma/client";
+import { env } from "../config/env.ts";
+import type { JwtPayload } from "../modules/auth/auth.types.ts";
+import { initChatHandlers } from "./chat.socket.ts";
+import { initNotificationsHandlers } from "./notifications.socket.ts";
 
-// import type { Server } from "socket.io";
-// export function initializeSocket(io: Server): void {
-//   io.on("connection", (socket) => { ... });
-// }
+export interface SocketUser {
+  id: string;
+  username: string;
+  email: string;
+  role: Role;
+}
+
+export type AuthSocket = Socket & { data: { user: SocketUser } };
+
+function jwtAuthMiddleware(
+  socket: Socket,
+  next: (err?: Error) => void,
+): void {
+  const raw = socket.handshake.auth?.token as string | undefined;
+  if (!raw) {
+    next(new Error("AUTH_REQUIRED"));
+    return;
+  }
+
+  // Accept both "Bearer <token>" and bare token
+  const token = raw.startsWith("Bearer ") ? raw.slice(7) : raw;
+
+  try {
+    const decoded = jwt.verify(token, env.JWT_ACCESS_SECRET) as JwtPayload;
+    (socket as AuthSocket).data.user = {
+      id: decoded.sub,
+      username: decoded.username,
+      email: decoded.email,
+      role: decoded.role,
+    };
+    next();
+  } catch {
+    next(new Error("AUTH_INVALID"));
+  }
+}
+
+export function initializeSocket(
+  httpServer: HttpServer<typeof IncomingMessage, typeof ServerResponse>,
+): Server {
+  const io = new Server(httpServer, {
+    cors: {
+      origin: env.CORS_ORIGIN,
+      credentials: true,
+    },
+  });
+
+  // /chat namespace — real-time message sending
+  const chatNS = io.of("/chat");
+  chatNS.use(jwtAuthMiddleware);
+  initChatHandlers(chatNS);
+
+  // /notifications namespace — server-push only (no client events)
+  const notifNS = io.of("/notifications");
+  notifNS.use(jwtAuthMiddleware);
+  initNotificationsHandlers(notifNS);
+
+  return io;
+}
