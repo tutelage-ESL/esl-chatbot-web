@@ -1,9 +1,14 @@
 import { Router } from "express";
+import { readFileSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 import { sendMessageHandler, listMessagesHandler, sendVoiceMessageHandler } from "./messages.controller.ts";
 import { authenticate } from "../../middlewares/authenticate.ts";
 import { uploadAudio } from "../../middlewares/upload.ts";
+import { env } from "../../config/env.ts";
 
 const router = Router();
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 /**
  * @swagger
@@ -282,5 +287,25 @@ router.post("/:sessionId/messages", authenticate, sendMessageHandler);
  *       503: { description: STT service not configured, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  */
 router.post("/:sessionId/voice-message", authenticate, uploadAudio.single("audio"), sendVoiceMessageHandler);
+
+// Dev-only: browser test page for the full voice + text chat pipeline
+if (env.NODE_ENV !== "production") {
+  router.get("/voice-test", (_req, res) => {
+    const html = readFileSync(join(__dirname, "voice-test.html"), "utf-8");
+    res.setHeader("Content-Type", "text/html");
+    res.setHeader(
+      "Content-Security-Policy",
+      [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline'",
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' data: blob:",
+        "media-src 'self' blob: data: *",
+        "connect-src 'self' *",
+      ].join("; "),
+    );
+    res.send(html);
+  });
+}
 
 export default router;
