@@ -32,6 +32,10 @@ function jwtAuthMiddleware(
 
   try {
     const decoded = jwt.verify(token, env.JWT_ACCESS_SECRET) as JwtPayload;
+    if (!decoded.sub) {
+      next(new Error("AUTH_INVALID"));
+      return;
+    }
     (socket as AuthSocket).data.user = {
       id: decoded.sub,
       username: decoded.username,

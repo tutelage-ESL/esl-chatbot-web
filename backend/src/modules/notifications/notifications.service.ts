@@ -1,5 +1,6 @@
 import type { NotificationType } from "@prisma/client";
 import { prisma } from "../../config/database.ts";
+import { getIO } from "../../socket/io-instance.ts";
 import type { NotificationItem } from "./notifications.types.ts";
 
 const NOTIFICATION_SELECT = {
@@ -17,7 +18,17 @@ export async function createNotification(
   type: NotificationType,
   message: string,
 ): Promise<void> {
-  await prisma.notification.create({ data: { userId, type, message } });
+  const notification = await prisma.notification.create({
+    data: { userId, type, message },
+    select: NOTIFICATION_SELECT,
+  });
+
+  // Push to connected client — silent no-op if socket server not running (tests, early startup)
+  try {
+    getIO().of("/notifications").to(`user:${userId}`).emit("notification:new", notification);
+  } catch {
+    // socket not initialized
+  }
 }
 
 // ── User-facing queries ───────────────────────────────────

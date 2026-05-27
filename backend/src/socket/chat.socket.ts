@@ -17,7 +17,6 @@ const sessionJoinSchema = z.object({ sessionId: z.string().uuid() });
 const messageSendSchema = z.object({
   sessionId: z.string().uuid(),
   content: z.string().min(1).max(5000),
-  type: z.enum(["TEXT", "VOICE"]).default("TEXT"),
   clientMsgId: z.string().min(1).max(64),
 });
 
@@ -94,9 +93,10 @@ export function initChatHandlers(namespace: Namespace): void {
         return;
       }
 
-      const { sessionId, content, type, clientMsgId } = parsed.data;
+      const { sessionId, content, clientMsgId } = parsed.data;
 
-      if (inProgress.has(sessionId)) {
+      const lockKey = `${userId}:${sessionId}`;
+      if (inProgress.has(lockKey)) {
         socket.emit("message:error", {
           clientMsgId,
           code: "PROCESSING",
@@ -105,11 +105,11 @@ export function initChatHandlers(namespace: Namespace): void {
         return;
       }
 
-      inProgress.add(sessionId);
+      inProgress.add(lockKey);
       socket.emit("message:thinking", { sessionId, clientMsgId });
 
       try {
-        const result = await sendMessage(userId, sessionId, content, type);
+        const result = await sendMessage(userId, sessionId, content, "TEXT");
 
         const [subscription, userMessageCount] = await Promise.all([
           prisma.subscription.findUnique({ where: { userId }, select: { plan: true } }),
@@ -140,7 +140,7 @@ export function initChatHandlers(namespace: Namespace): void {
 
         socket.emit("message:error", { clientMsgId, code, message });
       } finally {
-        inProgress.delete(sessionId);
+        inProgress.delete(lockKey);
       }
     });
 
