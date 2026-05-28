@@ -47,8 +47,10 @@ app/
 │
 ├─ common/
 │  ├─ data/         # static data (country-code.ts, nav-links.ts, profile-links.ts, ...)
-│  ├─ model/        # types mirroring backend tables (e.g. user.ts)
-│  ├─ types/        # other TS types (button-types.ts, iconsax-types.ts, ...)
+│  ├─ model/        # one file per backend DB table — plain type mirroring the Prisma schema
+│  │                #   user.ts · class.ts (Class, ClassUser, Announcement) · ...
+│  ├─ types/        # API response shapes, UI types, composable types — one file per domain
+│  │                #   class-types.ts · dashboard-types.ts · button-types.ts · ...
 │  └─ schemas/      # Zod validation schemas
 │
 ├─ components/      # Subfolders are PascalCase, EXCEPT package folders (e.g. `ui` for shadcn — never rename)
@@ -85,7 +87,8 @@ Pinia stores live at the **workspace root** in `stores/` (imported as `~~/stores
 - **All page-specific sections live under `components/Pages/<PageName>/`** — never under `pages/` itself. For dashboard pages this means `components/Pages/Dashboard/<Section>/`.
 - **Never create a top-level `components/Dashboard/` folder.** Dashboard sub-components belong under `components/Pages/Dashboard/<Section>/`. Layout chrome (sidebar, topbar) stays in `components/Layouts/Dashboard/`.
 - Skeleton components are grouped under `components/Skeletons/` mirroring the page/component they load for.
-- `common/model/` holds types that correspond 1:1 to backend DB tables. Generated API types live separately in [types/api.ts](types/api.ts).
+- `common/model/` holds **one file per backend DB table**, each exporting plain `type` aliases that mirror the Prisma schema exactly (no extra fields). Current files: [user.ts](app/common/model/user.ts), [class.ts](app/common/model/class.ts) (`Class`, `ClassUser`, `Announcement`). When adding a new domain, create a new model file first.
+- `common/types/` holds **API response shapes and UI-specific types** — one file per domain. These types may extend or `Pick`/`Omit` from model types, and add fields that only exist on API responses (e.g. `memberCount`, nested `author`). Current files: [class-types.ts](app/common/types/class-types.ts), [dashboard-types.ts](app/common/types/dashboard-types.ts), [button-types.ts](app/common/types/button-types.ts), etc. **Never define domain types inline inside a composable** — put them in the relevant `common/types/` file and import from there. Generated API types live separately in [types/api.ts](types/api.ts).
 - Composables are named `useXxx()` and may export multiple related functions from one file.
 - **Auto-import prefix rule:** Nuxt prefixes components with their full folder path in PascalCase. Examples:
   - `components/App/Button.vue` → `<AppButton />`
@@ -249,13 +252,17 @@ All pages use `definePageMeta({ layout: 'dashboard', requiresAuth: true })`.
 | Route | File | Status |
 |---|---|---|
 | `/dashboard` | `pages/dashboard/index.vue` | Overview (fully built) |
-| `/dashboard/chat` | `pages/dashboard/chat.vue` | Stub |
+| `/dashboard/chat` | `pages/dashboard/chat.vue` | Built |
 | `/dashboard/voice` | `pages/dashboard/voice.vue` | Stub |
 | `/dashboard/vocab` | `pages/dashboard/vocab.vue` | Stub |
 | `/dashboard/goals` | `pages/dashboard/goals.vue` | Stub |
 | `/dashboard/lessons` | `pages/dashboard/lessons.vue` | Stub |
 | `/dashboard/profile` | `pages/dashboard/profile.vue` | Built |
 | `/dashboard/settings` | `pages/dashboard/settings.vue` | Built |
+| `/dashboard/classes` | `pages/dashboard/classes/index.vue` | Built |
+| `/dashboard/classes/create` | `pages/dashboard/classes/create.vue` | Built (tutor/admin) |
+| `/dashboard/classes/manage` | `pages/dashboard/classes/manage.vue` | Built (admin) |
+| `/dashboard/classes/[id]` | `pages/dashboard/classes/[id].vue` | Built — full class detail page |
 
 ### Dashboard Component Folder (`components/Pages/Dashboard/`)
 
@@ -264,21 +271,33 @@ All dashboard page sub-components live here. **Never use `components/Dashboard/`
 ```
 components/Pages/Dashboard/
 ├─ Overview/
-│  ├─ StatCard.vue         # Single stat tile (label / value / delta / icon)
-│  ├─ GreetingHero.vue     # Welcome banner + goal ring + streak
-│  ├─ VocabChart.vue       # SVG sparkline for vocabulary growth
-│  ├─ NextUp.vue           # Recommended lesson + upcoming list
-│  ├─ ActivityHeatmap.vue  # 12-week heatmap + recent sessions list
-│  └─ DueWords.vue         # SRS due words + level progress bar
+│  ├─ StatCard.vue           # Single stat tile (label / value / delta / icon)
+│  ├─ GreetingHero.vue       # Welcome banner + goal ring + streak
+│  ├─ VocabChart.vue         # SVG sparkline for vocabulary growth
+│  ├─ NextUp.vue             # Recommended lesson + upcoming list
+│  ├─ ActivityHeatmap.vue    # 12-week heatmap + recent sessions list
+│  └─ DueWords.vue           # SRS due words + level progress bar
 ├─ Chat/
-│  ├─ SessionsSidebar.vue  # Left sessions list panel
-│  ├─ ThreadHeader.vue     # Chat top bar (topic, cefr, actions)
-│  ├─ MessageThread.vue    # Scrollable messages area + empty state
-│  ├─ MessageBubble.vue    # Single message bubble (user or AI)
-│  ├─ ThinkingIndicator.vue# Animated "Maya is thinking…" row
-│  ├─ Composer.vue         # Fixed bottom input bar
-│  ├─ SessionItem.vue      # Single row in the sessions list
-│  └─ CoachPane.vue        # Right live-coaching panel
+│  ├─ SessionsSidebar.vue    # Left sessions list panel
+│  ├─ ThreadHeader.vue       # Chat top bar (topic, cefr, actions)
+│  ├─ MessageThread.vue      # Scrollable messages area + empty state
+│  ├─ MessageBubble.vue      # Single message bubble (user or AI)
+│  ├─ ThinkingIndicator.vue  # Animated "Maya is thinking…" row
+│  ├─ Composer.vue           # Fixed bottom input bar
+│  ├─ SessionItem.vue        # Single row in the sessions list
+│  └─ CoachPane.vue          # Right live-coaching panel
+├─ Classes/
+│  ├─ ClassCard.vue          # Card for a single class in the list
+│  ├─ ClassDetailDrawer.vue  # Right-side sheet — Members + Announcements tabs
+│  ├─ ClassMembersTab.vue    # Members list with remove/leave actions
+│  ├─ ClassStudentsTab.vue   # Student progress list + detail sheet
+│  ├─ ClassAnalyticsTab.vue  # Class-wide skill averages + grammar errors
+│  ├─ AnnouncementsFeed.vue  # Paginated announcement feed + compose box (tutor/admin)
+│  ├─ ClassesEmptyState.vue  # Empty state for the classes list
+│  ├─ JoinClassModal.vue     # Dialog to join a class by code
+│  └─ Admin/
+│     ├─ ClassGridCard.vue   # Grid card for admin manage page
+│     └─ ClassTableRow.vue   # Table row for admin manage page
 ├─ Voice/
 │  ├─ PromptCard.vue
 │  ├─ ScorePanel.vue
@@ -301,7 +320,26 @@ Auto-import prefix: `<PagesDashboard{Section}{Component} />`. Examples:
 
 ### Dashboard Types
 
-[app/common/types/dashboard-types.ts](app/common/types/dashboard-types.ts) — all shared types for the dashboard (navigation, stat cards, chart points, sessions, vocabulary, goals, lessons). Import with `import type { ... } from '~/common/types/dashboard-types'`.
+Types are split by domain — never define them inline in a composable:
+
+| File | Contents |
+|---|---|
+| [common/model/user.ts](app/common/model/user.ts) | `User` — mirrors the `users` DB table |
+| [common/model/class.ts](app/common/model/class.ts) | `Class`, `ClassUser`, `Announcement` — mirrors the DB tables |
+| [common/types/class-types.ts](app/common/types/class-types.ts) | API shapes: `ClassItem`, `ClassDetail`, `ClassMember`, `AdminClassItem`, `ClassStudentSummary`, `ClassStudentDetail`, `ClassAnalytics`, `AnnouncementItem`, `ClassPaginationMeta` |
+| [common/types/dashboard-types.ts](app/common/types/dashboard-types.ts) | Navigation, stat cards, chart points, sessions, vocabulary, goals, lessons |
+
+**Rule:** model files (`common/model/`) = exact DB table shape. Type files (`common/types/`) = API response shapes that may extend/pick from model types. Import from `~/common/model/...` or `~/common/types/...` as appropriate.
+
+## Composables Reference
+
+| Composable | File | Exports |
+|---|---|---|
+| `useHttp` | [app/composables/useHttp.ts](app/composables/useHttp.ts) | Single `useHttp(options)` function — all API calls must go through this |
+| `useClasses` | [app/composables/useClasses.ts](app/composables/useClasses.ts) | `listMyClasses`, `listAllClasses`, `getClass`, `joinClass`, `createClass`, `updateClass`, `refreshCode`, `updateCodeSettings`, `toggleBlock`, `getClassStudents`, `getClassStudentDetail`, `getClassAnalytics`, `removeMember`, `listAnnouncements`, `createAnnouncement` |
+| `useChatPage` | [app/composables/useChatPage.ts](app/composables/useChatPage.ts) | All state and actions for the chat page — sessions, messages, send, newSession, openSession, endCurrent, refreshCurrent, fillSuggestion |
+| `useSessions` | [app/composables/useSessions.ts](app/composables/useSessions.ts) | Raw session API calls used by `useChatPage` |
+| `useCopyToClipboard` | auto-imported | `useCopyToClipboard(value)` — direct call, no destructuring |
 
 ## Related Docs
 

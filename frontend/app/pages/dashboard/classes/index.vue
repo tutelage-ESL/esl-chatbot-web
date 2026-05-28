@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { toast } from 'vue-sonner'
 import { useAuthStore } from '~~/stores/auth'
-import type { ClassItem, ClassDetail } from '~/composables/useClasses'
+import type { ClassItem, ClassDetail } from '~/common/types/class-types'
 
 definePageMeta({ layout: 'dashboard', requiresAuth: true })
 

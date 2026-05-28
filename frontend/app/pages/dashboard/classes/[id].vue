@@ -1,0 +1,279 @@
+<script setup lang="ts">
+import { toast } from 'vue-sonner'
+import { useAuthStore } from '~~/stores/auth'
+import type { ClassDetail } from '~/common/types/class-types'
+import type { SvgBasedIconName } from '~/common/types/iconsax-types'
+
+definePageMeta({ layout: 'dashboard', requiresAuth: true })
+
+const route = useRoute()
+const router = useRouter()
+const authStore = useAuthStore()
+const { getClass, refreshCode } = useClasses()
+
+const classId = computed(() => route.params.id as string)
+const cls = ref<ClassDetail | null>(null)
+const loading = ref(true)
+const copying = ref(false)
+const refreshing = ref(false)
+const editOpen = ref(false)
+
+const currentUserId = computed(() => authStore.getUser?.id ?? '')
+const userRole = computed(() => authStore.getUser?.role)
+const isTutorOrAdmin = computed(() =>
+  cls.value?.myRole === 'TUTOR' || cls.value?.myRole === 'ADMIN' || userRole.value === 'ADMIN',
+)
+
+type Tab = 'members' | 'students' | 'analytics' | 'announcements'
+const activeTab = ref<Tab>('members')
+
+const tabs = computed((): { key: Tab; label: string; icon: SvgBasedIconName; tutorOnly: boolean }[] => [
+  { key: 'members',       label: 'Members',      icon: 'People',       tutorOnly: false },
+  { key: 'students',      label: 'Students',      icon: 'Teacher',      tutorOnly: true  },
+  { key: 'analytics',     label: 'Analytics',     icon: 'Chart21',      tutorOnly: true  },
+  { key: 'announcements', label: 'Announcements', icon: 'Notification', tutorOnly: false },
+])
+
+const visibleTabs = computed(() => tabs.value.filter(t => !t.tutorOnly || isTutorOrAdmin.value))
+
+const roleColorClass: Record<string, string> = {
+  TUTOR: 'bg-brand-primary/10 text-brand-primary',
+  ADMIN: 'bg-red-500/10 text-red-500',
+}
+
+const tutors = computed(() => cls.value?.members?.filter(m => m.role === 'TUTOR') ?? [])
+const students = computed(() => cls.value?.members?.filter(m => m.role === 'STUDENT') ?? [])
+
+const isExpired = computed(() =>
+  cls.value?.classCodeExpiresAt ? new Date(cls.value.classCodeExpiresAt) < new Date() : false,
+)
+
+const statusConfig = computed(() => {
+  if (cls.value?.classCodeBlocked) return { label: 'Blocked', icon: 'Lock' as const, style: 'color:var(--status-blocked-text)' }
+  if (isExpired.value) return { label: 'Expired', icon: 'CloseCircle' as const, style: 'color:var(--status-expired-text)' }
+  if (cls.value?.classCodeExpiresAt) return { label: fmtExpiry(cls.value.classCodeExpiresAt), icon: 'Clock' as const, style: 'color:var(--text-muted)' }
+  return { label: 'Permanent', icon: 'Clock' as const, style: 'color:var(--text-muted)' }
+})
+
+async function load() {
+  loading.value = true
+  const res = await getClass(classId.value)
+  loading.value = false
+  if (!res.success) {
+    toast.error(res.message || 'Could not load class')
+    router.replace('/dashboard/classes')
+    return
+  }
+  cls.value = res.data?.data as ClassDetail
+}
+
+async function handleCopy() {
+  if (!cls.value) return
+  useCopyToClipboard(cls.value.classCode)
+  copying.value = true
+  toast.success('Class code copied!')
+  setTimeout(() => { copying.value = false }, 1500)
+}
+
+async function handleRefresh() {
+  if (!cls.value || refreshing.value) return
+  refreshing.value = true
+  const res = await refreshCode(cls.value.id)
+  refreshing.value = false
+  if (!res.success) { toast.error(res.message || 'Could not rotate code'); return }
+  toast.success('Class code rotated!')
+  await load()
+}
+
+function handleMemberRemoved(userId: string) {
+  if (!cls.value) return
+  if (userId === currentUserId.value) { router.replace('/dashboard/classes'); return }
+  cls.value = { ...cls.value, members: cls.value.members.filter(m => m.user.id !== userId) }
+}
+
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function fmtExpiry(iso: string) {
+  const d = new Date(iso)
+  const diff = Math.floor((d.getTime() - Date.now()) / 1000 / 60)
+  if (diff < 0) return 'Expired'
+  if (diff < 60) return `Expires in ${diff}m`
+  if (diff < 1440) return `Expires in ${Math.floor(diff / 60)}h`
+  return `Expires ${fmtDate(iso)}`
+}
+
+onMounted(load)
+</script>
+
+<template>
+  <div class="h-full overflow-y-auto p-5 sm:p-7">
+
+    <!-- Back + header -->
+    <div class="flex items-center gap-3 mb-6 animate-card-enter" style="--delay:0ms">
+      <AppButton
+        variant="secondary" size="36" radius="8"
+        icon="ArrowLeft" :icon-config="{ color: 'currentColor', size: 14 }"
+        @click="router.push('/dashboard/classes')"
+      />
+      <div class="flex-1 min-w-0">
+        <template v-if="loading">
+          <UiSkeleton class="h-5 w-48 rounded mb-1" />
+          <UiSkeleton class="h-3 w-28 rounded" />
+        </template>
+        <template v-else-if="cls">
+          <AppText size="20" weight="semibold" class-list="block truncate tracking-[-0.02em]" :style="`color:var(--text-heading)`">{{ cls.className }}</AppText>
+          <AppText v-if="cls.classCategory" size="12" class-list="block mt-0.5" :style="`color:var(--text-muted)`">{{ cls.classCategory }}</AppText>
+        </template>
+      </div>
+      <template v-if="cls">
+        <AppButton
+          v-if="isTutorOrAdmin"
+          variant="secondary" size="36" radius="8"
+          icon="Edit2" :icon-config="{ color: 'currentColor', size: 14 }"
+          text="Edit" class="shrink-0"
+          @click="editOpen = true"
+        />
+        <span
+          class="text-[11px] font-semibold uppercase tracking-wide px-2.5 py-1 rounded-full font-poppins shrink-0"
+          :style="cls.classStatus === 'ACTIVE'
+            ? 'background:var(--status-active-bg);color:var(--status-active-text)'
+            : 'background:var(--status-expired-bg);color:var(--status-expired-text)'"
+        >{{ cls.classStatus }}</span>
+        <span
+          v-if="cls.myRole"
+          :class="['text-[11px] font-semibold uppercase tracking-wide px-2.5 py-1 rounded-full font-poppins shrink-0', roleColorClass[cls.myRole] || '']"
+          :style="!roleColorClass[cls.myRole] ? 'background:var(--surface-well);color:var(--text-muted)' : ''"
+        >{{ cls.myRole }}</span>
+      </template>
+    </div>
+
+    <!-- Loading -->
+    <template v-if="loading">
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <UiSkeleton v-for="i in 4" :key="i" class="h-20 rounded-xl" />
+      </div>
+      <UiSkeleton class="h-32 rounded-xl mb-6" />
+      <UiSkeleton class="h-64 rounded-xl" />
+    </template>
+
+    <template v-else-if="cls">
+
+      <!-- Stats row -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6 animate-card-enter" style="--delay:40ms">
+        <div class="dash-card p-4">
+          <div class="flex items-center gap-2 mb-1">
+            <AppIconsax name="People" color="var(--color-text-subtle)" :size="13" />
+            <AppText size="10" weight="semibold" :uppercase="true" class-list="tracking-[0.12em]" :style="`color:var(--text-subtle)`">Members</AppText>
+          </div>
+          <AppText size="22" weight="semibold" :style="`color:var(--text-heading)`">{{ cls.members.length }}</AppText>
+        </div>
+        <div class="dash-card p-4">
+          <div class="flex items-center gap-2 mb-1">
+            <AppIconsax name="People" color="var(--color-text-subtle)" :size="13" />
+            <AppText size="10" weight="semibold" :uppercase="true" class-list="tracking-[0.12em]" :style="`color:var(--text-subtle)`">Students</AppText>
+          </div>
+          <AppText size="22" weight="semibold" :style="`color:var(--text-heading)`">{{ students.length }}</AppText>
+        </div>
+        <div class="dash-card p-4">
+          <div class="flex items-center gap-2 mb-1">
+            <AppIconsax name="Teacher" color="var(--color-text-subtle)" :size="13" />
+            <AppText size="10" weight="semibold" :uppercase="true" class-list="tracking-[0.12em]" :style="`color:var(--text-subtle)`">Tutors</AppText>
+          </div>
+          <AppText size="22" weight="semibold" :style="`color:var(--text-heading)`">{{ tutors.length }}</AppText>
+        </div>
+        <div class="dash-card p-4">
+          <div class="flex items-center gap-2 mb-1">
+            <AppIconsax name="Calendar" color="var(--color-text-subtle)" :size="13" />
+            <AppText size="10" weight="semibold" :uppercase="true" class-list="tracking-[0.12em]" :style="`color:var(--text-subtle)`">Created</AppText>
+          </div>
+          <AppText size="13" weight="semibold" :style="`color:var(--text-heading)`">{{ fmtDate(cls.createdAt) }}</AppText>
+        </div>
+      </div>
+
+      <!-- Class code (tutor/admin) -->
+      <div v-if="isTutorOrAdmin" class="dash-card overflow-hidden mb-6 animate-card-enter" style="--delay:80ms">
+        <div class="px-5 py-3 flex items-center justify-between" style="background:var(--surface-raised);border-bottom:1px solid var(--border-inner)">
+          <div class="flex items-center gap-2">
+            <AppIconsax name="Key" color="var(--color-text-subtle)" :size="13" />
+            <AppText size="11" weight="semibold" :uppercase="true" class-list="tracking-[0.12em]" :style="`color:var(--text-subtle)`">Class code</AppText>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <AppIconsax :name="statusConfig.icon" :size="11" :style="statusConfig.style" />
+            <AppText size="11" :style="statusConfig.style">{{ statusConfig.label }}</AppText>
+          </div>
+        </div>
+        <div class="p-5 flex items-center gap-4">
+          <AppText size="22" weight="bold" font-family="mono" class-list="tracking-[0.4em] select-all flex-1" :style="`color:var(--text-heading)`">
+            {{ cls.classCode }}
+          </AppText>
+          <div class="flex items-center gap-2 shrink-0">
+            <AppButton
+              variant="secondary" size="36" radius="8"
+              :icon="copying ? 'TickCircle' : 'Copy'"
+              :icon-config="{ color: copying ? 'var(--color-brand-primary)' : 'currentColor', size: 14 }"
+              text="Copy" @click="handleCopy"
+            />
+            <AppButton
+              variant="secondary" size="36" radius="8"
+              icon="Refresh2" :icon-config="{ color: 'currentColor', size: 14 }"
+              text="Rotate" :loading="refreshing" @click="handleRefresh"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabs card -->
+      <div class="dash-card overflow-hidden animate-card-enter" style="--delay:120ms">
+        <div class="flex overflow-x-auto" style="border-bottom:1px solid var(--border-inner)">
+          <button
+            v-for="tab in visibleTabs" :key="tab.key"
+            class="flex items-center gap-1.5 px-5 py-3.5 text-[13px] font-semibold font-poppins transition-colors relative shrink-0 cursor-pointer"
+            :style="activeTab === tab.key ? 'color:var(--color-brand-primary)' : 'color:var(--text-muted)'"
+            @click="activeTab = tab.key"
+          >
+            <AppIconsax :name="tab.icon" :size="14" :color="activeTab === tab.key ? 'var(--color-brand-primary)' : 'var(--color-text-muted)'" />
+            {{ tab.label }}
+            <span v-if="activeTab === tab.key" class="absolute bottom-0 left-0 right-0 h-0.5 rounded-t-full bg-brand-primary" />
+          </button>
+        </div>
+
+        <div class="p-5">
+          <PagesDashboardClassesClassMembersTab
+            v-if="activeTab === 'members'"
+            :class-id="cls.id"
+            :members="cls.members"
+            :is-tutor-or-admin="isTutorOrAdmin"
+            :current-user-id="currentUserId"
+            @removed="handleMemberRemoved"
+          />
+          <PagesDashboardClassesClassStudentsTab
+            v-else-if="activeTab === 'students'"
+            :class-id="cls.id"
+          />
+          <PagesDashboardClassesClassAnalyticsTab
+            v-else-if="activeTab === 'analytics'"
+            :class-id="cls.id"
+          />
+          <PagesDashboardClassesAnnouncementsFeed
+            v-else-if="activeTab === 'announcements'"
+            :class-id="cls.id"
+            :can-post="isTutorOrAdmin"
+          />
+        </div>
+      </div>
+
+    </template>
+
+    <!-- Shared edit dialog -->
+    <PagesDashboardClassesEditClassDialog
+      :open="editOpen"
+      :cls="cls"
+      :is-admin="userRole === 'ADMIN'"
+      @update:open="editOpen = $event"
+      @saved="load"
+    />
+
+  </div>
+</template>

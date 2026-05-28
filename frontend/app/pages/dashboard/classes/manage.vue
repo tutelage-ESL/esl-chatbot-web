@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { toast } from 'vue-sonner'
 import { useAuthStore } from '~~/stores/auth'
-import type { AdminClassItem, ClassDetail, PaginationMeta } from '~/composables/useClasses'
+import type { AdminClassItem, ClassDetail, ClassPaginationMeta } from '~/common/types/class-types'
 
 definePageMeta({ layout: 'dashboard', requiresAuth: true })
 
@@ -12,11 +12,11 @@ onMounted(() => {
   if (authStore.getUser?.role !== 'ADMIN') router.replace('/dashboard/classes')
 })
 
-const { listAllClasses, getClass, refreshCode, toggleBlock, updateCodeSettings } = useClasses()
+const { listAllClasses, getClass, refreshCode } = useClasses()
 
 // ─── State ────────────────────────────────────────────────────────────────────
 const classes = ref<AdminClassItem[]>([])
-const meta = ref<PaginationMeta>({ page: 1, limit: 20, total: 0, totalPages: 1 })
+const meta = ref<ClassPaginationMeta>({ page: 1, limit: 20, total: 0, totalPages: 1 })
 const loading = ref(true)
 const search = ref('')
 const statusFilter = ref<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL')
@@ -34,20 +34,9 @@ const deletingId = ref<string | null>(null)
 const deletingName = ref('')
 const deleteLoading = ref(false)
 
-// Edit dialog (code settings)
+// Edit dialog
 const editDialogOpen = ref(false)
 const editingClass = ref<AdminClassItem | null>(null)
-const editInterval = ref<number | null>(null)
-const editBlocked = ref(false)
-const editLoading = ref(false)
-
-const INTERVAL_OPTIONS: { label: string; value: number | null }[] = [
-  { label: 'Permanent (no refresh)', value: null },
-  { label: 'Daily', value: 86400 },
-  { label: 'Weekly', value: 604800 },
-  { label: 'Monthly', value: 2592000 },
-  { label: 'Yearly', value: 31536000 },
-]
 
 // ─── Derived ──────────────────────────────────────────────────────────────────
 const filtered = computed(() => {
@@ -110,30 +99,13 @@ function openEdit(id: string) {
   const cls = classes.value.find(c => c.id === id)
   if (!cls) return
   editingClass.value = cls
-  editInterval.value = cls.classCodeRefreshIntervalSeconds
-  editBlocked.value = cls.classCodeBlocked
   editDialogOpen.value = true
 }
 
-async function handleSaveEdit() {
-  if (!editingClass.value) return
-  editLoading.value = true
-  const id = editingClass.value.id
-
-  const [settingsRes, blockRes] = await Promise.all([
-    updateCodeSettings(id, editInterval.value),
-    toggleBlock(id, editBlocked.value),
-  ])
-  editLoading.value = false
-
-  if (!settingsRes.success || !blockRes.success) {
-    toast.error('Could not save all changes')
-    return
-  }
-  toast.success('Class settings updated.')
+async function handleEditSaved() {
   editDialogOpen.value = false
   await load(meta.value.page)
-  if (drawerClass.value?.id === id) await openDrawer(id)
+  if (drawerClass.value?.id === editingClass.value?.id) await openDrawer(editingClass.value!.id)
 }
 
 // ─── Delete ───────────────────────────────────────────────────────────────────
@@ -341,82 +313,14 @@ async function handleConfirmDelete() {
       @delete="openDelete"
     />
 
-    <!-- Edit dialog -->
-    <UiDialog v-model:open="editDialogOpen">
-      <UiDialogContent class="p-0 gap-0 overflow-hidden" :style="`background:var(--surface-card)`">
-        <UiDialogHeader class="p-6 pb-4" style="border-bottom:1px solid var(--border-inner)">
-          <UiDialogTitle :style="`color:var(--text-heading)`">Edit class settings</UiDialogTitle>
-          <UiDialogDescription :style="`color:var(--text-muted)`">
-            {{ editingClass?.className }}
-          </UiDialogDescription>
-        </UiDialogHeader>
-
-        <div class="p-6 space-y-5">
-          <!-- Code refresh interval -->
-          <div class="space-y-2">
-            <AppText size="13" weight="semibold" color="black" class-list="block" :style="`color:var(--text-heading)`">Code refresh interval</AppText>
-            <div class="space-y-1.5">
-              <button
-                v-for="opt in INTERVAL_OPTIONS"
-                :key="String(opt.value)"
-                type="button"
-                class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl border text-left transition-all"
-                :style="editInterval === opt.value
-                  ? 'border-color:var(--color-brand-primary);background:rgba(245,158,11,0.05)'
-                  : 'border-color:var(--border-card);background:var(--surface-raised)'"
-                @click="editInterval = opt.value"
-              >
-                <div
-                  class="size-4 rounded-full border-2 shrink-0 flex items-center justify-center"
-                  :style="editInterval === opt.value ? 'border-color:var(--color-brand-primary)' : 'border-color:var(--text-subtle)'"
-                >
-                  <div v-if="editInterval === opt.value" class="size-2 rounded-full" style="background:var(--color-brand-primary)" />
-                </div>
-                <AppText size="13" :color="editInterval === opt.value ? 'brand-primary' : 'black'" :weight="editInterval === opt.value ? 'semibold' : 'normal'" :style="editInterval !== opt.value ? `color:var(--text-body)` : ''">
-                  {{ opt.label }}
-                </AppText>
-              </button>
-            </div>
-          </div>
-
-          <!-- Block toggle -->
-          <div class="flex items-center justify-between p-4 rounded-xl" style="background:var(--surface-raised);border:1px solid var(--border-inner)">
-            <div>
-              <AppText size="13" weight="semibold" color="black" class-list="block" :style="`color:var(--text-heading)`">Block class code</AppText>
-              <AppText size="12" color="neutral-400" :style="`color:var(--text-muted)`">Prevents new students from joining</AppText>
-            </div>
-            <button
-              type="button"
-              class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none"
-              :style="editBlocked ? 'background:#ef4444' : 'background:var(--surface-well)'"
-              @click="editBlocked = !editBlocked"
-            >
-              <span
-                class="inline-block size-4 rounded-full bg-white shadow transition-transform"
-                :style="editBlocked ? 'transform:translateX(1.375rem)' : 'transform:translateX(0.25rem)'"
-              />
-            </button>
-          </div>
-        </div>
-
-        <UiDialogFooter class="p-6 pt-0 flex gap-2" style="border-top:1px solid var(--border-inner)">
-          <UiDialogClose as-child>
-            <AppButton variant="secondary" size="40" radius="8" text="Cancel" class="flex-1" />
-          </UiDialogClose>
-          <AppButton
-            variant="primary"
-            size="40"
-            radius="8"
-            icon="TickCircle"
-            :icon-config="{ color: 'white', size: 15 }"
-            text="Save changes"
-            class="flex-1"
-            :loading="editLoading"
-            @click="handleSaveEdit"
-          />
-        </UiDialogFooter>
-      </UiDialogContent>
-    </UiDialog>
+    <!-- Edit dialog (shared component) -->
+    <PagesDashboardClassesEditClassDialog
+      :open="editDialogOpen"
+      :cls="editingClass"
+      :is-admin="true"
+      @update:open="editDialogOpen = $event"
+      @saved="handleEditSaved"
+    />
 
     <!-- Delete confirm dialog -->
     <UiDialog v-model:open="deleteDialogOpen">

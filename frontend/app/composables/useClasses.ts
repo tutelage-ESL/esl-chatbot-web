@@ -1,65 +1,27 @@
-export interface ClassMember {
-  id: string
-  role: 'STUDENT' | 'TUTOR' | 'ADMIN'
-  user: { id: string; username: string; displayName: string; avatarUrl: string | null }
-}
+import type {
+  ClassItem,
+  ClassDetail,
+  AdminClassItem,
+  ClassMember,
+  ClassStudentSummary,
+  ClassStudentDetail,
+  ClassAnalytics,
+  AnnouncementItem,
+  ClassPaginationMeta,
+} from '~/common/types/class-types'
 
-export interface ClassItem {
-  id: string
-  className: string
-  classCode: string
-  classCategory: string | null
-  classStatus: 'ACTIVE' | 'INACTIVE'
-  classCodeBlocked: boolean
-  classCodeExpiresAt: string | null
-  classCodeRefreshIntervalSeconds: number | null
-  createdAt: string
-  memberCount: number
-  myRole?: 'STUDENT' | 'TUTOR' | 'ADMIN'
-}
+export type { ClassItem, ClassDetail, AdminClassItem, ClassMember, ClassStudentSummary, ClassStudentDetail, ClassAnalytics, AnnouncementItem, ClassPaginationMeta }
 
-export interface ClassDetail extends ClassItem {
-  members: ClassMember[]
-}
+// ─── Response wrappers ────────────────────────────────────────────────────────
 
-export interface AdminClassItem {
-  id: string
-  className: string
-  classCode: string
-  classCategory: string | null
-  classStatus: 'ACTIVE' | 'INACTIVE'
-  classCodeBlocked: boolean
-  classCodeExpiresAt: string | null
-  classCodeRefreshIntervalSeconds: number | null
-  createdAt: string
-  memberCount: number
-}
+interface ListResponse<T> { success: boolean; message?: string; data: T[] }
+interface PaginatedResponse<T> { success: boolean; message?: string; data: T[]; meta: ClassPaginationMeta }
+interface SingleResponse<T> { success: boolean; message?: string; data: T }
 
-export interface PaginationMeta {
-  page: number
-  limit: number
-  total: number
-  totalPages: number
-}
-
-interface ListResponse<T> {
-  success: boolean
-  message?: string
-  data: T[]
-}
-interface PaginatedResponse<T> {
-  success: boolean
-  message?: string
-  data: T[]
-  meta: PaginationMeta
-}
-interface SingleResponse<T> {
-  success: boolean
-  message?: string
-  data: T
-}
+// ─── Composable ───────────────────────────────────────────────────────────────
 
 export function useClasses() {
+
   async function listMyClasses() {
     return await useHttp<ListResponse<ClassItem>>({
       method: 'GET',
@@ -99,9 +61,18 @@ export function useClasses() {
   }
 
   async function createClass(body: { className: string; classCategory?: string | null; classCodeRefreshIntervalSeconds?: number | null }) {
-    return await useHttp({
+    return await useHttp<SingleResponse<ClassDetail>>({
       method: 'POST',
       url: '/classes',
+      body,
+      requireAuth: true,
+    })
+  }
+
+  async function updateClass(id: string, body: { className?: string; classCategory?: string | null; classStatus?: 'ACTIVE' | 'INACTIVE' }) {
+    return await useHttp<SingleResponse<ClassDetail>>({
+      method: 'PATCH',
+      url: `/classes/${id}`,
       body,
       requireAuth: true,
     })
@@ -133,5 +104,74 @@ export function useClasses() {
     })
   }
 
-  return { listMyClasses, listAllClasses, getClass, joinClass, createClass, refreshCode, updateCodeSettings, toggleBlock }
+  async function getClassStudents(classId: string) {
+    return await useHttp<SingleResponse<ClassStudentSummary[]>>({
+      method: 'GET',
+      url: `/classes/${classId}/students`,
+      requireAuth: true,
+    })
+  }
+
+  async function getClassStudentDetail(classId: string, studentId: string) {
+    return await useHttp<SingleResponse<ClassStudentDetail>>({
+      method: 'GET',
+      url: `/classes/${classId}/students/${studentId}`,
+      requireAuth: true,
+    })
+  }
+
+  async function getClassAnalytics(classId: string) {
+    return await useHttp<SingleResponse<ClassAnalytics>>({
+      method: 'GET',
+      url: `/classes/${classId}/analytics`,
+      requireAuth: true,
+    })
+  }
+
+  async function removeMember(classId: string, userId: string) {
+    return await useHttp({
+      method: 'DELETE',
+      url: `/classes/${classId}/members/${userId}`,
+      requireAuth: true,
+    })
+  }
+
+  async function listAnnouncements(classId: string, params?: { page?: number; limit?: number }) {
+    const query = new URLSearchParams()
+    if (params?.page) query.set('page', String(params.page))
+    if (params?.limit) query.set('limit', String(params.limit))
+    const qs = query.toString()
+    return await useHttp<SingleResponse<{ data: AnnouncementItem[]; meta: ClassPaginationMeta }>>({
+      method: 'GET',
+      url: `/classes/${classId}/announcements${qs ? `?${qs}` : ''}`,
+      requireAuth: true,
+    })
+  }
+
+  async function createAnnouncement(classId: string, content: string) {
+    return await useHttp<SingleResponse<AnnouncementItem>>({
+      method: 'POST',
+      url: `/classes/${classId}/announcements`,
+      body: { content },
+      requireAuth: true,
+    })
+  }
+
+  return {
+    listMyClasses,
+    listAllClasses,
+    getClass,
+    joinClass,
+    createClass,
+    updateClass,
+    refreshCode,
+    updateCodeSettings,
+    toggleBlock,
+    getClassStudents,
+    getClassStudentDetail,
+    getClassAnalytics,
+    removeMember,
+    listAnnouncements,
+    createAnnouncement,
+  }
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { AdminClassItem } from '~/composables/useClasses'
+import type { AdminClassItem } from '~/common/types/class-types'
 
 defineProps<{ cls: AdminClassItem }>()
 defineEmits<{
@@ -65,7 +65,7 @@ function isExpired(expiresAt: string | null) {
         class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold font-poppins"
         :style="cls.classStatus === 'ACTIVE'
           ? 'background:var(--status-active-bg);color:var(--status-active-text)'
-          : 'background:var(--status-inactive-bg);color:var(--status-inactive-text)'"
+          : 'background:var(--status-expired-bg);color:var(--status-expired-text)'"
       >
         <span class="size-1.5 rounded-full" :style="cls.classStatus === 'ACTIVE' ? 'background:var(--status-active-text)' : 'background:var(--status-inactive-text)'" />
         {{ cls.classStatus === 'ACTIVE' ? 'Active' : 'Inactive' }}

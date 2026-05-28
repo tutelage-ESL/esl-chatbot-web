@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ClassItem } from '~/composables/useClasses'
+import type { ClassItem } from '~/common/types/class-types'
 
 const props = defineProps<{
   cls: ClassItem
