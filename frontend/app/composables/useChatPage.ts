@@ -248,6 +248,11 @@ export function useChatPage() {
 
   async function newSession() {
     if (creating.value) return
+    activeSessionId.value = null
+    activeSession.value = null
+    messageEntities.value = []
+    messages.value = []
+    router.replace({ query: {} })
     await ensureSession()
   }
 
@@ -351,9 +356,9 @@ export function useChatPage() {
     toast.success('Refreshed')
   }
 
-  function fillSuggestion(text: string) {
+  async function fillSuggestion(text: string) {
     input.value = text
-    nextTick(() => composerRef.value?.textareaEl?.focus())
+    await send()
   }
 
   onMounted(async () => {
