@@ -43,8 +43,10 @@ For GOLD and PREMIUM, the same Azure STT call also returns **pronunciation score
 | **PREMIUM production** | Azure Speech | Full pronunciation: accuracy + fluency + completeness + prosody + accent. Same price as GOLD — richer output via API parameters only. |
 
 **API keys needed (STT): 2**
-- `DEEPGRAM_API_KEY` — Dev + FREE tier
-- `AZURE_SPEECH_KEY` + `AZURE_SPEECH_REGION` — GOLD + PREMIUM
+- `DEEPGRAM_API_KEY` — Dev + FREE tier (batch transcription via `sendVoiceMessage`) **and** Socket.io live streaming for partial-transcript UX on all plans
+- `AZURE_SPEECH_KEY` + `AZURE_SPEECH_REGION` — GOLD + PREMIUM (authoritative batch transcription + pronunciation scores)
+
+> **Deepgram live streaming note:** The `/chat` Socket.io namespace uses `@deepgram/sdk` `client.listen.v1.connect()` to stream audio in real time for partial-transcript display while the user records. This is UX-only — the authoritative transcript that drives the LLM pipeline still comes from the batch STT call inside `sendVoiceMessage`. On GOLD/PREMIUM where Azure is the batch provider, Deepgram still runs for the live preview; this means GOLD/PREMIUM users see partial transcripts (via Deepgram, ~$0.0077/min streaming) plus get the authoritative transcript + pronunciation scores from Azure. Safari users (`audio/mp4`) skip the live connection entirely since Deepgram streaming doesn't support MP4 — they still get the full batch pipeline.
 
 ---
 

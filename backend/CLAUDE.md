@@ -124,7 +124,7 @@ src/
 ├── routes/v1/       # mounts all module routers under /api/v1
 ├── types/           # express.d.ts (req.user augmentation)
 ├── jobs/            # cron job placeholders
-├── socket/          # Socket.io: index.ts (init), chat.socket.ts (/chat ns), notifications.socket.ts (/notifications ns), io-instance.ts (getIO singleton)
+├── socket/          # Socket.io: index.ts (init), chat.socket.ts (/chat ns), voice.socket.ts (voice pipeline), notifications.socket.ts (/notifications ns), io-instance.ts (getIO singleton)
 ├── app.ts           # Express setup, middleware stack, routes
 └── index.ts         # Server entry point
 ```
@@ -401,7 +401,7 @@ Includes: classes (with full code-lifecycle fields populated) with enrolled user
 - Rate limiting per-plan (stricter for FREE)
 - Email notifications (SendGrid): welcome, password reset, weekly digest
 - File upload handling (audio recordings, avatars)
-- ✅ Socket.io real-time chat — `/chat` namespace (message:send pipeline) + `/notifications` namespace (server-push). JWT auth at handshake. See `src/socket/`. To push a notification from any service: `getIO().of('/notifications').to('user:{userId}').emit('notification:new', data)`
+- ✅ Socket.io real-time chat — `/chat` namespace (text `message:send` + voice `voice:start/chunk/end` pipeline) + `/notifications` namespace (server-push). JWT auth at handshake. See `src/socket/`. Voice: client streams base64 chunks → server buffers + streams to Deepgram live for partial transcripts → on `voice:end` runs batch STT→LLM→TTS via `sendVoiceMessage`. To push a notification from any service: `getIO().of('/notifications').to('user:{userId}').emit('notification:new', data)`
 - Cron jobs: daily progress snapshots, SRS reset, streak calculation
 - Comprehensive error logging and monitoring
 - API documentation completion (Swagger)

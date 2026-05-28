@@ -6,6 +6,7 @@ import type { Role } from "@prisma/client";
 import { env } from "../config/env.ts";
 import type { JwtPayload } from "../modules/auth/auth.types.ts";
 import { initChatHandlers } from "./chat.socket.ts";
+import { initVoiceHandlers } from "./voice.socket.ts";
 import { initNotificationsHandlers } from "./notifications.socket.ts";
 
 export interface SocketUser {
@@ -58,10 +59,11 @@ export function initializeSocket(
     },
   });
 
-  // /chat namespace — real-time message sending
+  // /chat namespace — real-time message sending + voice recording
   const chatNS = io.of("/chat");
   chatNS.use(jwtAuthMiddleware);
   initChatHandlers(chatNS);
+  initVoiceHandlers(chatNS);
 
   // /notifications namespace — server-push only (no client events)
   const notifNS = io.of("/notifications");
