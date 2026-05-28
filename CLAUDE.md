@@ -9,6 +9,10 @@ Monorepo for an AI-powered ESL learning platform. Two independent workspaces, ea
 - **[backend/](backend/)** — Bun + Express 5 + TypeScript + Prisma/PostgreSQL API. See [backend/CLAUDE.md](backend/CLAUDE.md) for the full backend guide (domain model, tier limits, module pattern).
 - **[frontend/](frontend/)** — Nuxt 4 + Vue 3 + Tailwind 4 + shadcn-nuxt. See [frontend/CLAUDE.md](frontend/CLAUDE.md) for the frontend guide (folder rules, HTTP layer, auth flow).
 
+## Frontend Task Tracking
+
+**[frontend/TASKS.md](frontend/TASKS.md)** is the shared task board between Aland (backend) and Rekar (frontend). When working on the backend, check this file to see what frontend pages are still hardcoded or missing a composable — it affects whether a new API needs a note added. When a new backend endpoint is built that the frontend needs to wire up, add it to the relevant task in `frontend/TASKS.md` so Rekar knows what changed.
+
 The root `package.json` is **not** a workspace manager — it only holds shared Prisma/Tailwind dev tooling so Prisma VS Code extensions work from the repo root. Always `cd` into `backend/` or `frontend/` before running commands. There is no root-level script that builds or tests both workspaces together.
 
 ## Bootstrap & Common Commands
