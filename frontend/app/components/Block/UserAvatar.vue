@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useAuthStore } from '~~/stores/auth'
 import { useRouter } from 'vue-router'
-import { UserRole } from '@/common/types/user-permissions'
+
 const authStore = useAuthStore()
 const user = computed(() => authStore.getUser)
 const router = useRouter()
@@ -18,6 +18,7 @@ const planLabel: Record<string, string> = {
 }
 
 const plan = computed(() => planLabel[user.value?.subscription?.plan ?? 'FREE'] ?? 'Free')
+const isFree = computed(() => (user.value?.subscription?.plan ?? 'FREE') === 'FREE')
 
 async function handleSignOut() {
   await authStore.signOut()
@@ -80,11 +81,11 @@ async function handleSignOut() {
         </NuxtLink>
       </UiDropdownMenuItem>
 
-      <!-- Settings -->
-      <UiDropdownMenuItem v-can="[UserRole.ADMIN]" as-child class="focus:text-white group">
-        <NuxtLink to="/dashboard/settings" class="flex items-center gap-2.5 cursor-pointer">
-          <AppIconsax name="Setting2" color="currentColor" :size="14" class="text-zinc-500 group-focus:text-white" />
-          <span class="text-[13px]">Settings</span>
+      <!-- Billing — visible to all users -->
+      <UiDropdownMenuItem as-child class="focus:text-white group">
+        <NuxtLink to="/dashboard/billing" class="flex items-center gap-2.5 cursor-pointer">
+          <AppIconsax name="Wallet2" color="currentColor" :size="14" class="text-zinc-500 group-focus:text-white" />
+          <span class="text-[13px]">Billing</span>
         </NuxtLink>
       </UiDropdownMenuItem>
 

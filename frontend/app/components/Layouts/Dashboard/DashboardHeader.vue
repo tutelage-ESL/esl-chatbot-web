@@ -13,7 +13,7 @@ const pageTitles: Record<string, string> = {
   '/dashboard/goals':    'Goals',
   '/dashboard/lessons':  'Lessons',
   '/dashboard/profile':  'Profile',
-  '/dashboard/settings': 'Settings',
+  '/dashboard/billing': 'Billing',
 }
 
 const pageTitle = computed(() => pageTitles[route.path] ?? 'Dashboard')
@@ -32,7 +32,7 @@ const navActions: { label: string; icon: SvgBasedIconName; to: string }[] = [
   { label: 'Goals',      icon: 'Flag',        to: '/dashboard/goals' },
   { label: 'Lessons',    icon: 'Teacher',     to: '/dashboard/lessons' },
   { label: 'Profile',    icon: 'Profile',     to: '/dashboard/profile' },
-  { label: 'Settings',   icon: 'Setting2',    to: '/dashboard/settings' },
+  { label: 'Billing',    icon: 'Wallet2',     to: '/dashboard/billing' },
 ]
 
 const filteredActions = computed(() => {

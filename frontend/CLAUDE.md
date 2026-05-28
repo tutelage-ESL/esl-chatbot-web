@@ -258,7 +258,7 @@ All pages use `definePageMeta({ layout: 'dashboard', requiresAuth: true })`.
 | `/dashboard/goals` | `pages/dashboard/goals.vue` | Stub |
 | `/dashboard/lessons` | `pages/dashboard/lessons.vue` | Stub |
 | `/dashboard/profile` | `pages/dashboard/profile.vue` | Built |
-| `/dashboard/settings` | `pages/dashboard/settings.vue` | Built |
+| `/dashboard/settings` | `pages/dashboard/settings.vue` | Built — account info + FIB subscription panel |
 | `/dashboard/classes` | `pages/dashboard/classes/index.vue` | Built |
 | `/dashboard/classes/create` | `pages/dashboard/classes/create.vue` | Built (tutor/admin) |
 | `/dashboard/classes/manage` | `pages/dashboard/classes/manage.vue` | Built (admin) |
@@ -326,7 +326,9 @@ Types are split by domain — never define them inline in a composable:
 |---|---|
 | [common/model/user.ts](app/common/model/user.ts) | `User` — mirrors the `users` DB table |
 | [common/model/class.ts](app/common/model/class.ts) | `Class`, `ClassUser`, `Announcement` — mirrors the DB tables |
+| [common/model/subscription.ts](app/common/model/subscription.ts) | `Subscription`, `FibSubscription` — mirrors the DB tables |
 | [common/types/class-types.ts](app/common/types/class-types.ts) | API shapes: `ClassItem`, `ClassDetail`, `ClassMember`, `AdminClassItem`, `ClassStudentSummary`, `ClassStudentDetail`, `ClassAnalytics`, `AnnouncementItem`, `ClassPaginationMeta` |
+| [common/types/subscription-types.ts](app/common/types/subscription-types.ts) | `PlanMeta`, `PLAN_META`, `PLAN_PRICES_IQD`, `INTERVAL_LABELS`, `InitiateFibResult`, `FibStatusResult`, `UserSubscriptionDetail` |
 | [common/types/dashboard-types.ts](app/common/types/dashboard-types.ts) | Navigation, stat cards, chart points, sessions, vocabulary, goals, lessons |
 
 **Rule:** model files (`common/model/`) = exact DB table shape. Type files (`common/types/`) = API response shapes that may extend/pick from model types. Import from `~/common/model/...` or `~/common/types/...` as appropriate.
@@ -337,6 +339,7 @@ Types are split by domain — never define them inline in a composable:
 |---|---|---|
 | `useHttp` | [app/composables/useHttp.ts](app/composables/useHttp.ts) | Single `useHttp(options)` function — all API calls must go through this |
 | `useClasses` | [app/composables/useClasses.ts](app/composables/useClasses.ts) | `listMyClasses`, `listAllClasses`, `getClass`, `joinClass`, `createClass`, `updateClass`, `refreshCode`, `updateCodeSettings`, `toggleBlock`, `getClassStudents`, `getClassStudentDetail`, `getClassAnalytics`, `removeMember`, `listAnnouncements`, `createAnnouncement` |
+| `useSubscription` | [app/composables/useSubscription.ts](app/composables/useSubscription.ts) | `getMySubscription`, `initiateFib`, `getFibStatus`, `cancelFib` |
 | `useChatPage` | [app/composables/useChatPage.ts](app/composables/useChatPage.ts) | All state and actions for the chat page — sessions, messages, send, newSession, openSession, endCurrent, refreshCurrent, fillSuggestion |
 | `useSessions` | [app/composables/useSessions.ts](app/composables/useSessions.ts) | Raw session API calls used by `useChatPage` |
 | `useCopyToClipboard` | auto-imported | `useCopyToClipboard(value)` — direct call, no destructuring |

@@ -11,7 +11,7 @@ export type DashboardNavId =
   | 'classes'
   | 'lessons'
   | 'profile'
-  | 'settings'
+  | 'billing'
 
 export interface DashboardNavItem {
   id: DashboardNavId

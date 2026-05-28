@@ -89,7 +89,7 @@
 
           <div class="relative mt-8">
             <AppButton
-              :to="plan.ctaHref"
+              :to="ctaHref(plan)"
               :variant="plan.featured ? 'primary' : 'ghost'"
               size="44"
               radius="full"
@@ -115,6 +115,9 @@
 
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
+import { useAuthStore } from '~~/stores/auth'
+
+const authStore = useAuthStore()
 
 type Plan = {
   id: string
@@ -123,8 +126,15 @@ type Plan = {
   description: string
   features: string[]
   cta: string
-  ctaHref: string
+  planKey?: 'GOLD' | 'PREMIUM'
   featured?: boolean
+}
+
+function ctaHref(plan: Plan) {
+  if (!plan.planKey) return '/signup'
+  return authStore.getIsAuthenticated
+    ? `/dashboard/billing?plan=${plan.planKey}`
+    : `/signup?redirect=/dashboard/billing?plan=${plan.planKey}`
 }
 
 type PremiumStar = {
@@ -153,51 +163,47 @@ const plans: Plan[] = [
   {
     id: 'starter',
     name: 'Starter',
-    price: '$0',
+    price: 'Free',
     description: 'Try the core experience and see how Tutelage fits into your routine.',
     features: [
-      'Chat Assistant',
-      '1 active learning goal',
+      '3 sessions/day',
+      '20 msgs/session',
+      'Gemini Flash-Lite AI',
       'Basic vocabulary SRS',
-      'Weekly progress summary',
-      'Community topics',
+      'Progress tracking',
     ],
-    cta: 'Start Now',
-    ctaHref: '#',
+    cta: 'Start Free',
+  },
+  {
+    id: 'gold',
+    name: 'Gold',
+    price: '25,000 IQD',
+    description: 'Serious learners who want more sessions, smarter AI, and full analytics.',
+    features: [
+      '15 sessions/day',
+      '100 msgs/session',
+      'Gemini 2.5 Flash AI',
+      'Full vocabulary SRS',
+      'Progress analytics',
+    ],
+    cta: 'Get Gold',
+    planKey: 'GOLD',
+    featured: true,
   },
   {
     id: 'premium',
     name: 'Premium',
-    price: '$12',
+    price: '45,000 IQD',
     description: 'Everything you need to go all-in on the full Tutelage experience.',
     features: [
-      'Chat Assistant',
-      'Unlimited conversations',
-      'Full TTS + priority voice',
-      'Unlimited goals & decks',
+      '50 sessions/day',
+      '150 msgs/session',
+      'GPT-5 mini AI',
+      'Priority voice TTS',
       'Advanced analytics',
-      'Pronunciation heatmaps',
-      'Priority support',
     ],
-    cta: 'Start Premium',
-    ctaHref: '#',
-    featured: true,
-  },
-  {
-    id: 'enterprise',
-    name: 'Enterprise',
-    price: '$49',
-    description: 'Complete learning system for schools and teams ready to scale results.',
-    features: [
-      'Everything in Premium',
-      'Team dashboards',
-      'Classroom management',
-      'Custom curriculum hooks',
-      'SSO & admin controls',
-      'Dedicated success manager',
-    ],
-    cta: 'Contact Team',
-    ctaHref: '#',
+    cta: 'Get Premium',
+    planKey: 'PREMIUM',
   },
 ]
 </script>

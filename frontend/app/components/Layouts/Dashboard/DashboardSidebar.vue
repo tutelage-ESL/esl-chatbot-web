@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import type { DashboardNavItem } from '~/common/types/dashboard-types'
+import { useAuthStore } from '~~/stores/auth'
+
+const authStore = useAuthStore()
+const currentPlan = computed(() => authStore.getUser?.subscription?.plan ?? 'FREE')
 
 const props = defineProps<{
   collapsed: boolean
@@ -14,13 +18,14 @@ watch(() => route.path, () => {
 })
 
 const primaryNav: DashboardNavItem[] = [
-  { id: 'overview', label: 'Overview',   icon: 'Chart',      path: '/dashboard',        badge: undefined },
-  { id: 'chat',     label: 'AI Chat',    icon: 'Messages',   path: '/dashboard/chat',   badge: undefined },
-  { id: 'classes',  label: 'Classes',    icon: 'BookSaved',     path: '/dashboard/classes',badge: undefined },
-  { id: 'lessons',  label: 'Lessons',    icon: 'Candle',     path: '/dashboard/lessons',badge: undefined },
-  { id: 'voice',    label: 'Voice Lab',  icon: 'Microphone', path: '/dashboard/voice',  badge: undefined },
-  { id: 'vocab',    label: 'Vocabulary', icon: 'Book1',      path: '/dashboard/vocab',  badge: 12 },
-  { id: 'goals',    label: 'Goals',      icon: 'Flag',       path: '/dashboard/goals',  badge: undefined },
+  { id: 'overview', label: 'Overview',   icon: 'Chart',      path: '/dashboard',          badge: undefined },
+  { id: 'chat',     label: 'AI Chat',    icon: 'Messages',   path: '/dashboard/chat',     badge: undefined },
+  { id: 'classes',  label: 'Classes',    icon: 'BookSaved',  path: '/dashboard/classes',  badge: undefined },
+  { id: 'lessons',  label: 'Lessons',    icon: 'Candle',     path: '/dashboard/lessons',  badge: undefined },
+  { id: 'voice',    label: 'Voice Lab',  icon: 'Microphone', path: '/dashboard/voice',    badge: undefined },
+  { id: 'vocab',    label: 'Vocabulary', icon: 'Book1',      path: '/dashboard/vocab',    badge: 12 },
+  { id: 'goals',    label: 'Goals',      icon: 'Flag',       path: '/dashboard/goals',    badge: undefined },
+  { id: 'billing',  label: 'Billing',    icon: 'Wallet2',    path: '/dashboard/billing', badge: undefined },
 ]
 
 function isActive(path: string) {
@@ -123,30 +128,31 @@ function isActive(path: string) {
       </NuxtLink>
     </nav>
 
-    <!-- Upgrade card (collapsed hidden) -->
-    <!-- <Transition name="fade">
-      <div
-        v-if="!collapsed"
-        class="m-3 p-3 rounded-xl bg-linear-to-br from-[#151517] to-[#1e1e22] text-white relative overflow-hidden shrink-0"
+    <!-- Upgrade card — FREE plan only, hidden when collapsed -->
+    <Transition name="fade">
+      <NuxtLink
+        v-if="!collapsed && currentPlan === 'FREE'"
+        to="/dashboard/billing"
+        class="m-3 p-3.5 rounded-xl bg-linear-to-br from-[#151517] to-[#1e1e22] text-white relative overflow-hidden shrink-0 block group cursor-pointer"
       >
-        <div class="absolute -right-10 -top-10 w-28 h-28 rounded-full bg-brand-primary/30 blur-2xl pointer-events-none" />
+        <div class="absolute -right-8 -top-8 w-24 h-24 rounded-full bg-brand-primary/25 blur-2xl pointer-events-none" />
         <div class="relative">
-          <AppText size="10" weight="semibold" color="brand-primary" uppercase class="tracking-wider font-poppins">
-            Starter plan
+          <div class="flex items-center gap-1.5 mb-1.5">
+            <AppIconsax name="Crown1" color="var(--color-brand-primary)" :size="12" />
+            <AppText size="10" weight="semibold" color="brand-primary" :uppercase="true" class-list="tracking-wider font-poppins">
+              Free plan
+            </AppText>
+          </div>
+          <AppText size="12" weight="medium" color="white" class-list="leading-snug font-poppins block">
+            Unlock more sessions<br />and smarter AI.
           </AppText>
-          <AppText size="13" weight="medium" color="white" class="mt-1 leading-tight font-poppins">
-            Unlock voice lab,<br />unlimited chats.
-          </AppText>
-          <AppButton
-            variant="primary"
-            size="32"
-            radius="8"
-            text="Upgrade to Premium"
-            class="mt-3 w-full text-[12px]!"
-          />
+          <div class="mt-2.5 flex items-center gap-1.5 text-[11.5px] font-semibold font-poppins text-brand-primary group-hover:gap-2.5 transition-all">
+            <span>Upgrade now</span>
+            <AppIconsax name="ArrowRight" color="var(--color-brand-primary)" :size="11" />
+          </div>
         </div>
-      </div>
-    </Transition> -->
+      </NuxtLink>
+    </Transition>
 
     <!-- Collapse toggle (desktop only) -->
     <button

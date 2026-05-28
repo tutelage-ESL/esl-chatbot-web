@@ -74,7 +74,7 @@ defineExpose({ scrollEl })
 
         <AppButton
           v-if="!subActive"
-          to="/dashboard/settings"
+          to="/dashboard/billing"
           variant="primary"
           size="38"
           radius="8"

@@ -1,5 +1,5 @@
 <template>
-  <div class="h-dvh overflow-hidden">
+  <div>
     <NuxtLayout>
       <NuxtPage />
       <ClientOnly>
