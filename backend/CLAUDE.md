@@ -402,7 +402,7 @@ Includes: classes (with full code-lifecycle fields populated) with enrolled user
 - Email notifications (SendGrid): welcome, password reset, weekly digest
 - File upload handling (audio recordings, avatars)
 - ✅ Socket.io real-time chat — `/chat` namespace (text `message:send` + voice `voice:start/chunk/end` pipeline) + `/notifications` namespace (server-push). JWT auth at handshake. See `src/socket/`. Voice: client streams base64 chunks → server buffers + streams to Deepgram live for partial transcripts → on `voice:end` runs batch STT→LLM→TTS via `sendVoiceMessage`. To push a notification from any service: `getIO().of('/notifications').to('user:{userId}').emit('notification:new', data)`
-- Cron jobs: daily progress snapshots, SRS reset, streak calculation
+- ✅ Cron jobs: streak reset (00:00 UTC), subscription expiry (01:00 UTC), stale session cleanup (02:00 UTC)
 - Comprehensive error logging and monitoring
 - API documentation completion (Swagger)
 - Integration and unit tests

@@ -4,6 +4,7 @@ import { env, logger } from "./config/index.ts";
 import { connectDatabase, disconnectDatabase, resetDatabase } from "./config/database.ts";
 import { initializeSocket } from "./socket/index.ts";
 import { setIO } from "./socket/io-instance.ts";
+import { startCronJobs, stopCronJobs } from "./jobs/index.ts";
 
 async function bootstrap() {
   // 1. Reset DB if RESET_DB=true in .env (dev only — destroys all data)
@@ -30,9 +31,13 @@ async function bootstrap() {
     logger.info(`Server running on port ${env.PORT} in ${env.NODE_ENV} mode`);
   });
 
+  // 5. Start background cron jobs
+  startCronJobs();
+
   // Graceful shutdown
   const shutdown = async () => {
     logger.info("Shutting down gracefully...");
+    stopCronJobs();
     io.close();
     server.close(async () => {
       await disconnectDatabase();
