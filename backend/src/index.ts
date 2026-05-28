@@ -18,7 +18,7 @@ async function bootstrap() {
   setIO(io);
 
   // 4. Start HTTP server
-  const server = httpServer.listen(env.PORT, () => {
+  const server = httpServer.listen(env.PORT, "0.0.0.0", () => {
     console.log("┌─────────────────────────────────────────┐");
     console.log("│           SERVER STARTED                 │");
     console.log("└─────────────────────────────────────────┘");

@@ -26,8 +26,10 @@ app.use(morgan("combined", {
   stream: { write: (message: string) => logger.info(message.trim()) },
 }));
 
-// API docs — helmet CSP disabled for this route (Swagger UI uses inline scripts/styles)
-app.use("/api-docs", helmet({ contentSecurityPolicy: false }), swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+// API docs — dev only (never expose in prod; CSP removed because global helmet sets it before route-level can clear it)
+if (env.NODE_ENV !== "production") {
+  app.use("/api-docs", (_req, res, next) => { res.removeHeader("Content-Security-Policy"); next(); }, swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+}
 
 // Routes
 app.use("/api/v1", v1Router);
