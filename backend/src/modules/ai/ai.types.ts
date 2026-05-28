@@ -11,6 +11,13 @@ export interface Correction {
   explanation: string;
 }
 
+export interface NewVocabularyWord {
+  word: string;
+  definition: string;
+  partOfSpeech?: string;
+  example?: string;
+}
+
 export interface MessageEvaluationResult {
   grammarScore: number;
   grammarErrors: GrammarError[];
@@ -21,6 +28,7 @@ export interface MessageEvaluationResult {
   detectedCefrLevel: string;
   corrections: Correction[];
   feedback: string;
+  newWords: NewVocabularyWord[];
 }
 
 export interface AIResponse {

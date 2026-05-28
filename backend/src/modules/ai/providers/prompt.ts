@@ -34,7 +34,10 @@ Return ONLY valid JSON — no markdown, no code fences, no text before or after 
     "corrections": [
       {"original": "exact text from student", "corrected": "corrected version", "explanation": "brief explanation"}
     ],
-    "feedback": "One sentence of specific encouragement + one actionable tip"
+    "feedback": "One sentence of specific encouragement + one actionable tip",
+    "newWords": [
+      {"word": "lowercase_word", "definition": "clear 1-sentence definition", "partOfSpeech": "noun/verb/adjective/adverb", "example": "A natural sentence using this word correctly"}
+    ]
   }
 }
 
@@ -43,5 +46,6 @@ Scoring guide:
 - vocabularyScore: 100 = rich and precise for context, 70 = adequate, 50 = basic, 30 = very limited
 - fluencyScore: 100 = natural varied sentences, 70 = clear but simple, 50 = halting or repetitive
 - Keep grammarErrors and corrections arrays empty [] if there are no errors — never fabricate errors
+- newWords: 0–3 vocabulary words worth studying. Include advanced words the student used correctly (to reinforce) or words they used incorrectly (to study). Use lowercase for "word". Leave [] if nothing notable. Never include articles, prepositions, pronouns, or basic words a beginner already knows.
 - reply field: 50-100 words only. No introductions. No "As your tutor..." or "Hello, I am..." preambles.`;
 }

@@ -55,6 +55,8 @@ Build `app/composables/useVocabulary.ts` and wire the page:
 The flashcard "Again / Hard / Good / Easy" buttons should map to quality `0 / 1 / 3 / 5`.  
 `masteryLevel` (0–5) is returned by the API — use it for the progress indicator on each card.
 
+**New (backend done):** When a session ends (`POST /sessions/:id/end`), the response's `evaluation.newVocabulary` now contains real word objects: `{ word, definition, partOfSpeech?, example? }`. The chat page's session-end view could show a "Words learned this session" summary panel using this data. Words are also automatically added to the user's vocabulary table (source: SESSION) and will appear in `/vocabulary` and `/vocabulary/due`.
+
 ---
 
 ### 4. Profile page — wire to real API + edit form

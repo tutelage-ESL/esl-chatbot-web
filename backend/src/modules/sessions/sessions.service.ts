@@ -2,6 +2,8 @@ import type { Prisma, SessionMode } from "@prisma/client";
 import { prisma } from "../../config/database.ts";
 import { AppError } from "../../utils/AppError.ts";
 import { createNotification } from "../notifications/notifications.service.ts";
+import { upsertSessionVocabulary } from "../vocabulary/vocabulary.service.ts";
+import type { NewVocabularyWord } from "../ai/ai.types.ts";
 import type {
   SessionListItem,
   SessionDetail,
@@ -251,6 +253,7 @@ export async function endSession(
               fluencyScore: true,
               overallScore: true,
               pronunciationScore: true,
+              newWords: true,
             },
           },
         },
@@ -325,6 +328,12 @@ export async function endSession(
           pronouncedMessages.length
         : null;
 
+    // Collect new vocabulary from all message evaluations, upsert to vocabulary table
+    const rawVocab = evaluatedMessages.flatMap(
+      (m) => ((m.evaluation?.newWords ?? []) as unknown as NewVocabularyWord[]),
+    );
+    const sessionVocabulary = await upsertSessionVocabulary(userId, rawVocab);
+
     await prisma.sessionEvaluation.create({
       data: {
         sessionId,
@@ -340,7 +349,7 @@ export async function endSession(
         recommendations: weaknesses.map(
           (w) => `Focus on improving ${w.replace(" needs improvement", "")}`,
         ),
-        newVocabulary: [],
+        newVocabulary: sessionVocabulary as unknown as object[],
         totalUserMessages,
         totalUserWords,
       },

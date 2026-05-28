@@ -361,7 +361,8 @@ Includes: classes (with full code-lifecycle fields populated) with enrolled user
 - ✅ `POST /vocabulary/:id/review` — submit SM-2 review (quality 0–5); updates srsInterval, srsEase, srsDue, masteryLevel, correctCount/incorrectCount; also increments today's progress.vocabularyPracticed
 - ✅ SM-2 algorithm implemented in `vocabulary.service.ts` — masteryLevel derived from srsInterval (0=new, 1=seen, 2=learning, 3=familiar, 4=proficient, 5=mastered)
 - ✅ `source` field (VocabSource: MANUAL/SESSION) — tracks whether words were user-added or AI-detected
-- Remaining: bulk import/export, auto-add from session newVocabulary (needs AI to populate that field)
+- Remaining: bulk import/export
+- ✅ Auto-add from session: AI returns `newWords` per message → stored in `MessageEvaluation.newWords` → aggregated + upserted to vocabulary table on `POST /sessions/:id/end`. `SessionEvaluation.newVocabulary` now populated with `{word,definition,partOfSpeech?,example?}` objects.
 
 ### Phase 6 — Goals & Progress
 - ✅ `GET /goals` — list own goals; tutors/admins can add `?studentId=` (tutor must have the student in their class). Filterable by `?status=` and `?type=`

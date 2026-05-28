@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "../../config/database.ts";
 import { AppError } from "../../utils/AppError.ts";
 import type { VocabularyItem, VocabularyStats, ReviewResult } from "./vocabulary.types.ts";
+import type { NewVocabularyWord } from "../ai/ai.types.ts";
 import type {
   addVocabularySchema,
   updateVocabularySchema,
@@ -65,6 +66,51 @@ function sm2(
   }
 
   return { interval, ease };
+}
+
+// ── Upsert session vocabulary ─────────────────────────────
+// Called by sessions.service at endSession() to bulk-insert AI-detected words.
+// Validates + deduplicates before writing. skipDuplicates preserves existing SRS state.
+
+export async function upsertSessionVocabulary(
+  userId: string,
+  rawWords: NewVocabularyWord[],
+): Promise<NewVocabularyWord[]> {
+  if (rawWords.length === 0) return [];
+
+  const seen = new Set<string>();
+  const valid: NewVocabularyWord[] = [];
+
+  for (const w of rawWords) {
+    const word = w.word?.toLowerCase()?.trim();
+    if (!word || word.length > 50 || !/^[a-zA-Z\s'-]+$/.test(word)) continue;
+    if (!w.definition?.trim()) continue;
+    if (seen.has(word)) continue;
+    seen.add(word);
+    valid.push({
+      word,
+      definition: w.definition.trim(),
+      partOfSpeech: w.partOfSpeech?.trim() || undefined,
+      example: w.example?.trim() || undefined,
+    });
+    if (valid.length >= 20) break; // safety cap per session
+  }
+
+  if (valid.length === 0) return [];
+
+  await prisma.vocabulary.createMany({
+    data: valid.map((w) => ({
+      userId,
+      word: w.word,
+      definition: w.definition,
+      partOfSpeech: w.partOfSpeech ?? null,
+      example: w.example ?? null,
+      source: "SESSION" as const,
+    })),
+    skipDuplicates: true,
+  });
+
+  return valid;
 }
 
 // ── Vocabulary stats ──────────────────────────────────────────

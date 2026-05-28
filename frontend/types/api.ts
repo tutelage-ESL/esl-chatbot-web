@@ -2935,8 +2935,9 @@ export interface paths {
          *
          *     Same per-session and per-day limits as text messages apply.
          *
-         *     **Note (Session 1):** `audioUrl` is always `null` — R2 audio storage is wired in Session 2.
-         *     AI audio is returned as `audioBase64` in the response instead.
+         *     Both `userMessage.audioUrl` (student recording) and `assistantMessage.audioUrl` (TTS MP3)
+         *     are populated when Cloudflare R2 is configured (`R2_*` env vars). `null` otherwise.
+         *     `audioBase64` always contains the TTS audio for immediate playback (when TTS is configured).
          */
         post: {
             parameters: {
@@ -2982,6 +2983,8 @@ export interface paths {
                                     content?: string;
                                     wordCount?: number | null;
                                     audioDurationSec?: number | null;
+                                    /** @description R2 URL of the student recording. Null if R2 not configured. */
+                                    audioUrl?: string | null;
                                     /** Format: date-time */
                                     createdAt?: string;
                                 };
@@ -2995,6 +2998,8 @@ export interface paths {
                                     /** @description AI tutor's text reply */
                                     content?: string;
                                     wordCount?: number | null;
+                                    /** @description R2 URL of the TTS MP3. Null if R2 or TTS not configured. */
+                                    audioUrl?: string | null;
                                     /** Format: date-time */
                                     createdAt?: string;
                                 };

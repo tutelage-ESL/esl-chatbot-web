@@ -337,6 +337,7 @@ model MessageEvaluation {
   detectedCefrLevel   String  // detected CEFR level of this message (A1-C2)
   corrections         Json    // [{original, corrected, explanation}]
   feedback            String  // human-readable summary from AI
+  newWords            Json?   // [{word, definition, partOfSpeech?, example?}] — vocabulary worth studying
 
   message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
 

@@ -149,6 +149,7 @@ export async function sendMessage(
         detectedCefrLevel: aiResult.evaluation.detectedCefrLevel,
         corrections: aiResult.evaluation.corrections as unknown as object[],
         feedback: aiResult.evaluation.feedback,
+        newWords: (aiResult.evaluation.newWords ?? []) as unknown as object[],
       },
       select: {
         grammarScore: true,

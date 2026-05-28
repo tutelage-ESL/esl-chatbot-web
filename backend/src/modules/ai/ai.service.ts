@@ -61,6 +61,7 @@ function heuristicResponse(userMessage: string): AIResponse {
       feedback: overallScore >= 80
         ? "Excellent work! Your message is well-structured."
         : "Good effort! Keep practicing to improve your fluency.",
+      newWords: [],
     },
   };
 }
