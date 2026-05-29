@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { ZodError } from "zod/v4";
+import multer from "multer";
 import { AppError } from "../utils/AppError.ts";
 import { logger } from "../config/logger.ts";
 
@@ -9,6 +10,16 @@ export function errorHandler(
   res: Response,
   _next: NextFunction,
 ): void {
+  if (err instanceof multer.MulterError) {
+    const status = err.code === "LIMIT_FILE_SIZE" ? 413 : 400;
+    const message =
+      err.code === "LIMIT_FILE_SIZE"
+        ? "File too large. Please check the size limit for this upload."
+        : "File upload error";
+    res.status(status).json({ success: false, message, data: null });
+    return;
+  }
+
   if (err instanceof AppError) {
     res.status(err.statusCode).json({
       success: false,

@@ -15,8 +15,10 @@ import {
   getMySubscription,
   updateMyProfile,
   updateMyLearnerProfile,
+  updateUserAvatar,
   getDashboard,
 } from "./users.service.ts";
+import { AppError } from "../../utils/AppError.ts";
 
 export const listUsers = asyncHandler(async (req: Request, res: Response) => {
   const query = getUsersQuerySchema.parse(req.query);
@@ -54,6 +56,12 @@ export const getMe = asyncHandler(async (req: Request, res: Response) => {
 export const getMySubscriptionHandler = asyncHandler(async (req: Request, res: Response) => {
   const sub = await getMySubscription(req.user!.id);
   sendSuccess(res, sub, "Subscription retrieved successfully");
+});
+
+export const uploadAvatarHandler = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.file) throw new AppError("No file uploaded", 400);
+  const avatarUrl = await updateUserAvatar(req.user!.id, req.file.buffer, req.file.mimetype);
+  sendSuccess(res, { avatarUrl }, "Avatar updated successfully");
 });
 
 export const updateMe = asyncHandler(async (req: Request, res: Response) => {

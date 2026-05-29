@@ -5,7 +5,14 @@
       "Bash(xargs sed *)",
       "Bash(mkdir -p \"c:\\\\Users\\\\NANO Technology\\\\Documents\\\\rekars projects\\\\esl-chatbot-web\\\\frontend\\\\app\\\\pages\\\\dashboard\\\\classes\")",
       "Bash(cp \"c:\\\\Users\\\\NANO Technology\\\\Documents\\\\rekars projects\\\\esl-chatbot-web\\\\frontend\\\\app\\\\pages\\\\dashboard\\\\classes.vue\" \"c:\\\\Users\\\\NANO Technology\\\\Documents\\\\rekars projects\\\\esl-chatbot-web\\\\frontend\\\\app\\\\pages\\\\dashboard\\\\classes\\\\index.vue\")",
-      "Bash(rm \"c:\\\\Users\\\\NANO Technology\\\\Documents\\\\rekars projects\\\\esl-chatbot-web\\\\frontend\\\\app\\\\pages\\\\dashboard\\\\classes.vue\")"
+      "Bash(rm \"c:\\\\Users\\\\NANO Technology\\\\Documents\\\\rekars projects\\\\esl-chatbot-web\\\\frontend\\\\app\\\\pages\\\\dashboard\\\\classes.vue\")",
+      "Bash(bun run *)",
+      "Bash(infisical run *)",
+      "Bash(PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=\"yes, reset the dev database\" infisical run --env=dev -- bunx prisma migrate reset --force)",
+      "Bash(gh pr *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }

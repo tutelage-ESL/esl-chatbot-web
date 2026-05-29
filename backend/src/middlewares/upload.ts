@@ -1,27 +1,17 @@
 import multer from "multer";
-import path from "path";
 import { AppError } from "../utils/AppError.ts";
+import { IMAGE_MIMES } from "../config/storage.ts";
 
-// Disk storage — for image uploads (avatars). Files written to uploads/ directory.
-const diskStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, "uploads/");
-  },
-  filename: (_req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    cb(null, `${uniqueSuffix}${path.extname(file.originalname)}`);
-  },
-});
-
-export const upload = multer({
-  storage: diskStorage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+// Memory storage — for avatar image uploads sent to R2 or local disk.
+// Keeps the buffer in req.file.buffer; callers route it to storage.ts.
+export const avatarUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
   fileFilter: (_req, file, cb) => {
-    const allowedMimes = ["audio/webm", "audio/wav", "audio/mpeg", "image/png", "image/jpeg"];
-    if (allowedMimes.includes(file.mimetype)) {
+    if (IMAGE_MIMES.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new AppError("Unsupported file type", 400));
+      cb(new AppError("Only image files are allowed (jpeg, png, webp, gif)", 400));
     }
   },
 });
@@ -38,7 +28,7 @@ const AUDIO_MIMES = ["audio/webm", "audio/ogg", "audio/mp4", "audio/mpeg", "audi
 
 export const uploadAudio = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
   fileFilter: (_req, file, cb) => {
     if (AUDIO_MIMES.includes(file.mimetype)) {
       cb(null, true);

@@ -40,7 +40,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1054.0",
+    "@aws-sdk/client-s3": "^3.1056.0",
     "@deepgram/sdk": "^5.3.0",
     "@google/genai": "^1.50.1",
     "@prisma/client": "6",

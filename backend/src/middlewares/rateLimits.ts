@@ -104,6 +104,18 @@ export const sendVoiceMessageLimiter = rateLimit({
   handler: jsonHandler,
 });
 
+// ── User profile endpoints ─────────────────────────────────────────────────────
+
+export const avatarUploadLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  skip,
+  keyGenerator: (req: Request) => (req as any).user?.id ?? req.ip ?? "anonymous",
+  handler: jsonHandler,
+});
+
 // ── Global fallback — last-resort DDoS protection ─────────────────────────────
 
 export const globalLimiter = rateLimit({

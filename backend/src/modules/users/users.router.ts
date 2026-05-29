@@ -7,9 +7,12 @@ import {
   getMySubscriptionHandler,
   updateMe,
   updateLearnerProfile,
+  uploadAvatarHandler,
 } from "./users.controller.ts";
 import { authenticate } from "../../middlewares/authenticate.ts";
 import { authorize } from "../../middlewares/authorize.ts";
+import { avatarUpload } from "../../middlewares/upload.ts";
+import { avatarUploadLimiter } from "../../middlewares/rateLimits.ts";
 
 const router = Router();
 
@@ -162,9 +165,78 @@ router.get("/me", authenticate, getMe);
 
 /**
  * @swagger
+ * /users/me/avatar:
+ *   post:
+ *     summary: Upload a new avatar image
+ *     description: |
+ *       Replaces the authenticated user's avatar with an uploaded image.
+ *       Accepts JPEG, PNG, WebP, or GIF — maximum 5 MB.
+ *
+ *       If Cloudflare R2 is configured the image is stored there and a public CDN URL is returned.
+ *       In development without R2 credentials the file is saved locally and served under `/uploads/`.
+ *
+ *       The previous avatar is deleted automatically after the DB is updated:
+ *       - Own-hosted avatars (R2 or local) are deleted.
+ *       - External URLs (e.g. Google profile picture) are left untouched.
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [avatar]
+ *             properties:
+ *               avatar:
+ *                 type: string
+ *                 format: binary
+ *                 description: Image file (jpeg, png, webp, gif) — max 5 MB
+ *     responses:
+ *       200:
+ *         description: Avatar updated — returns the new public URL
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Avatar updated successfully
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     avatarUrl:
+ *                       type: string
+ *                       format: uri
+ *                       example: https://pub-xxxx.r2.dev/avatars/user-id/uuid.jpg
+ *       400:
+ *         description: No file uploaded or unsupported file type
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       413:
+ *         description: File exceeds the 5 MB limit
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.post("/me/avatar", authenticate, avatarUploadLimiter, avatarUpload.single("avatar"), uploadAvatarHandler);
+
+/**
+ * @swagger
  * /users/me:
  *   patch:
- *     summary: Update own basic profile (displayName, phoneNumber, avatarUrl)
+ *     summary: Update own basic profile (displayName, phoneNumber)
+ *     description: To update avatar image use POST /users/me/avatar instead.
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -182,10 +254,6 @@ router.get("/me", authenticate, getMe);
  *               phoneNumber:
  *                 type: string
  *                 maxLength: 20
- *                 nullable: true
- *               avatarUrl:
- *                 type: string
- *                 format: uri
  *                 nullable: true
  *     responses:
  *       200:

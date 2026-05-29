@@ -65,7 +65,8 @@ The flashcard "Again / Hard / Good / Easy" buttons should map to quality `0 / 1 
 
 Wire up:
 - `GET /users/me` → full profile (displayName, phoneNumber, avatarUrl, authProvider, learnerProfile, subscription)
-- `PATCH /users/me` → edit display name, phone number, avatar URL
+- `PATCH /users/me` → edit display name and phone number
+- `POST /users/me/avatar` **(new — file upload)** → replace avatar image. Send `multipart/form-data` with a single field named `avatar` (image file, max 5 MB, jpeg/png/webp/gif). Returns `{ avatarUrl: string }`. Use this instead of passing `avatarUrl` as a string in `PATCH /users/me` — the file upload endpoint handles storage and cleanup automatically.
 - `PATCH /users/me/learner-profile` → learner settings form:
   - `currentLevel` / `targetLevel` — CEFR enum: `A1 | A2 | B1 | B2 | C1 | C2`
   - `aiPersonality` — `FRIENDLY | FORMAL | CASUAL | ENCOURAGING | STRICT | PATIENT`

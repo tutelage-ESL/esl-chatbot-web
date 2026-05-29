@@ -1,7 +1,12 @@
-# FIB (First Iraqi Bank) Web Payments API — Integration Documentation
+# FIB (First Iraqi Bank) — Integration Documentation
 
-> **Target Stack:** Express.js (Node.js backend)
-> **SDK Package:** `@first-iraqi-bank/sdk`
+> **This file covers two separate FIB APIs:**
+>
+> | API | SDK | Purpose |
+> |-----|-----|---------|
+> | **Subscription API** ← _we are building this_ | `fibsubscribe` | Recurring GOLD/PREMIUM billing — jump to [FIB Subscription API](#fib-subscription-api-fibsubscribe-sdk) |
+> | Web Payments API (reference) | `@first-iraqi-bank/sdk` | One-time payments — documented below for future reference |
+>
 > **Source Docs:** [FIB Web Payments](https://fib.iq/integrations/web-payments/) | [FIB Node.js SDK](https://first-iraqi-bank.github.io/fib-nodejs-payment-sdk/guide/index.html)
 
 ---
@@ -18,7 +23,7 @@ FIB provides an official **Node.js SDK** (`@first-iraqi-bank/sdk`) that wraps th
 
 **Sandbox (Testing):**
 
-- Base URL: `https://fib.stage.fib.iq`
+- Base URL: `https://fib-stage.fib.iq`
 - Register at the sandbox environment to get your `client_id` and `client_secret`.
 
 **Production:**
@@ -51,6 +56,8 @@ bun add @first-iraqi-bank/sdk
 ---
 
 ## SDK Setup
+
+> **Note:** This section (and the Authentication section below) applies to the **Web Payments API** (`@first-iraqi-bank/sdk`) only. If you are building the Subscription integration, skip to [FIB Subscription API](#fib-subscription-api-fibsubscribe-sdk) — the `fibsubscribe` SDK handles OAuth2 token management internally.
 
 Create a reusable SDK client instance. Store your credentials in environment variables.
 
@@ -106,10 +113,22 @@ const authRes = await FIB.authenticate();
 const { access_token, expires_in } = await authRes.json();
 ```
 
-**Important:**
+**Token response fields:**
 
-- `access_token`: JWT Bearer token. Pass this to all subsequent API calls.
-- `expires_in`: Token lifetime in seconds. **Tokens are very short-lived (typically 60 seconds).** Always fetch a new token before each API call if the current one may have expired.
+| Field         | Description                                                                                      |
+| ------------- | ------------------------------------------------------------------------------------------------ |
+| access_token  | JWT Bearer token. Pass in `Authorization: Bearer <token>` header on all subsequent API calls.   |
+| expires_in    | Access token lifetime in seconds. **Typically ~60 seconds — very short-lived.**                  |
+| refresh_token | Longer-lived refresh token (~1800 seconds / 30 minutes). Can be used to get a new access token. |
+
+**Token caching strategy (important — do not skip):**
+
+**Never fetch a new token per request.** Tokens are rate-limited and short-fetching wastes quota. Instead:
+
+1. Cache `access_token` + its expiry timestamp in memory (or Redis).
+2. Before each API call, check if `now >= expiry - 5s` (5-second safety buffer).
+3. If expired, call `FIB.authenticate()` to get a fresh token and update the cache.
+4. For long-running processes, use the `refresh_token` (valid ~30 min) to get a new `access_token` without re-sending `client_secret`.
 
 **Raw REST endpoint (for reference):**
 ```
@@ -197,6 +216,8 @@ Your Express.js callback endpoint must return one of:
 - `202` — Accepted
 - `406` — Not accepted
 - `500` — General error
+
+> **Security requirement:** FIB does not sign webhook payloads. **Never trust the callback body alone.** When your callback endpoint receives a `PAID` status, always re-verify by calling `GET /protected/v1/payments/{paymentId}/status` before activating a subscription. This protects against spoofed callbacks.
 
 **Raw REST endpoint (for reference):**
 ```
@@ -400,12 +421,248 @@ try {
 ## Key Implementation Notes
 
 - **All requests require HTTPS.** HTTP requests will fail.
-- **Token lifetime is very short (~60 seconds).** Fetch a new token before each API call or implement refresh logic.
+- **Token lifetime is very short (~60 seconds).** Cache the token in memory; refresh before expiry. Do not fetch a new token per request.
+- **refresh_token is valid ~1800 seconds (30 minutes).** Use it to renew access_token without re-sending client_secret.
 - **Only IQD currency is supported.**
 - **Minimum payment amount is 250 IQD.**
+- **Never expose `client_secret` to the browser.** All FIB API calls must be server-side only.
 - **The `statusCallbackUrl` is optional but strongly recommended.** It avoids polling. Your callback endpoint must accept POST requests and return HTTP 202, 406, or 500.
+- **Always re-verify a callback via `GET /status` before activating a subscription.** FIB does not sign webhook payloads — spoofed callbacks are possible.
 - **The `description` field is optional**, max 50 characters.
 - **`expiresIn` range:** minimum 5 minutes, maximum 48 hours.
 - **`refundableFor` range:** minimum 12 hours, maximum 7 days. Only set this if you want to support refunds.
 - **Save payment details in your database.** Users might refresh or close the page.
 - **For production**, change `FIB_ENV` to `prod` and use your production credentials.
+
+---
+
+## FIB Subscription API (fibsubscribe SDK)
+
+> **This is the integration we are building.** FIB issued Subscription API credentials, not Web Payment API credentials. The Subscription API handles **recurring billing** — the correct model for GOLD/PREMIUM monthly/quarterly plans.
+
+### Installation
+
+```bash
+bun add fibsubscribe
+```
+
+ESM-only package — use `import`, not `require()`. Requires Node.js v14+.
+
+### Client Setup
+
+```ts
+import { FibSubscribe } from 'fibsubscribe';
+
+export const fib = new FibSubscribe({
+  clientId: process.env.FIB_CLIENT_ID!,
+  clientSecret: process.env.FIB_CLIENT_SECRET!,
+  environment: process.env.FIB_ENV === 'prod' ? 'production' : 'stage',
+});
+```
+
+| Environment | Base URL                  |
+|-------------|---------------------------|
+| stage       | https://fib-stage.fib.iq  |
+| production  | https://fib.prod.fib.iq   |
+
+The SDK handles OAuth2 token management automatically (no manual token caching needed — it's built in).
+
+### Create Subscription
+
+```ts
+const sub = await fib.createSubscription({
+  title: 'Tutelage GOLD',              // display name in FIB app
+  description: 'Monthly English plan', // optional, shown to subscriber
+  amount: 5000,                        // in IQD
+  currency: 'IQD',
+  interval: 'P1M',                     // ISO-8601: P1M=monthly, P3M=quarterly, P1Y=yearly
+  trialPeriod: undefined,              // omit unless offering free trial (ISO-8601 e.g. 'P7D')
+  expiresIn: 'P1DT12H',               // QR code validity
+  statusCallbackUrl: 'https://yoursite.com/api/v1/subscriptions/webhook/fib',
+});
+
+// sub.subscriptionId — store in DB (maps to Subscription.externalSubscriptionId)
+// sub.qrCode        — base64 PNG, display to user
+// sub.appLink       — deep link to open in FIB app
+// sub.readableCode  — alphanumeric code user can type manually
+// sub.validUntil    — QR expiry ISO-8601
+```
+
+**ISO-8601 interval cheatsheet:**
+
+| Value | Meaning     |
+|-------|-------------|
+| P1M   | 1 month     |
+| P3M   | 3 months    |
+| P6M   | 6 months    |
+| P1Y   | 12 months   |
+| P7D   | 7 days      |
+
+### Get Subscription Status
+
+```ts
+const details = await fib.getSubscription(subscriptionId);
+// details.status       — current status (see table below)
+// details.activeUntil  — unix milliseconds timestamp (NOT ISO-8601)
+// details.lastPaymentAt — unix milliseconds timestamp or null
+```
+
+> **`activeUntil` is unix milliseconds.** Convert to Prisma `DateTime` with `new Date(details.activeUntil)`. Storing the raw integer directly into a `DateTime` field will silently corrupt the data.
+
+### Cancel Subscription
+
+Returns `null` on success (HTTP 202).
+
+```ts
+await fib.cancelSubscription(subscriptionId);
+```
+
+### Subscription Statuses
+
+| Status      | Description                                                 |
+|-------------|-------------------------------------------------------------|
+| `DRAFT`     | Created, waiting for subscriber to confirm via QR/app       |
+| `TRIAL`     | Subscriber confirmed, currently in free trial period        |
+| `ACTIVE`    | Actively charged on each billing interval                   |
+| `REJECTED`  | Subscriber declined                                         |
+| `CANCELLED` | Cancelled by merchant or subscriber                         |
+
+### Wait for Activation (Polling Helper)
+
+```ts
+const result = await fib.waitForActivation(subscriptionId, {
+  intervalMs: 4000,   // poll every 4s
+  timeoutMs: 300000,  // give up after 5 min
+});
+// result.status: 'ACTIVE' | 'TRIAL' | 'REJECTED' | 'CANCELLED'
+```
+
+Prefer the webhook (`statusCallbackUrl`) over polling in production. Use `waitForActivation` for CLI scripts or one-off checks only.
+
+### Webhook
+
+FIB POSTs to your `statusCallbackUrl` on every status change:
+
+```json
+{ "subscriptionId": "...", "status": "ACTIVE" }
+```
+
+```ts
+app.post('/api/v1/subscriptions/webhook/fib', async (req, res) => {
+  res.sendStatus(200); // acknowledge immediately — process async
+
+  const { subscriptionId, status } = req.body;
+
+  // Always re-verify — FIB does not sign webhook payloads
+  const details = await fib.getSubscription(subscriptionId);
+  if (details.status !== status) return; // stale or spoofed callback
+
+  if (details.status === 'ACTIVE' || details.status === 'TRIAL') {
+    // activate subscription in DB
+  } else if (details.status === 'CANCELLED' || details.status === 'REJECTED') {
+    // downgrade to FREE ACTIVE
+  }
+});
+```
+
+> **Security:** Always call `fib.getSubscription(subscriptionId)` before acting on the webhook body. FIB does not sign callbacks — a spoofed POST with `status: ACTIVE` could otherwise activate a subscription for free.
+
+### Error Handling
+
+```ts
+import { FibSubscribe, FibSubscribeError } from 'fibsubscribe';
+
+try {
+  await fib.createSubscription({ ... });
+} catch (err) {
+  if (err instanceof FibSubscribeError) {
+    console.error(err.message, err.statusCode, err.body);
+  }
+}
+```
+
+---
+
+## ESL Platform Integration Notes
+
+This section captures Tutelage-specific decisions for the FIB integration.
+
+### SDK Decision
+
+Use `fibsubscribe` (Subscription API) — **not** `@first-iraqi-bank/sdk` (Web Payments API). FIB issued Subscription API credentials because our GOLD/PREMIUM tiers are recurring monthly/quarterly plans, which maps directly to FIB's native subscription billing.
+
+### Sandbox Test Credentials
+
+Add to Infisical under the `dev` environment:
+
+```
+FIB_CLIENT_ID=tutelage-test-sub
+FIB_CLIENT_SECRET=<secret from FIB email>   # stored in Infisical only, never in code/docs
+FIB_ENV=stage
+```
+
+**Sandbox test accounts (for testing the subscriber flow):**
+
+| Account  | Phone       | Password     | OTP     | PIN  |
+|----------|-------------|--------------|---------|------|
+| Personal | 7701234567  | Personal@123 | 123-456 | 1234 |
+| Business | 7301111588  | Business@123 | 123-456 | 1234 |
+
+Face ID verification in sandbox: scan any face.
+
+### Subscription Pricing (IQD)
+
+Prices TBD by business owner:
+
+| Plan    | Interval | ISO-8601 | Amount (IQD) |
+| ------- | -------- | -------- | ------------ |
+| GOLD    | 1 month  | P1M      | TBD          |
+| GOLD    | 3 months | P3M      | TBD          |
+| GOLD    | 6 months | P6M      | TBD          |
+| GOLD    | 12 months| P1Y      | TBD          |
+| PREMIUM | 1 month  | P1M      | TBD          |
+| PREMIUM | 3 months | P3M      | TBD          |
+| PREMIUM | 6 months | P6M      | TBD          |
+| PREMIUM | 12 months| P1Y      | TBD          |
+
+Minimum amount: 250 IQD. Currency: IQD only.
+
+### Backend Endpoints to Build
+
+| Endpoint | Description |
+| -------- | ----------- |
+| `POST /subscriptions/initiate-fib` | Creates a FIB subscription → stores `FibSubscription` record (DRAFT) → returns subscriptionId + qrCode + appLink + readableCode to frontend |
+| `POST /subscriptions/webhook/fib` | Receives FIB status callback → re-verifies via `fib.getSubscription()` → if ACTIVE/TRIAL, sets plan/status=ACTIVE in DB; if CANCELLED/REJECTED, downgrades to FREE ACTIVE |
+| `GET /subscriptions/fib/:subscriptionId/status` | Frontend polls during the QR display flow; proxies to `fib.getSubscription()` |
+| `DELETE /subscriptions/fib/:subscriptionId` | Merchant-side cancel (admin or user); calls `fib.cancelSubscription()` |
+| `GET /users/me/subscription` | Returns authenticated user's full subscription record (plan, status, currentPeriodStart, currentPeriodEnd, paymentProvider) — marked done in backlog but never built |
+
+### FibSubscription Table (Prisma)
+
+A separate `FibSubscription` model is needed for audit trail and idempotency:
+
+```
+FibSubscription: id, userId, fibSubscriptionId (unique),
+                 plan (GOLD|PREMIUM), intervalMonths (1|3|6|12),
+                 amountIQD, status (DRAFT|TRIAL|ACTIVE|REJECTED|CANCELLED),
+                 validUntil, activatedAt, cancelledAt
+```
+
+The `Subscription.externalSubscriptionId` field maps to `fibSubscriptionId`.
+When status transitions to ACTIVE/TRIAL → update `Subscription.plan`, `Subscription.status=ACTIVE`, `Subscription.externalSubscriptionId`, `Subscription.paymentProvider=FIB`.
+
+### Required Env Vars
+
+```
+FIB_CLIENT_ID=           # FIB-issued client ID (tutelage-test-sub for sandbox)
+FIB_CLIENT_SECRET=       # server-only, never expose to browser or commit to code
+FIB_ENV=stage            # 'stage' for dev/test, 'prod' for production
+```
+
+Add all three to Infisical under both `dev` and `prod` environments.
+
+### Environments
+
+- **Sandbox base URL:** `https://fib-stage.fib.iq`
+- **Production base URL:** `https://fib.prod.fib.iq` (once integration request is approved)
+- Dev environment always uses `FIB_ENV=stage`

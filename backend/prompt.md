@@ -418,3 +418,186 @@ raw model IDs
 2. I answered already
 3. remove
 4. yeah
+
+add_fib_subscription_table.
+
+PS C:\Users\Aland\OneDrive\Desktop\Projects\esl-chatbot-web\backend> bun run db:migrate
+$ infisical run --env=dev -- bunx prisma migrate dev
+A new release of infisical is available: 0.43.84 -> 0.43.86
+
+To update, run: scoop update infisical
+
+2026-05-24T23:29:27+03:00 INF Injecting 25 Infisical secrets into your application process
+Loaded Prisma config from prisma.config.ts.
+
+Prisma config detected, skipping environment variable loading.
+Prisma schema loaded from prisma\schema.prisma
+Datasource "db": PostgreSQL database "esl-chatbot-web", schema "public" at "ep-ancient-field-alsyhbtd-pooler.c-3.eu-central-1.aws.neon.tech"
+
+√ Enter a name for the new migration: ... add_fib_subscription_table
+Applying migration `20260524202949_add_fib_subscription_table`
+
+The following migration(s) have been created and applied from new schema changes:
+
+prisma\migrations/
+  └─ 20260524202949_add_fib_subscription_table/
+    └─ migration.sql
+
+Your database is now in sync with your schema.
+
+✔ Generated Prisma Client (v6.19.2) to .\node_modules\@prisma\client in 145ms
+{ "username": "student_yuki", "password": "password123" }
+
+
+❯ ok firstly as I asked I want you to mention the { "username": "student_yuki", "password": "password123" } in the 
+  "C:\Users\Aland\OneDrive\Desktop\Projects\esl-chatbot-web\backend\src\modules\subscriptions\fib-test.html" but I think you didnt, so     
+  did it. and then still it is not working, check the error from frontend "fib-test:229
+   POST http://localhost:8000/api/v1/subscriptions/initiate-fib 502 (Bad Gateway)
+  (anonymous)    @    fib-test:229" and from backend "[Pasted text #1 +20 lines]" and use /doctor skill to abslutely catch the bug
+
+
+
+
+
+Roadmap — Deep Analysis
+
+  Here's my honest take on each phase and the optimal sequencing:
+
+  The core problem to solve first
+
+  Before real users, two things can cause serious damage: unbounded AI costs and auth brute-force. Everything else is polish.
+
+  ---
+  Phase 4 — Redis Caching
+
+  What it actually buys you right now: Not much. Every message send does ~3 Prisma queries (session lookup, subscription lookup, message count). Under dev/early load, Neon handles   
+  this fine. Redis adds operational complexity — another service to run, another failure mode.
+
+  Where it becomes critical: When you hit 50+ concurrent sessions, the subscription plan lookup on every message:send becomes a hot query. That's when caching saves money.
+
+  Recommended approach when you do it:
+  1. Fill in src/config/redis.ts with ioredis + lazy null when REDIS_URL is absent (graceful no-op in dev)
+  2. Build a thin src/lib/cache.ts wrapper — get<T>(), set(), del() with JSON serialization
+  3. Cache only these two things first:
+    - user:{userId}:plan → subscription plan, TTL 5 min, invalidated on admin plan change
+    - session:{sessionId}:active → boolean, TTL until endedAt is set
+  4. The auth middleware result (req.user) is already cheap — skip caching it
+
+  My verdict: Defer Redis until after deployment, when you can see actual query patterns in production. Premature caching optimizes the wrong things.
+
+  ---
+  Phase 6 — Rate Limiting Per-Plan
+
+  This is a ship-blocker. Three concrete threats without it:
+  1. Someone finds your login endpoint and brute-forces passwords
+  2. A FREE user builds a script that hammers /sessions + /messages and runs up your Gemini bill
+  3. A session creation flood bypasses the daily cap (daily cap is enforced per-session but not per-second)
+
+  express-rate-limit is already in the stack. You need to:
+
+  1. Auth endpoints — strict IP-based limits (no JWT needed, fires before auth):
+  POST /auth/login      → 10 req / 15 min per IP
+  POST /auth/register   → 5 req / hour per IP
+  POST /auth/forgot-*   → 5 req / hour per IP
+  2. AI endpoints — per-user plan-aware limits using a custom key function on req.user.id:
+  POST /sessions          → FREE: 3/day (already enforced in service, add HTTP-layer check)
+  POST /sessions/*/messages → FREE: burst protection, 2 req/sec
+  POST /sessions/*/voice-message → ALL: 10/min (STT/TTS is expensive)
+  3. Redis store — in-memory rate limit state is lost on restart and doesn't scale to multiple processes. Use rate-limit-redis if you have Redis, otherwise express-rate-limit's      
+  default in-memory store is fine for single-process.
+
+  Recommended: Do this before deployment. It's 1 day of work.
+
+  ---
+  Phase 7 — Email Notifications
+
+  Resend is already wired for password reset. The marginal cost of adding more emails is low.
+
+  Priority order:
+
+  1. Welcome email (half day) — fires on first registration. The most important email you send — it sets tone and activates the user. Resend template: welcome message + "Start your  
+  first conversation" CTA. Wire in auth.service.ts after createUser().
+  2. Session summary email (1 day) — fires when POST /sessions/:id/end completes and there's a SessionEvaluation. Sends scores, strengths, new vocab, recommendations. This drives    
+  re-engagement and makes the AI evaluation feel real. Wire in endSession().
+  3. Weekly digest — skip for now. Needs a cron job, unsubscribe handling, and a user email preference. Not worth the complexity at this stage.
+
+  All emails live in src/lib/email.ts — sendWelcomeEmail(user), sendSessionSummaryEmail(user, evaluation). Keep HTML inline (no template engine needed for 2 emails).
+
+  ---
+  Phase 8 — Integration Tests
+
+  Test runner (Bun) + supertest is already configured. The architecture is right — integration tests that hit the real Express app are more valuable than unit-mocked tests (CLAUDE.md
+   explicitly says this based on a past incident).
+
+  What to prioritize:
+
+  ┌─────────────────────┬───────────────────────────────────────────────────────────────────────────┬─────────────┐
+  │       Module        │                                    Why                                    │ Est. effort │
+  ├─────────────────────┼───────────────────────────────────────────────────────────────────────────┼─────────────┤
+  │ auth                │ Login, register, Google, refresh — these break subscriptions when touched │ 1 day       │
+  ├─────────────────────┼───────────────────────────────────────────────────────────────────────────┼─────────────┤
+  │ sessions + messages │ Tier limits, daily cap, AI evaluation — most expensive code path          │ 2 days      │
+  ├─────────────────────┼───────────────────────────────────────────────────────────────────────────┼─────────────┤
+  │ classes             │ Code lifecycle (join, expire, rotate) — complex state machine             │ 1 day       │
+  ├─────────────────────┼───────────────────────────────────────────────────────────────────────────┼─────────────┤
+  │ subscriptions       │ Admin assignment, FIB webhook — money flows through here                  │ 1 day       │
+  ├─────────────────────┼───────────────────────────────────────────────────────────────────────────┼─────────────┤
+  │ vocabulary          │ SM-2 algorithm is stateful — easy to break quietly                        │ half day    │
+  └─────────────────────┴───────────────────────────────────────────────────────────────────────────┴─────────────┘
+
+  What to skip for now: Goals, progress, metrics — these are CRUD with no complex invariants. Test them after the critical path is covered.
+
+  Test strategy:
+  - Each test suite seeds its own data (beforeAll → create user + session + etc.) and cleans up (afterAll → prisma.$executeRaw('DELETE FROM ...'))
+  - 401/403/422 tests are DB-independent → run fast, cover middleware
+  - 200 success tests require a seeded DB → run in a separate CI job if needed
+
+  ---
+  Phase 9 — Deployment
+
+  Platform recommendation: Render
+
+  Why Render over Railway/Fly:
+  - Native Bun support via bun start in the start command
+  - Managed Postgres with connection pooling (Neon is great for dev; Render's managed PG is simpler for prod ops)
+  - Environment variable management that replaces Infisical for prod (or keep Infisical — it supports a prod env already)
+  - Free TLS, automatic deploys from GitHub
+  - ~$14/month total (web service $7 + Postgres $7)
+
+  Recommended deployment checklist before going live:
+
+  Pre-deploy:
+    ✅ bun run typecheck passes
+    □ bun test passes (auth + sessions at minimum)
+    □ All Prisma migrations committed and tested
+    □ NODE_ENV=production set
+    □ CORS_ORIGIN = actual frontend domain
+    □ Rate limiting on auth endpoints
+    □ Health endpoint responding
+
+  Secrets (Render env vars):
+    □ DATABASE_URL (Render managed PG or Neon prod)
+    □ JWT_ACCESS_SECRET, JWT_REFRESH_SECRET
+    □ GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+    □ RESEND_API_KEY
+    □ GEMINI_API_KEY
+    □ DEEPGRAM_API_KEY, AZURE_SPEECH_KEY
+    □ OPENAI_API_KEY (PREMIUM tier)
+    □ R2_* (5 vars — separate prod bucket)
+
+  CI/CD (GitHub Actions):
+    □ On push to main: typecheck → test → deploy
+
+  FIB stays blocked until FIB activates the sandbox. Don't let it block deployment — FIB is one payment method out of three (Cash + Stripe are independent). You can deploy with Cash 
+  + FIB-pending and add FIB when their sandbox activates.
+
+
+
+
+
+
+
+
+
+
+

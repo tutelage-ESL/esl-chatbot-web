@@ -4,6 +4,7 @@ import { prisma } from "../../config/database.ts";
 import { AppError } from "../../utils/AppError.ts";
 import type { UserListItem, UserDetail, MyProfile, DashboardData } from "./users.types.ts";
 import type { UpdateMyProfileInput, UpdateLearnerProfileInput } from "./users.schema.ts";
+import { uploadAvatar, deleteAvatar } from "../../config/storage.ts";
 
 const USER_LIST_SELECT = {
   id: true,
@@ -285,6 +286,36 @@ export async function getMySubscription(userId: string) {
   });
   if (!sub) throw new AppError("Subscription not found", 404);
   return sub;
+}
+
+export async function updateUserAvatar(
+  userId: string,
+  buffer: Buffer,
+  mimeType: string,
+): Promise<string> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { avatarUrl: true },
+  });
+  if (!user) throw new AppError("User not found", 404);
+
+  const newUrl = await uploadAvatar(buffer, userId, mimeType);
+
+  try {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { avatarUrl: newUrl },
+    });
+  } catch (err) {
+    // DB write failed — clean up the newly uploaded file so it doesn't orphan
+    await deleteAvatar(newUrl);
+    throw err;
+  }
+
+  // Best-effort: delete old avatar after the DB is updated
+  await deleteAvatar(user.avatarUrl);
+
+  return newUrl;
 }
 
 export async function updateMyLearnerProfile(

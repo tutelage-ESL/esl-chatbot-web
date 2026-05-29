@@ -27,7 +27,6 @@ export type GetUsersQuery = z.infer<typeof getUsersQuerySchema>;
 export const updateMyProfileSchema = z.object({
   displayName: z.string().min(1).max(100).optional(),
   phoneNumber: z.string().max(20).nullable().optional(),
-  avatarUrl: z.string().url("Invalid avatar URL").nullable().optional(),
 });
 
 export type UpdateMyProfileInput = z.infer<typeof updateMyProfileSchema>;

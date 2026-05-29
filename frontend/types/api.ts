@@ -641,6 +641,15 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
+                /** @description Rate limit exceeded (5 registrations per hour per IP) */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -715,6 +724,15 @@ export interface paths {
                 };
                 /** @description Validation error (missing fields) */
                 422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Rate limit exceeded (10 attempts per 15 minutes per IP) */
+                429: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -813,6 +831,15 @@ export interface paths {
                 };
                 /** @description Username already taken */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Rate limit exceeded (20 requests per 15 minutes per IP) */
+                429: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -960,6 +987,15 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description Rate limit exceeded (30 requests per 15 minutes per IP) */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -1077,6 +1113,15 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
+                /** @description Rate limit exceeded (5 requests per hour per IP) */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
                 /** @description Email service not configured on this server */
                 503: {
                     headers: {
@@ -1157,6 +1202,15 @@ export interface paths {
                 };
                 /** @description Validation error */
                 422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Rate limit exceeded (10 attempts per 15 minutes per IP) */
+                429: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -2883,7 +2937,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
-                /** @description Message limit reached */
+                /** @description Per-session or daily message cap reached */
                 429: {
                     headers: {
                         [name: string]: unknown;
@@ -3068,7 +3122,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
-                /** @description Message limit reached */
+                /** @description Per-session or daily message cap reached */
                 429: {
                     headers: {
                         [name: string]: unknown;
@@ -4096,7 +4150,10 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Update own basic profile (displayName, phoneNumber, avatarUrl) */
+        /**
+         * Update own basic profile (displayName, phoneNumber)
+         * @description To update avatar image use POST /users/me/avatar instead.
+         */
         patch: {
             parameters: {
                 query?: never;
@@ -4109,8 +4166,6 @@ export interface paths {
                     "application/json": {
                         displayName?: string;
                         phoneNumber?: string | null;
-                        /** Format: uri */
-                        avatarUrl?: string | null;
                     };
                 };
             };
@@ -4290,6 +4345,94 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/me/avatar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload a new avatar image
+         * @description Replaces the authenticated user's avatar with an uploaded image.
+         *     Accepts JPEG, PNG, WebP, or GIF — maximum 5 MB.
+         *
+         *     If Cloudflare R2 is configured the image is stored there and a public CDN URL is returned.
+         *     In development without R2 credentials the file is saved locally and served under `/uploads/`.
+         *
+         *     The previous avatar is deleted automatically after the DB is updated:
+         *     - Own-hosted avatars (R2 or local) are deleted.
+         *     - External URLs (e.g. Google profile picture) are left untouched.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": {
+                        /**
+                         * Format: binary
+                         * @description Image file (jpeg, png, webp, gif) — max 5 MB
+                         */
+                        avatar: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Avatar updated — returns the new public URL */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @example true */
+                            success?: boolean;
+                            /** @example Avatar updated successfully */
+                            message?: string;
+                            data?: {
+                                /**
+                                 * Format: uri
+                                 * @example https://pub-xxxx.r2.dev/avatars/user-id/uuid.jpg
+                                 */
+                                avatarUrl?: string;
+                            };
+                        };
+                    };
+                };
+                /** @description No file uploaded or unsupported file type */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description File exceeds the 5 MB limit */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -5373,6 +5516,15 @@ export interface components {
         };
         /** @description Zod validation failure — malformed or missing fields */
         ValidationError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description Rate limit exceeded — slow down and try again */
+        TooManyRequests: {
             headers: {
                 [name: string]: unknown;
             };

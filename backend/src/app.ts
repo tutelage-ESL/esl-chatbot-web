@@ -32,6 +32,8 @@ app.use(morgan("combined", {
 // API docs — dev only (never expose in prod; CSP removed because global helmet sets it before route-level can clear it)
 if (env.NODE_ENV !== "production") {
   app.use("/api-docs", (_req: Request, res: Response, next: NextFunction) => { res.removeHeader("Content-Security-Policy"); next(); }, swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  // Serve locally-uploaded avatars (fallback when R2 is not configured in dev)
+  app.use("/uploads/avatars", express.static("uploads/avatars"));
 }
 
 // Routes
