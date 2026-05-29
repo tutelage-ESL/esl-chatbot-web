@@ -16,6 +16,14 @@ import {
 } from "./auth.controller.ts";
 import { env } from "../../config/env.ts";
 import { authenticate } from "../../middlewares/authenticate.ts";
+import {
+  loginLimiter,
+  registerLimiter,
+  googleAuthLimiter,
+  forgotPasswordLimiter,
+  resetPasswordLimiter,
+  refreshTokenLimiter,
+} from "../../middlewares/rateLimits.ts";
 
 const router = Router();
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -200,8 +208,14 @@ if (env.NODE_ENV !== "production") {
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
+ *       429:
+ *         description: Rate limit exceeded (5 registrations per hour per IP)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post("/register", registerHandler);
+router.post("/register", registerLimiter, registerHandler);
 
 // ─── POST /auth/login ─────────────────────────────────────────────────────────
 
@@ -265,8 +279,14 @@ router.post("/register", registerHandler);
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
+ *       429:
+ *         description: Rate limit exceeded (10 attempts per 15 minutes per IP)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post("/login", loginHandler);
+router.post("/login", loginLimiter, loginHandler);
 
 // ─── POST /auth/google ────────────────────────────────────────────────────────
 
@@ -377,6 +397,12 @@ router.post("/login", loginHandler);
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
+ *       429:
+ *         description: Rate limit exceeded (20 requests per 15 minutes per IP)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       503:
  *         description: Google OAuth is not configured on this server (missing GOOGLE_CLIENT_ID)
  *         content:
@@ -384,7 +410,7 @@ router.post("/login", loginHandler);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post("/google", googleAuthHandler);
+router.post("/google", googleAuthLimiter, googleAuthHandler);
 
 // ─── GET /auth/me ─────────────────────────────────────────────────────────────
 
@@ -482,8 +508,14 @@ router.get("/me", authenticate, meHandler);
  *                       type: string
  *       401:
  *         description: Invalid or expired refresh token
+ *       429:
+ *         description: Rate limit exceeded (30 requests per 15 minutes per IP)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post("/refresh", refreshHandler);
+router.post("/refresh", refreshTokenLimiter, refreshHandler);
 
 // ─── POST /auth/logout ────────────────────────────────────────────────────────
 
@@ -572,20 +604,26 @@ router.post("/logout", logoutHandler);
  *                 data:
  *                   nullable: true
  *                   example: null
- *       503:
- *         description: Email service not configured on this server
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  *       422:
  *         description: Validation error (invalid email format)
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
+ *       429:
+ *         description: Rate limit exceeded (5 requests per hour per IP)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       503:
+ *         description: Email service not configured on this server
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post("/forgot-password", forgotPasswordHandler);
+router.post("/forgot-password", forgotPasswordLimiter, forgotPasswordHandler);
 
 // ─── POST /auth/reset-password ────────────────────────────────────────────────
 
@@ -652,8 +690,14 @@ router.post("/forgot-password", forgotPasswordHandler);
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
+ *       429:
+ *         description: Rate limit exceeded (10 attempts per 15 minutes per IP)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post("/reset-password", resetPasswordHandler);
+router.post("/reset-password", resetPasswordLimiter, resetPasswordHandler);
 
 // ─── POST /auth/link-google ───────────────────────────────────────────────────
 

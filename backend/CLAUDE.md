@@ -399,7 +399,7 @@ Includes: classes (with full code-lifecycle fields populated) with enrolled user
 
 ### Phase 9 — Infrastructure & Polish
 - Redis caching for hot queries (user profiles, session data)
-- Rate limiting per-plan (stricter for FREE)
+- ✅ Rate limiting — `src/middlewares/rateLimits.ts`: IP-based limits on all auth endpoints (10 login / 5 register / 5 forgot-password per window), per-user burst limits on AI endpoints (10 msg/min, 5 voice/min, 20 sessions/hr), global fallback 500/15 min. `trust proxy 1` set in `app.ts`. Active in production only (no-op in dev/test).
 - Email notifications (SendGrid): welcome, password reset, weekly digest
 - File upload handling (audio recordings, avatars)
 - ✅ Socket.io real-time chat — `/chat` namespace (text `message:send` + voice `voice:start/chunk/end` pipeline) + `/notifications` namespace (server-push). JWT auth at handshake. See `src/socket/`. Voice: client streams base64 chunks → server buffers + streams to Deepgram live for partial transcripts → on `voice:end` runs batch STT→LLM→TTS via `sendVoiceMessage`. To push a notification from any service: `getIO().of('/notifications').to('user:{userId}').emit('notification:new', data)`

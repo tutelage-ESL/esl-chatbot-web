@@ -163,6 +163,14 @@ const options: swaggerJsdoc.Options = {
             },
           },
         },
+        TooManyRequests: {
+          description: "Rate limit exceeded — slow down and try again",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
       },
     },
   },

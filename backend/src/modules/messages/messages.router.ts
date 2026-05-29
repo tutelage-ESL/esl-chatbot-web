@@ -2,6 +2,7 @@ import { Router } from "express";
 import { sendMessageHandler, listMessagesHandler, sendVoiceMessageHandler } from "./messages.controller.ts";
 import { authenticate } from "../../middlewares/authenticate.ts";
 import { uploadAudio } from "../../middlewares/upload.ts";
+import { sendMessageLimiter, sendVoiceMessageLimiter } from "../../middlewares/rateLimits.ts";
 
 const router = Router();
 
@@ -152,9 +153,9 @@ router.get("/:sessionId/messages", authenticate, listMessagesHandler);
  *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  *       404: { description: Session not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  *       409: { description: Session already ended, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
- *       429: { description: Message limit reached, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       429: { description: Per-session or daily message cap reached, or rate limit exceeded (10 per minute per user), content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  */
-router.post("/:sessionId/messages", authenticate, sendMessageHandler);
+router.post("/:sessionId/messages", authenticate, sendMessageLimiter, sendMessageHandler);
 
 // ─────────────────────────────────────────────────────────
 // SEND VOICE MESSAGE
@@ -278,9 +279,9 @@ router.post("/:sessionId/messages", authenticate, sendMessageHandler);
  *       404: { description: Session not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  *       409: { description: Session already ended, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  *       422: { description: No speech detected in audio, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
- *       429: { description: Message limit reached, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       429: { description: Per-session or daily message cap reached, or rate limit exceeded (5 per minute per user), content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  *       503: { description: STT service not configured, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  */
-router.post("/:sessionId/voice-message", authenticate, uploadAudio.single("audio"), sendVoiceMessageHandler);
+router.post("/:sessionId/voice-message", authenticate, sendVoiceMessageLimiter, uploadAudio.single("audio"), sendVoiceMessageHandler);
 
 export default router;

@@ -128,3 +128,14 @@ This page should use the Socket.io composable (or create `useVoice.ts`) to strea
 - ✅ Classes — full CRUD, drawer with tabs (members, students, analytics, announcements), `useClasses` composable
 - ✅ Billing — FIB payment flow, polling, `useSubscription` composable, subscription panel
 - ✅ HTTP layer — `useHttp` with 401 refresh/retry cycle, centralized token persistence
+
+---
+
+## Backend Notes for Frontend
+
+### Rate limiting (2026-05-29)
+Rate limiting is now live in production on all auth and AI endpoints. The backend returns **HTTP 429** with `{ success: false, message: "Too many requests. Please wait and try again.", data: null }`.
+
+Response headers include `RateLimit-Limit`, `RateLimit-Remaining`, and `RateLimit-Reset` (seconds until window resets) — these can be used to show a countdown.
+
+**Action needed:** Auth forms (login, register, forgot-password) should display a user-friendly message when the API returns 429, e.g. _"Too many attempts. Please wait a few minutes and try again."_ The existing `useHttp` error handling should catch 429 like any other error — just make sure the UI surfaces the message rather than showing a generic error.

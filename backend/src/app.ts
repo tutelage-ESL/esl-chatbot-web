@@ -1,8 +1,8 @@
-import express from "express";
+import express, { type Request, type Response, type NextFunction } from "express";
 import helmet from "helmet";
 import cors from "cors";
-import rateLimit from "express-rate-limit";
 import morgan from "morgan";
+import { globalLimiter } from "./middlewares/rateLimits.ts";
 import swaggerUi from "swagger-ui-express";
 
 import { env, swaggerSpec, logger } from "./config/index.ts";
@@ -12,10 +12,13 @@ import v1Router from "./routes/v1/index.ts";
 
 const app = express();
 
+// Trust first proxy hop so req.ip reflects the real client IP behind Render / Cloudflare
+app.set("trust proxy", 1);
+
 // Security
 app.use(helmet());
 app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
-// app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
+app.use(globalLimiter);
 
 // Body parsing
 app.use(express.json({ limit: "10mb" }));
@@ -28,7 +31,7 @@ app.use(morgan("combined", {
 
 // API docs — dev only (never expose in prod; CSP removed because global helmet sets it before route-level can clear it)
 if (env.NODE_ENV !== "production") {
-  app.use("/api-docs", (_req, res, next) => { res.removeHeader("Content-Security-Policy"); next(); }, swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  app.use("/api-docs", (_req: Request, res: Response, next: NextFunction) => { res.removeHeader("Content-Security-Policy"); next(); }, swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 }
 
 // Routes

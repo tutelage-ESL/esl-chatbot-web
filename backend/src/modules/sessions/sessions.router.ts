@@ -7,6 +7,7 @@ import {
   getSessionStatsHandler,
 } from "./sessions.controller.ts";
 import { authenticate } from "../../middlewares/authenticate.ts";
+import { createSessionLimiter } from "../../middlewares/rateLimits.ts";
 
 const router = Router();
 
@@ -236,9 +237,9 @@ router.get("/", authenticate, listSessionsHandler);
  *                 data: { $ref: '#/components/schemas/SessionListItem' }
  *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  *       403: { description: No active subscription, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
- *       429: { description: Daily session limit reached, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       429: { description: Daily session limit reached, or rate limit exceeded (20 per hour per user), content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  */
-router.post("/", authenticate, createSessionHandler);
+router.post("/", authenticate, createSessionLimiter, createSessionHandler);
 
 // ─────────────────────────────────────────────────────────
 // GET SESSION DETAIL
