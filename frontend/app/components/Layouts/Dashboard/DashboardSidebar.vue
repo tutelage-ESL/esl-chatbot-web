@@ -59,6 +59,7 @@ function isActive(path: string) {
   >
     <!-- Brand -->
     <div class="h-16 flex items-center gap-2.5 px-4 border-b border-black/6 dark:border-white/6 shrink-0">
+      <!-- closing indicator -->
       <div
         class="w-8 h-8 rounded-[9px] bg-linear-to-br from-brand-primary to-brand-accent flex items-center justify-center shadow-[0_6px_16px_-6px_rgba(245,158,11,0.6)] shrink-0"
       >
@@ -156,7 +157,7 @@ function isActive(path: string) {
 
     <!-- Collapse toggle (desktop only) -->
     <button
-      class="hidden md:flex absolute -right-3 top-20 z-30 w-6 h-6 rounded-full bg-white dark:bg-[#151517] border border-border shadow-sm items-center justify-center text-zinc-400 hover:text-brand-primary transition-colors"
+      class="hidden md:flex absolute -right-3 top-20 z-50 w-6 h-6 rounded-full bg-white dark:bg-[#151517] border border-border shadow-sm items-center justify-center text-zinc-400 hover:text-brand-primary transition-colors"
       @click="emit('toggle')"
     >
       <AppIconsax

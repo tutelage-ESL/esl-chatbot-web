@@ -44,7 +44,7 @@ defineExpose({ scrollEl })
         </div>
 
         <h3 class="text-[17px] font-semibold text-brand-ink dark:text-white font-poppins mb-1">
-          Hi{{ getUser?.displayName ? `, ${getUser.displayName.split(' ')[0]}` : '' }}! I'm Maya 👋
+          Hi{{ getUser?.displayName ? `, ${getUser.displayName.split(' ')[0]}` : '' }}! I'm Tutelage AI 👋
         </h3>
         <p class="text-[13px] text-zinc-500 dark:text-zinc-400 font-poppins max-w-sm">
           <template v-if="!subActive">

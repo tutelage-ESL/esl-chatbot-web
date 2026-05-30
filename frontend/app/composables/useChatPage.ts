@@ -364,7 +364,7 @@ export function useChatPage() {
   onMounted(async () => {
     await loadSessions(subActive.value)
     if (!subActive.value) {
-      toast.message('Activate a plan to start chatting with Maya.')
+      toast.message('Activate a plan to start chatting with Tutelage AI.')
     }
   })
 

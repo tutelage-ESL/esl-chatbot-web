@@ -282,7 +282,7 @@ components/Pages/Dashboard/
 │  ├─ ThreadHeader.vue       # Chat top bar (topic, cefr, actions)
 │  ├─ MessageThread.vue      # Scrollable messages area + empty state
 │  ├─ MessageBubble.vue      # Single message bubble (user or AI)
-│  ├─ ThinkingIndicator.vue  # Animated "Maya is thinking…" row
+│  ├─ ThinkingIndicator.vue  # Animated "Tutelage AI is thinking…" row
 │  ├─ Composer.vue           # Fixed bottom input bar
 │  ├─ SessionItem.vue        # Single row in the sessions list
 │  └─ CoachPane.vue          # Right live-coaching panel

@@ -8,7 +8,7 @@ const mobileOpen = ref(false)
 </script>
 
 <template>
-  <div class="flex h-dvh overflow-hidden bg-neutral-50 dark:bg-neutral-900">
+  <div class="flex h-dvh bg-neutral-50 dark:bg-neutral-900">
     <LayoutsDashboardSidebar
       :collapsed="collapsed"
       :mobile-open="mobileOpen"

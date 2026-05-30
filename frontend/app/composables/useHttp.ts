@@ -131,6 +131,15 @@ export const useHttp = async <T = any>(options: HttpOptions): Promise<HttpRespon
       return response
     }
 
+    if(res.status === 429 ){
+      return {
+        success: false,
+        message: 'Too many attempts. Please wait a few minutes and try again.',
+        data: null,
+        status: 429,
+      }
+    }
+
     if (!res.ok) {
       const data = await res.json()
       const response: HttpResponse<T> = {

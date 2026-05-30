@@ -17,7 +17,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="w-65 border-r border-black/6 dark:border-white/6 bg-white dark:bg-[#0e0e10] hidden md:flex flex-col shrink-0 overflow-hidden relative z-10">
+  <div class="w-65 border-r border-black/6 dark:border-white/6 bg-white dark:bg-[#0e0e10] hidden md:flex flex-col shrink-0 overflow-hidden relative z-0">
     <!-- New session -->
     <div class="p-3 border-b border-black/6 dark:border-white/6 shrink-0">
       <AppButton
@@ -34,7 +34,7 @@ const emit = defineEmits<{
     </div>
 
     <!-- Search -->
-    <div class="px-3 pt-3 shrink-0">
+    <div class="px-3 pt-3 shrink-0 z-0">
       <div class="relative">
         <AppIconsax name="SearchNormal" color="#a1a1aa" :size="12" class="absolute left-2.5 top-1/2 -translate-y-1/2" />
         <input

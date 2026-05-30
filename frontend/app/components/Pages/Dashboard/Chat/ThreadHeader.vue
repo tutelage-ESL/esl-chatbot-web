@@ -30,7 +30,7 @@ const emit = defineEmits<{
         />
       </div>
       <div class="leading-tight">
-        <p class="text-[13px] font-semibold text-brand-ink dark:text-white font-poppins">Maya · AI Tutor</p>
+        <p class="text-[13px] font-semibold text-brand-ink dark:text-white font-poppins">Tutelage · AI Tutor</p>
         <p class="text-[10.5px] text-zinc-400 font-poppins">
           {{ topic || 'Open conversation' }} · {{ cefrLabel }} · {{ isSessionEnded ? 'Ended' : 'Casual' }}
         </p>

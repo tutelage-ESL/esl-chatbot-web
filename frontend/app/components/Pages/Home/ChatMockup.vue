@@ -13,7 +13,7 @@
             <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-brand-dark" />
           </div>
           <div class="leading-tight">
-            <AppText size="14" weight="semibold" color="white" class-list="text-sm">AI Tutor · Maya</AppText>
+            <AppText size="14" weight="semibold" color="white" class-list="text-sm">AI Tutor · Tutelage AI</AppText>
             <div class="text-neutral-50/50 text-[11px] flex items-center gap-1.5">
               <span class="w-1.5 h-1.5 rounded-full bg-emerald-400" />
               <AppText size="11" color="white" class-list="text-neutral-50/50">Session · B2 Intermediate</AppText>

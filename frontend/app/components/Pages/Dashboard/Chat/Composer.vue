@@ -37,11 +37,11 @@ const suggestions: { icon: SvgBasedIconName; text: string }[] = [
 ]
 
 const placeholder = computed(() => {
-  if (!props.subActive) return 'Subscribe to chat with Maya…'
+  if (!props.subActive) return 'Subscribe to chat with Tutelage AI...'
   if (props.isSessionEnded) return 'Session ended — start a new one.'
   if (props.hardCapReached) return 'Session message limit reached.'
-  if (!props.activeSessionId) return "Type a message to start chatting with Maya…"
-  return 'Ask Maya anything in English, or say hi to start a conversation!'
+  if (!props.activeSessionId) return "Type a message to start chatting with Tutelage AI…"
+  return 'Ask Tutelage AI anything in English, or say hi to start a conversation!'
 })
 
 const textareaEl = ref<HTMLTextAreaElement | null>(null)

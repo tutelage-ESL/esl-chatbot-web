@@ -10,7 +10,7 @@
         <span class="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-500 animate-bounce [animation-delay:120ms]" />
         <span class="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-500 animate-bounce [animation-delay:240ms]" />
       </div>
-      <span class="shimmer-text text-[11px] font-medium text-zinc-500 dark:text-zinc-400 font-poppins">Maya is thinking…</span>
+      <span class="shimmer-text text-[11px] font-medium text-zinc-500 dark:text-zinc-400 font-poppins">Tutelage AI is thinking…</span>
     </div>
   </div>
 </template>
