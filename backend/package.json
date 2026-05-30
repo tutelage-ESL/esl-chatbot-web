@@ -16,7 +16,10 @@
     "typecheck": "tsc --noEmit",
     "generate:openapi": "bun scripts/export-openapi.ts",
     "generate:types": "bun run generate:openapi && bunx openapi-typescript openapi.json -o ../frontend/types/api.ts",
+    "test:setup": "infisical run --env=dev -- bun scripts/setup-test-db.ts",
+    "test:setup:env": "bun scripts/setup-test-db.ts",
     "test": "infisical run --env=dev -- bun test",
+    "test:env": "bun test",
     "test:watch": "infisical run --env=dev -- bun test --watch"
   },
   "devDependencies": {

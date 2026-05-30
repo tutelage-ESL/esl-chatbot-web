@@ -1,4 +1,4 @@
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import type { Request, Response } from "express";
 import { env } from "../config/env.ts";
 
@@ -6,6 +6,12 @@ import { env } from "../config/env.ts";
 // If you ever scale to multiple server processes, replace the default in-memory
 // store with rate-limit-redis so all processes share quota state.
 const skip = () => env.NODE_ENV !== "production";
+
+// Per-user key for limiters that run AFTER authenticate. Falls back to the
+// client IP for the rare unauthenticated case — routed through ipKeyGenerator
+// so IPv6 addresses are normalised (raw req.ip lets IPv6 clients bypass limits).
+const userOrIpKey = (req: Request) =>
+  (req as any).user?.id ?? ipKeyGenerator(req.ip ?? "anonymous");
 
 const jsonHandler = (_req: Request, res: Response) => {
   res.status(429).json({
@@ -80,7 +86,7 @@ export const createSessionLimiter = rateLimit({
   standardHeaders: "draft-7",
   legacyHeaders: false,
   skip,
-  keyGenerator: (req: Request) => (req as any).user?.id ?? req.ip ?? "anonymous",
+  keyGenerator: userOrIpKey,
   handler: jsonHandler,
 });
 
@@ -90,7 +96,7 @@ export const sendMessageLimiter = rateLimit({
   standardHeaders: "draft-7",
   legacyHeaders: false,
   skip,
-  keyGenerator: (req: Request) => (req as any).user?.id ?? req.ip ?? "anonymous",
+  keyGenerator: userOrIpKey,
   handler: jsonHandler,
 });
 
@@ -100,7 +106,7 @@ export const sendVoiceMessageLimiter = rateLimit({
   standardHeaders: "draft-7",
   legacyHeaders: false,
   skip,
-  keyGenerator: (req: Request) => (req as any).user?.id ?? req.ip ?? "anonymous",
+  keyGenerator: userOrIpKey,
   handler: jsonHandler,
 });
 
@@ -112,7 +118,7 @@ export const avatarUploadLimiter = rateLimit({
   standardHeaders: "draft-7",
   legacyHeaders: false,
   skip,
-  keyGenerator: (req: Request) => (req as any).user?.id ?? req.ip ?? "anonymous",
+  keyGenerator: userOrIpKey,
   handler: jsonHandler,
 });
 
