@@ -98,7 +98,7 @@ Pinia stores live at the **workspace root** in `stores/` (imported as `~~/stores
 - Always derive the correct tag name from the file path — never guess.
 - Styling: use Tailwind utilities. Put reusable/global styles in [app/assets/css/main.css](app/assets/css/main.css) as utility classes. Use `<style scoped>` inside a component only for things Tailwind can't express (e.g. `@keyframes`).
 - Always use the latest Tailwind CSS utilities — `size-*`, `gap-*`, `opacity-*` etc. all accept arbitrary integers (e.g. `size-18`). Use shorthand opacity syntax: `white/6`, `white/50` instead of `white/[0.06]`.
-- On the primary brand color (orange), use **white** text.
+- On the primary brand color (orange/`brand-primary`), always use **white** text AND white icons. This applies to buttons, badges, hover states, dropdown items, and any element with a `brand-primary` background.
 - **Icons on `variant="primary"` buttons must always use `color: 'white'`** in their `:icon-config`. Secondary-variant button icons use `'currentColor'` or a specific hex. Never use a dark/colored icon on a primary button.
 - Always check `components/App/`, `components/ui/`, and `components/Form/` before creating a new primitive — use what exists.
 
@@ -146,6 +146,10 @@ Tailwind exposes them as `bg-surface-card`, `border-border-inner`, `text-text-he
   - Empty states → `<UiEmpty>` + `<UiEmptyMedia/Content/Title/Description>`. Never write a one-off centered div with an icon and text.
   - Avatars → `<UiAvatar>` + `<UiAvatarImage>` + `<UiAvatarFallback>`. Never use a raw `<div>` as an avatar.
   - Skeletons → `<UiSkeleton>`. Never use a raw `animate-pulse` div.
+  - Textareas → `<UiTextarea v-model ...>`. Never use `<textarea>` directly.
+  - Selects / dropdowns → `<UiSelect>` + `<UiSelectTrigger>` + `<UiSelectValue>` + `<UiSelectContent>` + `<UiSelectItem>`. **Never pass an empty string as a `UiSelectItem` value** — Reka UI forbids it. Use a sentinel like `'ALL'` and convert back with a computed `get/set`.
+  - **Card / row action menus → always use `<UiDropdownMenu>` triggered by a 3-dot `<AppButton aspect="square" icon="More">`.** Never show action buttons on hover (opacity-0 → opacity-100). Actions that are destructive (delete) must be separated with `<UiDropdownMenuSeparator>` and coloured red.
+  - Delete confirmations → `<UiAlertDialog>` with Cancel + destructive Action. Never use `window.confirm()`.
 - Fetch data only via the `useHttp` composable ([app/composables/useHttp.ts](app/composables/useHttp.ts)) — never call `fetch` directly.
 - **Keep Vue files short.** If a template exceeds ~150 lines, extract sections into sub-components. Page files (`pages/`) hold state and layout glue only — no large inline template blocks. A 300+ line SFC template is always wrong.
 

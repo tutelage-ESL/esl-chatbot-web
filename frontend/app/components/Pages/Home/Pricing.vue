@@ -1,64 +1,40 @@
 <template>
   <section id="pricing" class="bg-brand-muted/60 py-28 sm:py-32 border-y border-neutral-200/70">
     <div class="container-lg layout-padding-lg">
-      <LayoutsSectionHeader
-        eyebrow="Pricing"
-        title="Real Progress for Pocket Change"
-        align="center"
-        wrapper-class="mb-14"
-      />
+      <LayoutsSectionHeader eyebrow="Pricing" title="Real Progress for Pocket Change" align="center"
+        wrapper-class="mb-14" />
 
       <div class="grid md:grid-cols-3 gap-5 items-stretch max-w-7xl mx-auto">
-        <div
-          v-for="plan in plans"
-          :key="plan.id"
-          :class="[
-            'relative rounded-[22px] overflow-hidden p-7 flex flex-col transition-transform duration-250 hover:-translate-y-0.5',
-            plan.featured
-              ? 'bg-linear-to-t from-white via-primary-200/60 to-primary-300 shadow-card shadow-brand-primary/20'
-              : 'bg-neutral-50 border border-neutral-200/70 shadow-soft',
-          ]"
-        >
+        <div v-for="plan in plans" :key="plan.id" :class="[
+          'relative rounded-[22px] overflow-hidden p-7 flex flex-col transition-transform duration-250 h-140 hover:-translate-y-0.5',
+          plan.featured
+            ? 'bg-linear-to-t from-white via-primary-200/60 to-primary-300 shadow-card shadow-brand-primary/20'
+            : 'bg-neutral-50 border border-neutral-200/70 shadow-soft',
+        ]">
           <div v-if="plan.featured" class="premium-stars" aria-hidden="true">
-            <Icon
-              v-for="star in premiumStars"
-              :key="star.id"
-              icon="mdi:star"
-              class="premium-star"
-              :width="star.size"
+            <Icon v-for="star in premiumStars" :key="star.id" icon="mdi:star" class="premium-star" :width="star.size"
               :style="{
                 left: `${star.x}%`,
                 top: `${star.y}%`,
                 opacity: star.opacity,
                 transform: `translate(-50%, -50%) rotate(${star.rotate}deg)`,
-              }"
-            />
+              }" />
           </div>
 
           <div class="relative flex items-center justify-between">
-            <AppText
-              size="15"
-              weight="semibold"
-              class-list="tracking-tight"
-              :class="plan.featured ? 'text-white' : 'text-brand-primary'"
-            >
+            <AppText size="15" weight="semibold" class-list="tracking-tight"
+              :class="plan.featured ? 'text-white' : 'text-brand-primary'">
               {{ plan.name }}
             </AppText>
-            <span
-              v-if="plan.featured"
-              class="text-[11px] font-medium text-white flex items-center gap-1.5 bg-white/20 backdrop-blur px-2.5 py-1 rounded-full"
-            >
+            <span v-if="plan.featured"
+              class="text-[11px] font-medium text-white flex items-center gap-1.5 bg-white/20 backdrop-blur px-2.5 py-1 rounded-full">
               <Icon icon="lucide:sparkles" width="11" /> Most Popular
             </span>
           </div>
 
           <div class="relative mt-4 flex items-baseline gap-1">
-            <AppText
-              size="price"
-              weight="semibold"
-              class-list="tracking-[-0.04em]"
-              :class="plan.featured ? 'text-white' : 'text-brand-ink'"
-            >
+            <AppText size="price" weight="semibold" class-list="tracking-[-0.04em]"
+              :class="plan.featured ? 'text-white' : 'text-brand-ink'">
               {{ plan.price }}
             </AppText>
             <AppText size="14" :class="plan.featured ? 'text-white/85' : 'text-brand-sub'">
@@ -66,42 +42,33 @@
             </AppText>
           </div>
 
-          <AppText
-            size="13"
-            class-list="mt-3 leading-relaxed relative"
-            :class="plan.featured ? 'text-white/90' : 'text-brand-sub'"
-          >
+          <AppText size="13" class-list="mt-3 leading-relaxed relative flex-1"
+            :class="plan.featured ? 'text-white/90' : 'text-brand-sub'">
             {{ plan.description }}
           </AppText>
 
-          <ul class="relative mt-7 space-y-3 flex-1">
-            <li v-for="item in plan.features" :key="item" class="flex items-center gap-3">
-              <span
-                class="w-4.5 h-4.5 rounded-full flex items-center justify-center shrink-0 bg-brand-primary text-white"
-              >
-                <Icon icon="lucide:check" width="11" stroke-width="3" />
-              </span>
-              <AppText size="13" class="text-brand-ink">
-                {{ item }}
-              </AppText>
-            </li>
-          </ul>
-
-          <div class="relative mt-8">
-            <AppButton
-              :to="ctaHref(plan)"
-              :variant="plan.featured ? 'primary' : 'ghost'"
-              size="44"
-              radius="full"
-              :class-list="
-                plan.featured
-                  ? 'gap-2 text-[13px] px-5 bg-brand-ink! hover:bg-neutral-900!'
-                  : 'gap-2 text-[13px] px-5 bg-neutral-100! border-neutral-200/70! text-brand-ink!'
-              "
-            >
-              <span>{{ plan.cta }}</span>
-              <Icon icon="lucide:arrow-right" width="14" />
-            </AppButton>
+          <div class="relative mt-7">
+            <ul class="space-y-3">
+              <li v-for="item in plan.features" :key="item" class="flex items-center gap-3">
+                <span
+                  class="w-4.5 h-4.5 rounded-full flex items-center justify-center shrink-0 bg-brand-primary text-white">
+                  <Icon icon="lucide:check" width="11" stroke-width="3" />
+                </span>
+                <AppText size="13" class="text-brand-ink">
+                  {{ item }}
+                </AppText>
+              </li>
+            </ul>
+            <div class="mt-8">
+              <AppButton :to="ctaHref(plan)" :variant="plan.featured ? 'primary' : 'ghost'" size="44" radius="full"
+                :class-list="plan.featured
+                    ? 'gap-2 text-[13px] px-5 bg-brand-ink! hover:bg-neutral-900!'
+                    : 'gap-2 text-[13px] px-5 bg-neutral-100! border-neutral-200/70! text-brand-ink!'
+                  ">
+                <span>{{ plan.cta }}</span>
+                <Icon icon="lucide:arrow-right" width="14" />
+              </AppButton>
+            </div>
           </div>
         </div>
       </div>

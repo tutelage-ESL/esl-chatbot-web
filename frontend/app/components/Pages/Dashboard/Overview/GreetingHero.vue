@@ -17,6 +17,13 @@ const emit = defineEmits<{
 const authStore = useAuthStore()
 const name = computed(() => authStore.getUser?.username ?? 'there')
 
+const greetingTime = computed(() => {
+  const hour = new Date().getHours()
+  if (hour < 12) return 'morning'
+  if (hour < 18) return 'afternoon'
+  return 'evening'
+})
+
 const R = 48
 const circumference = 2 * Math.PI * R
 const goalPct = computed(() => Math.min(1, props.doneMins / props.goalMins))
@@ -34,7 +41,7 @@ const minsLeft = computed(() => props.goalMins - props.doneMins)
     <div class="relative p-6 sm:p-8 flex flex-col md:flex-row items-start md:items-center gap-6 justify-between">
       <!-- Text + CTA -->
       <div>
-        <p class="text-[11px] uppercase tracking-[0.2em] text-zinc-400 font-semibold font-poppins">Good morning</p>
+        <p class="text-[11px] uppercase tracking-[0.2em] text-zinc-400 font-semibold font-poppins">Good {{ greetingTime }}</p>
         <h1 class="mt-1 text-[32px] sm:text-[38px] font-semibold tracking-[-0.03em] text-brand-ink dark:text-white leading-[1.1] font-poppins">
           Welcome back, {{ name }}.
         </h1>
