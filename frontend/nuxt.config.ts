@@ -10,6 +10,7 @@ export default defineNuxtConfig({
     BASE_URL: process.env.NUXT_PUBLIC_BASE_URL,
     public: {
       googleClientId: process.env.NUXT_PUBLIC_GOOGLE_CLIENT_ID,
+      baseUrl: process.env.NUXT_PUBLIC_BASE_URL ?? 'http://localhost:8000/api/v1',
     },
   },
   devServer: {

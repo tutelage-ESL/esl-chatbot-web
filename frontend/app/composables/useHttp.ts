@@ -20,8 +20,7 @@ type HttpResponse<T = any> = {
   data: T | null
   status?: number
 }
-
-const BASE_URL = 'http://localhost:8000/api/v1'
+const FALLBACK_BASE_URL = 'http://localhost:8000/api/v1'
 
 function buildHeaders(requireAuth: boolean, extra?: Record<string, string>): Record<string, string> {
   const headers: Record<string, string> = {
@@ -87,7 +86,8 @@ export const useHttp = async <T = any>(options: HttpOptions): Promise<HttpRespon
     ignoreResponse = false,
   } = options
 
-  const apiUrl = `${baseUrl ?? BASE_URL}${url.startsWith('/') ? url : `/${url}`}`
+  const resolvedBase = baseUrl ?? (useRuntimeConfig().public.baseUrl as string | undefined) ?? FALLBACK_BASE_URL
+  const apiUrl = `${resolvedBase}${url.startsWith('/') ? url : `/${url}`}`
   const headers = buildHeaders(requireAuth, extraHeaders)
 
   try {

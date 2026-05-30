@@ -155,19 +155,7 @@ function isActive(path: string) {
       </NuxtLink>
     </Transition>
 
-    <!-- Collapse toggle (desktop only) -->
-    <button
-      class="hidden md:flex absolute -right-3 top-20 z-50 w-6 h-6 rounded-full bg-white dark:bg-[#151517] border border-border shadow-sm items-center justify-center text-zinc-400 hover:text-brand-primary transition-colors"
-      @click="emit('toggle')"
-    >
-      <AppIconsax
-        name="ArrowRight"
-        color="currentColor"
-        :size="12"
-        :class="collapsed ? '' : 'rotate-180'"
-        class="transition-transform duration-300"
-      />
-    </button>
+    <!-- Collapse toggle lives in the layout (dashboard.vue) to avoid stacking context clipping -->
   </aside>
 </template>
 

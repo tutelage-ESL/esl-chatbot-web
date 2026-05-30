@@ -5,6 +5,7 @@ const props = defineProps<{
   streak: number
   doneMins: number
   goalMins: number
+  dueVocabCount?: number
 }>()
 
 const emit = defineEmits<{
@@ -44,7 +45,7 @@ const minsLeft = computed(() => props.goalMins - props.doneMins)
         <div class="mt-5 flex flex-wrap items-center gap-2">
           <AppButton variant="primary" size="38" radius="8" icon="Messages" :icon-config="{color: 'white'}" text="Continue conversation" @click="emit('navChat')" />
           <AppButton variant="secondary" size="38" radius="8" icon="Microphone" text="Practice speaking" @click="emit('navVoice')" />
-          <AppButton variant="secondary" size="38" radius="8" icon="Book1" text="Review 12 words" @click="emit('navVocab')" />
+          <AppButton variant="secondary" size="38" radius="8" icon="Book1" :text="`Review ${dueVocabCount ?? 0} words`" @click="emit('navVocab')" />
         </div>
       </div>
 
