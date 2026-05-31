@@ -46,6 +46,11 @@ export const setPasswordSchema = zod.object({
     path: ['confirmPassword'],
 })
 
+export const verifyEmailSchema = zod.object({
+    email: zod.string().email('Invalid email address'),
+    otp: zod.string().length(6, 'OTP must be 6 digits').regex(/^\d{6}$/, 'OTP must be numeric'),
+})
+
 export const googleUsernameSchema = zod.object({
     username: zod.string()
         .min(3, 'Username must be at least 3 characters')
@@ -60,3 +65,4 @@ export type VerifyOtpSchema = zod.infer<typeof verifyOtpSchema>
 export type ResetPasswordSchema = zod.infer<typeof resetPasswordSchema>
 export type SetPasswordSchema = zod.infer<typeof setPasswordSchema>
 export type GoogleUsernameSchema = zod.infer<typeof googleUsernameSchema>
+export type VerifyEmailSchema = zod.infer<typeof verifyEmailSchema>

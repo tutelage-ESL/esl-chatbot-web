@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { signUpSchema, type SignUpSchema } from '~/common/schemas/AuthSchema'
 import { useAuthStore } from '~~/stores/auth'
+import { toast } from 'vue-sonner'
 
 definePageMeta({
     layout: 'auth',
@@ -25,16 +26,12 @@ const handleSubmit = async () => {
     const response = await authStore.signUp(formData)
 
     if (response.success) {
-        const loginResponse = await authStore.signIn({
-            username: formData.username,
-            password: formData.password,
-        })
-
-        if (loginResponse.success) {
-            router.push('/dashboard')
-        } else {
-            router.push('/signin')
-        }
+        // Store credentials so verify-email can sign in after OTP confirmation
+        sessionStorage.setItem('pendingEmail', formData.email)
+        sessionStorage.setItem('pendingUsername', formData.username)
+        sessionStorage.setItem('pendingPassword', formData.password)
+        toast.success('Account created! Check your email for a verification code.')
+        router.push('/verify-email')
     } else {
         serverError.value = response.message || 'Registration failed. Please try again.'
     }

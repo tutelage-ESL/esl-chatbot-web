@@ -18,6 +18,23 @@ const formData = reactive<VerifyOtpSchema>({
 
 const serverError = ref<string>('')
 const otpError = ref<string>('')
+const resendCooldown = ref(0)
+let cooldownInterval: ReturnType<typeof setInterval> | null = null
+
+const startCooldown = () => {
+    resendCooldown.value = 60
+    cooldownInterval = setInterval(() => {
+        resendCooldown.value--
+        if (resendCooldown.value <= 0) {
+            clearInterval(cooldownInterval!)
+            cooldownInterval = null
+        }
+    }, 1000)
+}
+
+onUnmounted(() => {
+    if (cooldownInterval) clearInterval(cooldownInterval)
+})
 
 onMounted(() => {
     const savedEmail = sessionStorage.getItem('resetEmail')
@@ -47,6 +64,7 @@ const handleResend = async () => {
     const response = await authStore.forgotPassword({ email: formData.email })
     if (response.success) {
         toast.success('A new code has been sent to your email.')
+        startCooldown()
     } else {
         serverError.value = response.message || 'Could not resend the code.'
     }
@@ -84,10 +102,12 @@ const handleResend = async () => {
                     <button
                         type="button"
                         @click="handleResend"
-                        class="font-semibold text-brand-ink hover:text-brand-primary transition-colors"
+                        :disabled="resendCooldown > 0"
+                        class="font-semibold transition-colors cursor-pointer"
+                        :class="resendCooldown > 0 ? 'text-brand-sub cursor-not-allowed' : 'text-brand-ink hover:text-brand-primary'"
                         aria-label="Resend code"
                     >
-                        Resend
+                        {{ resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend' }}
                     </button>
                 </p>
             </template>

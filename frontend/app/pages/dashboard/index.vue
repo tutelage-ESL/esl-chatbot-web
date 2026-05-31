@@ -63,48 +63,50 @@ onMounted(fetchOverview)
       </template>
     </div>
 
-    <!-- Chart + Next up — delay 320ms -->
+    <!-- Chart + Heatmap (left 2/3) + Next up + Due words (right 1/3) -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <div class="lg:col-span-2 animate-card-enter" style="--delay:320ms">
-        <UiSkeleton v-if="loading" class="h-64 rounded-xl" />
-        <PagesDashboardOverviewVocabChart
-          v-else
-          :points="vocabChartPoints"
-          :total-words="vocabChartTotal"
-          :growth="vocabChartGrowth"
-        />
+      <!-- Left column: spans 2, two cards stacked -->
+      <div class="lg:col-span-2 flex flex-col gap-4">
+        <div class="animate-card-enter" style="--delay:320ms">
+          <UiSkeleton v-if="loading" class="h-64 rounded-xl" />
+          <PagesDashboardOverviewVocabChart
+            v-else
+            :points="vocabChartPoints"
+            :total-words="vocabChartTotal"
+            :growth="vocabChartGrowth"
+          />
+        </div>
+        <div class="animate-card-enter" style="--delay:440ms">
+          <UiSkeleton v-if="loading" class="h-72 rounded-xl" />
+          <PagesDashboardOverviewActivityHeatmap
+            v-else
+            :heat-data="heatData"
+            :active-pct="activePct"
+            :recent-sessions="recentSessions"
+          />
+        </div>
       </div>
-      <div class="animate-card-enter" style="--delay:380ms">
-        <UiSkeleton v-if="loading" class="h-64 rounded-xl" />
-        <PagesDashboardOverviewNextUp
-          v-else
-          :recommended="nextUpPrimary ?? { title: 'No active goals yet', tag: '—', minutes: 0, level: '—', icon: 'Flag' }"
-          :upcoming="nextUpOthers"
-          @start-lesson="router.push('/dashboard/goals')"
-        />
-      </div>
-    </div>
-
-    <!-- Heatmap + Due words — delay 440ms -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <div class="lg:col-span-2 animate-card-enter" style="--delay:440ms">
-        <UiSkeleton v-if="loading" class="h-72 rounded-xl" />
-        <PagesDashboardOverviewActivityHeatmap
-          v-else
-          :heat-data="heatData"
-          :active-pct="activePct"
-          :recent-sessions="recentSessions"
-        />
-      </div>
-      <div class="animate-card-enter" style="--delay:500ms">
-        <UiSkeleton v-if="loading" class="h-72 rounded-xl" />
-        <PagesDashboardOverviewDueWords
-          v-else
-          :words="dueWords"
-          :total-due="totalDue"
-          :level-pct="levelPct"
-          @start-review="router.push('/dashboard/vocab')"
-        />
+      <!-- Right column: spans 1, two cards stacked -->
+      <div class="flex flex-col gap-4">
+        <div class="animate-card-enter" style="--delay:380ms">
+          <UiSkeleton v-if="loading" class="h-64 rounded-xl" />
+          <PagesDashboardOverviewNextUp
+            v-else
+            :recommended="nextUpPrimary ?? { title: 'No active goals yet', tag: '—', minutes: 0, level: '—', icon: 'Flag' }"
+            :upcoming="nextUpOthers"
+            @start-lesson="router.push('/dashboard/goals')"
+          />
+        </div>
+        <div class="animate-card-enter" style="--delay:500ms">
+          <UiSkeleton v-if="loading" class="h-72 rounded-xl" />
+          <PagesDashboardOverviewDueWords
+            v-else
+            :words="dueWords"
+            :total-due="totalDue"
+            :level-pct="levelPct"
+            @start-review="router.push('/dashboard/vocab')"
+          />
+        </div>
       </div>
     </div>
 

@@ -5,6 +5,7 @@ import type {
   SignUpSchema,
   ForgotPasswordSchema,
   ResetPasswordSchema,
+  VerifyEmailSchema,
 } from "~/common/schemas/AuthSchema";
 
 interface AuthState {
@@ -64,16 +65,8 @@ export const useAuthStore = defineStore("useAuthStore", {
           password: credentials.password,
           displayName: credentials.displayName,
         },
-        showToast: true,
+        showToast: false,
       });
-
-      if (response.success) {
-        await this._persistTokens(
-          response.data.data.accessToken,
-          response.data.data.refreshToken
-        );
-        this.setUserFromResponse(response.data.data.user);
-      }
       this.isLoading = false;
       return response;
     },
@@ -148,6 +141,30 @@ export const useAuthStore = defineStore("useAuthStore", {
           otp: input.otp,
           newPassword: input.newPassword,
         },
+      });
+      this.isLoading = false;
+      return response;
+    },
+
+    async verifyEmail(input: VerifyEmailSchema) {
+      this.isLoading = true;
+      const response = await useHttp({
+        method: "POST",
+        url: "/auth/verify-email",
+        body: { email: input.email, otp: input.otp },
+        showToast: false,
+      });
+      this.isLoading = false;
+      return response;
+    },
+
+    async resendVerification(email: string) {
+      this.isLoading = true;
+      const response = await useHttp({
+        method: "POST",
+        url: "/auth/resend-verification",
+        body: { email },
+        showToast: false,
       });
       this.isLoading = false;
       return response;
