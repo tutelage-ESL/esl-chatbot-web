@@ -7,10 +7,12 @@ import type {
   ChatMessage as ApiChatMessage,
 } from '~/common/types/chat-types'
 import { getLimits } from '~/common/data/plan-limits'
+import { useVoiceChat } from '~/composables/useVoiceChat'
 
 export function useChatPage() {
   const authStore = useAuthStore()
   const { listSessions, createSession, getSession, sendMessage, endSession } = useSessions()
+  const { voiceState, partialTranscript, startRecording, stopRecording } = useVoiceChat()
   const route = useRoute()
   const router = useRouter()
 
@@ -356,6 +358,77 @@ export function useChatPage() {
     toast.success('Refreshed')
   }
 
+  // ── TTS playback ─────────────────────────────────────────────────────────
+  let ttsAudio: HTMLAudioElement | null = null
+
+  function playTts(audioBase64: string) {
+    ttsAudio?.pause()
+    ttsAudio = new Audio(`data:audio/mpeg;base64,${audioBase64}`)
+    ttsAudio.play().catch(() => { /* autoplay blocked — silent */ })
+  }
+
+  // ── Voice send ────────────────────────────────────────────────────────────
+  async function sendVoice() {
+    if (voiceState.value === 'recording') {
+      stopRecording()
+      return
+    }
+    if (voiceState.value !== 'idle') return
+
+    const sid = await ensureSession()
+    if (!sid) return
+
+    await startRecording(sid, {
+      onTranscript(_text) {
+        // partialTranscript ref in useVoiceChat is already updated — nothing extra needed here
+      },
+      onResult(result) {
+        const nowIso = new Date().toISOString()
+
+        const userApi: ApiChatMessage = {
+          id: result.userMessage?.id ?? `u-voice-${Date.now()}`,
+          role: 'USER',
+          type: 'VOICE',
+          content: result.userMessage?.content ?? '',
+          wordCount: result.userMessage?.wordCount,
+          createdAt: result.userMessage?.createdAt ?? nowIso,
+          evaluation: (result.evaluation as ApiChatMessage['evaluation']) ?? null,
+        }
+        messageEntities.value.push(userApi)
+        messages.value.push({ who: 'user', text: userApi.content, time: fmtTime(userApi.createdAt), type: 'VOICE' })
+
+        const aiText = result.assistantMessage?.content ?? ''
+        const aiApi: ApiChatMessage = {
+          id: result.assistantMessage?.id ?? `ai-voice-${Date.now()}`,
+          role: 'ASSISTANT',
+          type: 'TEXT',
+          content: aiText,
+          createdAt: result.assistantMessage?.createdAt ?? new Date().toISOString(),
+        }
+        messageEntities.value.push(aiApi)
+        messages.value.push({ who: 'ai', text: '', time: fmtTime(aiApi.createdAt) })
+
+        nextTick(async () => {
+          await streamReveal(messages.value.length - 1, aiText)
+        })
+
+        loadSessions()
+      },
+      onTts(audioBase64) {
+        playTts(audioBase64)
+      },
+      onError(code, message) {
+        if (code === 'MIC_DENIED') toast.error('Microphone blocked — allow access in your browser settings, then try again.')
+        else if (code === 'MIC_ERROR') toast.error('Could not open microphone. Make sure no other app is using it.')
+        else if (code === 'LIMIT_REACHED') toast.error(message || 'Message limit reached.')
+        else if (code === 'SESSION_ENDED') toast.error('Session has ended. Start a new one.')
+        else if (code === 'NO_SPEECH') toast.message('No speech detected — try again.')
+        else if (code === 'DISCONNECT') toast.error('Connection lost. Check your network and try again.')
+        else toast.error(message || 'Voice message failed.')
+      },
+    })
+  }
+
   async function fillSuggestion(text: string) {
     input.value = text
     await send()
@@ -404,8 +477,11 @@ export function useChatPage() {
     newSession,
     openSession,
     send,
+    sendVoice,
     endCurrent,
     refreshCurrent,
     fillSuggestion,
+    voiceState,
+    partialTranscript,
   }
 }

@@ -85,6 +85,7 @@ export interface ChatMessage {
   who: 'ai' | 'user'
   text: string
   time: string
+  type?: 'TEXT' | 'VOICE'
   correction?: {
     original: string
     suggested: string

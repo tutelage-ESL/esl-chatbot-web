@@ -33,9 +33,12 @@ const {
   newSession,
   openSession,
   send,
+  sendVoice,
   endCurrent,
   refreshCurrent,
   fillSuggestion,
+  voiceState,
+  partialTranscript,
 } = useChatPage()
 </script>
 
@@ -99,10 +102,12 @@ const {
         :session-timer="sessionTimer"
         :accuracy-label="accuracyLabel"
         :has-messages="messages.length > 0"
+        :voice-state="voiceState"
+        :partial-transcript="partialTranscript"
         @send="send"
         @fill-suggestion="fillSuggestion"
         @attach="toast.message('Attachments — coming soon')"
-        @mic="toast.message('Voice input — coming soon')"
+        @mic="sendVoice"
       />
     </div>
 

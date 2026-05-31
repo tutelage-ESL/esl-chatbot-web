@@ -33,6 +33,14 @@ defineProps<{ message: ChatMessage; userInitial?: string }>()
         ]"
       >
         {{ message.text }}
+        <!-- Voice badge -->
+        <span
+          v-if="message.type === 'VOICE'"
+          class="inline-flex items-center gap-1 ml-2 px-1.5 py-0.5 rounded-full bg-white/15 text-[10px] font-poppins align-middle"
+        >
+          <AppIconsax name="Microphone" color="currentColor" :size="9" />
+          voice
+        </span>
       </div>
 
       <!-- Phrasing tip correction -->

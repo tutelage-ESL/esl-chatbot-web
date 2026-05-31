@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { SvgBasedIconName } from '~/common/types/iconsax-types'
+import type { VoiceState } from '~/composables/useVoiceChat'
 
 const props = defineProps<{
   modelValue: string
@@ -17,6 +18,8 @@ const props = defineProps<{
   sessionTimer: string
   accuracyLabel: string
   hasMessages: boolean
+  voiceState: VoiceState
+  partialTranscript: string
 }>()
 
 const emit = defineEmits<{
@@ -61,55 +64,56 @@ function onKeydown(e: KeyboardEvent) {
 
       <!-- Suggestion chips (only when no messages yet) -->
       <div v-if="!hasMessages && subActive && !isSessionEnded" class="flex flex-wrap gap-1.5 mb-3">
-        <button
-          v-for="s in suggestions"
-          :key="s.text"
-          type="button"
+        <button v-for="s in suggestions" :key="s.text" type="button"
           class="flex items-center gap-1 px-2.5 py-1 rounded-full border border-black/8 dark:border-white/8 bg-white dark:bg-white/4 hover:border-brand-primary/40 hover:bg-brand-primary/5 text-[11.5px] text-zinc-600 dark:text-zinc-300 font-poppins transition"
-          @click="emit('fill-suggestion', s.text)"
-        >
+          @click="emit('fill-suggestion', s.text)">
           <AppIconsax :name="s.icon" color="#a1a1aa" :size="11" />
           {{ s.text }}
         </button>
       </div>
 
+      <!-- Recording banner -->
+      <div v-if="voiceState === 'recording' || voiceState === 'processing'"
+        class="mb-2 flex items-center gap-2 px-3 py-2 rounded-xl border font-poppins text-[12px]" :class="voiceState === 'recording'
+          ? 'bg-red-500/8 border-red-500/20 text-red-500'
+          : 'bg-surface-raised border-border-inner text-text-muted'">
+        <span v-if="voiceState === 'recording'" class="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
+        <AppIconsax v-else name="Microphone2" color="var(--color-text-muted)" :size="13" />
+        <span class="truncate flex-1">
+          {{ voiceState === 'recording'
+            ? (partialTranscript || 'Listening…')
+            : 'Processing your voice message…' }}
+        </span>
+        <span v-if="voiceState === 'recording'" class="text-[10px] opacity-60 shrink-0">tap mic to send</span>
+      </div>
+
       <div class="dash-card p-2.5 flex items-end gap-2">
         <button
-          class="w-9 h-9 rounded-lg flex items-center justify-center text-zinc-400 hover:text-brand-ink dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5 transition"
-          title="Attachments — coming soon"
-          @click="emit('attach')"
-        >
+          class="w-9 h-9 rounded-lg flex items-center justify-center text-text-subtle hover:text-text-body hover:bg-surface-raised transition"
+          title="Attachments — coming soon" @click="emit('attach')">
           <AppIconsax name="Paperclip" color="currentColor" :size="14" />
         </button>
-        <textarea
-          ref="textareaEl"
-          :value="modelValue"
-          rows="1"
-          :placeholder="placeholder"
-          :disabled="composerDisabled"
+        <textarea ref="textareaEl" :value="modelValue" rows="1" :placeholder="placeholder"
+          :disabled="composerDisabled || voiceState === 'recording' || voiceState === 'processing'"
           class="flex-1 resize-none outline-none bg-transparent py-2 overflow-hidden px-1 text-[14px] text-brand-ink dark:text-white placeholder:text-zinc-400 font-poppins disabled:cursor-not-allowed"
-          @input="emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)"
-          @keydown="onKeydown"
-        />
-        <button
-          class="w-9 h-9 rounded-lg bg-zinc-100 dark:bg-white/6 flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-white/10 transition"
-          title="Voice input — coming soon"
-          @click="emit('mic')"
-        >
-          <AppIconsax name="Microphone" color="currentColor" :size="14" />
+          @input="emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)" @keydown="onKeydown" />
+        <!-- Mic button — cycles: idle → recording → stop → processing → idle -->
+        <button :disabled="composerDisabled && voiceState === 'idle'"
+          :title="voiceState === 'recording' ? 'Stop recording' : 'Send a voice message'" :class="[
+            'w-9 h-9 rounded-lg flex items-center justify-center transition',
+            voiceState === 'recording'
+              ? 'bg-red-500 text-white hover:bg-red-600'
+              : voiceState === 'processing'
+                ? 'bg-surface-raised text-text-subtle cursor-not-allowed'
+                : 'bg-surface-raised text-text-body hover:bg-surface-card hover:text-brand-primary',
+          ]" @click="emit('mic')">
+          <AppIconsax :name="voiceState === 'recording' ? 'Stop' : 'Microphone'"
+            :color="voiceState === 'recording' ? 'white' : 'currentColor'" :size="14" />
         </button>
-        <AppButton
-          variant="primary"
-          size="36"
-          radius="8"
-          icon="Send"
-          :icon-config="{ color: 'white' }"
-          :text="sending ? 'Sending…' : 'Send'"
-          class="text-[12.5px]!"
-          :loading="sending"
-          :disabled="composerDisabled || !modelValue.trim()"
-          @click="emit('send')"
-        />
+        <AppButton variant="primary" size="36" radius="8" icon="Send" :icon-config="{ color: 'white' }"
+          :text="sending ? 'Sending…' : 'Send'" class="text-[12.5px]!" :loading="sending"
+          :disabled="composerDisabled || !modelValue.trim() || voiceState === 'recording' || voiceState === 'processing'"
+          @click="emit('send')" />
       </div>
 
       <div class="flex items-center justify-between mt-2 px-1 text-[10.5px] text-zinc-400">
