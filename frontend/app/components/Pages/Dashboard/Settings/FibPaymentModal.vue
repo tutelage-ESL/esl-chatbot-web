@@ -86,10 +86,7 @@ const isFailed  = computed(() => status.value === 'CANCELLED' || status.value ==
 
 function fmtExpiry(iso: string) {
   const d = new Date(iso)
-  const diff = Math.floor((d.getTime() - Date.now()) / 1000 / 60)
-  if (diff < 1)   return 'Expires in less than a minute'
-  if (diff < 60)  return `Expires in ${diff}m`
-  return `Expires in ${Math.floor(diff / 60)}h ${diff % 60}m`
+  return `Valid until ${d.toLocaleDateString('en-IQ', { month: 'short', day: 'numeric' })} at ${d.toLocaleTimeString('en-IQ', { hour: '2-digit', minute: '2-digit' })}`
 }
 
 function fmtIQD(n: number) {

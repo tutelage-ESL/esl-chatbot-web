@@ -83,6 +83,7 @@ Pinia stores live at the **workspace root** in `stores/` (imported as `~~/stores
 
 **Key rules:**
 - Component folders use **PascalCase** (`App/`, `Block/`, `Form/`, `Pages/`). Package-owned folders (`ui/` for shadcn) stay as the package expects.
+- you can use the models from the Nuxt models if you thing that helps, like swiper or anything usefull to the task you have.
 - `Block/` is for self-contained feature blocks reused across multiple pages that don't belong in `App/` (primitives) or `Form/`. Example: `<BlockUserAvatar />` from `components/Block/UserAvatar.vue`.
 - **All page-specific sections live under `components/Pages/<PageName>/`** — never under `pages/` itself. For dashboard pages this means `components/Pages/Dashboard/<Section>/`.
 - **Never create a top-level `components/Dashboard/` folder.** Dashboard sub-components belong under `components/Pages/Dashboard/<Section>/`. Layout chrome (sidebar, topbar) stays in `components/Layouts/Dashboard/`.

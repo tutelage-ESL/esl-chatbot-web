@@ -55,8 +55,7 @@ const codeStatusIcon = computed(() => {
 
 <template>
   <div
-    class="dash-card flex flex-col cursor-pointer transition-all duration-200"
-    style="hover:border-color:var(--color-brand-primary)"
+    class="dash-card flex flex-col cursor-pointer transition-all duration-200 hover:border-color-primary"
     @click="emit('open', cls.id)"
   >
     <!-- Card header -->
