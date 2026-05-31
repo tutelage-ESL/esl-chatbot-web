@@ -1,3 +1,10 @@
+// ⚠️ RESOLVED 2026-05-31 — historical diagnostic, kept for reference.
+// The 400 INVALID_REQUEST was caused by a MISSING REQUIRED FIELD, not credential
+// activation: FIB requires both `description` AND `statusCallbackUrl` on create.
+// None of the payloads below include statusCallbackUrl, so they all still return 400 —
+// that is expected. For a green smoke test of the real code path, use:
+//     bun scripts/test-fib-client.ts
+//
 // Diagnostic script — tries every plausible FIB Subscription payload variation
 // to isolate WHY FIB returns 400 INVALID_REQUEST.
 //

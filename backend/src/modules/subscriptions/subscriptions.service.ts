@@ -70,8 +70,14 @@ export async function initiateFibSubscription(
   const amountIQD = PLAN_AMOUNTS_IQD[plan]?.[intervalMonths];
   if (!amountIQD) throw new AppError("Invalid plan or interval combination", 400);
 
-  // Create subscription at FIB. statusCallbackUrl is only set when FIB_WEBHOOK_URL is
-  // configured (i.e. a publicly accessible URL). In local dev, omit it and use polling.
+  // Create subscription at FIB. NOTE: FIB *requires* both `description` and
+  // `statusCallbackUrl` — omitting either returns a generic 400 INVALID_REQUEST
+  // (verified against the FIB stage API). In production set FIB_WEBHOOK_URL to a
+  // public HTTPS endpoint; in local dev we fall back to a localhost URL (FIB accepts
+  // it but can't reach it — activation is detected via polling on GET .../status).
+  const statusCallbackUrl =
+    env.FIB_WEBHOOK_URL ??
+    `http://localhost:${env.PORT}/api/v1/subscriptions/webhook/fib`;
   let fibSub: Awaited<ReturnType<typeof client.createSubscription>>;
   try {
     fibSub = await client.createSubscription({
@@ -81,9 +87,7 @@ export async function initiateFibSubscription(
       currency: "IQD",
       interval: INTERVAL_ISO[intervalMonths]!,
       expiresIn: "P1DT12H",
-      ...(env.FIB_WEBHOOK_URL
-        ? { statusCallbackUrl: env.FIB_WEBHOOK_URL }
-        : {}),
+      statusCallbackUrl,
     });
   } catch (err) {
     if (err instanceof FibSubscribeError) {
@@ -211,6 +215,21 @@ export async function cancelFibSubscription(
     throw new AppError("Subscription is already cancelled", 409);
   }
 
+  const now = new Date();
+
+  // A DRAFT subscription was never paid, so it never activated the user's plan and
+  // FIB has nothing to cancel — calling FIB's cancel on a DRAFT returns
+  // ILLEGAL_SUBSCRIPTION_STATUS_TRANSITION (400). Just discard the local record;
+  // the unpaid DRAFT expires on its own at FIB.
+  if (record.fibStatus === "DRAFT") {
+    await prisma.fibSubscription.update({
+      where: { id: record.id },
+      data: { fibStatus: "CANCELLED", cancelledAt: now },
+    });
+    return;
+  }
+
+  // ACTIVE/TRIAL — cancel at FIB, then downgrade the user's plan to FREE ACTIVE.
   try {
     await client.cancelSubscription(fibSubscriptionId);
   } catch (err) {
@@ -218,7 +237,6 @@ export async function cancelFibSubscription(
     throw err instanceof Error ? err : new Error(String(err));
   }
 
-  const now = new Date();
   await prisma.$transaction([
     prisma.fibSubscription.update({
       where: { id: record.id },

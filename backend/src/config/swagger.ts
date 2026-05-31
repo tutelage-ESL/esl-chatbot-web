@@ -1,5 +1,4 @@
 import swaggerJsdoc from "swagger-jsdoc";
-import { env } from "./env.ts";
 
 const options: swaggerJsdoc.Options = {
   definition: {
@@ -9,10 +8,13 @@ const options: swaggerJsdoc.Options = {
       version: "1.0.0",
       description: "AI-powered English learning platform API",
     },
+    // Relative server URL so Swagger "Try it out" resolves against whatever host
+    // the docs are loaded from (localhost, LAN IP, tunnel, etc.) — not a hardcoded
+    // localhost that breaks when the API is reached over its IP.
     servers: [
       {
-        url: `http://localhost:${env.PORT}/api/v1`,
-        description: "Development server",
+        url: "/api/v1",
+        description: "Current host",
       },
     ],
     components: {
