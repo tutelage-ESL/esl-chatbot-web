@@ -134,6 +134,32 @@ This page should use the Socket.io composable (or create `useVoice.ts`) to strea
 
 ## Backend Notes for Frontend
 
+### Email verification flow — NEW endpoints (2026-05-31)
+Email verification now **activates the FREE plan** (unlocks the AI tutor). Previously only linking Google did this — now verifying the registration email does too. `AuthUser` (returned by login / register / `GET /auth/me` / Google / verify-email) gained an **`emailVerified: boolean`** field.
+
+Flow to wire up:
+1. **After register**, the user is logged in but `emailVerified=false` / `subscription.status=INACTIVE`. The backend has emailed them a 6-digit code. Show a "verify your email to unlock the AI tutor" screen/banner.
+2. **`POST /auth/verify-email`** — body `{ email, otp }` (6 digits). Returns the updated `AuthUser` (now `emailVerified=true`, `subscription.status=ACTIVE`). Update the auth store with this response. Unauthenticated endpoint — works even if the session expired. Idempotent (re-submitting an already-verified email returns 200).
+   - `400` = invalid/expired/used code; `422` = bad format; `429` = rate limited (10 / 15 min).
+3. **`POST /auth/resend-verification`** — body `{ email }`. Always returns 200 ("if registered and unverified, a code was sent" — anti-enumeration). Add a "resend code" button with a cooldown (limit is 5 / hour).
+4. **Persistent banner**: anywhere AI is gated, if `emailVerified=false`, show "Verify your email or link Google to start chatting." Google link (`POST /auth/link-google`) is the alternative activation path and also sets `emailVerified=true`.
+
+Codes expire in 24h. Types are already in `frontend/types/api.ts` (`paths['/auth/verify-email']`, `paths['/auth/resend-verification']`).
+
+### Dashboard overview types — use the generated `api.ts` (2026-05-30)
+Heads up Rekar: `GET /dashboard/overview` was missing from `frontend/types/api.ts` because `bun run generate:types` wasn't run after the backend route was added. I've regenerated it — the route + full response shape now live in the canonical `types/api.ts` (the `paths["/dashboard/overview"]` entry).
+
+The hand-written `app/common/types/dashboard-overview-types.ts` duplicates those types manually, which the project convention specifically warns against (types must flow from Swagger → `api.ts`, never maintained by hand). When you get a chance, retire that file and point `useDashboardOverview.ts` at the generated types instead, e.g.:
+
+```ts
+import type { components } from '~/types/api'
+type DashboardOverviewData = NonNullable<
+  components['schemas'] // or pull from paths['/dashboard/overview']['get']['responses'][200]...['data']
+>
+```
+
+Not urgent (the duplicate currently mirrors the backend correctly), but it will silently drift the next time the backend shape changes. **Reminder for future endpoints:** after any backend route lands, run `bun run generate:types` from `backend/` and commit `frontend/types/api.ts` — no hand-written mirror files.
+
 ### Rate limiting (2026-05-29)
 Rate limiting is now live in production on all auth and AI endpoints. The backend returns **HTTP 429** with `{ success: false, message: "Too many requests. Please wait and try again.", data: null }`.
 

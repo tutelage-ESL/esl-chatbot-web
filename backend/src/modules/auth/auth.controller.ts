@@ -11,6 +11,8 @@ import {
   resetPasswordSchema,
   linkGoogleSchema,
   setPasswordSchema,
+  verifyEmailSchema,
+  resendVerificationSchema,
 } from "./auth.schema.ts";
 import {
   login,
@@ -23,6 +25,8 @@ import {
   resetPassword,
   linkGoogle,
   setPassword,
+  verifyEmail,
+  resendVerification,
 } from "./auth.service.ts";
 import { AppError } from "../../utils/AppError.ts";
 
@@ -102,4 +106,24 @@ export const setPasswordHandler = asyncHandler(async (req: Request, res: Respons
   await setPassword(req.user.id, input);
 
   sendSuccess(res, null, "Password set successfully. You can now log in with your email and password.", 200);
+});
+
+export const verifyEmailHandler = asyncHandler(async (req: Request, res: Response) => {
+  const input = verifyEmailSchema.parse(req.body);
+  const user = await verifyEmail(input);
+
+  sendSuccess(res, user, "Email verified successfully. Your free plan is now active.", 200);
+});
+
+export const resendVerificationHandler = asyncHandler(async (req: Request, res: Response) => {
+  const input = resendVerificationSchema.parse(req.body);
+  await resendVerification(input);
+
+  // Always the same message — do not reveal whether the email exists or is verified
+  sendSuccess(
+    res,
+    null,
+    "If that email is registered and not yet verified, a new verification code has been sent.",
+    200,
+  );
 });

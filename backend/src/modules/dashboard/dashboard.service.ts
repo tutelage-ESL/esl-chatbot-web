@@ -109,11 +109,12 @@ async function buildStatCards(userId: string): Promise<DashboardStatCards> {
   ]);
 
   let pronunciationDelta: number | null = null;
-  if (lastTwoSessionEvals.length === 2) {
-    const [latest, previous] = lastTwoSessionEvals;
-    if (latest.avgPronunciationScore !== null && previous.avgPronunciationScore !== null) {
-      pronunciationDelta = Math.round(latest.avgPronunciationScore - previous.avgPronunciationScore);
-    }
+  const [latest, previous] = lastTwoSessionEvals;
+  if (
+    latest?.avgPronunciationScore != null &&
+    previous?.avgPronunciationScore != null
+  ) {
+    pronunciationDelta = Math.round(latest.avgPronunciationScore - previous.avgPronunciationScore);
   }
 
   // estimatedLevel (AI-detected) takes priority; fall back to user-set currentLevel

@@ -39,6 +39,7 @@ export interface AuthUser {
   role: Role;
   avatarUrl: string | null;
   isActive: boolean;
+  emailVerified: boolean;
   subscription: {
     plan: Plan;
     status: SubStatus;
@@ -82,4 +83,13 @@ export interface LinkGoogleInput {
 
 export interface SetPasswordInput {
   newPassword: string;
+}
+
+export interface VerifyEmailInput {
+  email: string;
+  otp: string;
+}
+
+export interface ResendVerificationInput {
+  email: string;
 }

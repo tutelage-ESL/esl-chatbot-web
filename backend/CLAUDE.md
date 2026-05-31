@@ -100,6 +100,17 @@ const { data, error } = await api.POST("/auth/login", {
 - Types are only as good as the Swagger JSDoc comments — keep them accurate
 - `scripts/export-openapi.ts` injects placeholder env vars so no real DB/JWT secrets are needed to generate types
 
+### Pre-commit hook (enforces both of the above)
+A committed git hook at `.githooks/pre-commit` runs automatically when any `backend/` file is
+staged. It (1) runs `bun run typecheck` and (2) regenerates `frontend/types/api.ts` and blocks the
+commit if the committed copy was stale — so a route change can't land without its types. It is a
+no-op for commits that don't touch `backend/`, and skips with a warning if `bun` isn't on PATH.
+
+Enable it once per clone (the backend `prepare` script does this automatically on `bun install`):
+```bash
+cd backend && bun run setup:hooks    # == git config core.hooksPath .githooks
+```
+
 ---
 
 ## Architecture: Modular Domain-Based (Layered)
@@ -182,8 +193,8 @@ Each module under `src/modules/[name]/` follows:
 - All IDs are UUID v4
 - All tables have createdAt/updatedAt
 - User model has username (unique), email (unique), displayName, password (nullable — null for Google-only accounts), authProvider (LOCAL|GOOGLE), googleId (unique, nullable), avatarUrl, isActive, role, phoneNumber
-- AI chatbot access is gated by Subscription: `status === ACTIVE`. **Verification = linking a Google account.** Registration flow: LOCAL register → `plan=FREE, status=INACTIVE` (no AI); Google Sign-In / Google merge / `POST /auth/link-google` → `status=ACTIVE` (FREE tier unlocked). Admin-assigned subscriptions are always `ACTIVE`. Class joining does NOT require a subscription.
-- **Subscription lifecycle:** LOCAL user registers → INACTIVE. Links Google → FREE ACTIVE. Buys GOLD/PREMIUM (via FIB/STRIPE/CASH) → paid tier ACTIVE. Subscription period expires → lazy downgrade to FREE ACTIVE at next `POST /sessions`. Admin cancels subscription → FREE ACTIVE (not revoked; use `isActive=false` to block access entirely).
+- AI chatbot access is gated by Subscription: `status === ACTIVE`. **Verification = a verified means of contact: verifying the registration email (6-digit OTP via `POST /auth/verify-email`) OR linking a Google account.** Both flip the FREE subscription `INACTIVE → ACTIVE`. Registration flow: LOCAL register → `plan=FREE, status=INACTIVE, emailVerified=false` (no AI); email OTP verify → `emailVerified=true, status=ACTIVE`; Google Sign-In / Google merge / `POST /auth/link-google` → `emailVerified=true, status=ACTIVE` (Google emails are pre-verified). Admin-assigned subscriptions are always `ACTIVE`. Class joining does NOT require a subscription. The gate lives in `sessions.service.ts` (checks `status === ACTIVE`); the `requireGoogleLinked` middleware exists but is unused — do not wire it onto AI routes, as that would defeat the email-verification activation path.
+- **Subscription lifecycle:** LOCAL user registers → INACTIVE. Verifies email (OTP) OR links Google → FREE ACTIVE. Buys GOLD/PREMIUM (via FIB/STRIPE/CASH) → paid tier ACTIVE. Subscription period expires → lazy downgrade to FREE ACTIVE at next `POST /sessions`. Admin cancels subscription → FREE ACTIVE (not revoked; use `isActive=false` to block access entirely).
 - Classes have a unique classCode; tutor/student membership tracked via ClassUser join table
 - ClassUser join table links any user to a class using the `ClassRole` enum (TUTOR or STUDENT — ADMIN is a global platform role and never stored in ClassUser). Admins can see all classes globally without joining them. An admin who also teaches a class joins as TUTOR.
 - Class join flow is **direct** (no pending approval): a user submits a class code via `POST /classes/join` and is added as a STUDENT immediately, provided the code is not blocked, not expired, and the class is ACTIVE
@@ -200,6 +211,7 @@ Each module under `src/modules/[name]/` follows:
 - Cascade delete on all user-owned relations
 - RefreshToken table stores hashed (SHA-256) refresh tokens for server-side revocation; one row per active session/device
 - PasswordResetToken table stores SHA-256-hashed 6-digit OTPs for password reset; 15-minute TTL; single-use (usedAt set on redemption); old tokens deleted when a new OTP is requested
+- EmailVerificationToken table mirrors PasswordResetToken (SHA-256-hashed 6-digit OTP, single-use, old tokens deleted on resend) but with a 24-hour TTL; redeemed via `POST /auth/verify-email`. User model carries `emailVerified` (Boolean) + `emailVerifiedAt` (DateTime?)
 - **Message evaluation flow:** each user message is evaluated by the AI for grammar (0-100), vocabulary (0-100 + CEFR level), fluency (0-100), overall score (weighted: 35% grammar + 35% vocab + 30% fluency), corrections (original/corrected/explanation), and feedback. Evaluations are stored in `message_evaluations` (1:1 with Message). Students see inline corrections after each message.
 - **Session evaluation:** generated on `POST /sessions/:id/end`. Aggregates all message evaluations into averages (grammar, vocabulary, fluency, overall, and pronunciationScore for voice messages only → `avgPronunciationScore Float?`), detects session-level CEFR, identifies strengths/weaknesses/recommendations, and lists new vocabulary for SRS. Stored in `session_evaluations`. The old `ConversationSession.averageScore` field was removed — use `SessionEvaluation.avgOverallScore` instead.
 - **Message type vs session mode:** `SessionMode` (TEXT/VOICE) is the starting mode. Individual `Message.type` (TEXT/VOICE) allows mixed-mode sessions — no separate MIXED enum needed.
@@ -301,7 +313,7 @@ Includes: classes (with full code-lifecycle fields populated) with enrolled user
 
 ### Phase 2 — Auth Module (Critical Path)
 - ✅ `POST /auth/login` — username + password → access token (15m) + refresh token (7d) + user data (id, username, email, displayName, role, avatarUrl, isActive, subscription.plan/status)
-- ✅ `POST /auth/register` — creates User + LearnerProfile + Subscription (FREE/INACTIVE) + UserMetrics in a single transaction; returns tokens immediately (no separate login needed)
+- ✅ `POST /auth/register` — creates User + LearnerProfile + Subscription (FREE/INACTIVE) + UserMetrics in a single transaction; returns tokens immediately (no separate login needed); sends an email-verification OTP best-effort (registration still succeeds if the email service is down)
 - ✅ `POST /auth/google` — Google Sign-In: verifies Google ID token, handles login / account merge / new registration in one endpoint; see `docs/services/google-oauth.md`
 - ✅ `GET /auth/google/test` — dev-only HTML page: renders a Google Sign-In button and displays the resulting ID token so it can be copy-pasted into Swagger (disabled in production)
 - ✅ `GET /auth/me` — returns the authenticated user's profile (same `AuthUser` shape as login). DB is queried on every call so subscription/role/deactivation changes are reflected; 403 if account was deactivated after the token was issued, 404 if the user no longer exists. Also serves as a token-validity probe on app load.
@@ -314,8 +326,10 @@ Includes: classes (with full code-lifecycle fields populated) with enrolled user
 - ✅ `POST /auth/reset-password` — verifies OTP (single-use, hashed in DB) + sets new password
 - ✅ `POST /auth/link-google` — authenticated; links Google account to an existing LOCAL account; preserves existing avatar; 409 if already linked
 - ✅ `POST /auth/set-password` — authenticated; lets Google-only accounts add a password (recommended, not forced); 409 if password already set
-- ✅ `requireGoogleLinked` middleware — reusable guard that enforces Google account is linked; attach to any route that requires it (chatbot, subscriptions, etc.)
-- Remaining: email verification on registration, welcome email
+- ✅ `POST /auth/verify-email` — verifies the registration OTP (`{ email, otp }`), marks `emailVerified=true` and activates the FREE subscription (`INACTIVE→ACTIVE`); unauthenticated + idempotent; sends a welcome email on success; returns the updated `AuthUser`
+- ✅ `POST /auth/resend-verification` — resends a fresh OTP (`{ email }`, 24h TTL); always 200 to prevent enumeration; 503 if the email service is unconfigured
+- ✅ `requireGoogleLinked` middleware — exists but **unused**. AI access is gated by `subscription.status === ACTIVE` (set by email verify OR Google link), so this middleware is intentionally not mounted — wiring it onto AI routes would block email-verified-but-not-Google-linked users
+- Remaining: (none for Phase 2 — email verification + welcome email done)
 
 ### Phase 3 — User & Class Modules
 - ✅ `GET /users` — paginated user list, filterable by `?role=`, `?search=` (username/email/displayName), `?subscriptionStatus=`; includes subscription summary (plan/status/expiry) in each row (admin only)

@@ -57,6 +57,8 @@ async function main() {
       authProvider: "LOCAL",
       role: "ADMIN",
       isActive: true,
+      emailVerified: true,
+      emailVerifiedAt: new Date(),
     },
   });
 
@@ -69,6 +71,8 @@ async function main() {
       authProvider: "LOCAL",
       role: "TUTOR",
       isActive: true,
+      emailVerified: true,
+      emailVerifiedAt: new Date(),
     },
   });
 
@@ -81,6 +85,8 @@ async function main() {
       authProvider: "LOCAL",
       role: "STUDENT",
       isActive: true,
+      emailVerified: true,
+      emailVerifiedAt: new Date(),
     },
   });
 
@@ -93,6 +99,8 @@ async function main() {
       authProvider: "LOCAL",
       role: "STUDENT",
       isActive: true,
+      emailVerified: true,
+      emailVerifiedAt: new Date(),
     },
   });
   console.log(`   ✅ 4 users created (admin, tutor, ali, yuki)\n`);

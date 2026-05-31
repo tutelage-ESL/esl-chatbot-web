@@ -4,6 +4,13 @@ import jwt from "jsonwebtoken";
 import app from "../../../app.ts";
 import { env } from "../../../config/env.ts";
 import { prisma } from "../../../config/database.ts";
+import { createTestUser, deleteTestUsers, type TestUser } from "../../../test/helpers.ts";
+
+// Self-contained users created by the self-profile / getUser tests below. Tracked
+// here and deleted in afterAll (before disconnect) so the seed users are untouched.
+const createdUserIds: string[] = [];
+const track = (u: TestUser) => (createdUserIds.push(u.id), u);
+const auth = (t: string) => ({ Authorization: `Bearer ${t}` });
 
 // ─── Seed credentials (from prisma/seed.ts) ──────────────────────────────────
 
@@ -46,6 +53,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await deleteTestUsers(createdUserIds);
   await prisma.$disconnect();
 });
 
@@ -268,5 +276,153 @@ describe("GET /api/v1/users", () => {
       expect(res.status).toBe(422);
       expect(res.body.success).toBe(false);
     });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+describe("GET /api/v1/users/me — own profile", () => {
+  it("200 — returns the caller's full profile with subscription summary", async () => {
+    const u = track(await createTestUser({ plan: "PREMIUM", status: "ACTIVE" }));
+    const res = await request(app).get("/api/v1/users/me").set(auth(u.token));
+    expect(res.status).toBe(200);
+    expect(res.body.data.id).toBe(u.id);
+    expect(res.body.data.username).toBe(u.username);
+    expect(res.body.data.authProvider).toBe("LOCAL");
+    expect(res.body.data.subscription.plan).toBe("PREMIUM");
+  });
+
+  it("401 — no token", async () => {
+    const res = await request(app).get("/api/v1/users/me");
+    expect(res.status).toBe(401);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+describe("PATCH /api/v1/users/me — update own profile", () => {
+  it("200 — updates displayName and phoneNumber", async () => {
+    const u = track(await createTestUser());
+    const res = await request(app)
+      .patch("/api/v1/users/me")
+      .set(auth(u.token))
+      .send({ displayName: "Renamed User", phoneNumber: "+9647500000000" });
+    expect(res.status).toBe(200);
+    expect(res.body.data.displayName).toBe("Renamed User");
+    expect(res.body.data.phoneNumber).toBe("+9647500000000");
+  });
+
+  it("200 — phoneNumber can be cleared with null", async () => {
+    const u = track(await createTestUser());
+    const res = await request(app)
+      .patch("/api/v1/users/me")
+      .set(auth(u.token))
+      .send({ phoneNumber: null });
+    expect(res.status).toBe(200);
+    expect(res.body.data.phoneNumber).toBeNull();
+  });
+
+  it("422 — empty displayName", async () => {
+    const u = track(await createTestUser());
+    const res = await request(app)
+      .patch("/api/v1/users/me")
+      .set(auth(u.token))
+      .send({ displayName: "" });
+    expect(res.status).toBe(422);
+  });
+
+  it("401 — no token", async () => {
+    const res = await request(app).patch("/api/v1/users/me").send({ displayName: "x" });
+    expect(res.status).toBe(401);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+describe("PATCH /api/v1/users/me/learner-profile — update learner settings", () => {
+  it("200 — upserts learner settings (creates the row when none exists)", async () => {
+    const u = track(await createTestUser());
+    const res = await request(app)
+      .patch("/api/v1/users/me/learner-profile")
+      .set(auth(u.token))
+      .send({ currentLevel: "B1", targetLevel: "C1", theme: "dark", weeklyGoalMinutes: 120 });
+    expect(res.status).toBe(200);
+    expect(res.body.data.currentLevel).toBe("B1");
+    expect(res.body.data.targetLevel).toBe("C1");
+    expect(res.body.data.theme).toBe("dark");
+    expect(res.body.data.weeklyGoalMinutes).toBe(120);
+  });
+
+  it("200 — accepts a valid aiPersonality enum value", async () => {
+    const u = track(await createTestUser());
+    const res = await request(app)
+      .patch("/api/v1/users/me/learner-profile")
+      .set(auth(u.token))
+      .send({ aiPersonality: "ENCOURAGING" });
+    expect(res.status).toBe(200);
+    expect(res.body.data.aiPersonality).toBe("ENCOURAGING");
+  });
+
+  it("422 — invalid CEFR level", async () => {
+    const u = track(await createTestUser());
+    const res = await request(app)
+      .patch("/api/v1/users/me/learner-profile")
+      .set(auth(u.token))
+      .send({ currentLevel: "Z9" });
+    expect(res.status).toBe(422);
+  });
+
+  it("422 — voiceSpeed out of range", async () => {
+    const u = track(await createTestUser());
+    const res = await request(app)
+      .patch("/api/v1/users/me/learner-profile")
+      .set(auth(u.token))
+      .send({ voiceSpeed: 5 });
+    expect(res.status).toBe(422);
+  });
+
+  it("401 — no token", async () => {
+    const res = await request(app)
+      .patch("/api/v1/users/me/learner-profile")
+      .send({ currentLevel: "B1" });
+    expect(res.status).toBe(401);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+describe("GET /api/v1/users/:id — admin get user by id", () => {
+  it("200 — admin fetches a full user profile", async () => {
+    const target = track(await createTestUser({ plan: "GOLD", status: "ACTIVE" }));
+    const res = await request(app)
+      .get(`/api/v1/users/${target.id}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.id).toBe(target.id);
+    expect(res.body.data.subscription.plan).toBe("GOLD");
+    expect(res.body.data.metrics).toBeDefined();
+  });
+
+  it("403 — a student cannot fetch another user by id", async () => {
+    const target = track(await createTestUser());
+    const res = await request(app)
+      .get(`/api/v1/users/${target.id}`)
+      .set("Authorization", `Bearer ${studentToken}`);
+    expect(res.status).toBe(403);
+  });
+
+  it("404 — admin fetching a non-existent (but valid uuid) user", async () => {
+    const res = await request(app)
+      .get("/api/v1/users/00000000-0000-4000-8000-000000000000")
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(404);
+  });
+
+  it("422 — non-uuid id", async () => {
+    const res = await request(app)
+      .get("/api/v1/users/not-a-uuid")
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(422);
+  });
+
+  it("401 — no token", async () => {
+    const res = await request(app).get("/api/v1/users/00000000-0000-4000-8000-000000000000");
+    expect(res.status).toBe(401);
   });
 });

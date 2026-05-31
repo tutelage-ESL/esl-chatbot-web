@@ -4,6 +4,8 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "prepare": "git config core.hooksPath .githooks || true",
+    "setup:hooks": "git config core.hooksPath .githooks",
     "dev": "infisical run --env=dev -- bun --watch src/index.ts",
     "start": "infisical run --env=prod -- bun src/index.ts",
     "dev:env": "bun --watch src/index.ts",

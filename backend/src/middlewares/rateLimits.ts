@@ -68,6 +68,24 @@ export const resetPasswordLimiter = rateLimit({
   handler: jsonHandler,
 });
 
+export const verifyEmailLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  skip,
+  handler: jsonHandler,
+});
+
+export const resendVerificationLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  skip,
+  handler: jsonHandler,
+});
+
 export const refreshTokenLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 30,

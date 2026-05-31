@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import { createHash, randomInt } from "crypto";
 import { prisma } from "../../config/database.ts";
 import { env } from "../../config/env.ts";
+import { logger } from "../../config/logger.ts";
 import { AppError } from "../../utils/AppError.ts";
 import type {
   AuthUser,
@@ -17,11 +18,15 @@ import type {
   ResetPasswordInput,
   LinkGoogleInput,
   SetPasswordInput,
+  VerifyEmailInput,
+  ResendVerificationInput,
 } from "./auth.types.ts";
 import { resend } from "../../config/resend.ts";
 
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const INVALID_CREDENTIALS_MSG = "Invalid username or password";
+const INVALID_VERIFICATION_MSG = "Invalid or expired verification code";
 
 function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
@@ -157,6 +162,7 @@ export async function login(input: LoginInput): Promise<LoginResponse> {
       role: user.role,
       avatarUrl: user.avatarUrl,
       isActive: user.isActive,
+      emailVerified: user.emailVerified,
       subscription: user.subscription
         ? { plan: user.subscription.plan, status: user.subscription.status }
         : null,
@@ -202,6 +208,16 @@ export async function register(input: RegisterInput): Promise<LoginResponse> {
     return user;
   });
 
+  // Send the email-verification OTP. Best-effort: a missing email service (e.g.
+  // local dev without RESEND_API_KEY) must NOT block account creation — the user
+  // can request a fresh code later via POST /auth/resend-verification.
+  try {
+    const otp = await createEmailVerificationOtp(newUser.id);
+    await sendVerificationEmail(newUser.email, newUser.displayName, otp);
+  } catch (err) {
+    logger.warn(`Could not send verification email to ${newUser.email}: ${(err as Error).message}`);
+  }
+
   const { accessToken, refreshToken } = await issueTokenPair(newUser.id);
 
   return {
@@ -213,6 +229,7 @@ export async function register(input: RegisterInput): Promise<LoginResponse> {
       role: newUser.role,
       avatarUrl: newUser.avatarUrl,
       isActive: newUser.isActive,
+      emailVerified: newUser.emailVerified,
       // We know exactly what was just created
       subscription: { plan: "FREE", status: "INACTIVE" },
     },
@@ -240,7 +257,9 @@ export async function googleAuth(input: GoogleAuthInput): Promise<GoogleAuthResp
     });
 
     if (localUser) {
-      // Link Google + activate FREE subscription (if still INACTIVE) in one transaction
+      // Link Google + activate FREE subscription (if still INACTIVE) in one
+      // transaction. Linking Google also verifies the email — Google has already
+      // confirmed it (we reject unverified Google emails in verifyGoogleToken).
       user = await prisma.$transaction(async (tx) => {
         await tx.subscription.updateMany({
           where: { userId: localUser.id, status: "INACTIVE" },
@@ -251,6 +270,8 @@ export async function googleAuth(input: GoogleAuthInput): Promise<GoogleAuthResp
           data: {
             googleId: profile.googleId,
             avatarUrl: localUser.avatarUrl ?? profile.avatarUrl,
+            emailVerified: true,
+            emailVerifiedAt: localUser.emailVerified ? undefined : new Date(),
           },
           include: { subscription: { select: { plan: true, status: true } } },
         });
@@ -283,6 +304,9 @@ export async function googleAuth(input: GoogleAuthInput): Promise<GoogleAuthResp
           avatarUrl: profile.avatarUrl,
           authProvider: "GOOGLE",
           googleId: profile.googleId,
+          // Google has already verified this email — mark it verified on creation
+          emailVerified: true,
+          emailVerifiedAt: new Date(),
           // password intentionally omitted — Google users have no password
         },
       });
@@ -308,6 +332,7 @@ export async function googleAuth(input: GoogleAuthInput): Promise<GoogleAuthResp
         role: created.role,
         avatarUrl: created.avatarUrl,
         isActive: created.isActive,
+        emailVerified: created.emailVerified,
         subscription: { plan: "FREE", status: "ACTIVE" },
       },
       accessToken,
@@ -331,6 +356,7 @@ export async function googleAuth(input: GoogleAuthInput): Promise<GoogleAuthResp
       role: user.role,
       avatarUrl: user.avatarUrl,
       isActive: user.isActive,
+      emailVerified: user.emailVerified,
       subscription: user.subscription
         ? { plan: user.subscription.plan, status: user.subscription.status }
         : null,
@@ -401,6 +427,7 @@ export async function getMe(userId: string): Promise<AuthUser> {
     role: user.role,
     avatarUrl: user.avatarUrl,
     isActive: user.isActive,
+    emailVerified: user.emailVerified,
     subscription: user.subscription
       ? { plan: user.subscription.plan, status: user.subscription.status }
       : null,
@@ -541,13 +568,14 @@ export async function linkGoogle(userId: string, input: LinkGoogleInput): Promis
     throw new AppError("This Google account is already linked to a different user", 409);
   }
 
-  // Read current avatar before updating so we can preserve it if already set
+  // Read current avatar + verification state before updating
   const existing = await prisma.user.findUniqueOrThrow({
     where: { id: userId },
-    select: { avatarUrl: true },
+    select: { avatarUrl: true, emailVerified: true },
   });
 
-  // Link Google + activate FREE subscription (if still INACTIVE) in one transaction
+  // Link Google + activate FREE subscription (if still INACTIVE) in one
+  // transaction. Linking Google also verifies the email (Google has confirmed it).
   const updated = await prisma.$transaction(async (tx) => {
     await tx.subscription.updateMany({
       where: { userId, status: "INACTIVE" },
@@ -558,6 +586,8 @@ export async function linkGoogle(userId: string, input: LinkGoogleInput): Promis
       data: {
         googleId: profile.googleId,
         avatarUrl: existing.avatarUrl ?? profile.avatarUrl,
+        emailVerified: true,
+        emailVerifiedAt: existing.emailVerified ? undefined : new Date(),
       },
       include: { subscription: { select: { plan: true, status: true } } },
     });
@@ -571,6 +601,7 @@ export async function linkGoogle(userId: string, input: LinkGoogleInput): Promis
     role: updated.role,
     avatarUrl: updated.avatarUrl,
     isActive: updated.isActive,
+    emailVerified: updated.emailVerified,
     subscription: updated.subscription
       ? { plan: updated.subscription.plan, status: updated.subscription.status }
       : null,
@@ -596,4 +627,159 @@ export async function setPassword(userId: string, input: SetPasswordInput): Prom
 
   const hashedPassword = await bcryptjs.hash(input.newPassword, 12);
   await prisma.user.update({ where: { id: userId }, data: { password: hashedPassword } });
+}
+
+// ─── Email verification (OTP) ─────────────────────────────────────────────────
+
+/**
+ * Creates a fresh single-use email-verification OTP for the user, invalidating
+ * any previous unused codes. Returns the plaintext OTP (only the hash is stored).
+ *
+ * otpHash is globally unique; on the rare chance a generated OTP collides with an
+ * existing token's hash, we regenerate and retry rather than surfacing a 500.
+ */
+async function createEmailVerificationOtp(userId: string): Promise<string> {
+  const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS);
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const otp = generateOtp();
+    const otpHash = hashToken(otp);
+    try {
+      await prisma.$transaction([
+        prisma.emailVerificationToken.deleteMany({ where: { userId } }),
+        prisma.emailVerificationToken.create({ data: { userId, otpHash, expiresAt } }),
+      ]);
+      return otp;
+    } catch (err) {
+      // P2002 = unique constraint violation on otpHash → regenerate and retry
+      if ((err as { code?: string }).code === "P2002") continue;
+      throw err;
+    }
+  }
+
+  throw new AppError("Could not generate a unique verification code. Please try again.", 500);
+}
+
+/** Sends the verification OTP email. Throws 503 if the email service is unconfigured. */
+async function sendVerificationEmail(email: string, displayName: string, otp: string): Promise<void> {
+  if (!resend || !env.RESEND_API_KEY) {
+    throw new AppError("Email service is not configured on this server", 503);
+  }
+
+  await resend.emails.send({
+    from: env.EMAIL_FROM ?? "noreply@resend.dev",
+    to: email,
+    subject: "Tutelage — Verify your email",
+    html: `
+      <p>Hi ${displayName},</p>
+      <p>Welcome to Tutelage! Use the following code to verify your email and activate your free plan. It expires in <strong>24 hours</strong>.</p>
+      <h2 style="letter-spacing: 8px; font-size: 36px;">${otp}</h2>
+      <p>Verifying your email unlocks the AI tutor on the free plan. If you did not create this account, you can safely ignore this email.</p>
+      <p>— The Tutelage Team</p>
+    `,
+  });
+}
+
+/** Sends the post-verification welcome email. Best-effort — silently skips if unconfigured. */
+async function sendWelcomeEmail(email: string, displayName: string): Promise<void> {
+  if (!resend || !env.RESEND_API_KEY) return;
+
+  await resend.emails.send({
+    from: env.EMAIL_FROM ?? "noreply@resend.dev",
+    to: email,
+    subject: "Welcome to Tutelage 🎉",
+    html: `
+      <p>Hi ${displayName},</p>
+      <p>Your email is verified and your <strong>free plan is now active</strong> — the AI tutor is ready whenever you are.</p>
+      <p>A few things to try first:</p>
+      <ul>
+        <li>Start a conversation with the AI tutor</li>
+        <li>Set your learning level and goals in your profile</li>
+        <li>Join a class with a class code from your tutor</li>
+      </ul>
+      <p>Tip: link your Google account from settings for one-tap sign-in next time.</p>
+      <p>Happy learning,<br/>— The Tutelage Team</p>
+    `,
+  });
+}
+
+/**
+ * Verifies an email-verification OTP. On success: marks the email verified and
+ * activates the FREE subscription (INACTIVE→ACTIVE; never downgrades a paid plan).
+ * Idempotent — verifying an already-verified email returns the current profile.
+ */
+export async function verifyEmail(input: VerifyEmailInput): Promise<AuthUser> {
+  const user = await prisma.user.findUnique({
+    where: { email: input.email },
+    select: { id: true, email: true, displayName: true, emailVerified: true },
+  });
+
+  if (!user) {
+    throw new AppError(INVALID_VERIFICATION_MSG, 400);
+  }
+
+  // Idempotent: already verified → return current state, no error
+  if (user.emailVerified) {
+    return getMe(user.id);
+  }
+
+  const otpHash = hashToken(input.otp);
+  const record = await prisma.emailVerificationToken.findUnique({ where: { otpHash } });
+
+  if (!record || record.userId !== user.id) {
+    throw new AppError(INVALID_VERIFICATION_MSG, 400);
+  }
+
+  if (record.usedAt) {
+    throw new AppError("This verification code has already been used", 400);
+  }
+
+  if (record.expiresAt < new Date()) {
+    throw new AppError("Verification code has expired. Please request a new one.", 400);
+  }
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: user.id },
+      data: { emailVerified: true, emailVerifiedAt: new Date() },
+    }),
+    // Activate the FREE tier. updateMany with status:INACTIVE only flips inactive
+    // free accounts — it never touches an already-active or paid subscription.
+    prisma.subscription.updateMany({
+      where: { userId: user.id, status: "INACTIVE" },
+      data: { status: "ACTIVE" },
+    }),
+    prisma.emailVerificationToken.update({ where: { otpHash }, data: { usedAt: new Date() } }),
+  ]);
+
+  // Welcome email — best-effort, must not fail the request
+  try {
+    await sendWelcomeEmail(user.email, user.displayName);
+  } catch (err) {
+    logger.warn(`Could not send welcome email to ${user.email}: ${(err as Error).message}`);
+  }
+
+  return getMe(user.id);
+}
+
+/**
+ * Resends a verification OTP. Always succeeds at the controller level (200) to
+ * prevent account enumeration — silently does nothing for unknown or already-verified
+ * emails. Throws 503 only when the email service itself is unconfigured.
+ */
+export async function resendVerification(input: ResendVerificationInput): Promise<void> {
+  if (!resend || !env.RESEND_API_KEY) {
+    throw new AppError("Email service is not configured on this server", 503);
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { email: input.email },
+    select: { id: true, email: true, displayName: true, emailVerified: true },
+  });
+
+  // Never reveal whether the email exists or is already verified
+  if (!user || user.emailVerified) return;
+
+  const otp = await createEmailVerificationOtp(user.id);
+  await sendVerificationEmail(user.email, user.displayName, otp);
 }

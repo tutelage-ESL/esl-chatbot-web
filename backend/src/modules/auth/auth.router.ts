@@ -13,6 +13,8 @@ import {
   resetPasswordHandler,
   linkGoogleHandler,
   setPasswordHandler,
+  verifyEmailHandler,
+  resendVerificationHandler,
 } from "./auth.controller.ts";
 import { env } from "../../config/env.ts";
 import { authenticate } from "../../middlewares/authenticate.ts";
@@ -23,6 +25,8 @@ import {
   forgotPasswordLimiter,
   resetPasswordLimiter,
   refreshTokenLimiter,
+  verifyEmailLimiter,
+  resendVerificationLimiter,
 } from "../../middlewares/rateLimits.ts";
 
 const router = Router();
@@ -99,11 +103,18 @@ if (env.NODE_ENV !== "production") {
  *           nullable: true
  *         isActive:
  *           type: boolean
+ *         emailVerified:
+ *           type: boolean
+ *           description: >
+ *             True once the user has verified their email via OTP, or linked a
+ *             Google account (Google emails are pre-verified). Verifying activates
+ *             the FREE subscription.
  *         subscription:
  *           type: object
  *           nullable: true
  *           description: >
- *             FREE + INACTIVE = no AI access (default after registration).
+ *             FREE + INACTIVE = no AI access (unverified email, no Google link).
+ *             FREE + ACTIVE = AI access (email verified OR Google linked).
  *             PREMIUM + ACTIVE = full AI chatbot access.
  *           properties:
  *             plan:
@@ -144,10 +155,17 @@ if (env.NODE_ENV !== "production") {
  *       Creates a new user account. On success, returns tokens immediately so the user
  *       is logged in right away — no separate login step required.
  *
+ *       A 6-digit verification code is emailed to the user (best-effort — registration
+ *       still succeeds if the email service is unavailable; the code can be re-requested
+ *       via `POST /auth/resend-verification`).
+ *
  *       **Default state after registration:**
  *       - `subscription.plan` = FREE
  *       - `subscription.status` = INACTIVE
- *       - AI chatbot access is **disabled** until the user subscribes (Phase 8)
+ *       - `emailVerified` = false
+ *       - AI chatbot access is **disabled** until the user verifies their email
+ *         (`POST /auth/verify-email`) or links a Google account — either path
+ *         activates the FREE tier.
  *       - Class joining via class code works immediately (no subscription needed)
  *     requestBody:
  *       required: true
@@ -698,6 +716,145 @@ router.post("/forgot-password", forgotPasswordLimiter, forgotPasswordHandler);
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post("/reset-password", resetPasswordLimiter, resetPasswordHandler);
+
+// ─── POST /auth/verify-email ──────────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /auth/verify-email:
+ *   post:
+ *     summary: Verify email with the OTP and activate the free plan
+ *     tags: [Auth]
+ *     description: >
+ *       Verifies the 6-digit code emailed at registration. On success, the user's
+ *       email is marked verified and their FREE subscription is activated
+ *       (`INACTIVE → ACTIVE`), unlocking AI chatbot access. A paid plan is never
+ *       downgraded by this call.
+ *
+ *       Unauthenticated by design so the code can be entered from any device.
+ *       Idempotent — if the email is already verified, returns 200 with the current
+ *       profile rather than an error. Returns the updated `AuthUser`.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - otp
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: ali@tutelage.com
+ *               otp:
+ *                 type: string
+ *                 minLength: 6
+ *                 maxLength: 6
+ *                 pattern: '^\d{6}$'
+ *                 example: "482910"
+ *     responses:
+ *       200:
+ *         description: Email verified (or already verified) — returns updated user profile
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Email verified successfully. Your free plan is now active.
+ *                 data:
+ *                   $ref: '#/components/schemas/AuthUser'
+ *       400:
+ *         description: Invalid, expired, or already-used verification code
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       422:
+ *         description: Validation error (invalid email or OTP format)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       429:
+ *         description: Rate limit exceeded (10 attempts per 15 minutes per IP)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.post("/verify-email", verifyEmailLimiter, verifyEmailHandler);
+
+// ─── POST /auth/resend-verification ───────────────────────────────────────────
+
+/**
+ * @swagger
+ * /auth/resend-verification:
+ *   post:
+ *     summary: Resend the email verification code
+ *     tags: [Auth]
+ *     description: >
+ *       Sends a fresh 6-digit verification code to the email, invalidating any
+ *       previous unused code. The code expires in 24 hours.
+ *
+ *       **Always returns 200** — the response does not reveal whether the email is
+ *       registered or already verified, to prevent account enumeration.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: ali@tutelage.com
+ *     responses:
+ *       200:
+ *         description: Code sent (or email not found / already verified — same response either way)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: If that email is registered and not yet verified, a new verification code has been sent.
+ *                 data:
+ *                   nullable: true
+ *                   example: null
+ *       422:
+ *         description: Validation error (invalid email format)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       429:
+ *         description: Rate limit exceeded (5 requests per hour per IP)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       503:
+ *         description: Email service not configured on this server
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.post("/resend-verification", resendVerificationLimiter, resendVerificationHandler);
 
 // ─── POST /auth/link-google ───────────────────────────────────────────────────
 

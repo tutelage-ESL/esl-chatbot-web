@@ -129,6 +129,11 @@ model User {
   isActive     Boolean      @default(true)
   role         Role         @default(STUDENT)
   phoneNumber  String?
+  // Verification = a verified means of contact (Google link OR email OTP).
+  // Either path flips the FREE subscription INACTIVE→ACTIVE. Google accounts are
+  // verified on link (Google has already verified the email).
+  emailVerified   Boolean   @default(false)
+  emailVerifiedAt DateTime?
 
   // One-to-one
   learnerProfile LearnerProfile?
@@ -146,6 +151,7 @@ model User {
   progress       Progress[]
   refreshTokens       RefreshToken[]
   passwordResetTokens PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
   notifications    Notification[]
   announcements    Announcement[]
   fibSubscriptions FibSubscription[]
@@ -469,6 +475,23 @@ model PasswordResetToken {
 
   @@index([userId])
   @@map("password_reset_tokens")
+}
+
+// ─── Email Verification Tokens ───────────────────────────
+
+model EmailVerificationToken {
+  id        String    @id @default(uuid())
+  userId    String
+  otpHash   String    @unique // SHA-256 hash of the 6-digit OTP
+  expiresAt DateTime
+  usedAt    DateTime? // null = unused; set on redemption
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("email_verification_tokens")
 }
 
 // ─── Refresh Tokens ──────────────────────────────────────

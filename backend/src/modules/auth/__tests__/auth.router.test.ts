@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
 import bcryptjs from "bcryptjs";
+import { createHash } from "crypto";
 import {
   app,
   request,
@@ -10,8 +11,13 @@ import {
   expiredToken,
   wrongSecretToken,
   uniqueId,
+  createTestUser,
+  type TestUser,
 } from "../../../test/helpers.ts";
 import { prisma } from "../../../config/database.ts";
+
+/** Mirrors auth.service.ts hashToken — SHA-256 hex of the plaintext OTP. */
+const hashOtp = (otp: string) => createHash("sha256").update(otp).digest("hex");
 
 // ─── Fixtures created directly in the DB for states unreachable via the API ───
 // (a Google-only account has no password; a deactivated account can't be made
@@ -144,6 +150,7 @@ describe("POST /api/v1/auth/register", () => {
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
     expect(res.body.data.user.subscription).toEqual({ plan: "FREE", status: "INACTIVE" });
+    expect(res.body.data.user.emailVerified).toBe(false);
     expect(typeof res.body.data.accessToken).toBe("string");
 
     const newId: string = res.body.data.user.id;
@@ -386,5 +393,132 @@ describe("POST /api/v1/auth/forgot-password & /google — validation", () => {
   it("422 — google auth with missing idToken", async () => {
     const res = await request(app).post("/api/v1/auth/google").send({});
     expect(res.status).toBe(422);
+  });
+});
+
+// ─── POST /auth/verify-email ──────────────────────────────────────────────────
+// The OTP token is inserted directly via Prisma, so the full success path is
+// deterministic without depending on the email service. OTPs are drawn from a
+// sequential counter so each test's otpHash is unique (otpHash is @unique).
+
+describe("POST /api/v1/auth/verify-email", () => {
+  let otpCounter = 100000;
+  const nextOtp = () => String(otpCounter++); // always a valid 6-digit numeric code
+
+  /** Creates a FREE/INACTIVE unverified user + a verification token. */
+  async function makeUnverifiedUserWithOtp(
+    opts: { expiresAt?: Date; usedAt?: Date | null } = {},
+  ): Promise<{ user: TestUser; otp: string }> {
+    const otp = nextOtp();
+    const user = await createTestUser({ status: "INACTIVE" });
+    createdUserIds.push(user.id);
+    await prisma.emailVerificationToken.create({
+      data: {
+        userId: user.id,
+        otpHash: hashOtp(otp),
+        expiresAt: opts.expiresAt ?? new Date(Date.now() + 60_000),
+        usedAt: opts.usedAt ?? null,
+      },
+    });
+    return { user, otp };
+  }
+
+  it("200 — valid OTP verifies the email and activates the FREE subscription", async () => {
+    const { user, otp } = await makeUnverifiedUserWithOtp();
+    const res = await request(app)
+      .post("/api/v1/auth/verify-email")
+      .send({ email: user.email, otp });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.emailVerified).toBe(true);
+    expect(res.body.data.subscription).toEqual({ plan: "FREE", status: "ACTIVE" });
+
+    const [dbUser, sub, token] = await Promise.all([
+      prisma.user.findUnique({ where: { id: user.id }, select: { emailVerified: true, emailVerifiedAt: true } }),
+      prisma.subscription.findUnique({ where: { userId: user.id }, select: { status: true } }),
+      prisma.emailVerificationToken.findUnique({ where: { otpHash: hashOtp(otp) }, select: { usedAt: true } }),
+    ]);
+    expect(dbUser?.emailVerified).toBe(true);
+    expect(dbUser?.emailVerifiedAt).not.toBeNull();
+    expect(sub?.status).toBe("ACTIVE");
+    expect(token?.usedAt).not.toBeNull(); // single-use: consumed
+  });
+
+  it("200 — idempotent: an already-verified email returns success, not an error", async () => {
+    const user = await createTestUser({ status: "ACTIVE" });
+    createdUserIds.push(user.id);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { emailVerified: true, emailVerifiedAt: new Date() },
+    });
+
+    const res = await request(app)
+      .post("/api/v1/auth/verify-email")
+      .send({ email: user.email, otp: "000000" }); // bogus OTP ignored once verified
+    expect(res.status).toBe(200);
+    expect(res.body.data.emailVerified).toBe(true);
+  });
+
+  it("400 — wrong OTP", async () => {
+    const { user } = await makeUnverifiedUserWithOtp();
+    const res = await request(app)
+      .post("/api/v1/auth/verify-email")
+      .send({ email: user.email, otp: "999999" });
+    expect(res.status).toBe(400);
+  });
+
+  it("400 — expired OTP", async () => {
+    const { user, otp } = await makeUnverifiedUserWithOtp({ expiresAt: new Date(Date.now() - 1000) });
+    const res = await request(app)
+      .post("/api/v1/auth/verify-email")
+      .send({ email: user.email, otp });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain("expired");
+  });
+
+  it("400 — already-used OTP", async () => {
+    const { user, otp } = await makeUnverifiedUserWithOtp({ usedAt: new Date() });
+    const res = await request(app)
+      .post("/api/v1/auth/verify-email")
+      .send({ email: user.email, otp });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain("already been used");
+  });
+
+  it("400 — unknown email", async () => {
+    const res = await request(app)
+      .post("/api/v1/auth/verify-email")
+      .send({ email: `nobody_${uniqueId()}@tutelage.test`, otp: "123456" });
+    expect(res.status).toBe(400);
+  });
+
+  it("422 — malformed OTP", async () => {
+    const res = await request(app)
+      .post("/api/v1/auth/verify-email")
+      .send({ email: "x@y.com", otp: "12" });
+    expect(res.status).toBe(422);
+  });
+
+  it("422 — missing email", async () => {
+    const res = await request(app).post("/api/v1/auth/verify-email").send({ otp: "123456" });
+    expect(res.status).toBe(422);
+  });
+});
+
+// ─── POST /auth/resend-verification ───────────────────────────────────────────
+// Success path needs Resend configured (may be absent in CI), so we assert the
+// endpoint never 500s: it returns 200 (sent / anti-enumeration) or 503 (email off).
+
+describe("POST /api/v1/auth/resend-verification", () => {
+  it("422 — malformed email", async () => {
+    const res = await request(app).post("/api/v1/auth/resend-verification").send({ email: "nope" });
+    expect(res.status).toBe(422);
+  });
+
+  it("200 or 503 — valid email never reveals whether it exists", async () => {
+    const res = await request(app)
+      .post("/api/v1/auth/resend-verification")
+      .send({ email: `ghost_${uniqueId()}@tutelage.test` });
+    expect([200, 503]).toContain(res.status);
   });
 });

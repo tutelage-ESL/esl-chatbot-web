@@ -578,7 +578,11 @@ export interface paths {
         /**
          * Register a new account with email and password
          * @description Creates a new user account. On success, returns tokens immediately so the user is logged in right away — no separate login step required.
-         *     **Default state after registration:** - `subscription.plan` = FREE - `subscription.status` = INACTIVE - AI chatbot access is **disabled** until the user subscribes (Phase 8) - Class joining via class code works immediately (no subscription needed)
+         *     A 6-digit verification code is emailed to the user (best-effort — registration still succeeds if the email service is unavailable; the code can be re-requested via `POST /auth/resend-verification`).
+         *     **Default state after registration:** - `subscription.plan` = FREE - `subscription.status` = INACTIVE - `emailVerified` = false - AI chatbot access is **disabled** until the user verifies their email
+         *       (`POST /auth/verify-email`) or links a Google account — either path
+         *       activates the FREE tier.
+         *     - Class joining via class code works immediately (no subscription needed)
          */
         post: {
             parameters: {
@@ -1211,6 +1215,175 @@ export interface paths {
                 };
                 /** @description Rate limit exceeded (10 attempts per 15 minutes per IP) */
                 429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/verify-email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify email with the OTP and activate the free plan
+         * @description Verifies the 6-digit code emailed at registration. On success, the user's email is marked verified and their FREE subscription is activated (`INACTIVE → ACTIVE`), unlocking AI chatbot access. A paid plan is never downgraded by this call.
+         *     Unauthenticated by design so the code can be entered from any device. Idempotent — if the email is already verified, returns 200 with the current profile rather than an error. Returns the updated `AuthUser`.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /**
+                         * Format: email
+                         * @example ali@tutelage.com
+                         */
+                        email: string;
+                        /** @example 482910 */
+                        otp: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Email verified (or already verified) — returns updated user profile */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @example true */
+                            success?: boolean;
+                            /** @example Email verified successfully. Your free plan is now active. */
+                            message?: string;
+                            data?: components["schemas"]["AuthUser"];
+                        };
+                    };
+                };
+                /** @description Invalid, expired, or already-used verification code */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Validation error (invalid email or OTP format) */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Rate limit exceeded (10 attempts per 15 minutes per IP) */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/resend-verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resend the email verification code
+         * @description Sends a fresh 6-digit verification code to the email, invalidating any previous unused code. The code expires in 24 hours.
+         *     **Always returns 200** — the response does not reveal whether the email is registered or already verified, to prevent account enumeration.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /**
+                         * Format: email
+                         * @example ali@tutelage.com
+                         */
+                        email: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Code sent (or email not found / already verified — same response either way) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @example true */
+                            success?: boolean;
+                            /** @example If that email is registered and not yet verified, a new verification code has been sent. */
+                            message?: string;
+                            /** @example null */
+                            data?: unknown;
+                        };
+                    };
+                };
+                /** @description Validation error (invalid email format) */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Rate limit exceeded (5 requests per hour per IP) */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Email service not configured on this server */
+                503: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -2529,6 +2702,165 @@ export interface paths {
                 };
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/dashboard/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get all dashboard overview data in one call
+         * @description Returns a single aggregated payload covering all six dashboard sections.
+         *     All six section queries run in parallel — typical response time is one DB round-trip.
+         *
+         *     **Sections:**
+         *     - `greetingHero` — streak, today's study minutes vs daily goal, due vocab count
+         *     - `statCards` — words mastered, practice time, pronunciation score, current CEFR level
+         *     - `vocabChart` — 6-week cumulative vocabulary growth points + growth %
+         *     - `nextUp` — primary active goal + up to 3 others (Goals replace Lessons until Lesson model is built)
+         *     - `activityHeatmap` — 12 × 7 day grid of session counts + 5 recent sessions
+         *     - `dueWords` — top 4 SRS cards due now + total due count + CEFR level progress %
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Dashboard overview data */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @example true */
+                            success?: boolean;
+                            message?: string;
+                            data?: {
+                                greetingHero?: {
+                                    /** @example 7 */
+                                    streak?: number;
+                                    /** @example 17 */
+                                    doneMins?: number;
+                                    /** @example 25 */
+                                    goalMins?: number;
+                                    /** @example 12 */
+                                    dueVocabCount?: number;
+                                };
+                                statCards?: {
+                                    /** @example 248 */
+                                    wordsMastered?: number;
+                                    /** @example 12 */
+                                    wordsMasteredWeekDelta?: number;
+                                    /** @example 2520 */
+                                    practiceTimeMinutes?: number;
+                                    /** @example 420 */
+                                    practiceTimeThisMonthMinutes?: number;
+                                    /** @example 82 */
+                                    pronunciationScore?: number;
+                                    /** @example 4 */
+                                    pronunciationDelta?: number | null;
+                                    /** @example B2 */
+                                    currentLevel?: string | null;
+                                    /** @example 60 */
+                                    levelPct?: number;
+                                };
+                                vocabChart?: {
+                                    points?: {
+                                        /** @example May 5 */
+                                        label?: string;
+                                        /** @example 120 */
+                                        value?: number;
+                                    }[];
+                                    /** @example 156 */
+                                    totalWords?: number;
+                                    /** @example 12.4 */
+                                    growthPct?: number;
+                                };
+                                nextUp?: {
+                                    primary?: {
+                                        /** Format: uuid */
+                                        id?: string;
+                                        /** @example VOCABULARY */
+                                        type?: string;
+                                        description?: string;
+                                        target?: number;
+                                        progress?: number;
+                                        difficulty?: string | null;
+                                        /** Format: date-time */
+                                        targetDate?: string | null;
+                                    } | null;
+                                    others?: {
+                                        /** Format: uuid */
+                                        id?: string;
+                                        type?: string;
+                                        description?: string;
+                                        target?: number;
+                                        progress?: number;
+                                        difficulty?: string | null;
+                                        /** Format: date-time */
+                                        targetDate?: string | null;
+                                    }[];
+                                };
+                                activityHeatmap?: {
+                                    /** @description 12 arrays of 7 integers (0–7), one per day */
+                                    weeks?: number[][];
+                                    /** @example 78 */
+                                    activePct?: number;
+                                    recentSessions?: {
+                                        /** Format: uuid */
+                                        id?: string;
+                                        /** @enum {string} */
+                                        mode?: "TEXT" | "VOICE";
+                                        topic?: string | null;
+                                        /** Format: date-time */
+                                        startedAt?: string;
+                                        durationSeconds?: number | null;
+                                        messageCount?: number;
+                                        avgOverallScore?: number | null;
+                                        avgPronunciationScore?: number | null;
+                                    }[];
+                                };
+                                dueWords?: {
+                                    words?: {
+                                        word?: string;
+                                        definition?: string;
+                                        /** Format: date-time */
+                                        srsDue?: string;
+                                    }[];
+                                    /** @example 12 */
+                                    totalDue?: number;
+                                    /** @example 60 */
+                                    levelPct?: number;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -5278,7 +5610,9 @@ export interface components {
             role?: "STUDENT" | "TUTOR" | "ADMIN";
             avatarUrl?: string | null;
             isActive?: boolean;
-            /** @description FREE + INACTIVE = no AI access (default after registration). PREMIUM + ACTIVE = full AI chatbot access. */
+            /** @description True once the user has verified their email via OTP, or linked a Google account (Google emails are pre-verified). Verifying activates the FREE subscription. */
+            emailVerified?: boolean;
+            /** @description FREE + INACTIVE = no AI access (unverified email, no Google link). FREE + ACTIVE = AI access (email verified OR Google linked). PREMIUM + ACTIVE = full AI chatbot access. */
             subscription?: {
                 /** @enum {string} */
                 plan?: "FREE" | "PREMIUM";

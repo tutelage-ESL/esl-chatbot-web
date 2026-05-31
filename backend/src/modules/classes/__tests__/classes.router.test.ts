@@ -605,3 +605,58 @@ describe("Student monitoring & analytics (tutor / admin)", () => {
     expect(studentRes.status).toBe(403);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+describe("GET /api/v1/classes — admin list", () => {
+  it("200 — admin lists classes with memberCount + code-lifecycle fields", async () => {
+    const admin = await createAdmin();
+    const cls = await makeClass(admin.id); // admin is the sole TUTOR member
+
+    const res = await request(app).get("/api/v1/classes?limit=100").set(auth(admin.token));
+    expect(res.status).toBe(200);
+    expect(res.body.meta.total).toBeGreaterThanOrEqual(1);
+
+    const row = res.body.data.find((c: { id: string }) => c.id === cls.id);
+    expect(row).toBeDefined();
+    expect(row.memberCount).toBe(1);
+    expect(row.classCode).toBe(cls.classCode);
+    expect(row.classStatus).toBe("ACTIVE");
+  });
+
+  it("200 — ?status=INACTIVE filters out ACTIVE classes", async () => {
+    const admin = await createAdmin();
+    const inactive = await makeClass(admin.id, { status: "INACTIVE" });
+    const active = await makeClass(admin.id, { status: "ACTIVE" });
+
+    const res = await request(app)
+      .get("/api/v1/classes?status=INACTIVE&limit=100")
+      .set(auth(admin.token));
+    expect(res.status).toBe(200);
+    const ids = res.body.data.map((c: { id: string }) => c.id);
+    expect(ids).toContain(inactive.id);
+    expect(ids).not.toContain(active.id);
+  });
+
+  it("403 — a tutor cannot list all classes", async () => {
+    const tutor = await createTutor();
+    const res = await request(app).get("/api/v1/classes").set(auth(tutor.token));
+    expect(res.status).toBe(403);
+  });
+
+  it("403 — a student cannot list all classes", async () => {
+    const student = await createStudent();
+    const res = await request(app).get("/api/v1/classes").set(auth(student.token));
+    expect(res.status).toBe(403);
+  });
+
+  it("422 — limit over the max of 100", async () => {
+    const admin = await createAdmin();
+    const res = await request(app).get("/api/v1/classes?limit=999").set(auth(admin.token));
+    expect(res.status).toBe(422);
+  });
+
+  it("401 — no token", async () => {
+    const res = await request(app).get("/api/v1/classes");
+    expect(res.status).toBe(401);
+  });
+});
