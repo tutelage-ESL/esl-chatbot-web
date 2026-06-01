@@ -39,6 +39,7 @@ const {
   fillSuggestion,
   voiceState,
   partialTranscript,
+  audioStream,
 } = useChatPage()
 </script>
 
@@ -60,29 +61,29 @@ const {
     <!-- Main thread (fills remaining space, column flex) -->
     <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
 
-      <!-- Thread header (fixed height, never scrolls) -->
-      <PagesDashboardChatThreadHeader
-        :topic="activeSession?.topic"
-        :cefr-label="cefrLabel"
-        :is-session-ended="isSessionEnded"
-        :active-session-id="activeSessionId"
-        :ending="ending"
-        :refreshing="refreshing"
-        @voice="toast.message('Voice playback — coming soon')"
-        @refresh="refreshCurrent"
-        @end="endCurrent"
-      />
-
-      <!-- Message thread (scrollable, grows to fill) -->
-      <PagesDashboardChatMessageThread
-        ref="threadRef"
-        :messages="messages"
-        :thinking="thinking"
-        :sub-active="subActive"
-        :active-session="activeSession"
-        :user-initial="userInitial"
-        @fill-suggestion="fillSuggestion"
-      />
+        <!-- Thread header (fixed height, never scrolls) -->
+        <PagesDashboardChatThreadHeader
+          :topic="activeSession?.topic"
+          :cefr-label="cefrLabel"
+          :is-session-ended="isSessionEnded"
+          :active-session-id="activeSessionId"
+          :ending="ending"
+          :refreshing="refreshing"
+          @voice="toast.message('Voice playback — coming soon')"
+          @refresh="refreshCurrent"
+          @end="endCurrent"
+        />
+  
+          <!-- Message thread (scrollable, grows to fill) -->
+          <PagesDashboardChatMessageThread
+          ref="threadRef"
+          :messages="messages"
+          :thinking="thinking"
+          :sub-active="subActive"
+          :active-session="activeSession"
+          :user-initial="userInitial"
+          @fill-suggestion="fillSuggestion"
+          />
 
       <!-- Composer (fixed at bottom, never scrolls) -->
       <PagesDashboardChatComposer
@@ -104,6 +105,7 @@ const {
         :has-messages="messages.length > 0"
         :voice-state="voiceState"
         :partial-transcript="partialTranscript"
+        :audio-stream="audioStream"
         @send="send"
         @fill-suggestion="fillSuggestion"
         @attach="toast.message('Attachments — coming soon')"

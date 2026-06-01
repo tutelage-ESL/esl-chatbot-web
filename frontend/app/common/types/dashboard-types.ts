@@ -86,6 +86,7 @@ export interface ChatMessage {
   text: string
   time: string
   type?: 'TEXT' | 'VOICE'
+  audioBase64?: string | null  // TTS audio for AI voice replies
   correction?: {
     original: string
     suggested: string

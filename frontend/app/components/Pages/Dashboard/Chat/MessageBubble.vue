@@ -1,6 +1,66 @@
 <script setup lang="ts">
 import type { ChatMessage } from '~/common/types/dashboard-types'
-defineProps<{ message: ChatMessage; userInitial?: string }>()
+
+const props = defineProps<{ message: ChatMessage; userInitial?: string }>()
+
+// ── TTS audio player ──────────────────────────────────────────────────────
+const isPlaying = ref(false)
+const progress = ref(0)   // 0–100
+const elapsed = ref(0)    // seconds
+const duration = ref(0)   // seconds
+
+let audio: HTMLAudioElement | null = null
+let rafId: number | null = null
+
+function fmt(s: number) {
+  const m = Math.floor(s / 60)
+  const sec = Math.floor(s % 60)
+  return `${m}:${String(sec).padStart(2, '0')}`
+}
+
+function tick() {
+  if (!audio) return
+  elapsed.value = audio.currentTime
+  duration.value = audio.duration || 0
+  progress.value = duration.value ? (audio.currentTime / duration.value) * 100 : 0
+  rafId = requestAnimationFrame(tick)
+}
+
+function stopAudio() {
+  if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null }
+  audio?.pause()
+  audio = null
+  isPlaying.value = false
+  progress.value = 0
+  elapsed.value = 0
+}
+
+function toggleAudio() {
+  if (isPlaying.value) { stopAudio(); return }
+  if (!props.message.audioBase64) return
+  stopAudio()
+  audio = new Audio(`data:audio/mpeg;base64,${props.message.audioBase64}`)
+  audio.onloadedmetadata = () => { duration.value = audio?.duration || 0 }
+  audio.onended = () => { stopAudio() }
+  audio.play().catch(() => {})
+  isPlaying.value = true
+  rafId = requestAnimationFrame(tick)
+}
+
+// Click on the progress bar to seek
+function seek(e: MouseEvent) {
+  if (!audio || !duration.value) return
+  const bar = e.currentTarget as HTMLElement
+  const ratio = e.offsetX / bar.offsetWidth
+  audio.currentTime = ratio * duration.value
+}
+
+// Auto-play when audioBase64 first arrives on this bubble
+watch(() => props.message.audioBase64, (b64) => {
+  if (b64) nextTick(toggleAudio)
+})
+
+onBeforeUnmount(stopAudio)
 </script>
 
 <template>
@@ -33,14 +93,44 @@ defineProps<{ message: ChatMessage; userInitial?: string }>()
         ]"
       >
         {{ message.text }}
-        <!-- Voice badge -->
-        <span
-          v-if="message.type === 'VOICE'"
-          class="inline-flex items-center gap-1 ml-2 px-1.5 py-0.5 rounded-full bg-white/15 text-[10px] font-poppins align-middle"
+      </div>
+
+      <!-- TTS player — only on AI voice messages -->
+      <div
+        v-if="message.who === 'ai' && message.type === 'VOICE' && message.audioBase64"
+        class="mt-2 flex items-center gap-2.5 px-3 py-2 rounded-2xl bg-surface-raised border border-border-inner w-56"
+      >
+        <!-- Play / Pause button -->
+        <button
+          class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition"
+          :class="isPlaying ? 'bg-brand-primary' : 'bg-surface-well hover:bg-brand-primary/15'"
+          @click="toggleAudio"
         >
-          <AppIconsax name="Microphone" color="currentColor" :size="9" />
-          voice
-        </span>
+          <AppIconsax
+            :name="isPlaying ? 'Pause' : 'Play'"
+            :color="isPlaying ? 'white' : 'var(--color-text-body)'"
+            :size="15"
+          />
+        </button>
+
+        <!-- Progress bar + timestamps -->
+        <div class="flex-1 min-w-0">
+          <!-- Clickable scrub bar -->
+          <div
+            class="relative h-1.5 rounded-full bg-border-inner cursor-pointer overflow-hidden"
+            @click="seek"
+          >
+            <div
+              class="absolute inset-y-0 left-0 rounded-full bg-brand-primary transition-none"
+              :style="{ width: `${progress}%` }"
+            />
+          </div>
+          <!-- Timestamps -->
+          <div class="flex justify-between mt-1">
+            <span class="text-[10px] font-mono text-text-subtle">{{ fmt(elapsed) }}</span>
+            <span class="text-[10px] font-mono text-text-subtle">{{ fmt(duration) }}</span>
+          </div>
+        </div>
       </div>
 
       <!-- Phrasing tip correction -->

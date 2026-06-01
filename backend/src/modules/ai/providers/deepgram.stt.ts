@@ -1,12 +1,14 @@
 import { DeepgramClient } from "@deepgram/sdk";
 import { env } from "../../../config/env.ts";
 import type { STTResult } from "../ai.types.ts";
-import type { ListenV1Response } from "@deepgram/sdk";
 
 // Dev + FREE production STT — Deepgram Nova-3
-// $200 free credit on signup (~46,500 batch-minutes — roughly 9 years at 100 FREE users × 50 min/month)
-// After credit: switch to Groq Whisper Turbo ($0.00067/min) — one-line change here
 const MODEL = "nova-3";
+
+// Strip codec suffix so Deepgram accepts the content-type (e.g. "audio/webm;codecs=opus" → "audio/webm")
+function baseMime(mimeType: string): string {
+  return (mimeType.split(";")[0] ?? mimeType).trim();
+}
 
 export async function deepgramSTT(audioBuffer: Buffer, mimeType: string): Promise<STTResult> {
   if (!env.DEEPGRAM_API_KEY) {
@@ -15,10 +17,12 @@ export async function deepgramSTT(audioBuffer: Buffer, mimeType: string): Promis
 
   const client = new DeepgramClient({ apiKey: env.DEEPGRAM_API_KEY });
 
+  // Use WithMetadata form: { data, contentType, contentLength }
+  // This sets Content-Type correctly without relying on Blob constructor behaviour in Bun
   const response = await client.listen.v1.media.transcribeFile(
     {
       data: audioBuffer,
-      contentType: mimeType,
+      contentType: baseMime(mimeType),
       contentLength: audioBuffer.length,
     },
     {
@@ -28,8 +32,8 @@ export async function deepgramSTT(audioBuffer: Buffer, mimeType: string): Promis
     },
   );
 
-  const typed = response as ListenV1Response;
-  const alternative = typed.results?.channels?.[0]?.alternatives?.[0];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const alternative = (response as any)?.results?.channels?.[0]?.alternatives?.[0];
 
   if (!alternative?.transcript) {
     throw new Error("Deepgram returned empty transcript");

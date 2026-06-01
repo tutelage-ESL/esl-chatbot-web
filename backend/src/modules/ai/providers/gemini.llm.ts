@@ -40,18 +40,38 @@ export async function callGeminiLLM(
     { role: "user", parts: [{ text: userMessage }] },
   ];
 
-  // TODO: add prompt caching for system instruction (75–90% token discount on repeated calls)
-  const response = await client.models.generateContent({
-    model,
-    contents,
-    config: {
-      systemInstruction: buildSystemPrompt(learner),
-      responseMimeType: "application/json",
-      temperature: 0.7,
-      // 1000 was too low — full JSON (reply + corrections array + grammarErrors array) needs ~1200-2000 tokens
-      maxOutputTokens: 2500,
-    },
-  });
+  let response: Awaited<ReturnType<typeof client.models.generateContent>>;
+  try {
+    response = await client.models.generateContent({
+      model,
+      contents,
+      config: {
+        systemInstruction: buildSystemPrompt(learner),
+        responseMimeType: "application/json",
+        temperature: 0.7,
+        maxOutputTokens: 2500,
+      },
+    });
+  } catch (err) {
+    // Extract a clean message from the Gemini SDK error (it embeds raw JSON in the message)
+    const raw = err instanceof Error ? err.message : String(err);
+    const isQuota = raw.includes("RESOURCE_EXHAUSTED") || raw.includes("quota") || raw.includes("429");
+    if (isQuota) {
+      throw new Error("AI quota exceeded — please try again in a few minutes.");
+    }
+    // Try to surface a clean message from the embedded JSON
+    try {
+      const jsonStart = raw.indexOf("{");
+      if (jsonStart !== -1) {
+        const parsed = JSON.parse(raw.slice(jsonStart));
+        const msg: string = parsed?.error?.message ?? raw;
+        throw new Error(`AI error: ${msg.split("\n")[0]?.slice(0, 120)}`);
+      }
+    } catch (e) {
+      if (e instanceof Error && !e.message.startsWith("AI error:") === false) throw e;
+    }
+    throw new Error("AI service error. Please try again.");
+  }
 
   const raw = response.text;
   if (!raw) {

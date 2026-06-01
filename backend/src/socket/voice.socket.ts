@@ -248,6 +248,9 @@ export function initVoiceHandlers(namespace: Namespace): void {
           });
         }
       } catch (err) {
+        // Log the real error so we can see what's actually failing
+        console.error("[VoiceSocket] voice:end pipeline error:", err);
+
         let code    = "INTERNAL_ERROR";
         let message = "Failed to process voice message";
 
@@ -258,6 +261,8 @@ export function initVoiceHandlers(namespace: Namespace): void {
           else if (err.statusCode === 422) code = "NO_SPEECH";
           else if (err.statusCode === 429) code = "LIMIT_REACHED";
           else if (err.statusCode === 503) code = "STT_UNAVAILABLE";
+        } else if (err instanceof Error) {
+          message = err.message;
         }
 
         socket.emit("voice:error", { sessionId, clientMsgId, code, message });

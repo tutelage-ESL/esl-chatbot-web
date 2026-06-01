@@ -1,7 +1,11 @@
 import { io, type Socket } from 'socket.io-client'
 import { useAuthStore } from '~~/stores/auth'
 
-export type VoiceState = 'idle' | 'recording' | 'processing' | 'error'
+// idle       — no stream, no recording
+// ready      — stream acquired (permission granted), waiting for user to start
+// recording  — actively capturing audio
+// processing — audio sent, waiting for backend response
+export type VoiceState = 'idle' | 'ready' | 'recording' | 'processing'
 
 export interface VoiceResult {
   sessionId: string
@@ -24,181 +28,205 @@ export interface VoiceChatCallbacks {
 export function useVoiceChat() {
   const authStore = useAuthStore()
 
+  // Read runtime config at composable init — useRuntimeConfig() only works in setup context
+  const configUrl = (useRuntimeConfig().public.baseUrl as string) || 'http://localhost:8000/api/v1'
+  const socketOrigin = new URL(configUrl).origin
+
   const voiceState = ref<VoiceState>('idle')
   const partialTranscript = ref('')
-  const socketError = ref<string | null>(null)
+  const audioStream = ref<MediaStream | null>(null)
 
   let socket: Socket | null = null
   let recorder: MediaRecorder | null = null
-  let stream: MediaStream | null = null
   let activeSessionId: string | null = null
   let callbacks: VoiceChatCallbacks = {}
 
   // ── Socket ────────────────────────────────────────────────────────────────
 
-  function ensureSocket() {
-    if (socket?.connected) return socket
+  function getSocket(): Promise<Socket> {
+    return new Promise((resolve, reject) => {
+      if (socket?.connected) { resolve(socket); return }
 
-    // Tear down any stale disconnected instance before creating a fresh one
-    if (socket) {
-      socket.removeAllListeners()
-      socket.disconnect()
-      socket = null
-    }
+      if (socket) {
+        socket.removeAllListeners()
+        socket.disconnect()
+        socket = null
+      }
 
-    const token = authStore.getAccessToken
-    // public.baseUrl is e.g. "http://localhost:8000/api/v1" — strip path for socket origin
-    const configUrl = (useRuntimeConfig().public.baseUrl as string) || 'http://localhost:8000/api/v1'
-    const socketOrigin = new URL(configUrl).origin
+      const token = authStore.getAccessToken
 
-    socket = io(`${socketOrigin}/chat`, {
-      auth: { token },
-      transports: ['websocket'],
-      autoConnect: true,
+      socket = io(`${socketOrigin}/chat`, {
+        auth: { token },
+        transports: ['websocket'],
+        timeout: 8000,
+      })
+
+      socket.once('connect', () => {
+        console.log('[voice] socket connected to', socketOrigin)
+        attachSocketHandlers(socket!)
+        resolve(socket!)
+      })
+      socket.once('connect_error', (err) => {
+        console.error('[voice] socket connect_error:', err.message)
+        reject(err)
+      })
     })
+  }
 
-    socket.on('voice:started', ({ sessionId }: { sessionId: string }) => {
-      if (sessionId !== activeSessionId) return
-      // backend acknowledged — recording is already flowing
-    })
+  function attachSocketHandlers(sock: Socket) {
+    sock.off('voice:partial_transcript')
+    sock.off('voice:transcript')
+    sock.off('message:response')
+    sock.off('voice:tts')
+    sock.off('voice:error')
+    sock.off('disconnect')
 
-    socket.on('voice:partial_transcript', ({ sessionId, text, isFinal }: { sessionId: string; text: string; isFinal: boolean }) => {
+    sock.on('voice:partial_transcript', ({ sessionId, text, isFinal }: { sessionId: string; text: string; isFinal: boolean }) => {
       if (sessionId !== activeSessionId) return
       partialTranscript.value = text
       callbacks.onTranscript?.(text, isFinal)
     })
 
-    socket.on('voice:transcript', ({ sessionId, transcript }: { sessionId: string; transcript: string }) => {
+    sock.on('voice:transcript', ({ sessionId, transcript }: { sessionId: string; transcript: string }) => {
       if (sessionId !== activeSessionId) return
       partialTranscript.value = transcript
     })
 
-    socket.on('message:response', (payload: VoiceResult) => {
+    sock.on('message:response', (payload: VoiceResult) => {
       if (payload.sessionId !== activeSessionId) return
       voiceState.value = 'idle'
       partialTranscript.value = ''
       callbacks.onResult?.(payload)
     })
 
-    socket.on('voice:tts', ({ sessionId, audioBase64 }: { sessionId: string; audioBase64: string }) => {
+    sock.on('voice:tts', ({ sessionId, audioBase64 }: { sessionId: string; audioBase64: string }) => {
       if (sessionId !== activeSessionId) return
       callbacks.onTts?.(audioBase64)
     })
 
-    socket.on('voice:error', ({ code, message }: { code: string; message: string }) => {
-      socketError.value = message
-      stopRecorder(true) // abort — don't emit voice:end
+    sock.on('voice:error', ({ code, message }: { code: string; message: string }) => {
+      console.error('[voice:error]', code, message)
+      abortRecorder()
+      voiceState.value = 'idle'
       callbacks.onError?.(code, message)
-      voiceState.value = 'idle' // reset so user can try again immediately
     })
 
-    socket.on('disconnect', () => {
+    sock.on('disconnect', () => {
       if (voiceState.value === 'recording' || voiceState.value === 'processing') {
-        socketError.value = 'Connection lost'
-        stopRecorder(true)
-        callbacks.onError?.('DISCONNECT', 'Connection lost')
+        abortRecorder()
         voiceState.value = 'idle'
+        callbacks.onError?.('DISCONNECT', 'Connection lost')
       }
     })
-
-    return socket
   }
 
-  // ── MediaRecorder ─────────────────────────────────────────────────────────
+  // ── Recorder helpers ──────────────────────────────────────────────────────
 
-  // abort=true silences onstop so voice:end is NOT sent (used on error paths)
-  function stopRecorder(abort = false) {
+  function abortRecorder() {
     if (recorder) {
-      if (abort) recorder.onstop = null
+      recorder.onstop = null
       if (recorder.state !== 'inactive') recorder.stop()
+      recorder = null
     }
-    if (stream) {
-      stream.getTracks().forEach((t) => t.stop())
-      stream = null
-    }
-    recorder = null
   }
 
-  // ── Public API ────────────────────────────────────────────────────────────
+  // ── Phase 1: acquire mic permission + open stream ─────────────────────────
+
+  async function acquireStream(): Promise<boolean> {
+    if (audioStream.value) { voiceState.value = 'ready'; return true }
+    try {
+      audioStream.value = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+      voiceState.value = 'ready'
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  // ── Phase 2: start recording on the already-open stream ───────────────────
 
   async function startRecording(sessionId: string, cb: VoiceChatCallbacks = {}) {
-    if (voiceState.value === 'recording') return
+    if (voiceState.value !== 'ready' || !audioStream.value) return
     callbacks = cb
     activeSessionId = sessionId
     partialTranscript.value = ''
-    socketError.value = null
 
+    let sock: Socket
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-    } catch (err) {
-      const isDenied = err instanceof DOMException &&
-        (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError')
-      const code = isDenied ? 'MIC_DENIED' : 'MIC_ERROR'
-      const msg = isDenied ? 'Microphone access denied' : 'Could not access microphone'
-      socketError.value = msg
-      callbacks.onError?.(code, msg)
-      voiceState.value = 'idle' // reset — don't leave mic permanently blocked
+      sock = await getSocket()
+    } catch {
+      voiceState.value = 'ready'
       return
     }
 
-    // Pick the best supported MIME type (Safari falls back to audio/mp4, Deepgram
-    // live won't handle it — but batch STT in sendVoiceMessage handles any format)
-    const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mpeg']
+    const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus']
       .find((m) => MediaRecorder.isTypeSupported(m)) ?? ''
 
-    recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
-    const sock = ensureSocket()
+    recorder = new MediaRecorder(audioStream.value, mimeType ? { mimeType } : undefined)
+    const finalMime = recorder.mimeType || mimeType
 
-    sock.emit('voice:start', { sessionId, mimeType: recorder.mimeType || mimeType })
+    console.log('[voice] starting — sessionId:', sessionId, 'mimeType:', finalMime)
+    sock.emit('voice:start', { sessionId, mimeType: finalMime })
 
+    let chunkCount = 0
     recorder.ondataavailable = (e) => {
-      if (!e.data.size) return
+      if (!e.data.size || !sock.connected) return
       const reader = new FileReader()
       reader.onloadend = () => {
         const b64 = (reader.result as string).split(',')[1]
-        if (b64) sock.emit('voice:chunk', { sessionId, data: b64 })
+        if (b64 && sock.connected) {
+          chunkCount++
+          sock.emit('voice:chunk', { sessionId, data: b64 })
+        }
       }
       reader.readAsDataURL(e.data)
     }
 
     recorder.onstop = () => {
-      sock.emit('voice:end', { sessionId })
+      console.log('[voice] stopped — sending voice:end, chunks sent:', chunkCount)
+      if (sock.connected) sock.emit('voice:end', { sessionId })
       voiceState.value = 'processing'
     }
 
     recorder.onerror = () => {
-      socketError.value = 'Recording error'
-      stopRecorder(true)
-      callbacks.onError?.('RECORDER_ERROR', 'Recording error')
-      voiceState.value = 'idle'
+      abortRecorder()
+      voiceState.value = 'ready'
+      callbacks.onError?.()
     }
 
-    recorder.start(250) // emit chunks every 250 ms for live preview
+    recorder.start(250)
     voiceState.value = 'recording'
   }
 
   function stopRecording() {
-    if (voiceState.value !== 'recording') return
-    stopRecorder()
-    // onstop fires → emits voice:end → state moves to 'processing' there
+    if (voiceState.value !== 'recording' || !recorder) return
+    if (recorder.state !== 'inactive') recorder.stop()
+    recorder = null
   }
 
-  function disconnect() {
-    stopRecorder()
+  // ── Full teardown ─────────────────────────────────────────────────────────
+
+  function release() {
+    abortRecorder()
+    if (audioStream.value) {
+      audioStream.value.getTracks().forEach((t) => t.stop())
+      audioStream.value = null
+    }
     socket?.disconnect()
     socket = null
     voiceState.value = 'idle'
     partialTranscript.value = ''
   }
 
-  onBeforeUnmount(disconnect)
+  onBeforeUnmount(release)
 
   return {
     voiceState,
     partialTranscript,
-    socketError,
+    audioStream,
+    acquireStream,
     startRecording,
     stopRecording,
-    disconnect,
+    release,
   }
 }

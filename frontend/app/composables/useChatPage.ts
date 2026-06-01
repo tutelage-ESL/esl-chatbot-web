@@ -12,7 +12,7 @@ import { useVoiceChat } from '~/composables/useVoiceChat'
 export function useChatPage() {
   const authStore = useAuthStore()
   const { listSessions, createSession, getSession, sendMessage, endSession } = useSessions()
-  const { voiceState, partialTranscript, startRecording, stopRecording } = useVoiceChat()
+  const { voiceState, partialTranscript, audioStream, acquireStream, startRecording, stopRecording } = useVoiceChat()
   const route = useRoute()
   const router = useRouter()
 
@@ -358,30 +358,25 @@ export function useChatPage() {
     toast.success('Refreshed')
   }
 
-  // ── TTS playback ─────────────────────────────────────────────────────────
-  let ttsAudio: HTMLAudioElement | null = null
-
-  function playTts(audioBase64: string) {
-    ttsAudio?.pause()
-    ttsAudio = new Audio(`data:audio/mpeg;base64,${audioBase64}`)
-    ttsAudio.play().catch(() => { /* autoplay blocked — silent */ })
-  }
-
   // ── Voice send ────────────────────────────────────────────────────────────
+  // Tap 1 → ask permission if needed, then immediately start recording
+  // Tap 2 → stop, send to backend
   async function sendVoice() {
     if (voiceState.value === 'recording') {
       stopRecording()
       return
     }
-    if (voiceState.value !== 'idle') return
+
+    if (voiceState.value === 'processing') return
+
+    const granted = await acquireStream()
+    if (!granted) return
 
     const sid = await ensureSession()
     if (!sid) return
 
     await startRecording(sid, {
-      onTranscript(_text) {
-        // partialTranscript ref in useVoiceChat is already updated — nothing extra needed here
-      },
+      onTranscript(_text) {},
       onResult(result) {
         const nowIso = new Date().toISOString()
 
@@ -401,12 +396,13 @@ export function useChatPage() {
         const aiApi: ApiChatMessage = {
           id: result.assistantMessage?.id ?? `ai-voice-${Date.now()}`,
           role: 'ASSISTANT',
-          type: 'TEXT',
+          type: 'VOICE',
           content: aiText,
           createdAt: result.assistantMessage?.createdAt ?? new Date().toISOString(),
         }
         messageEntities.value.push(aiApi)
-        messages.value.push({ who: 'ai', text: '', time: fmtTime(aiApi.createdAt) })
+        // audioBase64 arrives separately via onTts — push placeholder, fill it in onTts
+        messages.value.push({ who: 'ai', text: '', time: fmtTime(aiApi.createdAt), type: 'VOICE' })
 
         nextTick(async () => {
           await streamReveal(messages.value.length - 1, aiText)
@@ -415,16 +411,17 @@ export function useChatPage() {
         loadSessions()
       },
       onTts(audioBase64) {
-        playTts(audioBase64)
+        // Find the last AI voice message and attach audio — bubble auto-plays it
+        for (let i = messages.value.length - 1; i >= 0; i--) {
+          const msg = messages.value[i]
+          if (msg && msg.who === 'ai' && msg.type === 'VOICE') {
+            messages.value[i] = { who: msg.who, text: msg.text, time: msg.time, type: 'VOICE', audioBase64 }
+            break
+          }
+        }
       },
-      onError(code, message) {
-        if (code === 'MIC_DENIED') toast.error('Microphone blocked — allow access in your browser settings, then try again.')
-        else if (code === 'MIC_ERROR') toast.error('Could not open microphone. Make sure no other app is using it.')
-        else if (code === 'LIMIT_REACHED') toast.error(message || 'Message limit reached.')
-        else if (code === 'SESSION_ENDED') toast.error('Session has ended. Start a new one.')
-        else if (code === 'NO_SPEECH') toast.message('No speech detected — try again.')
-        else if (code === 'DISCONNECT') toast.error('Connection lost. Check your network and try again.')
-        else toast.error(message || 'Voice message failed.')
+      onError(_code, message) {
+        toast.error(message || 'Voice message failed.')
       },
     })
   }
@@ -483,5 +480,6 @@ export function useChatPage() {
     fillSuggestion,
     voiceState,
     partialTranscript,
+    audioStream,
   }
 }

@@ -82,7 +82,7 @@ app/
 Pinia stores live at the **workspace root** in `stores/` (imported as `~~/stores/...`), NOT under `app/stores/`. See [useHttp.ts](app/composables/useHttp.ts) importing from `~~/stores/auth`.
 
 **Key rules:**
--everytime update this file @frontend/claude.md whith fresh rule and fresh rules and fresh things, i want this to be in latest version!
+- **Audio players** (TTS voice replies): use the `MessageBubble` inline player pattern — `w-8 h-8` circular play/pause button + clickable scrub bar with `requestAnimationFrame` progress tracking + `mm:ss` timestamps. Never use a raw `<audio>` element. Player width is fixed (`w-56`) so it never expands its parent bubble.
 
 - Component folders use **PascalCase** (`App/`, `Block/`, `Form/`, `Pages/`). Package-owned folders (`ui/` for shadcn) stay as the package expects.
 - you can use the models from the Nuxt models if you thing that helps, like swiper or anything usefull to the task you have.
