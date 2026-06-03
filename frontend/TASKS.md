@@ -11,16 +11,8 @@ When Aland adds a new backend API, he notes it here so Rekar knows what to wire 
 ## Pending
 
 
-### 5. Notifications — missing entirely
-**Status:** No bell icon, no panel, no composable.
-
-Build `app/composables/useNotifications.ts` and add a notification bell to `DashboardHeader.vue`:
-- `GET /users/me/notifications?read=false` → unread count (badge on bell icon) + notification feed
-- `PATCH /users/me/notifications/read-all` → mark all as read on panel open
-
-Notification types: `STREAK_MILESTONE | GOAL_COMPLETED | GOAL_ASSIGNED | CLASS_ANNOUNCEMENT`
-
-Display as a dropdown panel in the header — unread items highlighted, timestamp shown.
+### ✅ 5. Notifications — done
+`useNotifications.ts` + `NotificationBell.vue` + `NotificationPanel.vue`. Socket.io `/notifications` namespace for real-time push. Bell shows live unread badge, "Mark all read" button in panel header.
 
 ---
 
@@ -54,23 +46,17 @@ This page should use the Socket.io composable (or create `useVoice.ts`) to strea
 
 ---
 
+### 8. Notification items — make clickable with redirect
+**File:** `app/components/Layouts/Dashboard/NotificationPanel.vue`  
+**Status:** Items are static — clicking does nothing.
 
-## Backend Bugs for Aland
+Each notification type should navigate to the relevant page when clicked:
+- `STREAK_MILESTONE` → `/dashboard` (overview)
+- `GOAL_COMPLETED` → `/dashboard/goals`
+- `GOAL_ASSIGNED` → `/dashboard/goals`
+- `CLASS_ANNOUNCEMENT` → `/dashboard/classes`
 
-### 🐛 Session duration has no cap — inflates practice time (2026-06-03)
-`POST /sessions/:id/end` calculates `durationSeconds = endedAt - startedAt` with no upper bound. If a tab is left open for 2+ days then ended, the session gets e.g. 4188 minutes, which flows into `progress.studyMinutes` and `userMetrics.totalStudyTimeMinutes`. Users see "70h practice time" after a single session.
-
-**Fix needed in `sessions.service.ts`:** Cap `durationSeconds` at a maximum before writing to the DB. Reasonable cap: `Math.min(durationSeconds, 4 * 60 * 60)` (4 hours = 14400 seconds). A real study session will never be longer than that.
-
-### 🐛 Progress date uses UTC — wrong day for UTC+3 users (2026-06-03)
-`buildGreetingHero` and `updateProgressAndMetrics` use `new Date(); today.setHours(0,0,0,0)` which gives UTC midnight. For a user in UTC+3 (Iraq), "today" on the server is yesterday. Sessions started on June 3rd local time get attributed to June 2nd progress row, so `doneMins` is always 0 for the actual current day.
-
-**Fix needed:** Accept a `timezone` param (already in `LearnerProfile.timezone`) and use it to compute the correct local date for progress writes and reads. Until then, all progress-based stats (streak, doneMins, daily goal ring) are off by 1 day for UTC+3 users.
-
-### 🐛 `weeklyGoalMinutes` default is too low (2026-06-03)
-New accounts get `weeklyGoalMinutes: 60` (set during registration), which divides to **9 min/day** — confusing and demotivating. Should default to `210` (30 min/day).
-
-**Fix needed in `auth.service.ts` registration flow:** Change the `LearnerProfile` creation default from `weeklyGoalMinutes: 60` to `weeklyGoalMinutes: 210`.
+On click: close the dropdown, navigate to the route. Mark the individual item as read if it isn't already (backend doesn't have a single-read endpoint yet — use the existing mark-all or skip for now).
 
 ---
 

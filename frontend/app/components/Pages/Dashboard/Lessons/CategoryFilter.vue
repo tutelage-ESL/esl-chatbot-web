@@ -15,7 +15,7 @@ const cats: LessonCategory[] = ['All', 'Business', 'Travel', 'Grammar', 'Real-li
       :class="[
         'text-[12px] font-medium px-3 py-1.5 rounded-full transition-colors font-poppins',
         props.modelValue === c
-          ? 'bg-brand-primary text-black'
+          ? 'bg-brand-primary text-white'
           : 'bg-zinc-100 dark:bg-white/4 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-white/8',
       ]"
       @click="emit('update:modelValue', c)"

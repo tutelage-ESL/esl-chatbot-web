@@ -270,9 +270,11 @@ export async function endSession(
   }
 
   const endedAt = new Date();
-  const durationSeconds = Math.round(
+  const rawDurationSeconds = Math.round(
     (endedAt.getTime() - session.startedAt.getTime()) / 1000,
   );
+  // Cap at 4 hours — a tab left open for days should not inflate practice time
+  const durationSeconds = Math.min(rawDurationSeconds, 4 * 60 * 60);
 
   // Compute averages from message evaluations
   const evaluatedMessages = session.messages.filter((m) => m.evaluation);
@@ -386,8 +388,16 @@ async function updateProgressAndMetrics(
   avgVocab: number,
   avgFluency: number,
 ): Promise<void> {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // Use the user's timezone so progress rows land on the correct local calendar day
+  const learnerProfile = await prisma.learnerProfile.findUnique({
+    where: { userId },
+    select: { timezone: true },
+  });
+  const timezone = learnerProfile?.timezone ?? 'UTC';
+
+  // Compute midnight of today in the user's local timezone
+  const nowInZone = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }));
+  const today = new Date(nowInZone.getFullYear(), nowInZone.getMonth(), nowInZone.getDate());
 
   const skillSnapshot =
     avgGrammar > 0 || avgVocab > 0 || avgFluency > 0

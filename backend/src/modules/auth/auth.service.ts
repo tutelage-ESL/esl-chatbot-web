@@ -196,7 +196,7 @@ export async function register(input: RegisterInput): Promise<LoginResponse> {
       },
     });
 
-    await tx.learnerProfile.create({ data: { userId: user.id } });
+    await tx.learnerProfile.create({ data: { userId: user.id, weeklyGoalMinutes: 210 } });
 
     // INACTIVE until the user purchases a subscription
     await tx.subscription.create({
@@ -311,7 +311,7 @@ export async function googleAuth(input: GoogleAuthInput): Promise<GoogleAuthResp
         },
       });
 
-      await tx.learnerProfile.create({ data: { userId: newUser.id } });
+      await tx.learnerProfile.create({ data: { userId: newUser.id, weeklyGoalMinutes: 210 } });
       await tx.subscription.create({
         data: { userId: newUser.id, plan: "FREE", status: "ACTIVE" },
       });

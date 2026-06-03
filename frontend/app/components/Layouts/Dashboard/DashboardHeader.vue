@@ -115,12 +115,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
     <!-- Right actions -->
     <div class="flex items-center gap-1.5">
       <!-- Notifications -->
-      <button
-        class="relative w-9 h-9 rounded-lg flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-brand-ink dark:hover:text-white transition"
-      >
-        <AppIconsax name="Notification" color="currentColor" :size="22" />
-        <span class="absolute top-2 right-2.5 size-2 rounded-full bg-brand-primary ring-2 ring-white dark:ring-[#0e0e10]" />
-      </button>
+      <LayoutsDashboardNotificationBell />
 
       <!-- New session CTA -->
       <NuxtLink to="/dashboard/chat">
