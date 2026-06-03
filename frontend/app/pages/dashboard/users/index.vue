@@ -5,6 +5,7 @@ import type { AdminUserItem, AssignSubscriptionInput, UserRole, SubStatus } from
 definePageMeta({ layout: 'dashboard', requiresAuth: true })
 
 const { listUsers, patchUser, assignSubscription, cancelSubscription } = useAdmin()
+const route = useRoute()
 
 // ── State ──────────────────────────────────────────────────────────────────
 const users = ref<AdminUserItem[]>([])
@@ -12,10 +13,19 @@ const total = ref(0)
 const totalPages = ref(1)
 const loading = ref(false)
 
+// Seed filters from URL query (?role=TUTOR&subscriptionStatus=ACTIVE) so
+// deep-links from the admin dashboard land on a pre-filtered list.
+const ROLES: UserRole[] = ['STUDENT', 'TUTOR', 'ADMIN']
+const STATUSES: SubStatus[] = ['ACTIVE', 'INACTIVE', 'CANCELLED', 'PAST_DUE']
+const initialRole = ROLES.includes(route.query.role as UserRole) ? (route.query.role as UserRole) : 'ALL'
+const initialStatus = STATUSES.includes(route.query.subscriptionStatus as SubStatus)
+  ? (route.query.subscriptionStatus as SubStatus)
+  : 'ALL'
+
 const page = ref(1)
 const search = ref('')
-const roleFilter = ref<UserRole | 'ALL'>('ALL')
-const statusFilter = ref<SubStatus | 'ALL'>('ALL')
+const roleFilter = ref<UserRole | 'ALL'>(initialRole)
+const statusFilter = ref<SubStatus | 'ALL'>(initialStatus)
 
 const assignTargetId = ref<string | null>(null)
 const assignOpen = ref(false)

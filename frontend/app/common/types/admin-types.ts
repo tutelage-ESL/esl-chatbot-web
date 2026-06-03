@@ -15,7 +15,6 @@ export interface AdminLearnerProfile {
   aiPersonality: string | null
   voiceSpeed: number
   autoSpeak: boolean
-  uiLanguage: string
   theme: string
   weeklyGoalMinutes: number
   timezone: string

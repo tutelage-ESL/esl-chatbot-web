@@ -14,6 +14,7 @@ import announcementsRouter from "../../modules/announcements/announcements.route
 import notificationsRouter from "../../modules/notifications/notifications.router.ts";
 import subscriptionsRouter from "../../modules/subscriptions/subscriptions.router.ts";
 import dashboardRouter from "../../modules/dashboard/dashboard.router.ts";
+import tutorRouter from "../../modules/tutor/tutor.router.ts";
 import devRouter from "./dev.router.ts";
 import { env } from "../../config/env.ts";
 
@@ -39,5 +40,6 @@ router.use("/progress", progressRouter);
 router.use("/metrics", metricsRouter);
 router.use("/subscriptions", subscriptionsRouter);
 router.use("/dashboard", dashboardRouter);
+router.use("/tutor", tutorRouter);
 
 export default router;

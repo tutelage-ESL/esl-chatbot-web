@@ -4,7 +4,7 @@ import { useAuthStore } from '~~/stores/auth'
 
 const authStore = useAuthStore()
 const currentPlan = computed(() => authStore.getUser?.subscription?.plan ?? 'FREE')
-const isAdmin = computed(() => authStore.getUser?.role === 'ADMIN')
+const userRole = computed(() => authStore.getUser?.role ?? 'STUDENT')
 
 const { getStats } = useVocabulary()
 const vocabDueCount = ref<number | undefined>(undefined)
@@ -30,10 +30,11 @@ watch(() => route.path, () => {
 
 const primaryNav = computed(() => {
   const all: DashboardNavItem[] = [
-    // Admin sees Users instead of Overview
-    ...(isAdmin.value
+    { id: 'dashboard', label: 'Dashboard', icon: 'Chart', path: '/dashboard', badge: undefined },
+    // Admin and Tutor also see Users
+    ...(userRole.value === 'ADMIN'
       ? [{ id: 'users', label: 'Users', icon: 'People', path: '/dashboard/users', badge: undefined }]
-      : [{ id: 'overview', label: 'Overview', icon: 'Chart', path: '/dashboard', badge: undefined }]
+      : []
     ),
     { id: 'chat', label: 'AI Chat', icon: 'Messages', path: '/dashboard/chat', badge: undefined },
     { id: 'classes', label: 'Classes', icon: 'BookSaved', path: '/dashboard/classes', badge: undefined },
