@@ -1,5 +1,5 @@
 # CLAUDE.md
-
+  BECAREFULL WITH THE ROLES, PERMISSIONS!!! 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Repository Layout

@@ -22,11 +22,14 @@ type HttpResponse<T = any> = {
 }
 const FALLBACK_BASE_URL = 'http://localhost:8000/api/v1'
 
-function buildHeaders(requireAuth: boolean, extra?: Record<string, string>): Record<string, string> {
+function buildHeaders(requireAuth: boolean, body?: any, extra?: Record<string, string>): Record<string, string> {
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
     'Accept-Language': 'en',
     ...(extra || {}),
+  }
+  // Let the browser set Content-Type automatically for FormData (multipart + boundary)
+  if (!(body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json'
   }
   if (requireAuth) {
     const store = useAuthStore()
@@ -49,7 +52,7 @@ async function executeRequest(
   return fetch(url, {
     method,
     headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body: body instanceof FormData ? body : body !== undefined ? JSON.stringify(body) : undefined,
     credentials: includeCredentials ? 'include' : 'same-origin',
   })
 }
@@ -88,7 +91,7 @@ export const useHttp = async <T = any>(options: HttpOptions): Promise<HttpRespon
 
   const resolvedBase = baseUrl ?? (useRuntimeConfig().public.baseUrl as string | undefined) ?? FALLBACK_BASE_URL
   const apiUrl = `${resolvedBase}${url.startsWith('/') ? url : `/${url}`}`
-  const headers = buildHeaders(requireAuth, extraHeaders)
+  const headers = buildHeaders(requireAuth, body, extraHeaders)
 
   try {
     const res = await executeRequest(apiUrl, method, headers, body, includeCredentials)
@@ -109,7 +112,7 @@ export const useHttp = async <T = any>(options: HttpOptions): Promise<HttpRespon
       }
 
       // Rebuild headers with the fresh token and retry
-      const retryHeaders = buildHeaders(requireAuth, extraHeaders)
+      const retryHeaders = buildHeaders(requireAuth, body, extraHeaders)
       const retryRes = await executeRequest(apiUrl, method, retryHeaders, body, includeCredentials)
 
       if (!retryRes.ok) {

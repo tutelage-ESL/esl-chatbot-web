@@ -11,26 +11,6 @@ When Aland adds a new backend API, he notes it here so Rekar knows what to wire 
 ## Pending
 
 
-### 4. Profile page — wire to real API + edit form
-**File:** `app/pages/dashboard/profile.vue`  
-**Status:** Only `username` comes from the auth store. Level badge, study time, session count, native languages, plan badge — all hardcoded.
-
-Wire up:
-- `GET /users/me` → full profile (displayName, phoneNumber, avatarUrl, authProvider, learnerProfile, subscription)
-- `PATCH /users/me` → edit display name and phone number
-- `POST /users/me/avatar` **(new — file upload)** → replace avatar image. Send `multipart/form-data` with a single field named `avatar` (image file, max 5 MB, jpeg/png/webp/gif). Returns `{ avatarUrl: string }`. Use this instead of passing `avatarUrl` as a string in `PATCH /users/me` — the file upload endpoint handles storage and cleanup automatically.
-- `PATCH /users/me/learner-profile` → learner settings form:
-  - `currentLevel` / `targetLevel` — CEFR enum: `A1 | A2 | B1 | B2 | C1 | C2`
-  - `aiPersonality` — `FRIENDLY | FORMAL | CASUAL | ENCOURAGING | STRICT | PATIENT`
-  - `topicsOfInterest` — string array
-  - `voiceSpeed` — float 0.5–2.0
-  - `theme` — `light | dark`
-  - `weeklyGoalMinutes` — integer 5–840
-
-The "Edit profile" button on the page should open a form/modal for these fields.
-
----
-
 ### 5. Notifications — missing entirely
 **Status:** No bell icon, no panel, no composable.
 
