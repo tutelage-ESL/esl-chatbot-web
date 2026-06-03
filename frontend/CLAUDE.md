@@ -134,6 +134,9 @@ The dashboard UI colour system lives in **[app/assets/css/main.css](app/assets/c
 Tailwind exposes them as `bg-surface-card`, `border-border-inner`, `text-text-heading`, etc. (because `@theme inline` maps them). You can also use inline `style` attributes for one-off cases: `style="background:var(--surface-raised)"`.
 
 **Rules:**
+
+- dont use rounded full for badges and buttons!!
+
 - **Never use `bg-white`, `bg-zinc-*`, `border-black/*`, `border-zinc-*`, `text-zinc-*`, `text-gray-*` in dashboard components.** Use the tokens above instead.
 - Status badges (Active/Inactive/Blocked/Expired) must always use the `--status-*` tokens, not hardcoded emerald/orange/red classes.
 - `dash-card` already applies `var(--surface-card)` and `var(--border-card)` — do not override its background inline.
@@ -158,6 +161,8 @@ Tailwind exposes them as `bg-surface-card`, `border-border-inner`, `text-text-he
   - Delete confirmations → `<UiAlertDialog>` with Cancel + destructive Action. Never use `window.confirm()`.
 - Fetch data only via the `useHttp` composable ([app/composables/useHttp.ts](app/composables/useHttp.ts)) — never call `fetch` directly.
 - **Keep Vue files short.** If a template exceeds ~150 lines, extract sections into sub-components. Page files (`pages/`) hold state and layout glue only — no large inline template blocks. A 300+ line SFC template is always wrong.
+- **Page files (`pages/`) must be thin — state wiring and layout glue only.** Every visual section belongs in its own component under `components/Pages/<Section>/`. A page file should contain only: `definePageMeta`, composable calls, refs for open/close state, and the template that assembles named components. No large template blocks, no inline UI, no direct API calls. Look at `pages/dashboard/chat.vue` and `pages/dashboard/index.vue` as the canonical examples — each is under 120 lines and contains zero inline UI.
+- **Forms with more than 5 fields must get a dedicated page, not a dialog.** Use `UiDialog` only for forms with 1–5 fields. For 6+ fields (e.g. edit user, create class with many settings), create a proper `pages/` route with a full-page form layout. The form fields themselves should live in a reusable component under `components/Pages/<Section>/` so they can be shared between create and edit flows.
 
 ## API Types (do not edit)
 

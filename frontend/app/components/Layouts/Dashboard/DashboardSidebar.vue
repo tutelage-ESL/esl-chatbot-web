@@ -4,6 +4,7 @@ import { useAuthStore } from '~~/stores/auth'
 
 const authStore = useAuthStore()
 const currentPlan = computed(() => authStore.getUser?.subscription?.plan ?? 'FREE')
+const isAdmin = computed(() => authStore.getUser?.role === 'ADMIN')
 
 const { getStats } = useVocabulary()
 const vocabDueCount = ref<number | undefined>(undefined)
@@ -27,16 +28,23 @@ watch(() => route.path, () => {
   if (props.mobileOpen) emit('close-mobile')
 })
 
-const primaryNav = computed(() => [
-  { id: 'overview', label: 'Overview', icon: 'Chart', path: '/dashboard', badge: undefined },
-  { id: 'chat', label: 'AI Chat', icon: 'Messages', path: '/dashboard/chat', badge: undefined },
-  { id: 'classes', label: 'Classes', icon: 'BookSaved', path: '/dashboard/classes', badge: undefined },
-  { id: 'lessons', label: 'Lessons', icon: 'Candle', path: '/dashboard/lessons', badge: undefined },
-  { id: 'voice', label: 'Voice Lab', icon: 'Microphone', path: '/dashboard/voice', badge: undefined },
-  { id: 'vocab', label: 'Vocabulary', icon: 'Book1', path: '/dashboard/vocab', badge: vocabDueCount.value },
-  { id: 'goals', label: 'Goals', icon: 'Flag', path: '/dashboard/goals', badge: undefined },
-  { id: 'billing', label: 'Billing', icon: 'Wallet2', path: '/dashboard/billing', badge: undefined },
-] satisfies DashboardNavItem[])
+const primaryNav = computed(() => {
+  const all: DashboardNavItem[] = [
+    // Admin sees Users instead of Overview
+    ...(isAdmin.value
+      ? [{ id: 'users', label: 'Users', icon: 'People', path: '/dashboard/users', badge: undefined }]
+      : [{ id: 'overview', label: 'Overview', icon: 'Chart', path: '/dashboard', badge: undefined }]
+    ),
+    { id: 'chat', label: 'AI Chat', icon: 'Messages', path: '/dashboard/chat', badge: undefined },
+    { id: 'classes', label: 'Classes', icon: 'BookSaved', path: '/dashboard/classes', badge: undefined },
+    { id: 'lessons', label: 'Lessons', icon: 'Candle', path: '/dashboard/lessons', badge: undefined },
+    { id: 'voice', label: 'Voice Lab', icon: 'Microphone', path: '/dashboard/voice', badge: undefined },
+    { id: 'vocab', label: 'Vocabulary', icon: 'Book1', path: '/dashboard/vocab', badge: vocabDueCount.value },
+    { id: 'goals', label: 'Goals', icon: 'Flag', path: '/dashboard/goals', badge: undefined },
+    { id: 'billing', label: 'Billing', icon: 'Wallet2', path: '/dashboard/billing', badge: undefined },
+  ]
+  return all satisfies DashboardNavItem[]
+})
 
 function isActive(path: string) {
   if (path === '/dashboard') return route.path === '/dashboard'

@@ -16,19 +16,8 @@ When Aland adds a new backend API, he notes it here so Rekar knows what to wire 
 
 ---
 
-### 6. Admin dashboard — missing entirely
-**Status:** No page exists for ADMIN role users.
-
-Create `app/pages/dashboard/admin.vue` (guard with `v-can` or `requiresRole: 'ADMIN'` in `definePageMeta`).
-
-Wire up:
-- `GET /admin/dashboard` → platform stats: total users by role, active subscriptions by plan (FREE/GOLD/PREMIUM counts), daily/weekly active users, total sessions today, revenue by payment method
-- `GET /users?role=&search=&subscriptionStatus=` → paginated user table with search/filter
-- `PATCH /admin/users/:id` → toggle `isActive` (ban/unban) and change `role`
-- `PUT /admin/users/:id/subscription` → assign plan manually (`{ plan, durationMonths }`)
-- `DELETE /admin/users/:id/subscription` → cancel subscription
-
-Add an "Admin" link in the sidebar visible only when `user.role === 'ADMIN'`.
+### ✅ 6. Admin — done
+`useAdmin.ts` composable + `pages/dashboard/users/index.vue` (paginated table with search/role/status filters) + `pages/dashboard/users/[id].vue` (full edit page, 7 fields) + `pages/dashboard/admin.vue` (platform stats dashboard). Sidebar shows "Users" instead of "Overview" for admins. Settings cog in header links to `/dashboard/admin` (admin only). Components: `UserTableRow`, `UserFilters`, `AssignSubscriptionModal`.
 
 ---
 

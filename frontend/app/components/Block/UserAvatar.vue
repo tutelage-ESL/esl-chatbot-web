@@ -65,7 +65,7 @@ async function handleSignOut() {
           </p>
           <p class="text-[11px] text-zinc-400 font-mono truncate">{{ user?.email }}</p>
           <span
-            class="inline-block mt-0.5 text-[10px] font-semibold font-poppins px-1.5 py-0.5 rounded-full bg-brand-primary text-white">
+            class="inline-block mt-0.5 text-[10px] font-semibold font-poppins px-1.5 py-0.5 rounded-sm bg-brand-primary text-white">
             {{ plan }}
           </span>
         </div>
