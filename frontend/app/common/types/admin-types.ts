@@ -6,6 +6,21 @@ export type IntervalMonths = 1 | 3 | 6 | 12
 
 // ── User list item (GET /users) ───────────────────────────────────────────────
 
+export interface AdminLearnerProfile {
+  id: string
+  currentLevel: string | null
+  targetLevel: string | null
+  learningPurpose: string | null
+  topicsOfInterest: string[]
+  aiPersonality: string | null
+  voiceSpeed: number
+  autoSpeak: boolean
+  uiLanguage: string
+  theme: string
+  weeklyGoalMinutes: number
+  timezone: string
+}
+
 export interface AdminUserItem {
   id: string
   username: string
@@ -21,6 +36,7 @@ export interface AdminUserItem {
     status: SubStatus
     currentPeriodEnd: string | null
   } | null
+  learnerProfile?: AdminLearnerProfile | null
 }
 
 export interface AdminUserListMeta {

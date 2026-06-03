@@ -96,6 +96,38 @@ export function useAdmin() {
     })
   }
 
+  async function adminUpdateProfile(id: string, input: { displayName?: string; phoneNumber?: string | null }) {
+    return await useHttp<ApiResponse<unknown>>({
+      method: 'PATCH',
+      url: `/admin/users/${id}/profile`,
+      body: input,
+      requireAuth: true,
+      showToast: true,
+    })
+  }
+
+  async function adminUploadAvatar(id: string, file: File) {
+    const form = new FormData()
+    form.append('avatar', file)
+    return await useHttp<ApiResponse<{ avatarUrl: string }>>({
+      method: 'POST',
+      url: `/admin/users/${id}/avatar`,
+      body: form,
+      requireAuth: true,
+      showToast: true,
+    })
+  }
+
+  async function adminUpdateLearnerProfile(id: string, input: Record<string, unknown>) {
+    return await useHttp<ApiResponse<unknown>>({
+      method: 'PATCH',
+      url: `/admin/users/${id}/learner-profile`,
+      body: input,
+      requireAuth: true,
+      showToast: true,
+    })
+  }
+
   return {
     getDashboardStats,
     listUsers,
@@ -103,5 +135,8 @@ export function useAdmin() {
     patchUser,
     assignSubscription,
     cancelSubscription,
+    adminUpdateProfile,
+    adminUploadAvatar,
+    adminUpdateLearnerProfile,
   }
 }

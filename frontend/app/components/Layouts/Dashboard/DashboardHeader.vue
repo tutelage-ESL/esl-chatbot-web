@@ -119,15 +119,6 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
       <!-- Notifications -->
       <LayoutsDashboardNotificationBell />
 
-      <!-- Admin settings cog — admin only -->
-      <NuxtLink v-if="isAdmin" to="/dashboard/admin">
-        <button
-          class="w-9 h-9 rounded-lg flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-brand-ink dark:hover:text-white transition cursor-pointer"
-          aria-label="Platform dashboard"
-        >
-          <AppIconsax name="Setting2" color="currentColor" :size="20" />
-        </button>
-      </NuxtLink>
 
       <!-- New session CTA -->
       <NuxtLink to="/dashboard/chat">

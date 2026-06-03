@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { authenticate } from "../../middlewares/authenticate.ts";
 import { authorize } from "../../middlewares/authorize.ts";
-import { patchUser, putSubscription, deleteSubscription, getDashboardHandler } from "./admin.controller.ts";
+import { patchUser, putSubscription, deleteSubscription, getDashboardHandler, adminPatchProfileHandler, adminUploadAvatarHandler, adminPatchLearnerProfileHandler } from "./admin.controller.ts";
+import { avatarUpload } from "../../middlewares/upload.ts";
 
 const router = Router();
 
@@ -339,5 +340,10 @@ router.patch("/users/:id", patchUser);
  */
 router.put("/users/:id/subscription", putSubscription);
 router.delete("/users/:id/subscription", deleteSubscription);
+
+// ── Admin user profile & learner profile editing ──────────────────────────────
+router.patch("/users/:id/profile", adminPatchProfileHandler);
+router.post("/users/:id/avatar", avatarUpload.single("avatar"), adminUploadAvatarHandler);
+router.patch("/users/:id/learner-profile", adminPatchLearnerProfileHandler);
 
 export default router;

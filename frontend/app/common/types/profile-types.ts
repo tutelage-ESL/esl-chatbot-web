@@ -39,13 +39,13 @@ export interface UpdateProfileInput {
 }
 
 export interface UpdateLearnerProfileInput {
-  currentLevel?: string | null
   targetLevel?: string | null
   learningPurpose?: string | null
   topicsOfInterest?: string[]
   aiPersonality?: string | null
   voiceSpeed?: number
-  weeklyGoalMinutes?: number
+  autoSpeak?: boolean
   theme?: string
+  weeklyGoalMinutes?: number
   timezone?: string
 }

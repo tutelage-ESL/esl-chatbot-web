@@ -2,7 +2,9 @@ import { prisma } from "../../config/database.ts";
 import { AppError } from "../../utils/AppError.ts";
 import type { PaymentProvider } from "@prisma/client";
 import type { SubscriptionResult, AdminDashboardData } from "./admin.types.ts";
-import type { UpdateUserBody, AssignSubscriptionBody } from "./admin.schema.ts";
+import type { UpdateUserBody, AssignSubscriptionBody, AdminUpdateProfileInput, AdminUpdateLearnerProfileInput } from "./admin.schema.ts";
+import { uploadAvatar, deleteAvatar } from "../../config/storage.ts";
+import { getMyProfile } from "../users/users.service.ts";
 
 function computeEndDate(durationMonths: number): Date {
   // setUTCMonth avoids local-timezone overflow (e.g. Jan 31 + 1 month = Mar 3 in setMonth)
@@ -180,4 +182,36 @@ export async function cancelSubscription(userId: string): Promise<void> {
       externalSubscriptionId: null,
     },
   });
+}
+
+export async function adminUpdateProfile(userId: string, input: AdminUpdateProfileInput) {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+  if (!user) throw new AppError("User not found", 404);
+  await prisma.user.update({ where: { id: userId }, data: input });
+  return getMyProfile(userId);
+}
+
+export async function adminUploadAvatar(userId: string, buffer: Buffer, mimeType: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, avatarUrl: true },
+  });
+  if (!user) throw new AppError("User not found", 404);
+  if (user.avatarUrl) {
+    try { await deleteAvatar(user.avatarUrl); } catch {}
+  }
+  const avatarUrl = await uploadAvatar(buffer, userId, mimeType);
+  await prisma.user.update({ where: { id: userId }, data: { avatarUrl } });
+  return { avatarUrl };
+}
+
+export async function adminUpdateLearnerProfile(userId: string, input: AdminUpdateLearnerProfileInput) {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+  if (!user) throw new AppError("User not found", 404);
+  const profile = await prisma.learnerProfile.upsert({
+    where: { userId },
+    create: { userId, ...input },
+    update: input,
+  });
+  return profile;
 }
