@@ -26,9 +26,11 @@ const greetingTime = computed(() => {
 
 const R = 48
 const circumference = 2 * Math.PI * R
-const goalPct = computed(() => Math.min(1, props.doneMins / props.goalMins))
-const offset   = computed(() => circumference * (1 - goalPct.value))
-const minsLeft = computed(() => props.goalMins - props.doneMins)
+const displayDone = computed(() => Math.min(props.doneMins, props.goalMins))
+const goalPct = computed(() => Math.min(1, props.doneMins / Math.max(1, props.goalMins)))
+const offset = computed(() => circumference * (1 - goalPct.value))
+const goalMet = computed(() => props.doneMins >= props.goalMins)
+const minsLeft = computed(() => Math.max(0, props.goalMins - props.doneMins))
 </script>
 
 <template>
@@ -41,18 +43,31 @@ const minsLeft = computed(() => props.goalMins - props.doneMins)
     <div class="relative p-6 sm:p-8 flex flex-col md:flex-row items-start md:items-center gap-6 justify-between">
       <!-- Text + CTA -->
       <div>
-        <p class="text-[11px] uppercase tracking-[0.2em] text-zinc-400 font-semibold font-poppins">Good {{ greetingTime }}</p>
-        <h1 class="mt-1 text-[32px] sm:text-[38px] font-semibold tracking-[-0.03em] text-brand-ink dark:text-white leading-[1.1] font-poppins">
+        <p class="text-[11px] uppercase tracking-[0.2em] text-zinc-400 font-semibold font-poppins">Good {{ greetingTime
+          }}</p>
+        <h1
+          class="mt-1 text-[32px] sm:text-[38px] font-semibold tracking-[-0.03em] text-brand-ink dark:text-white leading-[1.1] font-poppins">
           Welcome back, {{ name }}.
         </h1>
         <p class="mt-2 text-[14px] text-zinc-500 dark:text-zinc-400 max-w-md font-poppins">
-          You're <span class="text-brand-primary font-medium">{{ minsLeft }} minutes</span> away from hitting today's goal. Keep that streak alive 🔥
+          <template v-if="goalMet">
+            <span class="text-emerald-500 font-medium">Daily goal complete!</span> Great work today, keep the streak going.
+          </template>
+          <template v-else-if="doneMins === 0">
+            Start a session to begin your daily goal — <span class="text-brand-primary font-medium">{{ goalMins }} min</span> today.
+          </template>
+          <template v-else>
+            <span class="text-brand-primary font-medium">{{ minsLeft }} min left</span> to hit today's goal. Keep going!
+          </template>
         </p>
 
         <div class="mt-5 flex flex-wrap items-center gap-2">
-          <AppButton variant="primary" size="38" radius="8" icon="Messages" :icon-config="{color: 'white'}" text="Continue conversation" @click="emit('navChat')" />
-          <AppButton variant="secondary" size="38" radius="8" icon="Microphone" text="Practice speaking" @click="emit('navVoice')" />
-          <AppButton variant="secondary" size="38" radius="8" icon="Book1" :text="`Review ${dueVocabCount ?? 0} words`" @click="emit('navVocab')" />
+          <AppButton variant="primary" size="38" radius="8" icon="Messages" :icon-config="{ color: 'white' }"
+            text="Continue conversation" @click="emit('navChat')" />
+          <AppButton variant="secondary" size="38" radius="8" icon="Microphone" text="Practice speaking"
+            @click="emit('navVoice')" />
+          <AppButton variant="secondary" size="38" radius="8" icon="Book1" :text="`Review ${dueVocabCount ?? 0} words`"
+            @click="emit('navVocab')" />
         </div>
       </div>
 
@@ -68,33 +83,30 @@ const minsLeft = computed(() => props.goalMins - props.doneMins)
               </linearGradient>
             </defs>
             <!-- track -->
-            <circle cx="60" cy="60" :r="R" stroke="currentColor" class="text-zinc-200 dark:text-white/10" stroke-width="10" fill="none" />
+            <circle cx="60" cy="60" :r="R" stroke="currentColor" class="text-zinc-200 dark:text-white/10"
+              stroke-width="10" fill="none" />
             <!-- animated fill -->
-            <circle
-              cx="60" cy="60" :r="R"
-              stroke="url(#ringGrad)"
-              stroke-width="10"
-              fill="none"
-              stroke-linecap="round"
-              :stroke-dasharray="circumference"
-              :stroke-dashoffset="offset"
-              class="ring-animate"
-            />
+            <circle cx="60" cy="60" :r="R" stroke="url(#ringGrad)" stroke-width="10" fill="none" stroke-linecap="round"
+              :stroke-dasharray="circumference" :stroke-dashoffset="offset" class="ring-animate" />
           </svg>
           <div class="absolute inset-0 flex flex-col items-center justify-center">
-            <span class="text-[26px] font-semibold tracking-tight text-brand-ink dark:text-white leading-none font-poppins">
-              {{ doneMins }}<span class="text-[13px] text-zinc-400 font-normal">/{{ goalMins }}</span>
+            <span
+              class="text-[26px] font-semibold tracking-tight text-brand-ink dark:text-white leading-none font-poppins">
+              {{ displayDone }}<span class="text-[13px] text-zinc-400 font-normal">/{{ goalMins }}</span>
             </span>
-            <span class="text-[10px] uppercase tracking-wider text-zinc-400 mt-0.5 font-poppins">min today</span>
+            <span class="text-[14px] uppercase tracking-wider text-zinc-400 mt-0.5 font-poppins">min today</span>
           </div>
         </div>
 
         <!-- Streak flame -->
         <div class="text-center">
-          <div class="relative inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-brand-primary/15 border border-brand-primary/20">
+          <div
+            class="relative inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-brand-primary/15 border border-brand-primary/20">
             <AppIconsax name="Flash" color="var(--color-brand-primary)" :size="26" />
           </div>
-          <div class="mt-2 text-[22px] font-semibold tracking-tight text-brand-ink dark:text-white leading-none font-poppins">{{ streak }}</div>
+          <div
+            class="mt-2 text-[22px] font-semibold tracking-tight text-brand-ink dark:text-white leading-none font-poppins">
+            {{ streak }}</div>
           <div class="text-[10px] uppercase tracking-wider text-zinc-400 mt-1 font-poppins">day streak</div>
         </div>
       </div>

@@ -10,54 +10,6 @@ When Aland adds a new backend API, he notes it here so Rekar knows what to wire 
 
 ## Pending
 
-### 1. Overview page — wire to real API
-**File:** `app/pages/dashboard/index.vue`  
-**Status:** All data is hardcoded mock — nothing is wired to the backend yet.
-
-Wire up the following:
-- `GET /metrics/me` → stat cards (streak, total study time, skill scores, estimated CEFR level)
-- `GET /progress/summary?days=7` → weekly chart + activity heatmap
-- `GET /sessions?limit=5` → recent sessions list
-- `GET /vocabulary/due` → "due today" words widget
-
-Create a `useOverview` composable (or split into `useMetrics` + `useProgress`) in `app/composables/`.
-
----
-
-### 2. Goals page — wire to real API
-**File:** `app/pages/dashboard/goals.vue`  
-**Status:** All data is hardcoded mock. No `useGoals` composable exists.
-
-Build `app/composables/useGoals.ts` and wire the page:
-- `GET /goals` → list goals (filterable by `?status=` and `?type=`)
-- `POST /goals` → create goal modal/form
-- `PATCH /goals/:id` → update progress, status, description
-- `DELETE /goals/:id` → delete
-
-GoalType enum values: `VOCABULARY | SPEAKING | GRAMMAR | CONVERSATION | STUDY_TIME`  
-GoalDifficulty enum values: `EASY | MEDIUM | HARD | EXPERT`  
-Status transitions: `ACTIVE → COMPLETED / PAUSED / CANCELLED` — setting COMPLETED auto-sets `completedDate` + `progress=100` on the backend.
-
----
-
-### 3. Vocabulary page — wire to real API + SRS review flow
-**File:** `app/pages/dashboard/vocab.vue`  
-**Status:** All data is hardcoded mock. No `useVocabulary` composable exists.
-
-Build `app/composables/useVocabulary.ts` and wire the page:
-- `GET /vocabulary` → word list (filterable by `?due=true`, `?source=`, `?search=`)
-- `GET /vocabulary/due` → SRS review queue (up to 50 cards due today)
-- `POST /vocabulary` → add word manually
-- `POST /vocabulary/:id/review` → submit SM-2 rating — body: `{ quality: 0 | 1 | 2 | 3 | 4 | 5 }`
-- `PATCH /vocabulary/:id` → edit definition/example/category
-- `DELETE /vocabulary/:id` → delete word
-
-The flashcard "Again / Hard / Good / Easy" buttons should map to quality `0 / 1 / 3 / 5`.  
-`masteryLevel` (0–5) is returned by the API — use it for the progress indicator on each card.
-
-**New (backend done):** When a session ends (`POST /sessions/:id/end`), the response's `evaluation.newVocabulary` now contains real word objects: `{ word, definition, partOfSpeech?, example? }`. The chat page's session-end view could show a "Words learned this session" summary panel using this data. Words are also automatically added to the user's vocabulary table (source: SESSION) and will appear in `/vocabulary` and `/vocabulary/due`.
-
----
 
 ### 4. Profile page — wire to real API + edit form
 **File:** `app/pages/dashboard/profile.vue`  
@@ -122,13 +74,23 @@ This page should use the Socket.io composable (or create `useVoice.ts`) to strea
 
 ---
 
-## Done
 
-- ✅ Auth (login, register, Google Sign-In, password reset, OTP)
-- ✅ Chat page — real API wired via `useSessions` + Socket.io real-time messaging
-- ✅ Classes — full CRUD, drawer with tabs (members, students, analytics, announcements), `useClasses` composable
-- ✅ Billing — FIB payment flow, polling, `useSubscription` composable, subscription panel
-- ✅ HTTP layer — `useHttp` with 401 refresh/retry cycle, centralized token persistence
+## Backend Bugs for Aland
+
+### 🐛 Session duration has no cap — inflates practice time (2026-06-03)
+`POST /sessions/:id/end` calculates `durationSeconds = endedAt - startedAt` with no upper bound. If a tab is left open for 2+ days then ended, the session gets e.g. 4188 minutes, which flows into `progress.studyMinutes` and `userMetrics.totalStudyTimeMinutes`. Users see "70h practice time" after a single session.
+
+**Fix needed in `sessions.service.ts`:** Cap `durationSeconds` at a maximum before writing to the DB. Reasonable cap: `Math.min(durationSeconds, 4 * 60 * 60)` (4 hours = 14400 seconds). A real study session will never be longer than that.
+
+### 🐛 Progress date uses UTC — wrong day for UTC+3 users (2026-06-03)
+`buildGreetingHero` and `updateProgressAndMetrics` use `new Date(); today.setHours(0,0,0,0)` which gives UTC midnight. For a user in UTC+3 (Iraq), "today" on the server is yesterday. Sessions started on June 3rd local time get attributed to June 2nd progress row, so `doneMins` is always 0 for the actual current day.
+
+**Fix needed:** Accept a `timezone` param (already in `LearnerProfile.timezone`) and use it to compute the correct local date for progress writes and reads. Until then, all progress-based stats (streak, doneMins, daily goal ring) are off by 1 day for UTC+3 users.
+
+### 🐛 `weeklyGoalMinutes` default is too low (2026-06-03)
+New accounts get `weeklyGoalMinutes: 60` (set during registration), which divides to **9 min/day** — confusing and demotivating. Should default to `210` (30 min/day).
+
+**Fix needed in `auth.service.ts` registration flow:** Change the `LearnerProfile` creation default from `weeklyGoalMinutes: 60` to `weeklyGoalMinutes: 210`.
 
 ---
 

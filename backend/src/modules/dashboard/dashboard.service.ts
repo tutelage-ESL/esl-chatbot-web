@@ -7,6 +7,8 @@ import type {
   DashboardNextUp,
   DashboardActivityHeatmap,
   DashboardDueWords,
+  DashboardVocabGrowth,
+  VocabGrowthRange,
 } from "./dashboard.types.ts";
 
 // ── CEFR helpers ──────────────────────────────────────────────────────────────
@@ -117,8 +119,9 @@ async function buildStatCards(userId: string): Promise<DashboardStatCards> {
     pronunciationDelta = Math.round(latest.avgPronunciationScore - previous.avgPronunciationScore);
   }
 
-  // estimatedLevel (AI-detected) takes priority; fall back to user-set currentLevel
-  const level = metrics?.estimatedLevel ?? learnerProfile?.currentLevel ?? null;
+  // User-set currentLevel takes priority for the stat card display;
+  // estimatedLevel (AI-detected from session evals) is used when no profile level is set
+  const level = learnerProfile?.currentLevel ?? metrics?.estimatedLevel ?? null;
 
   return {
     wordsMastered,
@@ -334,6 +337,83 @@ async function buildDueWords(userId: string): Promise<DashboardDueWords> {
     totalDue,
     levelPct: cefrToPct(metrics?.estimatedLevel ?? null),
   };
+}
+
+// ── Vocabulary growth by range ────────────────────────────────────────────────
+
+export async function getVocabGrowth(
+  userId: string,
+  range: VocabGrowthRange,
+): Promise<DashboardVocabGrowth> {
+  const now = new Date();
+
+  // Determine bucket count and bucket size based on range
+  // 7d  → 7 daily buckets
+  // 30d → 6 weekly buckets (same as overview default)
+  // all → monthly buckets for up to 12 months
+  let buckets: { label: string; start: Date; end: Date }[] = [];
+
+  if (range === "7d") {
+    // 7 daily buckets — labelled by weekday name (Mon, Tue, …)
+    for (let d = 6; d >= 0; d--) {
+      const start = new Date(now);
+      start.setDate(start.getDate() - d);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 1);
+      const label = start.toLocaleDateString("en-US", { weekday: "short" });
+      buckets.push({ label, start, end });
+    }
+  } else if (range === "30d") {
+    // 30 daily buckets — labelled by weekday name (Mon, Tue, …)
+    for (let d = 29; d >= 0; d--) {
+      const start = new Date(now);
+      start.setDate(start.getDate() - d);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 1);
+      const label = start.toLocaleDateString("en-US", { weekday: "short" });
+      buckets.push({ label, start, end });
+    }
+  } else {
+    // "all" → 12 monthly buckets going back 11 months — labelled by month name only
+    for (let m = 11; m >= 0; m--) {
+      const start = new Date(now.getFullYear(), now.getMonth() - m, 1);
+      const end = new Date(now.getFullYear(), now.getMonth() - m + 1, 1);
+      const label = start.toLocaleDateString("en-US", { month: "short" });
+      buckets.push({ label, start, end });
+    }
+  }
+
+  const windowStart = buckets[0]!.start;
+
+  const [allVocabInWindow, totalWords, countBeforeWindow] = await Promise.all([
+    prisma.vocabulary.findMany({
+      where: { userId, createdAt: { gte: windowStart } },
+      select: { createdAt: true },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.vocabulary.count({ where: { userId } }),
+    prisma.vocabulary.count({ where: { userId, createdAt: { lt: windowStart } } }),
+  ]);
+
+  let running = countBeforeWindow;
+  const points = buckets.map((b) => {
+    const count = allVocabInWindow.filter(
+      (v) => v.createdAt >= b.start && v.createdAt < b.end,
+    ).length;
+    running += count;
+    return { label: b.label, value: running };
+  });
+
+  // Growth % = words added in window vs total before window
+  const addedInWindow = totalWords - countBeforeWindow;
+  const growthPct =
+    countBeforeWindow === 0
+      ? 0
+      : Math.round((addedInWindow / countBeforeWindow) * 100 * 10) / 10;
+
+  return { points, totalWords, growthPct, range };
 }
 
 // ── Main export: all sections in parallel ─────────────────────────────────────

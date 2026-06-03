@@ -101,8 +101,12 @@ export function useDashboardOverview() {
     const s = raw.value?.statCards
     if (!s) return []
 
-    const practiceHours = Math.round(s.practiceTimeMinutes / 60)
-    const practiceMonthHours = Math.round(s.practiceTimeThisMonthMinutes / 60)
+    const practiceHours = s.practiceTimeMinutes < 60
+      ? `${s.practiceTimeMinutes}m`
+      : `${Math.round(s.practiceTimeMinutes / 60)}h`
+    const practiceMonthHours = s.practiceTimeThisMonthMinutes < 60
+      ? `${s.practiceTimeThisMonthMinutes}m this month`
+      : `${Math.round(s.practiceTimeThisMonthMinutes / 60)}h this month`
 
     const pronDeltaStr =
       s.pronunciationDelta === null
@@ -124,8 +128,8 @@ export function useDashboardOverview() {
       },
       {
         label: 'Practice time',
-        value: `${practiceHours}h`,
-        delta: `${practiceMonthHours}h this month`,
+        value: practiceHours,
+        delta: practiceMonthHours,
         icon: 'Clock',
       },
       {

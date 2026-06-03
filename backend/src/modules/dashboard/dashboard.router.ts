@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authenticate } from "../../middlewares/authenticate.ts";
-import { getDashboardOverviewHandler } from "./dashboard.controller.ts";
+import { getDashboardOverviewHandler, getVocabGrowthHandler } from "./dashboard.controller.ts";
 
 const router = Router();
 
@@ -138,5 +138,53 @@ const router = Router();
  *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  */
 router.get("/overview", authenticate, getDashboardOverviewHandler);
+
+/**
+ * @swagger
+ * /dashboard/vocabulary-growth:
+ *   get:
+ *     summary: Get vocabulary growth chart data for a given time range
+ *     description: |
+ *       Returns cumulative vocabulary growth points for the selected range:
+ *       - `7d` — 7 daily buckets (last 7 days)
+ *       - `30d` — 6 weekly buckets (last ~6 weeks, default)
+ *       - `all` — 12 monthly buckets (last 12 calendar months)
+ *     tags: [Dashboard]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: range
+ *         schema:
+ *           type: string
+ *           enum: [7d, 30d, all]
+ *           default: 30d
+ *         description: Time range for the chart
+ *     responses:
+ *       200:
+ *         description: Vocabulary growth data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 message: { type: string }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     points:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           label: { type: string, example: "Jun 1" }
+ *                           value: { type: integer, example: 128 }
+ *                     totalWords: { type: integer, example: 156 }
+ *                     growthPct: { type: number, example: 12.4 }
+ *                     range: { type: string, enum: [7d, 30d, all], example: 30d }
+ *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ */
+router.get("/vocabulary-growth", authenticate, getVocabGrowthHandler);
 
 export default router;

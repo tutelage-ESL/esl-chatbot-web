@@ -1,90 +1,137 @@
 <script setup lang="ts">
-import type { VocabCard, SrsRating } from '~/common/types/dashboard-types'
+import type { VocabularyItem, SrsRating } from '~/common/types/vocabulary-types'
+import { MASTERY_LABEL } from '~/common/types/vocabulary-types'
 
-defineProps<{ card: VocabCard; cardIndex: number; total: number }>()
+const props = defineProps<{
+  card: VocabularyItem
+  cardIndex: number
+  total: number
+  reviewing?: boolean
+}>()
 const emit = defineEmits<{ rate: [rating: SrsRating] }>()
 
 const flipped = ref(false)
 
-const ratingConfig: { label: SrsRating; cls: string }[] = [
-  { label: 'Again', cls: 'bg-rose-500/10 text-rose-500 border-rose-500/20' },
-  { label: 'Hard',  cls: 'bg-brand-primary/10 text-brand-primary border-brand-primary/20' },
-  { label: 'Good',  cls: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' },
-  { label: 'Easy',  cls: 'bg-sky-500/10 text-sky-500 border-sky-500/20' },
+watch(() => props.card.id, () => { flipped.value = false })
+
+interface RatingConfig {
+  label: SrsRating
+  desc: string
+  bg: string
+  text: string
+  border: string
+  icon: string
+}
+
+const ratingConfig: RatingConfig[] = [
+  { label: 'Again', desc: 'Forgot',   bg: 'bg-rose-500/10 hover:bg-rose-500/20',    text: 'text-rose-500',        border: 'border-rose-500/30',        icon: '✗' },
+  { label: 'Hard',  desc: 'Difficult', bg: 'bg-amber-500/10 hover:bg-amber-500/20',  text: 'text-amber-500',       border: 'border-amber-500/30',       icon: '~' },
+  { label: 'Good',  desc: 'Recalled',  bg: 'bg-emerald-500/10 hover:bg-emerald-500/20', text: 'text-emerald-500',  border: 'border-emerald-500/30',     icon: '✓' },
+  { label: 'Easy',  desc: 'Perfect',   bg: 'bg-sky-500/10 hover:bg-sky-500/20',       text: 'text-sky-500',        border: 'border-sky-500/30',         icon: '★' },
 ]
 
+const masteryLabel = computed(() => MASTERY_LABEL[props.card.masteryLevel] ?? 'New')
+
+const masteryColor = computed(() => {
+  const m = props.card.masteryLevel
+  if (m === 0) return 'bg-zinc-100 dark:bg-white/5 text-text-muted'
+  if (m === 1) return 'bg-sky-500/10 text-sky-500'
+  if (m === 2) return 'bg-amber-500/10 text-amber-500'
+  if (m === 3) return 'bg-violet-500/10 text-violet-500'
+  if (m === 4) return 'bg-emerald-500/10 text-emerald-500'
+  return 'bg-brand-primary/10 text-brand-primary'
+})
+
 function rate(r: SrsRating) {
-  flipped.value = false
   emit('rate', r)
 }
 </script>
 
 <template>
-  <div class="dash-card p-8 lg:col-span-2 flex flex-col items-center justify-center min-h-[380px] relative overflow-hidden">
-    <!-- dot texture -->
+  <div class="dash-card p-6 lg:col-span-2 flex flex-col items-center justify-center min-h-95 relative overflow-hidden">
     <div class="dot-bg absolute inset-0 opacity-40 pointer-events-none" />
 
+    <!-- Progress bar -->
+    <div class="relative w-full max-w-md mb-5">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-[14px] font-medium font-poppins" style="color:var(--text-muted)">
+          Card {{ cardIndex }} of {{ total }}
+        </span>
+        <span :class="['text-[14px] font-semibold px-2.5 py-1 rounded-full font-poppins', masteryColor]">
+          {{ masteryLabel }}
+        </span>
+      </div>
+      <div class="h-1 rounded-full overflow-hidden" style="background:var(--border-inner)">
+        <div
+          class="h-full rounded-full bg-brand-primary transition-all duration-500"
+          :style="`width:${Math.round((cardIndex / total) * 100)}%`"
+        />
+      </div>
+    </div>
+
+    <!-- Card -->
     <div class="relative w-full max-w-md flip-container">
       <div :class="['flip-inner', flipped ? 'flipped' : '']">
+
         <!-- Front face -->
         <div class="flip-front w-full">
-          <div class="dash-card p-8 min-h-[280px] flex flex-col items-center justify-center text-center">
-            <p class="text-[10px] uppercase tracking-[0.18em] text-zinc-400 font-semibold font-poppins">
-              Card {{ cardIndex }} of {{ total }}
-            </p>
-            <h2 class="mt-3 text-[44px] font-semibold tracking-[-0.03em] text-brand-ink dark:text-white font-poppins">
+          <div class="dash-card p-8 min-h-70 flex flex-col items-center justify-center text-center cursor-pointer" @click="flipped = true">
+            <h2 class="text-[44px] font-semibold tracking-[-0.03em] font-poppins" style="color:var(--text-heading)">
               {{ card.word }}
             </h2>
-            <p class="mt-1 text-[14px] text-zinc-400 font-mono">{{ card.phonetic }}</p>
-            <button class="mt-3 w-9 h-9 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center hover:bg-brand-primary/20 transition">
-              <AppIconsax name="Volume" color="#f59e0b" :size="14" />
-            </button>
-            <button
-              class="mt-6 text-[12px] text-zinc-500 dark:text-zinc-400 font-medium hover:text-brand-primary transition font-poppins"
-              @click="flipped = true"
-            >
-              Tap to reveal meaning →
-            </button>
+            <p v-if="card.pronunciation" class="mt-2 text-[15px] font-mono" style="color:var(--text-muted)">
+              {{ card.pronunciation }}
+            </p>
+            <div class="mt-6 flex items-center gap-1.5 text-[14px] font-medium font-poppins" style="color:var(--text-subtle)">
+              <AppIconsax name="Eye" color="currentColor" :size="15" />
+              Tap to reveal meaning
+            </div>
           </div>
         </div>
 
         <!-- Back face -->
         <div class="flip-back w-full">
-          <div class="dash-card p-6 min-h-[280px]">
-            <div class="flex items-center gap-2 text-[10px] uppercase tracking-wider flex-wrap">
-              <span
-                v-for="tag in card.tags"
-                :key="tag"
-                class="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-white/5 text-zinc-500 dark:text-zinc-400 font-semibold font-poppins"
-              >{{ tag }}</span>
-              <span class="text-zinc-400 ml-auto font-mono">{{ card.pos }}</span>
+          <div class="dash-card p-6 min-h-70">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span :class="['text-[14px] font-semibold px-2.5 py-1 rounded-full font-poppins', masteryColor]">{{ masteryLabel }}</span>
+              <span v-if="card.category" class="text-[14px] font-medium px-2.5 py-1 rounded-full font-poppins" style="background:var(--surface-raised);color:var(--text-muted)">{{ card.category }}</span>
+              <span v-if="card.partOfSpeech" class="text-[14px] font-mono ml-auto" style="color:var(--text-subtle)">{{ card.partOfSpeech }}</span>
             </div>
-            <h3 class="mt-3 text-[22px] font-semibold tracking-tight text-brand-ink dark:text-white font-poppins">{{ card.word }}</h3>
-            <p class="mt-2 text-[14px] text-brand-ink dark:text-white leading-relaxed font-poppins">{{ card.definition }}</p>
-            <p class="mt-3 p-3 rounded-lg bg-zinc-50 dark:bg-white/3 text-[13px] italic text-zinc-600 dark:text-zinc-300 leading-relaxed font-poppins">
+            <h3 class="mt-3 text-[22px] font-semibold tracking-tight font-poppins" style="color:var(--text-heading)">{{ card.word }}</h3>
+            <p class="mt-2 text-[15px] leading-relaxed font-poppins" style="color:var(--text-body)">{{ card.definition }}</p>
+            <p v-if="card.example" class="mt-3 p-3 rounded-xl text-[14px] italic leading-relaxed font-poppins" style="background:var(--surface-raised);color:var(--text-muted)">
               "{{ card.example }}"
             </p>
             <button
-              class="mt-4 text-[12px] text-zinc-500 dark:text-zinc-400 font-medium hover:text-brand-primary transition font-poppins"
+              class="mt-4 flex items-center gap-1.5 text-[14px] font-medium transition-colors font-poppins cursor-pointer"
+              style="color:var(--text-subtle)"
               @click="flipped = false"
             >
-              ← Back to word
+              <AppIconsax name="ArrowLeft" color="currentColor" :size="14" />
+              Back to word
             </button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- SRS rating buttons (only when flipped) -->
+    <!-- Rating buttons — only when flipped -->
     <Transition name="fade-up">
-      <div v-if="flipped" class="relative mt-6 flex items-center gap-2">
+      <div v-if="flipped" class="relative mt-5 w-full max-w-md grid grid-cols-4 gap-2">
         <button
           v-for="r in ratingConfig"
           :key="r.label"
-          :class="['text-[12.5px] font-semibold px-4 py-2 rounded-lg border transition-transform hover:scale-105 font-poppins', r.cls]"
+          :disabled="reviewing"
+          :class="[
+            'flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-xl border transition-all duration-200 cursor-pointer',
+            'disabled:opacity-50 disabled:cursor-not-allowed',
+            r.bg, r.border,
+          ]"
           @click="rate(r.label)"
         >
-          {{ r.label }}
+          <span :class="['text-[18px] font-bold leading-none', r.text]">{{ r.icon }}</span>
+          <span :class="['text-[15px] font-semibold font-poppins', r.text]">{{ r.label }}</span>
+          <span class="text-[13px] font-poppins" style="color:var(--text-subtle)">{{ r.desc }}</span>
         </button>
       </div>
     </Transition>
@@ -93,5 +140,5 @@ function rate(r: SrsRating) {
 
 <style scoped>
 .fade-up-enter-active { transition: opacity 0.25s ease, transform 0.25s ease; }
-.fade-up-enter-from   { opacity: 0; transform: translateY(8px); }
+.fade-up-enter-from   { opacity: 0; transform: translateY(10px); }
 </style>

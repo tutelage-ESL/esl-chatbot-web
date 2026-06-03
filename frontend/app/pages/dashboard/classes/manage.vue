@@ -62,7 +62,7 @@ async function load(page = 1) {
   loading.value = false
   if (!res.success) { toast.error(res.message || 'Could not load classes'); return }
   classes.value = (res.data?.data ?? []) as AdminClassItem[]
-  if (res.data?.meta) meta.value = res.data.meta as PaginationMeta
+  if (res.data?.meta) meta.value = res.data.meta as ClassPaginationMeta
 }
 onMounted(load)
 watch(statusFilter, () => load(1))

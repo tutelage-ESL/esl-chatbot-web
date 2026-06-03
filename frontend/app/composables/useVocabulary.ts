@@ -1,0 +1,116 @@
+import type {
+  VocabularyItem,
+  VocabularyStats,
+  ReviewResult,
+  AddVocabularyInput,
+  UpdateVocabularyInput,
+  ListVocabularyParams,
+  ReviewQuality,
+  VocabPaginationMeta,
+} from '~/common/types/vocabulary-types'
+
+export type {
+  VocabularyItem,
+  VocabularyStats,
+  ReviewResult,
+  AddVocabularyInput,
+  UpdateVocabularyInput,
+  ListVocabularyParams,
+}
+
+// ─── Response wrappers ────────────────────────────────────────────────────────
+
+interface ListResponse<T> { success: boolean; message?: string; data: T[] }
+interface PaginatedResponse<T> { success: boolean; message?: string; data: T[]; meta: VocabPaginationMeta }
+interface SingleResponse<T> { success: boolean; message?: string; data: T }
+
+// ─── Composable ───────────────────────────────────────────────────────────────
+
+export function useVocabulary() {
+
+  function listVocabulary(params?: ListVocabularyParams) {
+    const query = new URLSearchParams()
+    if (params?.page) query.set('page', String(params.page))
+    if (params?.limit) query.set('limit', String(params.limit))
+    if (params?.due) query.set('due', params.due)
+    if (params?.source) query.set('source', params.source)
+    if (params?.category) query.set('category', params.category)
+    if (params?.search) query.set('search', params.search)
+    const qs = query.toString()
+    return useHttp<PaginatedResponse<VocabularyItem>>({
+      method: 'GET',
+      url: `/vocabulary${qs ? `?${qs}` : ''}`,
+      requireAuth: true,
+    })
+  }
+
+  function getStats() {
+    return useHttp<SingleResponse<VocabularyStats>>({
+      method: 'GET',
+      url: '/vocabulary/stats',
+      requireAuth: true,
+    })
+  }
+
+  function getDueCards() {
+    return useHttp<ListResponse<VocabularyItem>>({
+      method: 'GET',
+      url: '/vocabulary/due',
+      requireAuth: true,
+    })
+  }
+
+  function addVocabulary(input: AddVocabularyInput) {
+    return useHttp<SingleResponse<VocabularyItem>>({
+      method: 'POST',
+      url: '/vocabulary',
+      body: input,
+      requireAuth: true,
+    })
+  }
+
+  function getVocabularyById(id: string) {
+    return useHttp<SingleResponse<VocabularyItem>>({
+      method: 'GET',
+      url: `/vocabulary/${id}`,
+      requireAuth: true,
+    })
+  }
+
+  function updateVocabulary(id: string, input: UpdateVocabularyInput) {
+    return useHttp<SingleResponse<VocabularyItem>>({
+      method: 'PATCH',
+      url: `/vocabulary/${id}`,
+      body: input,
+      requireAuth: true,
+    })
+  }
+
+  function deleteVocabulary(id: string) {
+    return useHttp({
+      method: 'DELETE',
+      url: `/vocabulary/${id}`,
+      requireAuth: true,
+    })
+  }
+
+  function reviewVocabulary(id: string, quality: ReviewQuality) {
+    return useHttp<SingleResponse<ReviewResult>>({
+      method: 'POST',
+      url: `/vocabulary/${id}/review`,
+      body: { quality },
+      requireAuth: true,
+    })
+  }
+
+  return {
+    listVocabulary,
+    getStats,
+    getDueCards,
+    addVocabulary,
+    getVocabularyById,
+    updateVocabulary,
+    deleteVocabulary,
+    reviewVocabulary,
+  }
+}

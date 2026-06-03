@@ -475,10 +475,30 @@ async function main() {
     { userId: student2.id, word: "uncountable", definition: "A noun that has no plural and cannot be counted directly", pronunciation: "/ʌnˈkaʊntəbəl/", example: "Food and water are uncountable nouns.", partOfSpeech: "adjective", difficulty: 2, category: "grammar", source: "SESSION" as const, masteryLevel: 0, reviewCount: 0, correctCount: 0, incorrectCount: 0, srsInterval: 0, srsEase: 2.5, srsDue: now },
   ];
 
+  // Spread createdAt across the past ~11 months so the vocabulary-growth chart
+  // shows a realistic curve for all ranges (7d / 30d / all). Words are assigned
+  // progressively older dates per user, with the most recent few landing inside
+  // the last 7 and 30 days.
+  const byUser = new Map<string, typeof vocabItems>();
   for (const item of vocabItems) {
-    await prisma.vocabulary.create({ data: item });
+    const list = byUser.get(item.userId) ?? [];
+    list.push(item);
+    byUser.set(item.userId, list);
   }
-  console.log(`   ✅ ${vocabItems.length} vocabulary items (10 Ali, 8 Yuki) with varied SRS states\n`);
+
+  for (const [, items] of byUser) {
+    const n = items.length;
+    // Oldest word ~330 days ago, newest ~2 days ago, evenly spaced
+    const oldestDaysAgo = 330;
+    const newestDaysAgo = 2;
+    for (let i = 0; i < n; i++) {
+      const frac = n === 1 ? 0 : i / (n - 1);
+      const daysAgo = Math.round(oldestDaysAgo - frac * (oldestDaysAgo - newestDaysAgo));
+      const createdAt = new Date(now.getTime() - daysAgo * 86400000);
+      await prisma.vocabulary.create({ data: { ...items[i]!, createdAt } });
+    }
+  }
+  console.log(`   ✅ ${vocabItems.length} vocabulary items (10 Ali, 8 Yuki) with varied SRS states + spread createdAt\n`);
 
   // ─── Goals ──────────────────────────────────────────────────────────────────
   console.log("🎯 Creating goals...");

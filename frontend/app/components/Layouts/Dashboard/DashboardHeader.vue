@@ -118,8 +118,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
       <button
         class="relative w-9 h-9 rounded-lg flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-brand-ink dark:hover:text-white transition"
       >
-        <AppIconsax name="Notification" color="currentColor" :size="15" />
-        <span class="absolute top-2 right-2.5 w-1.5 h-1.5 rounded-full bg-brand-primary ring-2 ring-white dark:ring-[#0e0e10]" />
+        <AppIconsax name="Notification" color="currentColor" :size="22" />
+        <span class="absolute top-2 right-2.5 size-2 rounded-full bg-brand-primary ring-2 ring-white dark:ring-[#0e0e10]" />
       </button>
 
       <!-- New session CTA -->

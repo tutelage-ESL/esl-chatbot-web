@@ -79,3 +79,12 @@ export interface DashboardOverviewData {
   activityHeatmap: DashboardActivityHeatmap;
   dueWords: DashboardDueWords;
 }
+
+export type VocabGrowthRange = "7d" | "30d" | "all";
+
+export interface DashboardVocabGrowth {
+  points: DashboardVocabChartPoint[];
+  totalWords: number;
+  growthPct: number;
+  range: VocabGrowthRange;
+}

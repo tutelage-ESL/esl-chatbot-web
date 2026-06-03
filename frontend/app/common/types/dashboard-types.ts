@@ -103,24 +103,7 @@ export interface PhonemeScore {
 }
 
 // ─── Vocabulary ───────────────────────────────────────────────────────────────
-
-export interface VocabCard {
-  word: string
-  phonetic: string
-  pos: string
-  definition: string
-  example: string
-  tags: string[]
-}
-
-export interface VocabDeck {
-  name: string
-  count: number
-  due: number
-  gradient: string
-}
-
-export type SrsRating = 'Again' | 'Hard' | 'Good' | 'Easy'
+// Vocabulary types moved to common/types/vocabulary-types.ts (wired to the real API).
 
 // ─── Goals ────────────────────────────────────────────────────────────────────
 

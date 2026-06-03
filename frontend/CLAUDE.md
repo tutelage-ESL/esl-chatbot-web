@@ -104,6 +104,9 @@ Pinia stores live at the **workspace root** in `stores/` (imported as `~~/stores
 - On the primary brand color (orange/`brand-primary`), always use **white** text AND white icons. This applies to buttons, badges, hover states, dropdown items, and any element with a `brand-primary` background.
 - **Icons on `variant="primary"` buttons must always use `color: 'white'`** in their `:icon-config`. Secondary-variant button icons use `'currentColor'` or a specific hex. Never use a dark/colored icon on a primary button.
 - Always check `components/App/`, `components/ui/`, and `components/Form/` before creating a new primitive — use what exists.
+- **Minimum readable text size: 14px on desktop.** Never use `text-[10px]`, `text-[11px]`, `text-[12px]`, or `text-[13px]` for body copy, action labels, button text, or any interactive element on desktop. `12px` is only acceptable for secondary metadata on mobile (`sm:` breakpoint) or truly non-critical helper text where it is intentional and visually clear. Never size action buttons or their icons so small the label or icon becomes illegible — if content looks squeezed, increase size or padding rather than shrinking text.
+- **Do not touch backend files** (anything under `backend/`) unless Rekar explicitly instructs it in that message. Frontend work only.
+- **Design must follow the backend — never invent fields, states, or features that don't exist in the API.** If the backend returns two vocabulary sources (`MANUAL` and `SESSION`), design for exactly those two. If a field is nullable, handle the null. If an endpoint doesn't exist, don't build UI for it. Check the backend contract first, then design.
 
 ### Color system — dashboard UI tokens
 

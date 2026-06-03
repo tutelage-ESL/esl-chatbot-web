@@ -1,27 +1,27 @@
 <script setup lang="ts">
-import type { VocabCard, VocabDeck, SrsRating } from '~/common/types/dashboard-types'
-
 definePageMeta({ layout: 'dashboard', requiresAuth: true })
 
-const card: VocabCard = {
-  word: 'meticulous',
-  phonetic: '/məˈtɪkjələs/',
-  pos: 'adjective',
-  definition: 'Showing great attention to detail; very careful and precise.',
-  example: "She's meticulous about her notes — every page is color-coded.",
-  tags: ['B2', 'formal', 'positive'],
-}
-
-const decks: VocabDeck[] = [
-  { name: 'Business English',    count: 142, due: 8,  gradient: 'from-[#f59e0b] to-[#fb923c]' },
-  { name: 'Travel & culture',    count: 98,  due: 4,  gradient: 'from-[#0ea5e9] to-[#22d3ee]' },
-  { name: 'Daily phrasal verbs', count: 76,  due: 0,  gradient: 'from-[#10b981] to-[#34d399]' },
-  { name: 'IELTS Band 7+',       count: 220, due: 12, gradient: 'from-[#8b5cf6] to-[#a78bfa]' },
-]
-
-function onRate(_rating: SrsRating) {
-  // future: advance to next card
-}
+const {
+  loading,
+  stats,
+  dueCards,
+  reviewIndex,
+  reviewing,
+  words,
+  wordsTotal,
+  listLoading,
+  search,
+  sourceFilter,
+  addOpen,
+  adding,
+  currentCard,
+  reviewDone,
+  dueCount,
+  rate,
+  restartReview,
+  submitWord,
+  removeWord,
+} = useVocabPage()
 </script>
 
 <template>
@@ -31,23 +31,82 @@ function onRate(_rating: SrsRating) {
       <div>
         <h1 class="text-[28px] font-semibold tracking-[-0.02em] text-brand-ink dark:text-white font-poppins">Vocabulary</h1>
         <p class="text-[14px] text-zinc-500 dark:text-zinc-400 mt-1 font-poppins">
-          <span class="text-brand-primary font-medium">12 cards</span> due · spaced repetition
+          <span class="text-brand-primary font-medium">{{ dueCount }} card{{ dueCount === 1 ? '' : 's' }}</span> due · spaced repetition
         </p>
       </div>
       <div class="flex items-center gap-2">
-        <AppButton variant="secondary" size="36" radius="8" icon="Add" text="New deck" />
-        <AppButton variant="primary" size="36" radius="8" icon="ArrowRight" :icon-config="{color: 'white'}" icon-position="end" text="Review 12 due" />
+        <AppButton variant="secondary" size="36" radius="8" icon="Add" text="Add word" @click="addOpen = true" />
       </div>
     </div>
 
-    <!-- Flashcard + sidebar -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <div class="animate-card-enter" style="--delay:80ms">
-        <PagesDashboardVocabFlashcard :card="card" :card-index="1" :total="12" @rate="onRate" />
-      </div>
-      <div class="animate-card-enter" style="--delay:160ms">
-        <PagesDashboardVocabDeckList :decks="decks" />
-      </div>
+    <!-- Loading -->
+    <div v-if="loading" class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <UiSkeleton class="lg:col-span-2 h-95 rounded-2xl" />
+      <UiSkeleton class="h-95 rounded-2xl" />
     </div>
+
+    <template v-else>
+      <!-- Flashcard review + stats sidebar -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- Review queue -->
+        <div class="animate-card-enter lg:col-span-2 flex" style="--delay:80ms">
+          <PagesDashboardVocabFlashcard
+            v-if="currentCard"
+            class="w-full"
+            :card="currentCard"
+            :card-index="reviewIndex + 1"
+            :total="dueCards.length"
+            :reviewing="reviewing"
+            @rate="rate"
+          />
+          <!-- All caught up / nothing due -->
+          <div v-else class="dash-card p-8 w-full flex flex-col items-center justify-center text-center min-h-95">
+            <div class="size-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center mb-4">
+              <AppIconsax name="TickCircle" color="#10b981" :size="26" />
+            </div>
+            <h2 class="text-[20px] font-semibold text-brand-ink dark:text-white font-poppins">
+              {{ reviewDone ? 'Review complete!' : 'Nothing due right now' }}
+            </h2>
+            <p class="text-[13px] text-zinc-500 dark:text-zinc-400 mt-1 max-w-xs font-poppins">
+              {{ reviewDone
+                ? 'You cleared every card due today. Come back later for the next batch.'
+                : 'Your cards are scheduled. Add words or chat with the AI to grow your list.' }}
+            </p>
+            <AppButton
+              v-if="reviewDone"
+              variant="secondary"
+              size="36"
+              radius="8"
+              icon="Refresh"
+              text="Check for more"
+              class="mt-5"
+              @click="restartReview"
+            />
+          </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="animate-card-enter" style="--delay:160ms">
+          <PagesDashboardVocabStatsPanel :stats="stats" />
+        </div>
+      </div>
+
+      <!-- Full word list -->
+      <div class="animate-card-enter" style="--delay:240ms">
+        <PagesDashboardVocabWordList
+          :words="words"
+          :total="wordsTotal"
+          :loading="listLoading"
+          :search="search"
+          :source="sourceFilter"
+          @update:search="search = $event"
+          @update:source="sourceFilter = $event"
+          @delete="removeWord"
+        />
+      </div>
+    </template>
+
+    <!-- Add word modal -->
+    <PagesDashboardVocabAddWordModal v-model:open="addOpen" :adding="adding" @submit="submitWord" />
   </div>
 </template>

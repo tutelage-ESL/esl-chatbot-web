@@ -2866,6 +2866,81 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/dashboard/vocabulary-growth": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get vocabulary growth chart data for a given time range
+         * @description Returns cumulative vocabulary growth points for the selected range:
+         *     - `7d` — 7 daily buckets (last 7 days)
+         *     - `30d` — 6 weekly buckets (last ~6 weeks, default)
+         *     - `all` — 12 monthly buckets (last 12 calendar months)
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Time range for the chart */
+                    range?: "7d" | "30d" | "all";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Vocabulary growth data */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @example true */
+                            success?: boolean;
+                            message?: string;
+                            data?: {
+                                points?: {
+                                    /** @example Jun 1 */
+                                    label?: string;
+                                    /** @example 128 */
+                                    value?: number;
+                                }[];
+                                /** @example 156 */
+                                totalWords?: number;
+                                /** @example 12.4 */
+                                growthPct?: number;
+                                /**
+                                 * @example 30d
+                                 * @enum {string}
+                                 */
+                                range?: "7d" | "30d" | "all";
+                            };
+                        };
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/goals": {
         parameters: {
             query?: never;
