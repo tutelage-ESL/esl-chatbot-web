@@ -1,8 +1,11 @@
+import type { FibSubscription } from "@prisma/client";
 import { FibSubscribeError } from "../../lib/fib-client.ts";
+import type { SubscriptionDetails } from "../../lib/fib-client.ts";
 import { prisma } from "../../config/database.ts";
 import { fib } from "../../config/fib.ts";
 import { AppError } from "../../utils/AppError.ts";
 import { env } from "../../config/env.ts";
+import { logger } from "../../config/index.ts";
 import type {
   InitiateFibInput,
   InitiateFibResult,
@@ -25,6 +28,58 @@ const INTERVAL_ISO: Record<number, string> = {
   12: "P1Y",
 };
 
+// ─── Shared status-sync helper ────────────────────────────────────────────────
+// Used by getFibStatus, handleFibWebhook, and the reconciliation cron job to
+// avoid duplicating the status-transition + subscription-update transaction.
+export async function applyFibStatusChange(
+  record: FibSubscription,
+  details: SubscriptionDetails,
+): Promise<void> {
+  const incomingStatus = details.status as FibSubStatusType;
+  if (record.fibStatus === incomingStatus) return; // already up to date
+
+  const now = new Date();
+  const isActivating = incomingStatus === "ACTIVE" || incomingStatus === "TRIAL";
+  const isCancelling = incomingStatus === "CANCELLED" || incomingStatus === "REJECTED";
+
+  await prisma.$transaction([
+    prisma.fibSubscription.update({
+      where: { id: record.id },
+      data: {
+        fibStatus: incomingStatus,
+        ...(isActivating && !record.activatedAt ? { activatedAt: now } : {}),
+        ...(isCancelling && !record.cancelledAt ? { cancelledAt: now } : {}),
+      },
+    }),
+    isActivating
+      ? prisma.subscription.update({
+          where: { userId: record.userId },
+          data: {
+            plan: record.plan,
+            status: "ACTIVE",
+            paymentProvider: "FIB",
+            externalSubscriptionId: record.fibSubscriptionId,
+            currentPeriodStart: now,
+            currentPeriodEnd: details.activeUntil
+              ? new Date(details.activeUntil)
+              : null,
+          },
+        })
+      : isCancelling
+        ? prisma.subscription.update({
+            where: { userId: record.userId },
+            data: {
+              plan: "FREE",
+              status: "ACTIVE",
+              paymentProvider: null,
+              externalSubscriptionId: null,
+              currentPeriodEnd: now,
+            },
+          })
+        : prisma.subscription.findUnique({ where: { userId: record.userId } }),
+  ]);
+}
+
 function requireFib() {
   if (!fib) {
     throw new AppError(
@@ -44,7 +99,7 @@ export async function initiateFibSubscription(
   const client = requireFib();
   const { plan, intervalMonths } = input;
 
-  // Guard: cross-provider conflicts — cannot layer FIB on top of another active provider
+  // Guard 1: cross-provider conflicts — cannot layer FIB on top of another active provider
   const existing = await prisma.subscription.findUnique({ where: { userId } });
   if (existing?.status === "ACTIVE") {
     if (existing.paymentProvider === "CASH") {
@@ -65,6 +120,21 @@ export async function initiateFibSubscription(
         409,
       );
     }
+  }
+
+  // Guard 2: prevent multiple concurrent DRAFT FIB subscriptions for the same user.
+  // A pending DRAFT means a QR code is already open and awaiting payment. Allowing
+  // multiple DRAFTs would let a user accumulate several open payment requests,
+  // each of which could independently activate and charge them.
+  const pendingFib = await prisma.fibSubscription.findFirst({
+    where: { userId, fibStatus: { notIn: ["CANCELLED", "REJECTED"] } },
+    select: { id: true },
+  });
+  if (pendingFib) {
+    throw new AppError(
+      "You already have a pending FIB subscription. Cancel it or wait for it to expire before starting a new one.",
+      409,
+    );
   }
 
   const amountIQD = PLAN_AMOUNTS_IQD[plan]?.[intervalMonths];
@@ -91,7 +161,7 @@ export async function initiateFibSubscription(
     });
   } catch (err) {
     if (err instanceof FibSubscribeError) {
-      console.error("[FIB] createSubscription error", { status: err.statusCode, body: err.body });
+      logger.error("[fib] createSubscription error", { status: err.statusCode, message: err.message });
       throw new AppError(`FIB error: ${err.message}`, 502);
     }
     throw err instanceof Error ? err : new Error(String(err));
@@ -143,49 +213,7 @@ export async function getFibStatus(
 
   const incomingStatus = details.status as FibSubStatusType;
 
-  // Sync local record + main Subscription if status changed
-  if (record.fibStatus !== incomingStatus) {
-    const now = new Date();
-    const isActivating = incomingStatus === "ACTIVE" || incomingStatus === "TRIAL";
-    const isCancelling = incomingStatus === "CANCELLED" || incomingStatus === "REJECTED";
-
-    await prisma.$transaction([
-      prisma.fibSubscription.update({
-        where: { id: record.id },
-        data: {
-          fibStatus: incomingStatus,
-          ...(isActivating && !record.activatedAt ? { activatedAt: now } : {}),
-          ...(isCancelling && !record.cancelledAt ? { cancelledAt: now } : {}),
-        },
-      }),
-      isActivating
-        ? prisma.subscription.update({
-            where: { userId },
-            data: {
-              plan: record.plan,
-              status: "ACTIVE",
-              paymentProvider: "FIB",
-              externalSubscriptionId: fibSubscriptionId,
-              currentPeriodStart: now,
-              currentPeriodEnd: details.activeUntil
-                ? new Date(details.activeUntil)
-                : null,
-            },
-          })
-        : isCancelling
-          ? prisma.subscription.update({
-              where: { userId },
-              data: {
-                plan: "FREE",
-                status: "ACTIVE",
-                paymentProvider: null,
-                externalSubscriptionId: null,
-                currentPeriodEnd: now,
-              },
-            })
-          : prisma.subscription.findUnique({ where: { userId } }), // no-op read
-    ]);
-  }
+  await applyFibStatusChange(record, details);
 
   return {
     fibStatus: incomingStatus,
@@ -256,6 +284,14 @@ export async function cancelFibSubscription(
 }
 
 // ─── Webhook ──────────────────────────────────────────────────────────────────
+//
+// Security note: FIB does not sign webhook payloads (no HMAC header), so we
+// cannot verify the caller is FIB. Mitigation: we ALWAYS re-fetch from the FIB
+// API before mutating any DB state — an attacker posting a spoofed callback
+// cannot cause a state change that does not already exist in FIB's own records.
+// TODO (hardening): once FIB discloses their static callback IP ranges,
+// add an IP allowlist check here (FIB_WEBHOOK_IP_ALLOWLIST env var) so only
+// FIB servers can trigger the re-verification call in the first place.
 
 export async function handleFibWebhook(subscriptionId: string): Promise<void> {
   if (!fib) return; // FIB not configured — ignore
@@ -273,47 +309,6 @@ export async function handleFibWebhook(subscriptionId: string): Promise<void> {
     return; // FIB unreachable — skip; will reconcile on next poll or webhook retry
   }
 
-  const incomingStatus = details.status as FibSubStatusType;
-  if (record.fibStatus === incomingStatus) return; // Idempotency: already processed
-
-  const now = new Date();
-  const isActivating = incomingStatus === "ACTIVE" || incomingStatus === "TRIAL";
-  const isCancelling = incomingStatus === "CANCELLED" || incomingStatus === "REJECTED";
-
-  await prisma.$transaction([
-    prisma.fibSubscription.update({
-      where: { id: record.id },
-      data: {
-        fibStatus: incomingStatus,
-        ...(isActivating && !record.activatedAt ? { activatedAt: now } : {}),
-        ...(isCancelling && !record.cancelledAt ? { cancelledAt: now } : {}),
-      },
-    }),
-    isActivating
-      ? prisma.subscription.update({
-          where: { userId: record.userId },
-          data: {
-            plan: record.plan,
-            status: "ACTIVE",
-            paymentProvider: "FIB",
-            externalSubscriptionId: subscriptionId,
-            currentPeriodStart: now,
-            currentPeriodEnd: details.activeUntil
-              ? new Date(details.activeUntil)
-              : null,
-          },
-        })
-      : isCancelling
-        ? prisma.subscription.update({
-            where: { userId: record.userId },
-            data: {
-              plan: "FREE",
-              status: "ACTIVE",
-              paymentProvider: null,
-              externalSubscriptionId: null,
-              currentPeriodEnd: now,
-            },
-          })
-        : prisma.subscription.findUnique({ where: { userId: record.userId } }),
-  ]);
+  // applyFibStatusChange is idempotent — it returns early if status is unchanged
+  await applyFibStatusChange(record, details);
 }

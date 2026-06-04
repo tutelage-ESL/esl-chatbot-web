@@ -183,6 +183,19 @@ describe("POST /api/v1/subscriptions/initiate-fib", () => {
     expect(res.status).toBe(201);
   });
 
+  it("409 — already has a pending (non-cancelled) FIB subscription in DB", async () => {
+    const u = track(await createTestUser({ plan: "FREE", status: "ACTIVE" }));
+    await makeFibRecord(u.id, { fibStatus: "DRAFT" }); // open QR code still pending
+
+    const res = await request(app)
+      .post("/api/v1/subscriptions/initiate-fib")
+      .set(auth(u.token))
+      .send({ plan: "PREMIUM", intervalMonths: 1 });
+
+    expect(res.status).toBe(409);
+    expect(createSpy).not.toHaveBeenCalled(); // must not reach FIB
+  });
+
   it("409 — already has ACTIVE FIB subscription", async () => {
     const u = track(
       await createTestUser({ plan: "GOLD", status: "ACTIVE", paymentProvider: "FIB" }),
