@@ -5,12 +5,11 @@ defineProps<{
   /** Footer link target — when set, renders a "see more" row at the bottom */
   to?: string
   linkLabel?: string
-  delay?: number
 }>()
 </script>
 
 <template>
-  <div class="dash-card p-5 flex flex-col animate-card-enter" :style="`--delay:${delay ?? 0}ms`">
+  <div class="dash-card p-5 flex flex-col h-full">
     <!-- Header -->
     <div class="flex items-center gap-2.5 mb-4">
       <div v-if="icon" class="size-8 rounded-lg flex items-center justify-center shrink-0" :style="`background:var(--surface-raised)`">

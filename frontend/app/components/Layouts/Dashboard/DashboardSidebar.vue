@@ -28,23 +28,21 @@ watch(() => route.path, () => {
   if (props.mobileOpen) emit('close-mobile')
 })
 
-const primaryNav = computed(() => {
-  const all: DashboardNavItem[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: 'Chart', path: '/dashboard', badge: undefined },
-    // Admin and Tutor also see Users
-    ...(userRole.value === 'ADMIN'
-      ? [{ id: 'users', label: 'Users', icon: 'People', path: '/dashboard/users', badge: undefined }]
-      : []
-    ),
-    { id: 'chat', label: 'AI Chat', icon: 'Messages', path: '/dashboard/chat', badge: undefined },
-    { id: 'classes', label: 'Classes', icon: 'BookSaved', path: '/dashboard/classes', badge: undefined },
-    { id: 'lessons', label: 'Lessons', icon: 'Candle', path: '/dashboard/lessons', badge: undefined },
-    { id: 'voice', label: 'Voice Lab', icon: 'Microphone', path: '/dashboard/voice', badge: undefined },
+const primaryNav = computed<DashboardNavItem[]>(() => {
+  const adminOnly: DashboardNavItem[] = userRole.value === 'ADMIN'
+    ? [{ id: 'users', label: 'Users', icon: 'People', path: '/dashboard/users' }]
+    : []
+  return [
+    { id: 'dashboard', label: 'Dashboard', icon: 'Chart', path: '/dashboard' },
+    ...adminOnly,
+    { id: 'chat', label: 'AI Chat', icon: 'Messages', path: '/dashboard/chat' },
+    { id: 'classes', label: 'Classes', icon: 'BookSaved', path: '/dashboard/classes' },
+    { id: 'lessons', label: 'Lessons', icon: 'Candle', path: '/dashboard/lessons' },
+    { id: 'voice', label: 'Voice Lab', icon: 'Microphone', path: '/dashboard/voice' },
     { id: 'vocab', label: 'Vocabulary', icon: 'Book1', path: '/dashboard/vocab', badge: vocabDueCount.value },
-    { id: 'goals', label: 'Goals', icon: 'Flag', path: '/dashboard/goals', badge: undefined },
-    { id: 'billing', label: 'Billing', icon: 'Wallet2', path: '/dashboard/billing', badge: undefined },
+    { id: 'goals', label: 'Goals', icon: 'Flag', path: '/dashboard/goals' },
+    { id: 'billing', label: 'Billing', icon: 'Wallet2', path: '/dashboard/billing' },
   ]
-  return all satisfies DashboardNavItem[]
 })
 
 function isActive(path: string) {

@@ -226,6 +226,7 @@ async function handleRefresh(id: string) {
       @update:open="drawerOpen = $event"
       @copy="code => drawerClass && handleCopy(code, drawerClass.id)"
       @refresh="handleRefresh"
+      @edit="id => $router.push(`/dashboard/classes/${id}/edit`)"
     />
   </div>
 </template>

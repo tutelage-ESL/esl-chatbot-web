@@ -16,7 +16,7 @@ const cls = ref<ClassDetail | null>(null)
 const loading = ref(true)
 const copying = ref(false)
 const refreshing = ref(false)
-const editOpen = ref(false)
+
 
 const currentUserId = computed(() => authStore.getUser?.id ?? '')
 const userRole = computed(() => authStore.getUser?.role)
@@ -133,7 +133,7 @@ onMounted(load)
           variant="secondary" size="36" radius="8"
           icon="Edit2" :icon-config="{ color: 'currentColor', size: 14 }"
           text="Edit" class="shrink-0"
-          @click="editOpen = true"
+          :to="`/dashboard/classes/${classId}/edit`"
         />
         <span
           class="text-[11px] font-semibold uppercase tracking-wide px-2.5 py-1 rounded-full font-poppins shrink-0"
@@ -266,14 +266,7 @@ onMounted(load)
 
     </template>
 
-    <!-- Shared edit dialog -->
-    <PagesDashboardClassesEditClassDialog
-      :open="editOpen"
-      :cls="cls"
-      :is-admin="userRole === 'ADMIN'"
-      @update:open="editOpen = $event"
-      @saved="load"
-    />
+
 
   </div>
 </template>

@@ -183,12 +183,12 @@ const students = computed(() => props.cls?.members?.filter(m => m.role === 'STUD
             </div>
           </div>
 
-          <!-- Admin CRUD actions -->
-          <div v-if="isAdmin" class="flex items-center gap-2">
+          <!-- Tutor + admin CRUD actions -->
+          <div v-if="isTutorOrAdmin" class="flex items-center gap-2">
             <AppButton variant="secondary" size="36" radius="8" icon="Edit2"
               :icon-config="{ color: 'currentColor', size: 14 }" text="Edit class" class="flex-1"
               @click="cls && emit('edit', cls.id)" />
-            <AppButton variant="secondary" size="36" radius="8" icon="Trash"
+            <AppButton v-if="isAdmin" variant="secondary" size="36" radius="8" icon="Trash"
               :icon-config="{ color: '#ef4444', size: 14 }" text="Delete" class="flex-1"
               @click="cls && emit('delete', cls.id)" />
           </div>

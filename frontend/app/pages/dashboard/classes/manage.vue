@@ -34,10 +34,6 @@ const deletingId = ref<string | null>(null)
 const deletingName = ref('')
 const deleteLoading = ref(false)
 
-// Edit dialog
-const editDialogOpen = ref(false)
-const editingClass = ref<AdminClassItem | null>(null)
-
 // ─── Derived ──────────────────────────────────────────────────────────────────
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
@@ -96,16 +92,7 @@ async function handleRefresh(id: string) {
 
 // ─── Edit ─────────────────────────────────────────────────────────────────────
 function openEdit(id: string) {
-  const cls = classes.value.find(c => c.id === id)
-  if (!cls) return
-  editingClass.value = cls
-  editDialogOpen.value = true
-}
-
-async function handleEditSaved() {
-  editDialogOpen.value = false
-  await load(meta.value.page)
-  if (drawerClass.value?.id === editingClass.value?.id) await openDrawer(editingClass.value!.id)
+  router.push(`/dashboard/classes/${id}/edit`)
 }
 
 // ─── Delete ───────────────────────────────────────────────────────────────────
@@ -311,15 +298,6 @@ async function handleConfirmDelete() {
       @refresh="handleRefresh"
       @edit="openEdit"
       @delete="openDelete"
-    />
-
-    <!-- Edit dialog (shared component) -->
-    <PagesDashboardClassesEditClassDialog
-      :open="editDialogOpen"
-      :cls="editingClass"
-      :is-admin="true"
-      @update:open="editDialogOpen = $event"
-      @saved="handleEditSaved"
     />
 
     <!-- Delete confirm dialog -->

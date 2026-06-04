@@ -20,48 +20,52 @@ function pctOfUsers(n: number): number {
   return totalUsers.value ? Math.round((n / totalUsers.value) * 100) : 0
 }
 
-// Engagement rate — how much of the user base was active in the last week.
 const weeklyEngagement = computed(() => pctOfUsers(activeUsers.value.weekly))
 
-// Users-by-role rows
-const ROLE_ICON: Record<'STUDENT' | 'TUTOR' | 'ADMIN', string> = {
-  STUDENT: 'People',
-  TUTOR: 'Teacher',
-  ADMIN: 'Shield',
-}
-const roleRows = computed(() =>
-  (['STUDENT', 'TUTOR', 'ADMIN'] as const).map((role) => ({
-    role,
-    label: `${role.charAt(0)}${role.slice(1).toLowerCase()}s`,
-    count: usersByRole.value[role] ?? 0,
-    icon: ROLE_ICON[role],
-  }))
-)
-
-// Subscription rows with fill %
-const planRows = computed(() => [
-  { label: 'Free', value: subscriptions.value.FREE, pct: pctOfUsers(subscriptions.value.FREE), barColor: 'var(--color-text-subtle)', valueColor: 'var(--text-heading)' },
-  { label: 'Gold', value: subscriptions.value.GOLD, pct: pctOfUsers(subscriptions.value.GOLD), barColor: '#f59e0b', valueColor: '#f59e0b' },
-  { label: 'Premium', value: subscriptions.value.PREMIUM, pct: pctOfUsers(subscriptions.value.PREMIUM), barColor: '#8b5cf6', valueColor: '#8b5cf6' },
+// ── Donut: subscriptions ───────────────────────────────────────────────────
+const subscriptionSegments = computed(() => [
+  { label: 'Free', value: subscriptions.value.FREE, color: 'var(--color-text-subtle)' },
+  { label: 'Gold', value: subscriptions.value.GOLD, color: '#f59e0b' },
+  { label: 'Premium', value: subscriptions.value.PREMIUM, color: '#8b5cf6' },
 ])
 
+// ── Donut: user roles ──────────────────────────────────────────────────────
+const roleSegments = computed(() => [
+  { label: 'Students', value: usersByRole.value.STUDENT, color: 'var(--color-brand-primary)', role: 'STUDENT' },
+  { label: 'Tutors', value: usersByRole.value.TUTOR, color: '#06b6d4', role: 'TUTOR' },
+  { label: 'Admins', value: usersByRole.value.ADMIN, color: '#8b5cf6', role: 'ADMIN' },
+])
+
+// ── Sparkbars: platform engagement ────────────────────────────────────────
+const engagementBars = computed(() => [
+  { label: 'Active today', value: activeUsers.value.daily, max: totalUsers.value, color: '#22c55e', suffix: '' },
+  { label: 'Active this week', value: activeUsers.value.weekly, max: totalUsers.value, color: 'var(--color-brand-primary)', suffix: '' },
+])
+
+// ── Revenue rows ───────────────────────────────────────────────────────────
 const revenueRows = computed(() =>
   Object.entries(revenueByProvider.value).map(([provider, count]) => ({ provider, count }))
+)
+const revenueTotal = computed(() => revenueRows.value.reduce((s, r) => s + r.count, 0))
+
+// Inactive users = total - weekly active
+const inactiveUsers = computed(() =>
+  Math.max(0, totalUsers.value - activeUsers.value.weekly)
 )
 </script>
 
 <template>
   <div class="h-full overflow-y-auto p-5 sm:p-7 space-y-6">
 
-    <!-- Header -->
+    <!-- Header — TWO distinct CTAs: user management + class management (different destinations) -->
     <div class="flex items-center justify-between gap-4 flex-wrap animate-card-enter" style="--delay:0ms">
       <div>
         <p class="text-[24px] font-bold font-poppins" :style="`color:var(--text-heading)`">Admin Dashboard</p>
         <p class="text-[14px] font-poppins mt-0.5" :style="`color:var(--text-muted)`">{{ today }}</p>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
-        <AppButton variant="secondary" size="36" radius="8" icon="People" text="Manage users" @click="$router.push('/dashboard/users')" />
-        <AppButton variant="primary" size="36" radius="8" icon="BookSaved" text="Manage classes" :icon-config="{ color: 'white', size: 15 }" @click="$router.push('/dashboard/classes/manage')" />
+        <AppButton variant="secondary" size="36" radius="8" icon="People" text="Users" @click="$router.push('/dashboard/users')" />
+        <AppButton variant="primary" size="36" radius="8" icon="BookSaved" text="Classes" :icon-config="{ color: 'white', size: 15 }" @click="$router.push('/dashboard/classes/manage')" />
       </div>
     </div>
 
@@ -71,91 +75,148 @@ const revenueRows = computed(() =>
         <UiSkeleton v-for="n in 4" :key="n" class="h-24 rounded-xl" />
       </template>
       <template v-else>
-        <PagesDashboardSharedDashStatCard label="Total users" :value="totalUsers" :sub="`${usersByRole.STUDENT} students · ${usersByRole.TUTOR} tutors`" icon="People" />
-        <PagesDashboardSharedDashStatCard label="Paid subscribers" :value="paidTotal" :sub="`${subscriptions.GOLD} Gold · ${subscriptions.PREMIUM} Premium`" icon="Crown1" accent="gold" />
-        <PagesDashboardSharedDashStatCard label="Active today" :value="activeUsers.daily" :sub="`${weeklyEngagement}% active this week`" icon="Activity" accent="green" />
-        <PagesDashboardSharedDashStatCard label="Sessions today" :value="sessionsToday" sub="Across all users" icon="Messages" accent="premium" />
+        <PagesDashboardSharedDashStatCard
+          label="Total users" :value="totalUsers"
+          :sub="`${usersByRole.STUDENT} students · ${usersByRole.TUTOR} tutors`"
+          icon="People"
+        />
+        <PagesDashboardSharedDashStatCard
+          label="Paid subscribers" :value="paidTotal"
+          :sub="`${subscriptions.GOLD} Gold · ${subscriptions.PREMIUM} Premium`"
+          icon="Crown1" accent="gold"
+        />
+        <PagesDashboardSharedDashStatCard
+          label="Active today" :value="activeUsers.daily"
+          :sub="`${weeklyEngagement}% active this week`"
+          icon="Activity" accent="green"
+        />
+        <PagesDashboardSharedDashStatCard
+          label="Sessions today" :value="sessionsToday"
+          sub="Across all users"
+          icon="Messages" accent="premium"
+        />
       </template>
     </div>
 
-    <!-- Breakdown cards -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+    <!-- Donut charts row — each links to a different filtered view -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-card-enter" style="--delay:160ms">
 
-      <!-- Users by role -->
+      <!-- Subscription breakdown → view active paid subscribers -->
+      <PagesDashboardSharedDashSectionCard
+        title="Subscription breakdown"
+        icon="Crown1"
+        to="/dashboard/users?subscriptionStatus=ACTIVE"
+        link-label="View active subscribers"
+      >
+        <template v-if="loading">
+          <UiSkeleton class="h-36 rounded-xl" />
+        </template>
+        <template v-else>
+          <PagesDashboardSharedDashDonutChart :segments="subscriptionSegments" />
+        </template>
+      </PagesDashboardSharedDashSectionCard>
+
+      <!-- Users by role — each role badge is a clickable filter link -->
       <PagesDashboardSharedDashSectionCard
         title="Users by role"
         icon="People"
-        to="/dashboard/users"
-        link-label="Manage all users"
-        :delay="160"
       >
         <template v-if="loading">
-          <UiSkeleton v-for="n in 3" :key="n" class="h-12 rounded-xl" />
+          <UiSkeleton class="h-36 rounded-xl" />
         </template>
         <template v-else>
-          <NuxtLink
-            v-for="row in roleRows"
-            :key="row.role"
-            :to="`/dashboard/users?role=${row.role}`"
-            class="block transition-opacity hover:opacity-80"
-          >
-            <PagesDashboardSharedDashBreakdownRow :label="row.label" :value="row.count" :icon="row.icon" />
-          </NuxtLink>
+          <PagesDashboardSharedDashDonutChart :segments="roleSegments" />
+          <!-- Clickable role tiles — distinct links per role -->
+          <div class="mt-4 grid grid-cols-3 gap-2">
+            <NuxtLink
+              v-for="row in roleSegments"
+              :key="row.label"
+              :to="`/dashboard/users?role=${row.role}`"
+              class="flex flex-col items-center gap-1 p-3 rounded-xl text-center transition-opacity hover:opacity-80 cursor-pointer"
+              :style="`background:var(--surface-raised)`"
+            >
+              <span class="text-[20px] font-bold font-poppins leading-none" :style="`color:${row.color}`">{{ row.value }}</span>
+              <span class="text-[13px] font-poppins" :style="`color:var(--text-muted)`">{{ row.label }}</span>
+            </NuxtLink>
+          </div>
         </template>
       </PagesDashboardSharedDashSectionCard>
 
-      <!-- Active subscriptions -->
-      <PagesDashboardSharedDashSectionCard
-        title="Active subscriptions"
-        icon="Card"
-        to="/dashboard/users?subscriptionStatus=ACTIVE"
-        link-label="View active subscribers"
-        :delay="220"
-      >
-        <template v-if="loading">
-          <UiSkeleton v-for="n in 3" :key="n" class="h-14 rounded-xl" />
-        </template>
-        <template v-else>
-          <PagesDashboardSharedDashBreakdownRow
-            v-for="plan in planRows"
-            :key="plan.label"
-            :label="plan.label"
-            :value="plan.value"
-            :pct="plan.pct"
-            :bar-color="plan.barColor"
-            :value-color="plan.valueColor"
-          />
-        </template>
-      </PagesDashboardSharedDashSectionCard>
+    </div>
 
-      <!-- Revenue by provider -->
+    <!-- Platform engagement + revenue -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 animate-card-enter" style="--delay:240ms">
+
+      <!-- Platform engagement (2 cols) — no footer CTA since data already shown above (no duplicate) -->
+      <div class="lg:col-span-2">
+        <PagesDashboardSharedDashSectionCard
+          title="Platform engagement"
+          icon="Activity"
+        >
+          <template v-if="loading">
+            <UiSkeleton v-for="n in 2" :key="n" class="h-10 rounded-xl" />
+          </template>
+          <template v-else>
+            <PagesDashboardSharedDashSparkbar :bars="engagementBars" />
+
+            <!-- Contextual insight below the bars -->
+            <div class="mt-4 grid grid-cols-3 gap-3">
+              <div class="p-3 rounded-xl text-center" :style="`background:var(--surface-raised)`">
+                <p class="text-[20px] font-bold font-poppins leading-none" style="color:#22c55e">{{ activeUsers.daily }}</p>
+                <p class="text-[13px] font-poppins mt-1" :style="`color:var(--text-muted)`">Active today</p>
+              </div>
+              <div class="p-3 rounded-xl text-center" :style="`background:var(--surface-raised)`">
+                <p class="text-[20px] font-bold font-poppins leading-none" style="color:var(--color-brand-primary)">{{ activeUsers.weekly }}</p>
+                <p class="text-[13px] font-poppins mt-1" :style="`color:var(--text-muted)`">This week</p>
+              </div>
+              <div class="p-3 rounded-xl text-center" :style="`background:var(--surface-raised)`">
+                <p class="text-[20px] font-bold font-poppins leading-none" :style="`color:var(--text-subtle)`">{{ inactiveUsers }}</p>
+                <p class="text-[13px] font-poppins mt-1" :style="`color:var(--text-muted)`">Inactive</p>
+              </div>
+            </div>
+          </template>
+        </PagesDashboardSharedDashSectionCard>
+      </div>
+
+      <!-- Revenue by provider — no duplicate link needed, standalone informational card -->
       <PagesDashboardSharedDashSectionCard
-        title="Active paid by provider"
+        title="Paid by provider"
         icon="Wallet2"
-        :delay="280"
       >
         <template v-if="loading">
           <UiSkeleton v-for="n in 3" :key="n" class="h-12 rounded-xl" />
         </template>
         <template v-else-if="revenueRows.length === 0">
-          <UiEmpty class="py-6">
+          <UiEmpty class="py-4">
             <UiEmptyMedia>
               <AppIconsax name="Wallet2" color="var(--color-text-subtle)" :size="28" />
             </UiEmptyMedia>
             <UiEmptyContent>
               <UiEmptyTitle>No paid subscriptions</UiEmptyTitle>
-              <UiEmptyDescription>Assign a plan to a user to see revenue here.</UiEmptyDescription>
+              <UiEmptyDescription>Assign a plan to a user to track payment providers.</UiEmptyDescription>
             </UiEmptyContent>
           </UiEmpty>
         </template>
         <template v-else>
-          <PagesDashboardSharedDashBreakdownRow
-            v-for="row in revenueRows"
-            :key="row.provider"
-            :label="row.provider"
-            :value="row.count"
-            icon="Wallet2"
-          />
+          <div class="space-y-2.5">
+            <div
+              v-for="row in revenueRows"
+              :key="row.provider"
+              class="flex items-center justify-between p-3 rounded-xl"
+              :style="`background:var(--surface-raised)`"
+            >
+              <div class="flex items-center gap-2.5">
+                <AppIconsax name="Wallet2" color="var(--color-brand-primary)" :size="15" />
+                <span class="text-[14px] font-medium font-poppins" :style="`color:var(--text-body)`">{{ row.provider }}</span>
+              </div>
+              <div class="text-right">
+                <p class="text-[15px] font-bold font-poppins" :style="`color:var(--text-heading)`">{{ row.count }}</p>
+                <p class="text-[13px] font-poppins" :style="`color:var(--text-subtle)`">
+                  {{ revenueTotal ? Math.round((row.count / revenueTotal) * 100) : 0 }}%
+                </p>
+              </div>
+            </div>
+          </div>
         </template>
       </PagesDashboardSharedDashSectionCard>
 
