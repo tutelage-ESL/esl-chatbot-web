@@ -1,19 +1,115 @@
-import { describe, it, expect, afterAll } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach, afterAll, spyOn } from "bun:test";
+import type { Mock } from "bun:test";
 import {
   app,
   request,
   prisma,
   createTestUser,
   deleteTestUsers,
+  uniqueId,
   type TestUser,
 } from "../../../test/helpers.ts";
+import { fib } from "../../../config/fib.ts";
+import { FibSubscribeError } from "../../../lib/fib-client.ts";
+import type { SubscriptionDetails } from "../../../lib/fib-client.ts";
 
-// ───────────────────────────────────────────────────────────────────────────
-// Phase 6c — Subscriptions
-//   GET /users/me/subscription  — own subscription record (lives in users module)
-//   FIB billing routes are external/credential-gated — only the auth guard is
-//   asserted here (success paths require live FIB sandbox config).
-// ───────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// FIB Subscription routes
+//   POST   /api/v1/subscriptions/initiate-fib
+//   GET    /api/v1/subscriptions/fib/:subscriptionId/status
+//   DELETE /api/v1/subscriptions/fib/:subscriptionId
+//   POST   /api/v1/subscriptions/webhook/fib
+//
+// The fib singleton is a real FibClient (non-null) because setup.ts preloads
+// FIB_CLIENT_ID + FIB_CLIENT_SECRET. Every test spies on the three public
+// methods so no actual HTTP call to fib-stage.fib.iq is ever made.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Mock data ─────────────────────────────────────────────────────────────────
+
+const MOCK_CREATE_RESULT = {
+  subscriptionId: "fib-sub-test-001",
+  readableCode: "GOLD-AB12",
+  qrCode: "data:image/png;base64,iVBORw0KGgoAAAANS",
+  appLink: "https://fib-stage.fib.iq/app/pay/fib-sub-test-001",
+  validUntil: new Date(Date.now() + 36 * 60 * 60 * 1000).toISOString(),
+};
+
+function mockDetails(
+  status: SubscriptionDetails["status"],
+  activeUntil: number | null = null,
+): SubscriptionDetails {
+  return {
+    id: "fib-sub-test-001",
+    readableCode: "GOLD-AB12",
+    title: "Tutelage GOLD",
+    monetaryValue: { amount: 25_000, currency: "IQD" },
+    interval: "P1M",
+    status,
+    activeUntil,
+    lastPaymentAt: null,
+  };
+}
+
+function makeFibError(message: string, statusCode = 400): FibSubscribeError {
+  return new FibSubscribeError(message, statusCode, { error: message });
+}
+
+// ── DB helpers ────────────────────────────────────────────────────────────────
+
+async function makeFibRecord(
+  userId: string,
+  overrides: Record<string, unknown> = {},
+) {
+  return prisma.fibSubscription.create({
+    data: {
+      userId,
+      fibSubscriptionId: `fib-${uniqueId()}`,
+      plan: "GOLD",
+      intervalMonths: 1,
+      amountIQD: 25_000,
+      fibStatus: "DRAFT",
+      validUntil: new Date(Date.now() + 36 * 60 * 60 * 1000),
+      ...overrides,
+    },
+  });
+}
+
+async function getSubscription(userId: string) {
+  return prisma.subscription.findUnique({ where: { userId } });
+}
+
+// ── Spy management ────────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyMock = Mock<any>;
+
+let createSpy: AnyMock;
+let getSpy: AnyMock;
+let cancelSpy: AnyMock;
+
+beforeEach(() => {
+  // Replace all three public FibClient methods with spies. The service imports
+  // the same fib singleton so these intercept every call — no network hit.
+  //
+  // createSubscription uses mockImplementation (not mockResolvedValue) so that
+  // each call gets a unique subscriptionId — prevents unique-constraint collisions
+  // when multiple initiate-fib tests run against the same test DB.
+  createSpy = spyOn(fib!, "createSubscription").mockImplementation(async () => ({
+    ...MOCK_CREATE_RESULT,
+    subscriptionId: `fib-mock-${uniqueId()}`,
+  }));
+  getSpy    = spyOn(fib!, "getSubscription").mockResolvedValue(mockDetails("DRAFT"));
+  cancelSpy = spyOn(fib!, "cancelSubscription").mockResolvedValue(null);
+});
+
+afterEach(() => {
+  createSpy.mockRestore();
+  getSpy.mockRestore();
+  cancelSpy.mockRestore();
+});
+
+// ── Cleanup ───────────────────────────────────────────────────────────────────
 
 const createdUserIds: string[] = [];
 const track = (u: TestUser) => (createdUserIds.push(u.id), u);
@@ -24,48 +120,566 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-// ─────────────────────────────────────────────────────────────────────────
-describe("GET /api/v1/users/me/subscription", () => {
-  it("200 — returns the caller's subscription record", async () => {
-    const u = track(await createTestUser({ plan: "PREMIUM", status: "ACTIVE", paymentProvider: "CASH" }));
-    const res = await request(app).get("/api/v1/users/me/subscription").set(auth(u.token));
-    expect(res.status).toBe(200);
-    expect(res.body.data.plan).toBe("PREMIUM");
-    expect(res.body.data.status).toBe("ACTIVE");
-    expect(res.body.data.paymentProvider).toBe("CASH");
-  });
-
-  it("200 — FREE user has a subscription with null payment provider", async () => {
+// ─────────────────────────────────────────────────────────────────────────────
+describe("POST /api/v1/subscriptions/initiate-fib", () => {
+  it("201 — GOLD/1mo: FIB called, DB row created, response has all 5 fields", async () => {
     const u = track(await createTestUser({ plan: "FREE", status: "ACTIVE" }));
-    const res = await request(app).get("/api/v1/users/me/subscription").set(auth(u.token));
-    expect(res.status).toBe(200);
-    expect(res.body.data.plan).toBe("FREE");
-    expect(res.body.data.paymentProvider).toBeNull();
+
+    const res = await request(app)
+      .post("/api/v1/subscriptions/initiate-fib")
+      .set(auth(u.token))
+      .send({ plan: "GOLD", intervalMonths: 1 });
+
+    expect(res.status).toBe(201);
+    // Shape check — subscriptionId is unique per call so we only verify the other fields
+    expect(res.body.data).toMatchObject({
+      readableCode: MOCK_CREATE_RESULT.readableCode,
+      qrCode: MOCK_CREATE_RESULT.qrCode,
+      appLink: MOCK_CREATE_RESULT.appLink,
+      validUntil: MOCK_CREATE_RESULT.validUntil,
+    });
+    expect(typeof res.body.data.fibSubscriptionId).toBe("string");
+
+    // Correct amount and interval forwarded to FIB
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    const callArg = createSpy.mock.calls[0]![0] as { amount: number; interval: string };
+    expect(callArg.amount).toBe(25_000);
+    expect(callArg.interval).toBe("P1M");
+
+    // FibSubscription row persisted (query by the ID returned in the response)
+    const createdId: string = res.body.data.fibSubscriptionId;
+    const record = await prisma.fibSubscription.findUnique({
+      where: { fibSubscriptionId: createdId },
+    });
+    expect(record).not.toBeNull();
+    expect(record!.userId).toBe(u.id);
+    expect(record!.plan).toBe("GOLD");
+    expect(record!.amountIQD).toBe(25_000);
+    expect(record!.fibStatus).toBe("DRAFT");
   });
 
-  it("404 — user without a subscription row", async () => {
-    const u = track(await createTestUser({ plan: null }));
-    const res = await request(app).get("/api/v1/users/me/subscription").set(auth(u.token));
-    expect(res.status).toBe(404);
+  it("201 — PREMIUM/12mo: correct amountIQD=440,000 and interval=P1Y forwarded", async () => {
+    const u = track(await createTestUser({ plan: "FREE", status: "ACTIVE" }));
+
+    const res = await request(app)
+      .post("/api/v1/subscriptions/initiate-fib")
+      .set(auth(u.token))
+      .send({ plan: "PREMIUM", intervalMonths: 12 });
+
+    expect(res.status).toBe(201);
+    const callArg = createSpy.mock.calls[0]![0] as { amount: number; interval: string };
+    expect(callArg.amount).toBe(440_000);
+    expect(callArg.interval).toBe("P1Y");
+  });
+
+  it("201 — FREE/INACTIVE user (unverified) can initiate a subscription", async () => {
+    const u = track(await createTestUser({ plan: "FREE", status: "INACTIVE" }));
+
+    const res = await request(app)
+      .post("/api/v1/subscriptions/initiate-fib")
+      .set(auth(u.token))
+      .send({ plan: "GOLD", intervalMonths: 1 });
+
+    expect(res.status).toBe(201);
+  });
+
+  it("409 — already has ACTIVE FIB subscription", async () => {
+    const u = track(
+      await createTestUser({ plan: "GOLD", status: "ACTIVE", paymentProvider: "FIB" }),
+    );
+
+    const res = await request(app)
+      .post("/api/v1/subscriptions/initiate-fib")
+      .set(auth(u.token))
+      .send({ plan: "PREMIUM", intervalMonths: 1 });
+
+    expect(res.status).toBe(409);
+    expect(createSpy).not.toHaveBeenCalled();
+  });
+
+  it("409 — already has ACTIVE CASH subscription (admin-managed)", async () => {
+    const u = track(
+      await createTestUser({ plan: "GOLD", status: "ACTIVE", paymentProvider: "CASH" }),
+    );
+
+    const res = await request(app)
+      .post("/api/v1/subscriptions/initiate-fib")
+      .set(auth(u.token))
+      .send({ plan: "PREMIUM", intervalMonths: 1 });
+
+    expect(res.status).toBe(409);
+    expect(res.body.message).toMatch(/admin/i);
+  });
+
+  it("409 — already has ACTIVE STRIPE subscription", async () => {
+    const u = track(
+      await createTestUser({ plan: "PREMIUM", status: "ACTIVE", paymentProvider: "STRIPE" }),
+    );
+
+    const res = await request(app)
+      .post("/api/v1/subscriptions/initiate-fib")
+      .set(auth(u.token))
+      .send({ plan: "GOLD", intervalMonths: 1 });
+
+    expect(res.status).toBe(409);
+    expect(res.body.message).toMatch(/stripe/i);
+  });
+
+  it("422 — invalid plan value", async () => {
+    const u = track(await createTestUser());
+
+    const res = await request(app)
+      .post("/api/v1/subscriptions/initiate-fib")
+      .set(auth(u.token))
+      .send({ plan: "BASIC", intervalMonths: 1 });
+
+    expect(res.status).toBe(422);
+  });
+
+  it("422 — invalid intervalMonths (2 is not in [1,3,6,12])", async () => {
+    const u = track(await createTestUser());
+
+    const res = await request(app)
+      .post("/api/v1/subscriptions/initiate-fib")
+      .set(auth(u.token))
+      .send({ plan: "GOLD", intervalMonths: 2 });
+
+    expect(res.status).toBe(422);
+  });
+
+  it("422 — missing body fields", async () => {
+    const u = track(await createTestUser());
+
+    const res = await request(app)
+      .post("/api/v1/subscriptions/initiate-fib")
+      .set(auth(u.token))
+      .send({});
+
+    expect(res.status).toBe(422);
+  });
+
+  it("502 — FIB createSubscription throws FibSubscribeError → mapped to 502", async () => {
+    const u = track(await createTestUser({ plan: "FREE", status: "ACTIVE" }));
+    createSpy.mockRejectedValue(makeFibError("INVALID_REQUEST", 400));
+
+    const res = await request(app)
+      .post("/api/v1/subscriptions/initiate-fib")
+      .set(auth(u.token))
+      .send({ plan: "GOLD", intervalMonths: 1 });
+
+    expect(res.status).toBe(502);
   });
 
   it("401 — no token", async () => {
-    const res = await request(app).get("/api/v1/users/me/subscription");
+    const res = await request(app)
+      .post("/api/v1/subscriptions/initiate-fib")
+      .send({ plan: "GOLD", intervalMonths: 1 });
+
     expect(res.status).toBe(401);
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────
-describe("FIB billing routes — auth guard", () => {
-  it("401 — POST /subscriptions/initiate-fib requires authentication", async () => {
+// ─────────────────────────────────────────────────────────────────────────────
+describe("GET /api/v1/subscriptions/fib/:subscriptionId/status", () => {
+  it("200 — DRAFT: correct fields returned, user subscription unchanged", async () => {
+    const u = track(await createTestUser({ plan: "FREE", status: "ACTIVE" }));
+    const record = await makeFibRecord(u.id);
+    getSpy.mockResolvedValue(mockDetails("DRAFT"));
+
     const res = await request(app)
-      .post("/api/v1/subscriptions/initiate-fib")
-      .send({ plan: "GOLD", intervalMonths: 1 });
-    expect(res.status).toBe(401);
+      .get(`/api/v1/subscriptions/fib/${record.fibSubscriptionId}/status`)
+      .set(auth(u.token));
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.fibStatus).toBe("DRAFT");
+    expect(res.body.data.plan).toBe("GOLD");
+    expect(res.body.data.intervalMonths).toBe(1);
+    expect(res.body.data.amountIQD).toBe(25_000);
+
+    // Subscription not yet upgraded
+    const sub = await getSubscription(u.id);
+    expect(sub?.plan).toBe("FREE");
+    expect(sub?.paymentProvider).toBeNull();
   });
 
-  it("401 — GET /subscriptions/fib/:id/status requires authentication", async () => {
-    const res = await request(app).get("/api/v1/subscriptions/fib/some-id/status");
+  it("200 — DRAFT→ACTIVE: subscription upgraded (plan=GOLD, paymentProvider=FIB)", async () => {
+    const u = track(await createTestUser({ plan: "FREE", status: "ACTIVE" }));
+    const record = await makeFibRecord(u.id);
+    const activeUntilMs = Date.now() + 30 * 24 * 60 * 60 * 1000;
+    getSpy.mockResolvedValue(mockDetails("ACTIVE", activeUntilMs));
+
+    const res = await request(app)
+      .get(`/api/v1/subscriptions/fib/${record.fibSubscriptionId}/status`)
+      .set(auth(u.token));
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.fibStatus).toBe("ACTIVE");
+
+    const sub = await getSubscription(u.id);
+    expect(sub?.plan).toBe("GOLD");
+    expect(sub?.status).toBe("ACTIVE");
+    expect(sub?.paymentProvider).toBe("FIB");
+    expect(sub?.externalSubscriptionId).toBe(record.fibSubscriptionId);
+  });
+
+  it("200 — activeUntil propagated to subscription.currentPeriodEnd", async () => {
+    const u = track(await createTestUser({ plan: "FREE", status: "ACTIVE" }));
+    const record = await makeFibRecord(u.id);
+    const activeUntilMs = Date.now() + 30 * 24 * 60 * 60 * 1000;
+    getSpy.mockResolvedValue(mockDetails("ACTIVE", activeUntilMs));
+
+    await request(app)
+      .get(`/api/v1/subscriptions/fib/${record.fibSubscriptionId}/status`)
+      .set(auth(u.token));
+
+    const sub = await getSubscription(u.id);
+    expect(sub?.currentPeriodEnd).not.toBeNull();
+    expect(Math.abs(sub!.currentPeriodEnd!.getTime() - activeUntilMs)).toBeLessThan(2000);
+  });
+
+  it("200 — ACTIVE→ACTIVE (same status): idempotent, plan stays GOLD", async () => {
+    const u = track(
+      await createTestUser({ plan: "GOLD", status: "ACTIVE", paymentProvider: "FIB" }),
+    );
+    const record = await makeFibRecord(u.id, { fibStatus: "ACTIVE" });
+    getSpy.mockResolvedValue(mockDetails("ACTIVE"));
+
+    const res = await request(app)
+      .get(`/api/v1/subscriptions/fib/${record.fibSubscriptionId}/status`)
+      .set(auth(u.token));
+
+    expect(res.status).toBe(200);
+    const sub = await getSubscription(u.id);
+    expect(sub?.plan).toBe("GOLD"); // unchanged — early return in applyFibStatusChange
+  });
+
+  it("200 — ACTIVE→CANCELLED: subscription downgraded to FREE", async () => {
+    const u = track(
+      await createTestUser({ plan: "GOLD", status: "ACTIVE", paymentProvider: "FIB" }),
+    );
+    const record = await makeFibRecord(u.id, { fibStatus: "ACTIVE" });
+    getSpy.mockResolvedValue(mockDetails("CANCELLED"));
+
+    await request(app)
+      .get(`/api/v1/subscriptions/fib/${record.fibSubscriptionId}/status`)
+      .set(auth(u.token));
+
+    const sub = await getSubscription(u.id);
+    expect(sub?.plan).toBe("FREE");
+    expect(sub?.status).toBe("ACTIVE");
+    expect(sub?.paymentProvider).toBeNull();
+    expect(sub?.externalSubscriptionId).toBeNull();
+  });
+
+  it("404 — FibSubscription not in DB", async () => {
+    const u = track(await createTestUser());
+
+    const res = await request(app)
+      .get("/api/v1/subscriptions/fib/nonexistent-sub-id/status")
+      .set(auth(u.token));
+
+    expect(res.status).toBe(404);
+    expect(getSpy).not.toHaveBeenCalled();
+  });
+
+  it("404 — FibSubscription belongs to another user (ownership check)", async () => {
+    const owner = track(await createTestUser({ plan: "FREE", status: "ACTIVE" }));
+    const attacker = track(await createTestUser());
+    const record = await makeFibRecord(owner.id);
+
+    const res = await request(app)
+      .get(`/api/v1/subscriptions/fib/${record.fibSubscriptionId}/status`)
+      .set(auth(attacker.token));
+
+    expect(res.status).toBe(404);
+    expect(getSpy).not.toHaveBeenCalled();
+  });
+
+  it("502 — FIB getSubscription throws FibSubscribeError", async () => {
+    const u = track(await createTestUser({ plan: "FREE", status: "ACTIVE" }));
+    const record = await makeFibRecord(u.id);
+    getSpy.mockRejectedValue(makeFibError("FIB_UNAVAILABLE", 503));
+
+    const res = await request(app)
+      .get(`/api/v1/subscriptions/fib/${record.fibSubscriptionId}/status`)
+      .set(auth(u.token));
+
+    expect(res.status).toBe(502);
+  });
+
+  it("401 — no token", async () => {
+    const res = await request(app).get("/api/v1/subscriptions/fib/any-id/status");
     expect(res.status).toBe(401);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe("DELETE /api/v1/subscriptions/fib/:subscriptionId", () => {
+  it("200 — cancel ACTIVE sub: FIB cancel called, fibStatus=CANCELLED, plan→FREE", async () => {
+    const u = track(
+      await createTestUser({ plan: "GOLD", status: "ACTIVE", paymentProvider: "FIB" }),
+    );
+    const record = await makeFibRecord(u.id, { fibStatus: "ACTIVE" });
+
+    const res = await request(app)
+      .delete(`/api/v1/subscriptions/fib/${record.fibSubscriptionId}`)
+      .set(auth(u.token));
+
+    expect(res.status).toBe(200);
+    expect(cancelSpy).toHaveBeenCalledTimes(1);
+    expect(cancelSpy).toHaveBeenCalledWith(record.fibSubscriptionId);
+
+    const fibRecord = await prisma.fibSubscription.findUnique({ where: { id: record.id } });
+    expect(fibRecord?.fibStatus).toBe("CANCELLED");
+    expect(fibRecord?.cancelledAt).not.toBeNull();
+
+    const sub = await getSubscription(u.id);
+    expect(sub?.plan).toBe("FREE");
+    expect(sub?.paymentProvider).toBeNull();
+  });
+
+  it("200 — cancel TRIAL sub: FIB cancel called (same path as ACTIVE)", async () => {
+    const u = track(
+      await createTestUser({ plan: "GOLD", status: "ACTIVE", paymentProvider: "FIB" }),
+    );
+    const record = await makeFibRecord(u.id, { fibStatus: "TRIAL" });
+
+    const res = await request(app)
+      .delete(`/api/v1/subscriptions/fib/${record.fibSubscriptionId}`)
+      .set(auth(u.token));
+
+    expect(res.status).toBe(200);
+    expect(cancelSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("200 — cancel DRAFT sub: no FIB call, local cancel only, user plan unchanged", async () => {
+    // DRAFT = not paid yet — calling FIB cancel on a DRAFT is an illegal
+    // status transition (FIB returns 400). We discard locally instead.
+    const u = track(await createTestUser({ plan: "FREE", status: "ACTIVE" }));
+    const record = await makeFibRecord(u.id, { fibStatus: "DRAFT" });
+
+    const res = await request(app)
+      .delete(`/api/v1/subscriptions/fib/${record.fibSubscriptionId}`)
+      .set(auth(u.token));
+
+    expect(res.status).toBe(200);
+    expect(cancelSpy).not.toHaveBeenCalled(); // critical — no FIB network call
+
+    const fibRecord = await prisma.fibSubscription.findUnique({ where: { id: record.id } });
+    expect(fibRecord?.fibStatus).toBe("CANCELLED");
+
+    const sub = await getSubscription(u.id);
+    expect(sub?.plan).toBe("FREE"); // DRAFT never activated plan — unchanged
+  });
+
+  it("409 — already CANCELLED", async () => {
+    const u = track(await createTestUser({ plan: "FREE", status: "ACTIVE" }));
+    const record = await makeFibRecord(u.id, {
+      fibStatus: "CANCELLED",
+      cancelledAt: new Date(),
+    });
+
+    const res = await request(app)
+      .delete(`/api/v1/subscriptions/fib/${record.fibSubscriptionId}`)
+      .set(auth(u.token));
+
+    expect(res.status).toBe(409);
+    expect(cancelSpy).not.toHaveBeenCalled();
+  });
+
+  it("409 — already REJECTED", async () => {
+    const u = track(await createTestUser({ plan: "FREE", status: "ACTIVE" }));
+    const record = await makeFibRecord(u.id, { fibStatus: "REJECTED" });
+
+    const res = await request(app)
+      .delete(`/api/v1/subscriptions/fib/${record.fibSubscriptionId}`)
+      .set(auth(u.token));
+
+    expect(res.status).toBe(409);
+  });
+
+  it("404 — FibSubscription not in DB", async () => {
+    const u = track(await createTestUser());
+
+    const res = await request(app)
+      .delete("/api/v1/subscriptions/fib/nonexistent-id")
+      .set(auth(u.token));
+
+    expect(res.status).toBe(404);
+  });
+
+  it("404 — FibSubscription belongs to another user (ownership check)", async () => {
+    const owner = track(
+      await createTestUser({ plan: "GOLD", status: "ACTIVE", paymentProvider: "FIB" }),
+    );
+    const attacker = track(await createTestUser());
+    const record = await makeFibRecord(owner.id, { fibStatus: "ACTIVE" });
+
+    const res = await request(app)
+      .delete(`/api/v1/subscriptions/fib/${record.fibSubscriptionId}`)
+      .set(auth(attacker.token));
+
+    expect(res.status).toBe(404);
+    expect(cancelSpy).not.toHaveBeenCalled();
+  });
+
+  it("502 — FIB cancelSubscription throws FibSubscribeError (ACTIVE path)", async () => {
+    const u = track(
+      await createTestUser({ plan: "GOLD", status: "ACTIVE", paymentProvider: "FIB" }),
+    );
+    const record = await makeFibRecord(u.id, { fibStatus: "ACTIVE" });
+    cancelSpy.mockRejectedValue(makeFibError("CANCEL_FAILED", 500));
+
+    const res = await request(app)
+      .delete(`/api/v1/subscriptions/fib/${record.fibSubscriptionId}`)
+      .set(auth(u.token));
+
+    expect(res.status).toBe(502);
+  });
+
+  it("401 — no token", async () => {
+    const res = await request(app).delete("/api/v1/subscriptions/fib/any-id");
+    expect(res.status).toBe(401);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe("POST /api/v1/subscriptions/webhook/fib", () => {
+  // Webhook handler: sends 202 immediately, processes async in background.
+  // We poll the DB (up to 5s, every 100ms) instead of using a fixed timeout — this
+  // handles variable Neon network latency without making the suite artificially slow.
+  async function waitForFibStatus(
+    recordId: string,
+    expected: string,
+    timeoutMs = 5000,
+  ): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const rec = await prisma.fibSubscription.findUnique({ where: { id: recordId } });
+      if (rec?.fibStatus === expected) return;
+      await new Promise<void>((r) => setTimeout(r, 100));
+    }
+    throw new Error(`waitForFibStatus: timed out waiting for fibStatus=${expected}`);
+  }
+
+  async function waitForPlan(userId: string, expected: string, timeoutMs = 5000): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const sub = await prisma.subscription.findUnique({ where: { userId } });
+      if (sub?.plan === expected) return;
+      await new Promise<void>((r) => setTimeout(r, 100));
+    }
+    throw new Error(`waitForPlan: timed out waiting for plan=${expected}`);
+  }
+
+  // For no-op tests (where nothing should change), a short fixed wait is enough.
+  const shortSettle = () => new Promise<void>((r) => setTimeout(r, 200));
+
+  it("202 — DRAFT→ACTIVE: subscription upgraded after async processing", async () => {
+    const u = track(await createTestUser({ plan: "FREE", status: "ACTIVE" }));
+    const record = await makeFibRecord(u.id);
+    const activeUntilMs = Date.now() + 30 * 24 * 60 * 60 * 1000;
+    getSpy.mockResolvedValue(mockDetails("ACTIVE", activeUntilMs));
+
+    const res = await request(app)
+      .post("/api/v1/subscriptions/webhook/fib")
+      .send({ subscriptionId: record.fibSubscriptionId, status: "ACTIVE" });
+
+    expect(res.status).toBe(202);
+    await waitForFibStatus(record.id, "ACTIVE");
+
+    const sub = await getSubscription(u.id);
+    expect(sub?.plan).toBe("GOLD");
+    expect(sub?.status).toBe("ACTIVE");
+    expect(sub?.paymentProvider).toBe("FIB");
+
+    const fibRecord = await prisma.fibSubscription.findUnique({ where: { id: record.id } });
+    expect(fibRecord?.fibStatus).toBe("ACTIVE");
+    expect(fibRecord?.activatedAt).not.toBeNull();
+  });
+
+  it("202 — DRAFT→CANCELLED: fibStatus updated, user plan stays FREE (was never activated)", async () => {
+    const u = track(await createTestUser({ plan: "FREE", status: "ACTIVE" }));
+    const record = await makeFibRecord(u.id);
+    getSpy.mockResolvedValue(mockDetails("CANCELLED"));
+
+    const res = await request(app)
+      .post("/api/v1/subscriptions/webhook/fib")
+      .send({ subscriptionId: record.fibSubscriptionId, status: "CANCELLED" });
+
+    expect(res.status).toBe(202);
+    await waitForFibStatus(record.id, "CANCELLED");
+
+    const fibRecord = await prisma.fibSubscription.findUnique({ where: { id: record.id } });
+    expect(fibRecord?.fibStatus).toBe("CANCELLED");
+
+    const sub = await getSubscription(u.id);
+    expect(sub?.plan).toBe("FREE"); // DRAFT never activated it
+  });
+
+  it("202 — ACTIVE→CANCELLED: user subscription downgraded to FREE", async () => {
+    const u = track(
+      await createTestUser({ plan: "GOLD", status: "ACTIVE", paymentProvider: "FIB" }),
+    );
+    const record = await makeFibRecord(u.id, { fibStatus: "ACTIVE" });
+    getSpy.mockResolvedValue(mockDetails("CANCELLED"));
+
+    const res = await request(app)
+      .post("/api/v1/subscriptions/webhook/fib")
+      .send({ subscriptionId: record.fibSubscriptionId, status: "CANCELLED" });
+
+    expect(res.status).toBe(202);
+    await waitForPlan(u.id, "FREE");
+
+    const sub = await getSubscription(u.id);
+    expect(sub?.plan).toBe("FREE");
+    expect(sub?.paymentProvider).toBeNull();
+  });
+
+  it("202 — unknown subscriptionId: silent no-op, FIB not queried", async () => {
+    const res = await request(app)
+      .post("/api/v1/subscriptions/webhook/fib")
+      .send({ subscriptionId: "unknown-sub-xyz", status: "ACTIVE" });
+
+    expect(res.status).toBe(202);
+    await shortSettle();
+    expect(getSpy).not.toHaveBeenCalled();
+  });
+
+  it("202 — FIB getSubscription throws: 202 still returned, DB unchanged", async () => {
+    const u = track(await createTestUser({ plan: "FREE", status: "ACTIVE" }));
+    const record = await makeFibRecord(u.id);
+    getSpy.mockRejectedValue(new Error("network error"));
+
+    const res = await request(app)
+      .post("/api/v1/subscriptions/webhook/fib")
+      .send({ subscriptionId: record.fibSubscriptionId, status: "ACTIVE" });
+
+    expect(res.status).toBe(202);
+    await shortSettle();
+
+    // DB unchanged — error swallowed; reconcile job will retry
+    const fibRecord = await prisma.fibSubscription.findUnique({ where: { id: record.id } });
+    expect(fibRecord?.fibStatus).toBe("DRAFT");
+  });
+
+  it("202 — invalid body (missing subscriptionId): safeParse fails, silent no-op", async () => {
+    const res = await request(app)
+      .post("/api/v1/subscriptions/webhook/fib")
+      .send({ status: "ACTIVE" }); // subscriptionId absent
+
+    expect(res.status).toBe(202);
+    await shortSettle();
+    expect(getSpy).not.toHaveBeenCalled();
+  });
+
+  it("202 — empty body: silent no-op", async () => {
+    const res = await request(app)
+      .post("/api/v1/subscriptions/webhook/fib")
+      .send({});
+
+    expect(res.status).toBe(202);
+    await shortSettle();
+    expect(getSpy).not.toHaveBeenCalled();
   });
 });

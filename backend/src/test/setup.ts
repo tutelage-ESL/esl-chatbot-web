@@ -40,6 +40,15 @@ if (currentUrl && currentUrl === testUrl) {
 process.env.DATABASE_URL = testUrl;
 process.env.NODE_ENV = "test"; // keeps rate limiters disabled (prod-only) and behavior deterministic
 
+// ── 3. Stub FIB credentials ───────────────────────────────────────────────────
+// Without these, config/fib.ts exports `fib = null` and every subscription
+// route returns 503. We set fake credentials so the FibClient is instantiated
+// (non-null), then test files spy on its public methods before each test so
+// no actual network call to fib-stage.fib.iq is ever made.
+process.env.FIB_CLIENT_ID = "test-client-id";
+process.env.FIB_CLIENT_SECRET = "test-client-secret";
+// FIB_ENV defaults to "stage" — no override needed
+
 // ── 2. Mock the AI layer ──────────────────────────────────────────────────────
 // generateAIResponse would otherwise call real Gemini/OpenAI in dev (a key is
 // injected by Infisical), making message/session tests slow, costly, and flaky.
