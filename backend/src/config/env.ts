@@ -58,4 +58,19 @@ if (!parsed.success) {
   process.exit(1);
 }
 
+// In production, if FIB credentials are configured, a public HTTPS webhook URL is required.
+// Without it the fallback is http://localhost:... which FIB cannot reach — subscriptions
+// would never activate via webhook and users would be stuck with a DRAFT status forever.
+if (
+  parsed.data.NODE_ENV === "production" &&
+  parsed.data.FIB_CLIENT_ID &&
+  !parsed.data.FIB_WEBHOOK_URL
+) {
+  console.error(
+    "[env] FIB_WEBHOOK_URL is required in production when FIB_CLIENT_ID is set. " +
+      "Set it to the public HTTPS URL of your /api/v1/subscriptions/webhook/fib endpoint.",
+  );
+  process.exit(1);
+}
+
 export const env = parsed.data;

@@ -144,8 +144,8 @@ router.delete("/fib/:subscriptionId", authenticate, cancelFibHandler);
  *                 type: string
  *                 enum: [DRAFT, TRIAL, ACTIVE, REJECTED, CANCELLED]
  *     responses:
- *       200:
- *         description: Acknowledged
+ *       202:
+ *         description: Acknowledged (FIB requires 202 Accepted per pre-production spec)
  */
 router.post("/webhook/fib", fibWebhookHandler);
 

@@ -349,7 +349,7 @@ export async function getVocabGrowth(
 
   // Determine bucket count and bucket size based on range
   // 7d  → 7 daily buckets
-  // 30d → 6 weekly buckets (same as overview default)
+  // 30d → 30 daily buckets
   // all → monthly buckets for up to 12 months
   let buckets: { label: string; start: Date; end: Date }[] = [];
 

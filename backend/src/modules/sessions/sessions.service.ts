@@ -393,11 +393,14 @@ async function updateProgressAndMetrics(
     where: { userId },
     select: { timezone: true },
   });
-  const timezone = learnerProfile?.timezone ?? 'UTC';
+  let timezone = learnerProfile?.timezone ?? 'UTC';
+  // Guard against invalid IANA strings stored in the DB — toLocaleDateString would throw RangeError
+  try { new Intl.DateTimeFormat(undefined, { timeZone: timezone }); } catch { timezone = 'UTC'; }
 
-  // Compute midnight of today in the user's local timezone
-  const nowInZone = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }));
-  const today = new Date(nowInZone.getFullYear(), nowInZone.getMonth(), nowInZone.getDate());
+  // 'en-CA' always returns YYYY-MM-DD, then Date.UTC pins it to UTC midnight
+  const dateStr = new Date().toLocaleDateString('en-CA', { timeZone: timezone });
+  const [yearStr, monthStr, dayStr] = dateStr.split('-');
+  const today = new Date(Date.UTC(Number(yearStr), Number(monthStr) - 1, Number(dayStr)));
 
   const skillSnapshot =
     avgGrammar > 0 || avgVocab > 0 || avgFluency > 0

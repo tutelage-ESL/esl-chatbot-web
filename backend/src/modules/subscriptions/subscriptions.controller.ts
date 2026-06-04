@@ -38,10 +38,11 @@ export const cancelFibHandler = asyncHandler(
 );
 
 // Webhook is fire-and-forget: acknowledge FIB immediately, process async.
-// Not wrapped in asyncHandler so that errors after res.sendStatus(200) don't
+// Not wrapped in asyncHandler so that errors after res.sendStatus(202) don't
 // trigger the error middleware (which would try to set headers already sent).
+// FIB expects 202 Accepted (per pre-production checklist Section D).
 export const fibWebhookHandler = (req: Request, res: Response): void => {
-  res.sendStatus(200);
+  res.sendStatus(202);
   const body = fibWebhookSchema.safeParse(req.body);
   if (!body.success) return;
   handleFibWebhook(body.data.subscriptionId).catch(() => {

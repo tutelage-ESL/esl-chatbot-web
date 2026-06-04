@@ -35,7 +35,7 @@ export async function getTutorDashboardStats(tutorId: string): Promise<TutorDash
     where: { userId: tutorId, role: "TUTOR" },
     select: {
       classId: true,
-      class: { select: { id: true, name: true, status: true } },
+      class: { select: { id: true, className: true, classStatus: true } },
     },
   });
 
@@ -50,7 +50,7 @@ export async function getTutorDashboardStats(tutorId: string): Promise<TutorDash
   }
 
   const classIds = tutorClasses.map((c) => c.classId);
-  const classMap = new Map(tutorClasses.map((c) => [c.classId, c.class.name]));
+  const classMap = new Map(tutorClasses.map((c) => [c.classId, c.class.className]));
 
   const now = new Date();
   const todayStart = new Date(now);
@@ -70,7 +70,7 @@ export async function getTutorDashboardStats(tutorId: string): Promise<TutorDash
     return {
       classes: {
         total: tutorClasses.length,
-        active: tutorClasses.filter((c) => c.class.status === "ACTIVE").length,
+        active: tutorClasses.filter((c) => c.class.classStatus === "ACTIVE").length,
       },
       students: { total: 0, activeToday: 0, activeThisWeek: 0 },
       skills: { avgGrammar: 0, avgVocabulary: 0, avgFluency: 0, avgSpeaking: 0 },
@@ -146,7 +146,7 @@ export async function getTutorDashboardStats(tutorId: string): Promise<TutorDash
   return {
     classes: {
       total: tutorClasses.length,
-      active: tutorClasses.filter((c) => c.class.status === "ACTIVE").length,
+      active: tutorClasses.filter((c) => c.class.classStatus === "ACTIVE").length,
     },
     students: {
       total: studentIds.length,

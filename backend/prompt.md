@@ -597,7 +597,131 @@ Roadmap — Deep Analysis
 
 
 
+ FIB Subscription — Production Go-Live Readiness Plan
+  
+ Context
 
+ FIB (First Iraqi Bank) emailed that our stage/testing phase is complete and sent a
+ Pre-Production Subscription Checklist (Preproduction Subscription Checklist-Tutelage Institute.docx).
+ This is the final step before they issue live (production) credentials. They also require a
+ 500×500 PNG logo and note a 1% commission on all subscription transactions (business owner should be aware).
+
+ The integration is already functionally complete and wired end-to-end:
+ - Backend (src/modules/subscriptions/): POST /initiate-fib, GET /fib/:id/status, DELETE /fib/:id, POST /webhook/fib — all built.
+ - Own FIB client src/lib/fib-client.ts (replaced the broken fibsubscribe npm pkg) hits stage/prod base URLs, OAuth2 client-credentials, create/get/cancel.
+ - Webhook re-verifies via getSubscription before mutating DB (anti-spoof) — correct.
+ - Frontend: real billing page, SubscriptionPanel.vue, FibPaymentModal.vue (QR + app link + 5-min polling), useSubscription.ts composable. Visible + reachable from dashboard sidebar + marketing pricing.
+
+ So this task is not new feature work — it is (1) production-hardening a handful of code items, (2) refreshing the stale docs/payment doc, and (3) producing a completed checklist answer sheet + go-live runbook so we can 
+ confidently submit and receive the real API.
+
+ User decisions for this task:
+ - Hosting/domain: decided but not yet deployed → checklist uses planned URLs flagged "pending deploy"; code parameterized via env.
+ - Reconciliation cron job: yes, add it (safety net for missed webhooks).
+ - Business-data fields (account/IBAN/contacts/logo): leave as clearly-marked TODOs for the user to fill before exporting the PDF.
+
+ ---
+ Part 1 — Code Hardening (production-readiness)
+
+ 1.1 Webhook should return 202 Accepted (not 200)
+
+ FIB's suggested workflow (Section D) explicitly says the callback must "respond with valid status codes
+ (e.g., 202 ACCEPTED, 4xx, 5xx)". We currently return 200.
+ - src/modules/subscriptions/subscriptions.controller.ts:44 — res.sendStatus(200) → res.sendStatus(202); update the comment on line 41 (200→202).
+ - src/modules/subscriptions/subscriptions.router.ts — update the webhook Swagger @response annotation 200→202.
+
+ 1.2 Fail fast if FIB_WEBHOOK_URL is missing in production
+
+ Today subscriptions.service.ts:78-80 silently falls back to http://localhost:<PORT>/... — unreachable by FIB in prod, so paid subscriptions would never activate via webhook.
+ - Add a cross-field check in src/config/env.ts (a .superRefine on the schema): if NODE_ENV === "production" and FIB_CLIENT_ID is set and FIB_WEBHOOK_URL is missing → fail validation (server refuses to boot with a clear 
+ message). Keeps the localhost fallback for dev only.
+
+ 1.3 Document FIB_WEBHOOK_URL in .env.example
+
+ It is referenced in code but absent from .env.example (only FIB_CLIENT_ID/SECRET/ENV are listed).
+ - Add FIB_WEBHOOK_URL= under the FIB section (.env.example:71-76) with a comment: "public HTTPS URL FIB POSTs status changes to; required in production, omit in local dev (polling fallback)".
+
+ 1.4 Reconciliation cron job (NEW)
+
+ Missed webhooks are currently only recovered if the user reopens the status screen. Add a periodic reconciler.
+ - Refactor first to remove duplication: extract the shared status-sync transaction (currently duplicated in getFibStatus and handleFibWebhook, subscriptions.service.ts:147-188 and :279-318) into one helper
+ applyFibStatusChange(record, details) in the service. Reuse it in get-status, webhook, and the new job.
+ - New file src/jobs/fib-reconcile.job.ts: query FibSubscription rows that are non-terminal (fibStatus = DRAFT) and not past validUntil, plus optionally recently-active rows, call fib.getSubscription() for each, and run 
+ applyFibStatusChange. No-op if fib is null. Structured logger output like the other jobs.
+ - Register in src/jobs/index.ts (e.g. every 15 min: */15 * * * *), update the startup log count "3 jobs"→"4 jobs".
+
+ 1.5 Logging hygiene in src/lib/fib-client.ts
+
+ Replace raw console.log/console.error (lines 106, 134, 154) with the structured logger. Do not log full request bodies or raw auth responses at info level in production — they can contain payment payloads. Keep concise 
+ error logging (status + message) via logger.error. Never log client_secret.
+
+ ---
+ Part 2 — Refresh docs/payment/fib-web-payments-api.md
+
+ The doc is accurate on endpoints/payloads but stale in a few places:
+ - The "Subscription API" section still says "use the fibsubscribe SDK" — we built our own src/lib/fib-client.ts. Update the client-setup section to reflect reality (own client, manual OAuth caching).
+ - Pricing table (lines 615-628): replace all "TBD" with the live values from subscriptions.service.ts:16-19 (GOLD 25k/70k/130k/250k; PREMIUM 45k/125k/230k/440k IQD).
+ - Document FIB_WEBHOOK_URL as a required production env var (the "Required Env Vars" block lists only 3); fix the FIB_ENV note that mentions a dev value (enum is only stage|prod).
+ - Document the 202 callback response and the new reconciliation job.
+ - Add a "Go-Live Runbook" section: ordered steps to flip stage→prod — (1) set FIB_ENV=prod + real FIB_CLIENT_ID/SECRET in Infisical prod, (2) set FIB_WEBHOOK_URL to deployed
+ https://<backend>/api/v1/subscriptions/webhook/fib, (3) set CORS_ORIGIN to the live frontend domain, (4) deploy, (5) smoke-test one real low-value subscription end-to-end and confirm webhook hits + status syncs +       
+ cancel works, (6) verify the reconciliation job runs.
+
+ ---
+ Part 3 — Checklist Answer Sheet (NEW doc)
+
+ Create docs/payment/fib-preproduction-checklist.md — a question-by-question answer sheet the user
+ transfers into the Word file and exports as PDF. Technical fields filled from code; business fields = TODO (business).
+
+ - Section A — Business/Purpose: Business name/activity → TODO (business). Use case → draftable: "AI-powered ESL learning platform; FIB Subscription API powers recurring GOLD/PREMIUM monthly/quarterly/yearly plans."     
+ - Section B — Security: statuscallbackurl = YES; functional public HTTPS w/ SSL = YES (once deployed); endpoint = https://<PLANNED-BACKEND-HOST>/api/v1/subscriptions/webhook/fib (pending deploy).
+ - Section C — UI/UX: Visible & highlighted = YES (billing page /dashboard/billing, sidebar "Upgrade now" card for FREE users, marketing #pricing). Reachable = YES.
+ - Section D — Workflow: YES — webhook as primary + check-status as fallback (+ now a reconciliation job). D3 = API (own client, not an SDK). D4 = N/A (not using FIB SDK/plugin). D5 check-status = YES. D6 cancel = YES.  
+ - Section E — Account: Main vs terminal / account type / name / phone / IQD-IBAN → TODO (business). Currency = IQD.
+ - Section F — Website/App: Website URL = https://<PLANNED-FRONTEND-DOMAIN> (pending deploy); App URLs (iOS/Android) → none / web-only (TODO confirm); Tech stack = "Backend: Bun + Express 5 + TypeScript +
+ Prisma/PostgreSQL. Frontend: Nuxt 4 + Vue 3 + Tailwind."; Technical team contacts → TODO (business).
+ - Section G — Contacts: all → TODO (business).
+ - Section H — Branding: Logo 500×500 PNG → TODO (business) — deliverable to attach to the reply email.
+ - Footer note: 1% FIB commission applies — confirm pricing accounts for it.
+
+ ---
+ Verification
+
+ cd backend
+ bun run typecheck            # type-clean
+ bun test                     # subscriptions + full suite
+ bun run generate:types       # regen frontend/types/api.ts (Swagger 200→202 change) + commit
+ - Startup guard: with NODE_ENV=production + FIB_CLIENT_ID set + no FIB_WEBHOOK_URL, server must refuse to boot with a clear error.
+ - Stage smoke test: run the sandbox flow (frontend FibPaymentModal or /subscriptions/fib-test harness) with a sandbox account; confirm webhook returns 202, status syncs DRAFT→ACTIVE, and cancel downgrades to FREE       
+ ACTIVE.
+ - Reconciliation job: invoke once manually against stage; confirm it syncs a DRAFT that activated without a delivered webhook.
+ - Section A — Business/Purpose: Business name/activity → TODO (business). Use case → draftable: "AI-powered ESL learning platform; FIB Subscription API powers recurring GOLD/PREMIUM monthly/quarterly/yearly plans."     
+ - Section B — Security: statuscallbackurl = YES; functional public HTTPS w/ SSL = YES (once deployed); endpoint = https://<PLANNED-BACKEND-HOST>/api/v1/subscriptions/webhook/fib (pending deploy).
+ - Section C — UI/UX: Visible & highlighted = YES (billing page /dashboard/billing, sidebar "Upgrade now" card for FREE users, marketing #pricing). Reachable = YES.
+ - Section D — Workflow: YES — webhook as primary + check-status as fallback (+ now a reconciliation job). D3 = API (own client, not an SDK). D4 = N/A (not using FIB SDK/plugin). D5 check-status = YES. D6 cancel = YES.  
+ - Section E — Account: Main vs terminal / account type / name / phone / IQD-IBAN → TODO (business). Currency = IQD.
+ - Section F — Website/App: Website URL = https://<PLANNED-FRONTEND-DOMAIN> (pending deploy); App URLs (iOS/Android) → none / web-only (TODO confirm); Tech stack = "Backend: Bun + Express 5 + TypeScript +
+ Prisma/PostgreSQL. Frontend: Nuxt 4 + Vue 3 + Tailwind."; Technical team contacts → TODO (business).
+ - Section G — Contacts: all → TODO (business).
+ - Section H — Branding: Logo 500×500 PNG → TODO (business) — deliverable to attach to the reply email.
+ - Footer note: 1% FIB commission applies — confirm pricing accounts for it.
+
+ ---
+ Verification
+
+ cd backend
+ bun run typecheck            # type-clean
+ bun test                     # subscriptions + full suite
+ bun run generate:types       # regen frontend/types/api.ts (Swagger 200→202 change) + commit
+ - Startup guard: with NODE_ENV=production + FIB_CLIENT_ID set + no FIB_WEBHOOK_URL, server must refuse to boot with a clear error.
+ - Stage smoke test: run the sandbox flow (frontend FibPaymentModal or /subscriptions/fib-test harness) with a sandbox account; confirm webhook returns 202, status syncs DRAFT→ACTIVE, and cancel downgrades to FREE       
+ ACTIVE.
+ - Reconciliation job: invoke once manually against stage; confirm it syncs a DRAFT that activated without a delivered webhook.
+
+ Out of scope (flag only)
+
+ - Frontend FREE message-limit inconsistency: plan-limits.ts (50/60) vs advertised "20 msgs/session". Minor, user-facing — reconcile separately, not a FIB blocker.
+ - Actual deployment/domain registration is the user's infra step; this plan parameterizes everything via env so go-live is config-only.
 
 
 

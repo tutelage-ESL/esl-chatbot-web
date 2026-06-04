@@ -1,5 +1,6 @@
 // Own FIB Subscription API client (replaces the broken fibsubscribe npm package).
 // Source-verified against fibsubscribe@1.0.0 — all endpoints and payloads match.
+import { logger } from "../config/index.ts";
 
 export type FibEnvironment = "stage" | "production";
 
@@ -103,14 +104,11 @@ export class FibClient {
     });
     if (!res.ok) {
       const rawText = await res.text();
-      console.error(`[FIB] Auth failed — HTTP ${res.status} — raw body: ${rawText}`);
       let parsed: Record<string, string> = {};
       try { parsed = JSON.parse(rawText) as Record<string, string>; } catch { /* not JSON */ }
-      throw new FibSubscribeError(
-        parsed["error_description"] ?? `FIB authentication failed (${res.status})`,
-        res.status,
-        parsed,
-      );
+      const message = parsed["error_description"] ?? `FIB authentication failed (${res.status})`;
+      logger.error("[fib-client] Auth failed", { status: res.status, message });
+      throw new FibSubscribeError(message, res.status, parsed);
     }
     const data = (await res.json()) as {
       access_token: string;
@@ -130,9 +128,6 @@ export class FibClient {
     body?: unknown,
   ): Promise<T> {
     const token = await this.getAccessToken();
-    if (body !== undefined) {
-      console.log(`[FIB] ${method} ${path} — sending body:`, JSON.stringify(body));
-    }
     const res = await fetch(`${this.baseUrl}${path}`, {
       method,
       headers: {
@@ -151,7 +146,7 @@ export class FibClient {
     let payload: Record<string, unknown> = {};
     try { payload = JSON.parse(rawText) as Record<string, unknown>; } catch { /* not JSON */ }
     if (!res.ok) {
-      console.error(`[FIB] Request ${method} ${path} failed — HTTP ${res.status} — raw body: ${rawText}`);
+      logger.error("[fib-client] Request failed", { method, path, status: res.status });
       throw new FibSubscribeError(
         String(
           payload["message"] ??

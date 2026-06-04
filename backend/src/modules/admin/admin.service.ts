@@ -1,6 +1,6 @@
 import { prisma } from "../../config/database.ts";
 import { AppError } from "../../utils/AppError.ts";
-import type { PaymentProvider } from "@prisma/client";
+import { Prisma, type PaymentProvider } from "@prisma/client";
 import type { SubscriptionResult, AdminDashboardData } from "./admin.types.ts";
 import type { UpdateUserBody, AssignSubscriptionBody, AdminUpdateProfileInput, AdminUpdateLearnerProfileInput } from "./admin.schema.ts";
 import { uploadAvatar, deleteAvatar } from "../../config/storage.ts";
@@ -208,10 +208,19 @@ export async function adminUploadAvatar(userId: string, buffer: Buffer, mimeType
 export async function adminUpdateLearnerProfile(userId: string, input: AdminUpdateLearnerProfileInput) {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
   if (!user) throw new AppError("User not found", 404);
+
+  // Prisma requires Prisma.JsonNull (not plain null) for nullable JSON fields
+  const topicsOfInterest =
+    input.topicsOfInterest === null
+      ? Prisma.JsonNull
+      : input.topicsOfInterest;
+
+  const data = { ...input, topicsOfInterest };
+
   const profile = await prisma.learnerProfile.upsert({
     where: { userId },
-    create: { userId, ...input },
-    update: input,
+    create: { userId, ...data },
+    update: data,
   });
   return profile;
 }

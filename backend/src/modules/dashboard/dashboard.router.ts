@@ -147,7 +147,7 @@ router.get("/overview", authenticate, getDashboardOverviewHandler);
  *     description: |
  *       Returns cumulative vocabulary growth points for the selected range:
  *       - `7d` — 7 daily buckets (last 7 days)
- *       - `30d` — 6 weekly buckets (last ~6 weeks, default)
+ *       - `30d` — 30 daily buckets (last 30 days, default)
  *       - `all` — 12 monthly buckets (last 12 calendar months)
  *     tags: [Dashboard]
  *     security:

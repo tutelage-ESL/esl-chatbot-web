@@ -436,28 +436,27 @@ try {
 
 ---
 
-## FIB Subscription API (fibsubscribe SDK)
+## FIB Subscription API (own client)
 
-> **This is the integration we are building.** FIB issued Subscription API credentials, not Web Payment API credentials. The Subscription API handles **recurring billing** — the correct model for GOLD/PREMIUM monthly/quarterly plans.
-
-### Installation
-
-```bash
-bun add fibsubscribe
-```
-
-ESM-only package — use `import`, not `require()`. Requires Node.js v14+.
+> **This is the active integration.** FIB issued Subscription API credentials, not Web Payment API credentials. The Subscription API handles **recurring billing** — the correct model for GOLD/PREMIUM monthly/quarterly plans.
+>
+> **Implementation:** We use our own hand-written `src/lib/fib-client.ts` (the `fibsubscribe` npm package was broken and abandoned). The client handles OAuth2 `client_credentials` token caching, all three API calls (create/get/cancel), and a `waitForActivation` polling helper.
 
 ### Client Setup
 
 ```ts
-import { FibSubscribe } from 'fibsubscribe';
+// src/config/fib.ts — instantiated once at startup
+import { FibClient } from '../lib/fib-client.ts';
+import { env } from './env.ts';
 
-export const fib = new FibSubscribe({
-  clientId: process.env.FIB_CLIENT_ID!,
-  clientSecret: process.env.FIB_CLIENT_SECRET!,
-  environment: process.env.FIB_ENV === 'prod' ? 'production' : 'stage',
-});
+export const fib =
+  env.FIB_CLIENT_ID && env.FIB_CLIENT_SECRET
+    ? new FibClient({
+        clientId: env.FIB_CLIENT_ID,
+        clientSecret: env.FIB_CLIENT_SECRET,
+        environment: env.FIB_ENV === 'prod' ? 'production' : 'stage',
+      })
+    : null;
 ```
 
 | Environment | Base URL                  |
@@ -465,7 +464,7 @@ export const fib = new FibSubscribe({
 | stage       | https://fib-stage.fib.iq  |
 | production  | https://fib.prod.fib.iq   |
 
-The SDK handles OAuth2 token management automatically (no manual token caching needed — it's built in).
+Token caching is done manually in the client — access tokens are cached in memory with a 30-second expiry buffer. No external state needed.
 
 ### Create Subscription
 
@@ -549,13 +548,14 @@ FIB POSTs to your `statusCallbackUrl` on every status change:
 
 ```ts
 app.post('/api/v1/subscriptions/webhook/fib', async (req, res) => {
-  res.sendStatus(200); // acknowledge immediately — process async
+  res.sendStatus(202); // FIB requires 202 Accepted (pre-production checklist Section D)
 
-  const { subscriptionId, status } = req.body;
+  const { subscriptionId } = req.body;
 
-  // Always re-verify — FIB does not sign webhook payloads
+  // Always re-verify from FIB — never trust the webhook body alone.
+  // FIB does not sign callbacks, so any POST with status: ACTIVE would otherwise
+  // activate a subscription for free.
   const details = await fib.getSubscription(subscriptionId);
-  if (details.status !== status) return; // stale or spoofed callback
 
   if (details.status === 'ACTIVE' || details.status === 'TRIAL') {
     // activate subscription in DB
@@ -565,7 +565,9 @@ app.post('/api/v1/subscriptions/webhook/fib', async (req, res) => {
 });
 ```
 
-> **Security:** Always call `fib.getSubscription(subscriptionId)` before acting on the webhook body. FIB does not sign callbacks — a spoofed POST with `status: ACTIVE` could otherwise activate a subscription for free.
+> **Security:** Always call `fib.getSubscription(subscriptionId)` before acting on the webhook body. FIB does not sign callbacks. The `status` field in the webhook body is ignored — only the re-verified status from the API is trusted.
+
+> **202 is required:** FIB's pre-production checklist (Section D) explicitly requires the callback endpoint to return `202 Accepted`. Returning `200` is technically accepted by FIB stage but may cause retries in production.
 
 ### Error Handling
 
@@ -587,9 +589,9 @@ try {
 
 This section captures Tutelage-specific decisions for the FIB integration.
 
-### SDK Decision
+### Client Decision
 
-Use `fibsubscribe` (Subscription API) — **not** `@first-iraqi-bank/sdk` (Web Payments API). FIB issued Subscription API credentials because our GOLD/PREMIUM tiers are recurring monthly/quarterly plans, which maps directly to FIB's native subscription billing.
+We use our own `src/lib/fib-client.ts` (Subscription API) — **not** `fibsubscribe` (broken npm package) or `@first-iraqi-bank/sdk` (Web Payments API). FIB issued Subscription API credentials because our GOLD/PREMIUM tiers are recurring monthly/quarterly plans, which maps directly to FIB's native subscription billing.
 
 ### Sandbox Test Credentials
 
@@ -612,18 +614,18 @@ Face ID verification in sandbox: scan any face.
 
 ### Subscription Pricing (IQD)
 
-Prices TBD by business owner:
+Prices confirmed and locked in `subscriptions.service.ts → PLAN_AMOUNTS_IQD`. FIB applies a **1% commission** on all subscription transactions — confirm your pricing accounts for this.
 
-| Plan    | Interval | ISO-8601 | Amount (IQD) |
-| ------- | -------- | -------- | ------------ |
-| GOLD    | 1 month  | P1M      | TBD          |
-| GOLD    | 3 months | P3M      | TBD          |
-| GOLD    | 6 months | P6M      | TBD          |
-| GOLD    | 12 months| P1Y      | TBD          |
-| PREMIUM | 1 month  | P1M      | TBD          |
-| PREMIUM | 3 months | P3M      | TBD          |
-| PREMIUM | 6 months | P6M      | TBD          |
-| PREMIUM | 12 months| P1Y      | TBD          |
+| Plan    | Interval  | ISO-8601 | Amount (IQD) |
+| ------- | --------- | -------- | -----------: |
+| GOLD    | 1 month   | P1M      |       25,000 |
+| GOLD    | 3 months  | P3M      |       70,000 |
+| GOLD    | 6 months  | P6M      |      130,000 |
+| GOLD    | 12 months | P1Y      |      250,000 |
+| PREMIUM | 1 month   | P1M      |       45,000 |
+| PREMIUM | 3 months  | P3M      |      125,000 |
+| PREMIUM | 6 months  | P6M      |      230,000 |
+| PREMIUM | 12 months | P1Y      |      440,000 |
 
 Minimum amount: 250 IQD. Currency: IQD only.
 
@@ -656,13 +658,53 @@ When status transitions to ACTIVE/TRIAL → update `Subscription.plan`, `Subscri
 ```
 FIB_CLIENT_ID=           # FIB-issued client ID (tutelage-test-sub for sandbox)
 FIB_CLIENT_SECRET=       # server-only, never expose to browser or commit to code
-FIB_ENV=stage            # 'stage' for dev/test, 'prod' for production
+FIB_ENV=stage            # 'stage' for dev/test, 'prod' for production (only these two values are valid)
+FIB_WEBHOOK_URL=         # Public HTTPS URL FIB POSTs status changes to.
+                         # REQUIRED in production when FIB_CLIENT_ID is set.
+                         # Omit in local dev — activation falls back to client polling.
+                         # Example: https://api.tutelage.ai/api/v1/subscriptions/webhook/fib
 ```
 
-Add all three to Infisical under both `dev` and `prod` environments.
+> **Startup guard:** If `NODE_ENV=production`, `FIB_CLIENT_ID` is set, and `FIB_WEBHOOK_URL` is missing, the server **refuses to start** with a clear error. This prevents silent fallback to the unreachable `http://localhost:...` URL.
+
+Add all four vars to Infisical under both `dev` and `prod` environments.
 
 ### Environments
 
 - **Sandbox base URL:** `https://fib-stage.fib.iq`
-- **Production base URL:** `https://fib.prod.fib.iq` (once integration request is approved)
-- Dev environment always uses `FIB_ENV=stage`
+- **Production base URL:** `https://fib.prod.fib.iq` (requires live credentials from FIB)
+- Dev environment always uses `FIB_ENV=stage` (never `dev` — only `stage` and `prod` are valid values)
+
+### Reconciliation Cron Job
+
+Webhook delivery is best-effort — if the server was down when FIB posted a callback, the subscription stays DRAFT until the user manually reopens the status screen.
+
+`src/jobs/fib-reconcile.job.ts` runs every 15 minutes and reconciles all non-expired DRAFT subscriptions against the FIB API. It is a no-op when `FIB_CLIENT_ID` is not configured. The job calls `applyFibStatusChange` (same helper used by the webhook handler) so the DB sync logic is identical.
+
+---
+
+## Go-Live Runbook
+
+Ordered steps to flip stage → production once FIB issues live credentials.
+
+1. **Update Infisical `prod` environment:**
+   - `FIB_ENV=prod`
+   - `FIB_CLIENT_ID=<production client ID from FIB>`
+   - `FIB_CLIENT_SECRET=<production secret from FIB>`
+   - `FIB_WEBHOOK_URL=https://<your-backend-domain>/api/v1/subscriptions/webhook/fib`
+   - `CORS_ORIGIN=https://<your-frontend-domain>`
+
+2. **Verify the webhook endpoint is publicly reachable** with a valid TLS certificate before deploying — FIB validates this before accepting the URL.
+
+3. **Deploy the backend.** On startup the server will log "4 jobs scheduled" including `fib-reconcile@*/15min`. Confirm no startup errors (especially the `FIB_WEBHOOK_URL` guard).
+
+4. **Smoke test end-to-end with a real low-value subscription:**
+   - POST `/subscriptions/initiate-fib` → get QR code
+   - Approve in real FIB app
+   - Verify webhook fires → `POST /subscriptions/webhook/fib` returns `202`
+   - Verify DB shows `fibStatus=ACTIVE`, `subscription.plan=GOLD/PREMIUM`, `subscription.status=ACTIVE`
+   - Cancel via `DELETE /subscriptions/fib/:id` → verify plan reverts to FREE ACTIVE
+
+5. **Simulate a missed webhook:** let a DRAFT subscription sit for 15 min, confirm the reconciliation job promotes it to ACTIVE without any user action.
+
+6. **Monitor** `logger` output in production for any `[fib-client]` errors after go-live.

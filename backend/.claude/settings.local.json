@@ -84,7 +84,18 @@
       "Bash(ssh-keygen *)",
       "Bash(git -C \"C:\\\\Users\\\\Aland\\\\OneDrive\\\\Desktop\\\\Projects\\\\esl-chatbot-web\" add CLAUDE.md frontend/TASKS.md)",
       "Bash(git -C 'C:\\\\Users\\\\Aland\\\\OneDrive\\\\Desktop\\\\Projects\\\\esl-chatbot-web' commit -m ' *)",
-      "Bash(git *)"
+      "Bash(git *)",
+      "Bash(perl -0pi -e 's/keyGenerator: \\\\\\(req: Request\\\\\\) => \\\\\\(req as any\\\\\\)\\\\.user\\\\?\\\\.id \\\\?\\\\? req\\\\.ip \\\\?\\\\? \"anonymous\",/keyGenerator: userOrIpKey,/g' src/middlewares/rateLimits.ts)",
+      "PowerShell(bun run *)",
+      "PowerShell(git stash *)",
+      "PowerShell(git *)",
+      "PowerShell(if \\(Test-Path .env\\) { $hasDb = Select-String -Path .env -Pattern \"^DATABASE_URL=\" -Quiet; Write-Output \"ENV_EXISTS: true; HAS_DATABASE_URL: $hasDb\" } else { Write-Output \"ENV_EXISTS: false\" })",
+      "PowerShell(bunx prisma migrate dev --name add_email_verification)",
+      "PowerShell($has = Select-String -Path .env -Pattern \"^TEST_DATABASE_URL=\" -Quiet; Write-Output \"HAS_TEST_DATABASE_URL: $has\")",
+      "PowerShell(bun *)",
+      "Bash(python -c \"import sys,json; print\\(json.load\\(sys.stdin\\)['data']['accessToken']\\)\")",
+      "PowerShell($conns = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue; if \\($conns\\) { $pids = $conns.OwningProcess | Select-Object -Unique; foreach \\($p in $pids\\) { try { Stop-Process -Id $p -Force -ErrorAction Stop; Write-Output \"Stopped PID $p\" } catch { Write-Output \"Could not stop PID $p : $_\" } } } else { Write-Output \"No listener on port 8000\" })",
+      "Bash(node -e \"const d = require\\('./node_modules/@deepgram/sdk'\\); console.log\\(Object.keys\\(d\\).filter\\(k => k.toLowerCase\\(\\).includes\\('word'\\)\\)\\)\")"
     ]
   }
 }
