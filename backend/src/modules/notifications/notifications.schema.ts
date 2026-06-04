@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+export const notificationParamsSchema = z.object({
+  id: z.string().uuid("Notification ID must be a valid UUID"),
+});
+
 export const listNotificationsQuerySchema = z.object({
   page: z
     .string()

@@ -42,7 +42,7 @@ export async function deepgramSTT(audioBuffer: Buffer, mimeType: string): Promis
   return {
     transcript: alternative.transcript,
     confidence: alternative.confidence ?? 0,
-    words: (alternative.words ?? []).map((w) => ({
+    words: (alternative.words ?? []).map((w: { word?: string; start?: number; end?: number; confidence?: number }) => ({
       word: w.word ?? "",
       start: w.start ?? 0,
       end: w.end ?? 0,

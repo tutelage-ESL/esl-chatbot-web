@@ -1,6 +1,7 @@
 import type { NotificationType } from "@prisma/client";
 import { prisma } from "../../config/database.ts";
 import { getIO } from "../../socket/io-instance.ts";
+import { AppError } from "../../utils/AppError.ts";
 import type { NotificationItem } from "./notifications.types.ts";
 
 const NOTIFICATION_SELECT = {
@@ -60,5 +61,20 @@ export async function markAllRead(userId: string): Promise<void> {
   await prisma.notification.updateMany({
     where: { userId, read: false },
     data: { read: true },
+  });
+}
+
+export async function markOneRead(userId: string, notificationId: string): Promise<NotificationItem> {
+  const existing = await prisma.notification.findFirst({
+    where: { id: notificationId, userId },
+    select: { id: true },
+  });
+
+  if (!existing) throw new AppError("Notification not found", 404);
+
+  return prisma.notification.update({
+    where: { id: notificationId },
+    data: { read: true },
+    select: NOTIFICATION_SELECT,
   });
 }

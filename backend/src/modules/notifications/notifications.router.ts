@@ -1,6 +1,10 @@
 import { Router } from "express";
 import { authenticate } from "../../middlewares/authenticate.ts";
-import { listNotificationsHandler, markAllReadHandler } from "./notifications.controller.ts";
+import {
+  listNotificationsHandler,
+  markAllReadHandler,
+  markOneReadHandler,
+} from "./notifications.controller.ts";
 
 const router = Router();
 
@@ -90,5 +94,46 @@ router.get("/me/notifications", authenticate, listNotificationsHandler);
  *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  */
 router.patch("/me/notifications/read-all", authenticate, markAllReadHandler);
+
+/**
+ * @swagger
+ * /users/me/notifications/{id}/read:
+ *   patch:
+ *     summary: Mark a single notification as read
+ *     description: |
+ *       Marks the specified notification as read. The notification must belong to the
+ *       authenticated user — otherwise 404 is returned (no information leak).
+ *       Idempotent: calling it on an already-read notification returns 200.
+ *     tags: [Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *         description: Notification ID
+ *     responses:
+ *       200:
+ *         description: Notification marked as read
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: string, format: uuid }
+ *                     type: { type: string, enum: [STREAK_MILESTONE, GOAL_COMPLETED, GOAL_ASSIGNED, CLASS_ANNOUNCEMENT] }
+ *                     message: { type: string }
+ *                     read: { type: boolean, example: true }
+ *                     createdAt: { type: string, format: date-time }
+ *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       404: { description: Notification not found or does not belong to the caller }
+ *       422: { description: id is not a valid UUID, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ */
+router.patch("/me/notifications/:id/read", authenticate, markOneReadHandler);
 
 export default router;

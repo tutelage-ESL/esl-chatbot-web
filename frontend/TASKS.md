@@ -45,7 +45,7 @@ Each notification type should navigate to the relevant page when clicked:
 - `GOAL_ASSIGNED` → `/dashboard/goals`
 - `CLASS_ANNOUNCEMENT` → `/dashboard/classes`
 
-On click: close the dropdown, navigate to the route. Mark the individual item as read if it isn't already (backend doesn't have a single-read endpoint yet — use the existing mark-all or skip for now).
+On click: close the dropdown, navigate to the route. Mark the individual item as read if it isn't already — use `PATCH /users/me/notifications/:id/read` (now available). Returns the updated notification with `read: true`. 404 if the notification doesn't exist or belongs to another user.
 
 ---
 

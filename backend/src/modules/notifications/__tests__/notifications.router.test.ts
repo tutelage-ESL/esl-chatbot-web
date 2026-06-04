@@ -109,6 +109,79 @@ describe("GET /api/v1/users/me/notifications — list", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────
+describe("PATCH /api/v1/users/me/notifications/:id/read — mark one read", () => {
+  it("200 — marks a single unread notification as read and returns it", async () => {
+    const u = track(await createTestUser());
+    const { id } = await makeNotification(u.id, { read: false });
+
+    const res = await request(app)
+      .patch(`/api/v1/users/me/notifications/${id}/read`)
+      .set(auth(u.token));
+    expect(res.status).toBe(200);
+    expect(res.body.data.id).toBe(id);
+    expect(res.body.data.read).toBe(true);
+  });
+
+  it("200 — idempotent: already-read notification returns 200 with read=true", async () => {
+    const u = track(await createTestUser());
+    const { id } = await makeNotification(u.id, { read: true });
+
+    const res = await request(app)
+      .patch(`/api/v1/users/me/notifications/${id}/read`)
+      .set(auth(u.token));
+    expect(res.status).toBe(200);
+    expect(res.body.data.read).toBe(true);
+  });
+
+  it("200 — does not touch other notifications belonging to the same user", async () => {
+    const u = track(await createTestUser());
+    const { id: targetId } = await makeNotification(u.id, { read: false });
+    const { id: otherId } = await makeNotification(u.id, { read: false });
+
+    await request(app)
+      .patch(`/api/v1/users/me/notifications/${targetId}/read`)
+      .set(auth(u.token));
+
+    const other = await prisma.notification.findUnique({ where: { id: otherId } });
+    expect(other?.read).toBe(false);
+  });
+
+  it("404 — notification belonging to another user", async () => {
+    const owner = track(await createTestUser());
+    const attacker = track(await createTestUser());
+    const { id } = await makeNotification(owner.id);
+
+    const res = await request(app)
+      .patch(`/api/v1/users/me/notifications/${id}/read`)
+      .set(auth(attacker.token));
+    expect(res.status).toBe(404);
+  });
+
+  it("404 — non-existent notification ID", async () => {
+    const u = track(await createTestUser());
+    const res = await request(app)
+      .patch("/api/v1/users/me/notifications/00000000-0000-0000-0000-000000000000/read")
+      .set(auth(u.token));
+    expect(res.status).toBe(404);
+  });
+
+  it("422 — invalid UUID format", async () => {
+    const u = track(await createTestUser());
+    const res = await request(app)
+      .patch("/api/v1/users/me/notifications/not-a-uuid/read")
+      .set(auth(u.token));
+    expect(res.status).toBe(422);
+  });
+
+  it("401 — no token", async () => {
+    const res = await request(app).patch(
+      "/api/v1/users/me/notifications/00000000-0000-0000-0000-000000000000/read",
+    );
+    expect(res.status).toBe(401);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
 describe("PATCH /api/v1/users/me/notifications/read-all — mark all read", () => {
   it("200 — marks all of the caller's unread notifications as read", async () => {
     const u = track(await createTestUser());

@@ -2877,7 +2877,7 @@ export interface paths {
          * Get vocabulary growth chart data for a given time range
          * @description Returns cumulative vocabulary growth points for the selected range:
          *     - `7d` — 7 daily buckets (last 7 days)
-         *     - `30d` — 6 weekly buckets (last ~6 weeks, default)
+         *     - `30d` — 30 daily buckets (last 30 days, default)
          *     - `all` — 12 monthly buckets (last 12 calendar months)
          */
         get: {
@@ -3773,6 +3773,88 @@ export interface paths {
         };
         trace?: never;
     };
+    "/users/me/notifications/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Mark a single notification as read
+         * @description Marks the specified notification as read. The notification must belong to the
+         *     authenticated user — otherwise 404 is returned (no information leak).
+         *     Idempotent: calling it on an already-read notification returns 200.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Notification ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Notification marked as read */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: {
+                                /** Format: uuid */
+                                id?: string;
+                                /** @enum {string} */
+                                type?: "STREAK_MILESTONE" | "GOAL_COMPLETED" | "GOAL_ASSIGNED" | "CLASS_ANNOUNCEMENT";
+                                message?: string;
+                                /** @example true */
+                                read?: boolean;
+                                /** Format: date-time */
+                                createdAt?: string;
+                            };
+                        };
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Notification not found or does not belong to the caller */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description id is not a valid UUID */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/progress": {
         parameters: {
             query?: never;
@@ -4502,8 +4584,8 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description Acknowledged */
-                200: {
+                /** @description Acknowledged (FIB requires 202 Accepted per pre-production spec) */
+                202: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -4511,6 +4593,113 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tutor/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tutor dashboard overview stats — Tutor or Admin only
+         * @description Returns an aggregated snapshot of the tutor's classes and student activity:
+         *     - Total and active classes the tutor teaches
+         *     - Total students across all classes, plus daily/weekly active counts
+         *     - Average skill scores (grammar, vocabulary, fluency, speaking) across all students
+         *     - Total sessions started today by the tutor's students
+         *     - 8 most recent student sessions with scores
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Tutor dashboard stats */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @example true */
+                            success?: boolean;
+                            message?: string;
+                            data?: {
+                                classes?: {
+                                    /** @example 3 */
+                                    total?: number;
+                                    /** @example 2 */
+                                    active?: number;
+                                };
+                                students?: {
+                                    /** @example 24 */
+                                    total?: number;
+                                    /** @example 6 */
+                                    activeToday?: number;
+                                    /** @example 18 */
+                                    activeThisWeek?: number;
+                                };
+                                skills?: {
+                                    /** @example 72 */
+                                    avgGrammar?: number;
+                                    /** @example 68 */
+                                    avgVocabulary?: number;
+                                    /** @example 65 */
+                                    avgFluency?: number;
+                                    /** @example 58 */
+                                    avgSpeaking?: number;
+                                };
+                                /** @example 8 */
+                                sessionsToday?: number;
+                                recentActivity?: {
+                                    /** Format: uuid */
+                                    userId?: string;
+                                    displayName?: string;
+                                    /** Format: uri */
+                                    avatarUrl?: string | null;
+                                    /** @enum {string} */
+                                    sessionMode?: "TEXT" | "VOICE";
+                                    /** Format: date-time */
+                                    startedAt?: string;
+                                    avgOverallScore?: number | null;
+                                    className?: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not a tutor or admin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;

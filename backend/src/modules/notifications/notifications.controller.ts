@@ -3,8 +3,8 @@ import { asyncHandler } from "../../utils/asyncHandler.ts";
 import { sendSuccess } from "../../utils/apiResponse.ts";
 import { paginationMeta } from "../../utils/pagination.ts";
 import { AppError } from "../../utils/AppError.ts";
-import { listNotificationsQuerySchema } from "./notifications.schema.ts";
-import { listNotifications, markAllRead } from "./notifications.service.ts";
+import { listNotificationsQuerySchema, notificationParamsSchema } from "./notifications.schema.ts";
+import { listNotifications, markAllRead, markOneRead } from "./notifications.service.ts";
 
 export const listNotificationsHandler = asyncHandler(async (req: Request, res: Response) => {
   if (!req.user) throw new AppError("Authentication required", 401);
@@ -23,4 +23,11 @@ export const markAllReadHandler = asyncHandler(async (req: Request, res: Respons
   if (!req.user) throw new AppError("Authentication required", 401);
   await markAllRead(req.user.id);
   sendSuccess(res, null, "All notifications marked as read");
+});
+
+export const markOneReadHandler = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.user) throw new AppError("Authentication required", 401);
+  const { id } = notificationParamsSchema.parse(req.params);
+  const notification = await markOneRead(req.user.id, id);
+  sendSuccess(res, notification, "Notification marked as read");
 });
