@@ -37,7 +37,7 @@ const primaryNav = computed<DashboardNavItem[]>(() => {
     ...adminOnly,
     { id: 'chat', label: 'AI Chat', icon: 'Messages', path: '/dashboard/chat' },
     { id: 'classes', label: 'Classes', icon: 'BookSaved', path: '/dashboard/classes' },
-    { id: 'lessons', label: 'Lessons', icon: 'Candle', path: '/dashboard/lessons' },
+    // { id: 'lessons', label: 'Lessons', icon: 'Candle', path: '/dashboard/lessons' },
     { id: 'voice', label: 'Voice Lab', icon: 'Microphone', path: '/dashboard/voice' },
     { id: 'vocab', label: 'Vocabulary', icon: 'Book1', path: '/dashboard/vocab', badge: vocabDueCount.value },
     { id: 'goals', label: 'Goals', icon: 'Flag', path: '/dashboard/goals' },
