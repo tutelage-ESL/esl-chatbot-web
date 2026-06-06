@@ -110,9 +110,9 @@ export const setPasswordHandler = asyncHandler(async (req: Request, res: Respons
 
 export const verifyEmailHandler = asyncHandler(async (req: Request, res: Response) => {
   const input = verifyEmailSchema.parse(req.body);
-  const user = await verifyEmail(input);
+  const result = await verifyEmail(input);
 
-  sendSuccess(res, user, "Email verified successfully. Your free plan is now active.", 200);
+  sendSuccess(res, result, "Email verified successfully. Your free plan is now active.", 200);
 });
 
 export const resendVerificationHandler = asyncHandler(async (req: Request, res: Response) => {

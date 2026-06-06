@@ -124,6 +124,29 @@ describe("POST /api/v1/auth/login", () => {
     expect(res.body.message).toContain("deactivated");
   });
 
+  it("403 — unverified email is blocked from logging in (only after correct password)", async () => {
+    const uid = uniqueId();
+    const pw = await bcryptjs.hash("password123", 10);
+    const unverified = await prisma.user.create({
+      data: {
+        username: `unverif_${uid}`,
+        email: `unverif_${uid}@tutelage.test`,
+        displayName: "Unverified",
+        authProvider: "LOCAL",
+        password: pw,
+        emailVerified: false,
+      },
+    });
+    createdUserIds.push(unverified.id);
+
+    const res = await request(app)
+      .post("/api/v1/auth/login")
+      .send({ username: unverified.username, password: "password123" });
+
+    expect(res.status).toBe(403);
+    expect(res.body.message).toContain("verify your email");
+  });
+
   it("422 — missing password", async () => {
     const res = await request(app).post("/api/v1/auth/login").send({ username: "x" });
 
@@ -136,7 +159,7 @@ describe("POST /api/v1/auth/login", () => {
 // ─── POST /auth/register ──────────────────────────────────────────────────────
 
 describe("POST /api/v1/auth/register", () => {
-  it("201 — creates a FREE/INACTIVE account with profile, subscription and metrics", async () => {
+  it("201 — creates a FREE/INACTIVE unverified account, returns the user but NO tokens", async () => {
     const uid = uniqueId();
     const body = {
       username: `newuser_${uid}`,
@@ -149,11 +172,13 @@ describe("POST /api/v1/auth/register", () => {
 
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
-    expect(res.body.data.user.subscription).toEqual({ plan: "FREE", status: "INACTIVE" });
-    expect(res.body.data.user.emailVerified).toBe(false);
-    expect(typeof res.body.data.accessToken).toBe("string");
+    // data is the AuthUser directly — register no longer logs the user in
+    expect(res.body.data.subscription).toEqual({ plan: "FREE", status: "INACTIVE" });
+    expect(res.body.data.emailVerified).toBe(false);
+    expect(res.body.data.accessToken).toBeUndefined();
+    expect(res.body.data.refreshToken).toBeUndefined();
 
-    const newId: string = res.body.data.user.id;
+    const newId: string = res.body.data.id;
     createdUserIds.push(newId);
 
     // Verify the transaction created all four rows
@@ -423,15 +448,18 @@ describe("POST /api/v1/auth/verify-email", () => {
     return { user, otp };
   }
 
-  it("200 — valid OTP verifies the email and activates the FREE subscription", async () => {
+  it("200 — valid OTP verifies the email, activates FREE, and returns tokens (logs in)", async () => {
     const { user, otp } = await makeUnverifiedUserWithOtp();
     const res = await request(app)
       .post("/api/v1/auth/verify-email")
       .send({ email: user.email, otp });
 
     expect(res.status).toBe(200);
-    expect(res.body.data.emailVerified).toBe(true);
-    expect(res.body.data.subscription).toEqual({ plan: "FREE", status: "ACTIVE" });
+    // data is now a LoginResponse: { user, accessToken, refreshToken }
+    expect(res.body.data.user.emailVerified).toBe(true);
+    expect(res.body.data.user.subscription).toEqual({ plan: "FREE", status: "ACTIVE" });
+    expect(typeof res.body.data.accessToken).toBe("string");
+    expect(typeof res.body.data.refreshToken).toBe("string");
 
     const [dbUser, sub, token] = await Promise.all([
       prisma.user.findUnique({ where: { id: user.id }, select: { emailVerified: true, emailVerifiedAt: true } }),
@@ -444,7 +472,7 @@ describe("POST /api/v1/auth/verify-email", () => {
     expect(token?.usedAt).not.toBeNull(); // single-use: consumed
   });
 
-  it("200 — idempotent: an already-verified email returns success, not an error", async () => {
+  it("409 — already-verified email is rejected (no tokens minted on replay)", async () => {
     const user = await createTestUser({ status: "ACTIVE" });
     createdUserIds.push(user.id);
     await prisma.user.update({
@@ -454,9 +482,9 @@ describe("POST /api/v1/auth/verify-email", () => {
 
     const res = await request(app)
       .post("/api/v1/auth/verify-email")
-      .send({ email: user.email, otp: "000000" }); // bogus OTP ignored once verified
-    expect(res.status).toBe(200);
-    expect(res.body.data.emailVerified).toBe(true);
+      .send({ email: user.email, otp: "000000" });
+    expect(res.status).toBe(409);
+    expect(res.body.data).toBeNull();
   });
 
   it("400 — wrong OTP", async () => {

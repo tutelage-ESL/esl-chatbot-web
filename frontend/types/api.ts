@@ -577,12 +577,12 @@ export interface paths {
         put?: never;
         /**
          * Register a new account with email and password
-         * @description Creates a new user account. On success, returns tokens immediately so the user is logged in right away — no separate login step required.
-         *     A 6-digit verification code is emailed to the user (best-effort — registration still succeeds if the email service is unavailable; the code can be re-requested via `POST /auth/resend-verification`).
-         *     **Default state after registration:** - `subscription.plan` = FREE - `subscription.status` = INACTIVE - `emailVerified` = false - AI chatbot access is **disabled** until the user verifies their email
-         *       (`POST /auth/verify-email`) or links a Google account — either path
-         *       activates the FREE tier.
-         *     - Class joining via class code works immediately (no subscription needed)
+         * @description Creates a new user account. **No tokens are returned and the user is NOT logged in** — they must verify their email first. This prevents registering with an email you don't own and then using the account.
+         *     A 6-digit verification code is emailed to the user (best-effort — registration still succeeds if the email service is unavailable; the code can be re-requested via `POST /auth/resend-verification`). The user then calls `POST /auth/verify-email`, which verifies the email AND logs them in (returns tokens).
+         *     **State after registration:** - `subscription.plan` = FREE - `subscription.status` = INACTIVE - `emailVerified` = false - The account **cannot log in** until the email is verified — `POST /auth/login`
+         *       returns 403 for unverified accounts.
+         *     - Verifying the email (or signing in with Google on the same email) activates
+         *       the FREE tier and unlocks AI chatbot access.
          */
         post: {
             parameters: {
@@ -612,7 +612,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description Registration successful — user is logged in */
+                /** @description Registration successful — account created (unverified). No tokens are returned; the user must verify their email before they can log in. */
                 201: {
                     headers: {
                         [name: string]: unknown;
@@ -623,7 +623,7 @@ export interface paths {
                             success?: boolean;
                             /** @example Registration successful */
                             message?: string;
-                            data?: components["schemas"]["AuthResponse"];
+                            data?: components["schemas"]["AuthUser"];
                         };
                     };
                 };
@@ -717,7 +717,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
-                /** @description Account deactivated */
+                /** @description Account deactivated, OR email not yet verified. Unverified accounts must complete `POST /auth/verify-email` before they can log in. */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -1240,9 +1240,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Verify email with the OTP and activate the free plan
-         * @description Verifies the 6-digit code emailed at registration. On success, the user's email is marked verified and their FREE subscription is activated (`INACTIVE → ACTIVE`), unlocking AI chatbot access. A paid plan is never downgraded by this call.
-         *     Unauthenticated by design so the code can be entered from any device. Idempotent — if the email is already verified, returns 200 with the current profile rather than an error. Returns the updated `AuthUser`.
+         * Verify email with the OTP, activate the free plan, and log in
+         * @description Verifies the 6-digit code emailed at registration. On success, the user's email is marked verified, their FREE subscription is activated (`INACTIVE → ACTIVE`, unlocking AI chatbot access), and **a token pair is returned so the user is logged in immediately** — this is the first point a LOCAL account receives tokens (register no longer issues them). A paid plan is never downgraded by this call.
+         *     Unauthenticated by design so the code can be entered from any device — the valid OTP is the proof of email ownership. If the email is already verified, returns 409 (the user should sign in normally); tokens are only minted on a fresh verification.
          */
         post: {
             parameters: {
@@ -1265,7 +1265,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description Email verified (or already verified) — returns updated user profile */
+                /** @description Email verified — free plan active, user logged in (tokens returned) */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -1276,12 +1276,30 @@ export interface paths {
                             success?: boolean;
                             /** @example Email verified successfully. Your free plan is now active. */
                             message?: string;
-                            data?: components["schemas"]["AuthUser"];
+                            data?: components["schemas"]["AuthResponse"];
                         };
                     };
                 };
                 /** @description Invalid, expired, or already-used verification code */
                 400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Account deactivated */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Email already verified — sign in normally */
+                409: {
                     headers: {
                         [name: string]: unknown;
                     };

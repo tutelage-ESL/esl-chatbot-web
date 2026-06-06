@@ -67,6 +67,10 @@ export const useAuthStore = defineStore("useAuthStore", {
         },
         showToast: false,
       });
+
+      // Register no longer returns tokens or logs the user in — the account is
+      // created but unverified. The user MUST verify their email (which logs them
+      // in) before they can sign in. Do not persist anything here.
       this.isLoading = false;
       return response;
     },
@@ -154,6 +158,16 @@ export const useAuthStore = defineStore("useAuthStore", {
         body: { email: input.email, otp: input.otp },
         showToast: false,
       });
+
+      // Verifying the email logs the user in — the backend returns a token pair
+      // here (the verified OTP is the proof of ownership). Persist it.
+      if (response.success && response.data?.data?.accessToken) {
+        await this._persistTokens(
+          response.data.data.accessToken,
+          response.data.data.refreshToken
+        );
+        this.setUserFromResponse(response.data.data.user);
+      }
       this.isLoading = false;
       return response;
     },
@@ -247,6 +261,7 @@ export const useAuthStore = defineStore("useAuthStore", {
         role: user.role,
         avatarUrl: user.avatarUrl,
         isActive: user.isActive,
+        emailVerified: user.emailVerified,
         subscription: {
           plan: user.subscription?.plan,
           status: user.subscription?.status,

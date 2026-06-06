@@ -26,10 +26,9 @@ const handleSubmit = async () => {
     const response = await authStore.signUp(formData)
 
     if (response.success) {
-        // Store credentials so verify-email can sign in after OTP confirmation
+        // Register does NOT log the user in — they must verify their email first.
+        // Carry the email to the verify step so it's pre-filled. No password stored.
         sessionStorage.setItem('pendingEmail', formData.email)
-        sessionStorage.setItem('pendingUsername', formData.username)
-        sessionStorage.setItem('pendingPassword', formData.password)
         toast.success('Account created! Check your email for a verification code.')
         router.push('/verify-email')
     } else {

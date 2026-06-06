@@ -24,9 +24,21 @@ const handleSubmit = async () => {
 
     if (response.success) {
         router.push('/dashboard')
-    } else {
-        serverError.value = response.message || 'Invalid username or password'
+        return
     }
+
+    // 403 = correct password but email not verified. Send them to the verify step
+    // (it will ask for their email there, then log them in on success).
+    if (response.status === 403 && /verify your email/i.test(response.message ?? '')) {
+        toast.info('Please verify your email to continue.')
+        if (formData.username.includes('@')) {
+            sessionStorage.setItem('pendingEmail', formData.username)
+        }
+        router.push('/verify-email')
+        return
+    }
+
+    serverError.value = response.message || 'Invalid username or password'
 }
 
 </script>

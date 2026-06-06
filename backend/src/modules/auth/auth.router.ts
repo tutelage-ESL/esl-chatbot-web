@@ -152,21 +152,23 @@ if (env.NODE_ENV !== "production") {
  *     summary: Register a new account with email and password
  *     tags: [Auth]
  *     description: >
- *       Creates a new user account. On success, returns tokens immediately so the user
- *       is logged in right away — no separate login step required.
+ *       Creates a new user account. **No tokens are returned and the user is NOT
+ *       logged in** — they must verify their email first. This prevents registering
+ *       with an email you don't own and then using the account.
  *
  *       A 6-digit verification code is emailed to the user (best-effort — registration
  *       still succeeds if the email service is unavailable; the code can be re-requested
- *       via `POST /auth/resend-verification`).
+ *       via `POST /auth/resend-verification`). The user then calls
+ *       `POST /auth/verify-email`, which verifies the email AND logs them in (returns tokens).
  *
- *       **Default state after registration:**
+ *       **State after registration:**
  *       - `subscription.plan` = FREE
  *       - `subscription.status` = INACTIVE
  *       - `emailVerified` = false
- *       - AI chatbot access is **disabled** until the user verifies their email
- *         (`POST /auth/verify-email`) or links a Google account — either path
- *         activates the FREE tier.
- *       - Class joining via class code works immediately (no subscription needed)
+ *       - The account **cannot log in** until the email is verified — `POST /auth/login`
+ *         returns 403 for unverified accounts.
+ *       - Verifying the email (or signing in with Google on the same email) activates
+ *         the FREE tier and unlocks AI chatbot access.
  *     requestBody:
  *       required: true
  *       content:
@@ -200,7 +202,9 @@ if (env.NODE_ENV !== "production") {
  *                 example: Ali Hassan
  *     responses:
  *       201:
- *         description: Registration successful — user is logged in
+ *         description: >
+ *           Registration successful — account created (unverified). No tokens are
+ *           returned; the user must verify their email before they can log in.
  *         content:
  *           application/json:
  *             schema:
@@ -213,7 +217,7 @@ if (env.NODE_ENV !== "production") {
  *                   type: string
  *                   example: Registration successful
  *                 data:
- *                   $ref: '#/components/schemas/AuthResponse'
+ *                   $ref: '#/components/schemas/AuthUser'
  *       409:
  *         description: Username or email already registered
  *         content:
@@ -286,7 +290,9 @@ router.post("/register", registerLimiter, registerHandler);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  *       403:
- *         description: Account deactivated
+ *         description: >
+ *           Account deactivated, OR email not yet verified. Unverified accounts must
+ *           complete `POST /auth/verify-email` before they can log in.
  *         content:
  *           application/json:
  *             schema:
@@ -723,17 +729,20 @@ router.post("/reset-password", resetPasswordLimiter, resetPasswordHandler);
  * @swagger
  * /auth/verify-email:
  *   post:
- *     summary: Verify email with the OTP and activate the free plan
+ *     summary: Verify email with the OTP, activate the free plan, and log in
  *     tags: [Auth]
  *     description: >
  *       Verifies the 6-digit code emailed at registration. On success, the user's
- *       email is marked verified and their FREE subscription is activated
- *       (`INACTIVE → ACTIVE`), unlocking AI chatbot access. A paid plan is never
- *       downgraded by this call.
+ *       email is marked verified, their FREE subscription is activated
+ *       (`INACTIVE → ACTIVE`, unlocking AI chatbot access), and **a token pair is
+ *       returned so the user is logged in immediately** — this is the first point a
+ *       LOCAL account receives tokens (register no longer issues them). A paid plan
+ *       is never downgraded by this call.
  *
- *       Unauthenticated by design so the code can be entered from any device.
- *       Idempotent — if the email is already verified, returns 200 with the current
- *       profile rather than an error. Returns the updated `AuthUser`.
+ *       Unauthenticated by design so the code can be entered from any device — the
+ *       valid OTP is the proof of email ownership. If the email is already verified,
+ *       returns 409 (the user should sign in normally); tokens are only minted on a
+ *       fresh verification.
  *     requestBody:
  *       required: true
  *       content:
@@ -756,7 +765,7 @@ router.post("/reset-password", resetPasswordLimiter, resetPasswordHandler);
  *                 example: "482910"
  *     responses:
  *       200:
- *         description: Email verified (or already verified) — returns updated user profile
+ *         description: Email verified — free plan active, user logged in (tokens returned)
  *         content:
  *           application/json:
  *             schema:
@@ -769,9 +778,21 @@ router.post("/reset-password", resetPasswordLimiter, resetPasswordHandler);
  *                   type: string
  *                   example: Email verified successfully. Your free plan is now active.
  *                 data:
- *                   $ref: '#/components/schemas/AuthUser'
+ *                   $ref: '#/components/schemas/AuthResponse'
  *       400:
  *         description: Invalid, expired, or already-used verification code
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       403:
+ *         description: Account deactivated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       409:
+ *         description: Email already verified — sign in normally
  *         content:
  *           application/json:
  *             schema:

@@ -18,7 +18,7 @@ const props = defineProps({
 <template>
     <div class="w-full flex flex-col items-center justify-center gap-12">
         <div class="size-30 md:size-37 aspect-square rounded-full bg-primary-400 flex items-center justify-center">
-            <AppImage src="/icons/check.svg" class="max-md:size-12" alt="check icon" />
+            <AppIconsax variant="bold" name="TickCircle" size="80" color="#fff" />
         </div>
 
         <div class="w-full flex flex-col items-center justify-center gap-14">

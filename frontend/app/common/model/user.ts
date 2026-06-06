@@ -6,6 +6,7 @@ export type User = {
   role: 'STUDENT' | 'TUTOR' | 'ADMIN';
   avatarUrl: string;
   isActive: boolean;
+  emailVerified: boolean;
   subscription: {
     plan: 'FREE' | 'GOLD' | 'PREMIUM';
     status: 'ACTIVE' | 'INACTIVE' | 'CANCELED' | 'PAST_DUE';

@@ -8,19 +8,6 @@ When Aland adds a new backend API, he notes it here so Rekar knows what to wire 
 
 ---
 
-## Pending
-
-
-### ✅ 5. Notifications — done
-`useNotifications.ts` + `NotificationBell.vue` + `NotificationPanel.vue`. Socket.io `/notifications` namespace for real-time push. Bell shows live unread badge, "Mark all read" button in panel header.
-
----
-
-### ✅ 6. Admin — done
-`useAdmin.ts` composable + `pages/dashboard/users/index.vue` (paginated table with search/role/status filters) + `pages/dashboard/users/[id].vue` (full edit page, 7 fields) + `pages/dashboard/admin.vue` (platform stats dashboard). Sidebar shows "Users" instead of "Overview" for admins. Settings cog in header links to `/dashboard/admin` (admin only). Components: `UserTableRow`, `UserFilters`, `AssignSubscriptionModal`.
-
----
-
 ### 7. Voice Lab — connect to real Socket.io pipeline
 **File:** `app/pages/dashboard/voice.vue`  
 **Status:** Hardcoded phoneme scores and prompt. Real backend pipeline exists but is not wired.
@@ -51,17 +38,18 @@ On click: close the dropdown, navigate to the route. Mark the individual item as
 
 ## Backend Notes for Frontend
 
-### Email verification flow — NEW endpoints (2026-05-31)
-Email verification now **activates the FREE plan** (unlocks the AI tutor). Previously only linking Google did this — now verifying the registration email does too. `AuthUser` (returned by login / register / `GET /auth/me` / Google / verify-email) gained an **`emailVerified: boolean`** field.
+### Email verification is now MANDATORY before login (2026-06-06) — ⚠️ flow changed
+Security fix: registering no longer logs the user in. The account is created but **unverified and unusable** until the email is verified — `POST /auth/login` returns **403** for unverified accounts. This closes the hole where you could register with someone else's email and log straight in. `AuthUser` (login / register / `GET /auth/me` / Google / verify-email) carries **`emailVerified: boolean`**.
 
-Flow to wire up:
-1. **After register**, the user is logged in but `emailVerified=false` / `subscription.status=INACTIVE`. The backend has emailed them a 6-digit code. Show a "verify your email to unlock the AI tutor" screen/banner.
-2. **`POST /auth/verify-email`** — body `{ email, otp }` (6 digits). Returns the updated `AuthUser` (now `emailVerified=true`, `subscription.status=ACTIVE`). Update the auth store with this response. Unauthenticated endpoint — works even if the session expired. Idempotent (re-submitting an already-verified email returns 200).
-   - `400` = invalid/expired/used code; `422` = bad format; `429` = rate limited (10 / 15 min).
-3. **`POST /auth/resend-verification`** — body `{ email }`. Always returns 200 ("if registered and unverified, a code was sent" — anti-enumeration). Add a "resend code" button with a cooldown (limit is 5 / hour).
-4. **Persistent banner**: anywhere AI is gated, if `emailVerified=false`, show "Verify your email or link Google to start chatting." Google link (`POST /auth/link-google`) is the alternative activation path and also sets `emailVerified=true`.
+Current wired-up flow (done — see `signup.vue`, `verify-email.vue`, `signin.vue`, `stores/auth.ts`):
+1. **`POST /auth/register`** — body `{ username, email, password, displayName }`. Returns the created `AuthUser` (201) — **NO tokens**. The store's `signUp()` persists nothing. `signup.vue` stashes only the email in `sessionStorage.pendingEmail` and routes to `/verify-email`.
+2. **`POST /auth/verify-email`** — body `{ email, otp }`. Returns a **`LoginResponse` (`{ user, accessToken, refreshToken }`)** — verifying logs the user in. The store's `verifyEmail()` persists those tokens, then the page goes to `/dashboard`.
+   - `400` = invalid/expired/used code; **`409` = already verified (sign in normally)** — no longer idempotent; `422` = bad format; `429` = rate limited (10 / 15 min).
+3. **`POST /auth/resend-verification`** — body `{ email }`. Always 200 (anti-enumeration). `verify-email.vue` has a 60s resend cooldown.
+4. **Login 403 handling**: `signin.vue` detects the "verify your email" 403 and redirects to `/verify-email`. Because login uses *username* (not email), the verify page asks the user to type their email when none was carried over.
+5. **Google** (`POST /auth/google` / `/auth/link-google`) is still the instant alternative — Google emails are pre-verified, so it sets `emailVerified=true` + `status=ACTIVE` and returns tokens directly.
 
-Codes expire in 24h. Types are already in `frontend/types/api.ts` (`paths['/auth/verify-email']`, `paths['/auth/resend-verification']`).
+Codes expire in 24h. Types are in `frontend/types/api.ts` (`paths['/auth/verify-email']`, `paths['/auth/resend-verification']`).
 
 ### Dashboard overview types — use the generated `api.ts` (2026-05-30)
 Heads up Rekar: `GET /dashboard/overview` was missing from `frontend/types/api.ts` because `bun run generate:types` wasn't run after the backend route was added. I've regenerated it — the route + full response shape now live in the canonical `types/api.ts` (the `paths["/dashboard/overview"]` entry).

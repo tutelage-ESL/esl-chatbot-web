@@ -135,6 +135,16 @@ export async function login(input: LoginInput): Promise<LoginResponse> {
     throw new AppError(INVALID_CREDENTIALS_MSG, 400);
   }
 
+  // Block login until the email is verified. Checked only after credentials are
+  // confirmed valid, so we never reveal an account's verification state to someone
+  // who doesn't know the password.
+  if (!user.emailVerified) {
+    throw new AppError(
+      "Please verify your email before signing in. Check your inbox for the verification code.",
+      403,
+    );
+  }
+
   const jwtPayload: JwtPayload = {
     sub: user.id,
     username: user.username,
@@ -174,7 +184,7 @@ export async function login(input: LoginInput): Promise<LoginResponse> {
 
 // ─── Register ────────────────────────────────────────────────────────────────
 
-export async function register(input: RegisterInput): Promise<LoginResponse> {
+export async function register(input: RegisterInput): Promise<AuthUser> {
   // Check uniqueness before the transaction to give a clear error message
   const existingByUsername = await prisma.user.findUnique({ where: { username: input.username } });
   if (existingByUsername) throw new AppError("Username is already taken", 409);
@@ -218,23 +228,21 @@ export async function register(input: RegisterInput): Promise<LoginResponse> {
     logger.warn(`Could not send verification email to ${newUser.email}: ${(err as Error).message}`);
   }
 
-  const { accessToken, refreshToken } = await issueTokenPair(newUser.id);
-
+  // No tokens are issued here. The account is created but cannot be used until the
+  // email is verified (POST /auth/verify-email) — login() rejects unverified LOCAL
+  // accounts. This prevents registering with someone else's email and using the
+  // account without proving ownership.
   return {
-    user: {
-      id: newUser.id,
-      username: newUser.username,
-      email: newUser.email,
-      displayName: newUser.displayName,
-      role: newUser.role,
-      avatarUrl: newUser.avatarUrl,
-      isActive: newUser.isActive,
-      emailVerified: newUser.emailVerified,
-      // We know exactly what was just created
-      subscription: { plan: "FREE", status: "INACTIVE" },
-    },
-    accessToken,
-    refreshToken,
+    id: newUser.id,
+    username: newUser.username,
+    email: newUser.email,
+    displayName: newUser.displayName,
+    role: newUser.role,
+    avatarUrl: newUser.avatarUrl,
+    isActive: newUser.isActive,
+    emailVerified: newUser.emailVerified,
+    // We know exactly what was just created
+    subscription: { plan: "FREE", status: "INACTIVE" },
   };
 }
 
@@ -704,23 +712,33 @@ async function sendWelcomeEmail(email: string, displayName: string): Promise<voi
 }
 
 /**
- * Verifies an email-verification OTP. On success: marks the email verified and
- * activates the FREE subscription (INACTIVE→ACTIVE; never downgrades a paid plan).
- * Idempotent — verifying an already-verified email returns the current profile.
+ * Verifies an email-verification OTP. On success: marks the email verified,
+ * activates the FREE subscription (INACTIVE→ACTIVE; never downgrades a paid plan),
+ * and issues a token pair so the user is logged in immediately — this is the first
+ * point at which a LOCAL account receives tokens (register no longer hands them out).
+ *
+ * Possession of the valid OTP is the proof of email ownership, so tokens are only
+ * issued on a fresh verification. An already-verified email is rejected (the caller
+ * must sign in normally) — otherwise anyone could replay the email to mint tokens.
  */
-export async function verifyEmail(input: VerifyEmailInput): Promise<AuthUser> {
+export async function verifyEmail(input: VerifyEmailInput): Promise<LoginResponse> {
   const user = await prisma.user.findUnique({
     where: { email: input.email },
-    select: { id: true, email: true, displayName: true, emailVerified: true },
+    select: { id: true, email: true, displayName: true, emailVerified: true, isActive: true },
   });
 
   if (!user) {
     throw new AppError(INVALID_VERIFICATION_MSG, 400);
   }
 
-  // Idempotent: already verified → return current state, no error
+  if (!user.isActive) {
+    throw new AppError("Your account has been deactivated. Please contact support.", 403);
+  }
+
+  // Already verified → no tokens; the caller has shown no proof of ownership here.
+  // Direct them to sign in normally instead.
   if (user.emailVerified) {
-    return getMe(user.id);
+    throw new AppError("This email is already verified. Please sign in.", 409);
   }
 
   const otpHash = hashToken(input.otp);
@@ -759,7 +777,10 @@ export async function verifyEmail(input: VerifyEmailInput): Promise<AuthUser> {
     logger.warn(`Could not send welcome email to ${user.email}: ${(err as Error).message}`);
   }
 
-  return getMe(user.id);
+  // Issue tokens — the verified OTP proves ownership, so log the user in now.
+  const authUser = await getMe(user.id);
+  const { accessToken, refreshToken } = await issueTokenPair(user.id);
+  return { user: authUser, accessToken, refreshToken };
 }
 
 /**
