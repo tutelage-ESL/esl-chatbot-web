@@ -20,21 +20,29 @@ const refreshing = ref(false)
 
 const currentUserId = computed(() => authStore.getUser?.id ?? '')
 const userRole = computed(() => authStore.getUser?.role)
-const isTutorOrAdmin = computed(() =>
-  cls.value?.myRole === 'TUTOR' || cls.value?.myRole === 'ADMIN' || userRole.value === 'ADMIN',
+
+const isAdmin = computed(() => userRole.value === 'ADMIN')
+
+// `myRole` isn't always present on the getClass response, so derive the caller's
+// role from the members list as the source of truth, falling back to it / global role.
+const myClassRole = computed(() =>
+  cls.value?.members?.find(m => m.user.id === currentUserId.value)?.role
+    ?? cls.value?.myRole,
 )
+const isTutorOrAdmin = computed(() => myClassRole.value === 'TUTOR' || isAdmin.value)
 
 type Tab = 'members' | 'students' | 'analytics' | 'announcements'
 const activeTab = ref<Tab>('members')
 
-const tabs = computed((): { key: Tab; label: string; icon: SvgBasedIconName; tutorOnly: boolean }[] => [
-  { key: 'members',       label: 'Members',      icon: 'People',       tutorOnly: false },
-  { key: 'students',      label: 'Students',      icon: 'Teacher',      tutorOnly: true  },
-  { key: 'analytics',     label: 'Analytics',     icon: 'Chart21',      tutorOnly: true  },
-  { key: 'announcements', label: 'Announcements', icon: 'Notification', tutorOnly: false },
+// `tutorOrAdmin` tabs are for tutors of the class + admins; `adminOnly` tabs only admins.
+const tabs = computed((): { key: Tab; label: string; icon: SvgBasedIconName; show: boolean }[] => [
+  { key: 'members',       label: 'Members',      icon: 'People',       show: true },
+  { key: 'students',      label: 'Students',      icon: 'Teacher',      show: isAdmin.value },
+  { key: 'analytics',     label: 'Analytics',     icon: 'Chart21',      show: isTutorOrAdmin.value },
+  { key: 'announcements', label: 'Announcements', icon: 'Notification', show: true },
 ])
 
-const visibleTabs = computed(() => tabs.value.filter(t => !t.tutorOnly || isTutorOrAdmin.value))
+const visibleTabs = computed(() => tabs.value.filter(t => t.show))
 
 const roleColorClass: Record<string, string> = {
   TUTOR: 'bg-brand-primary/10 text-brand-primary',

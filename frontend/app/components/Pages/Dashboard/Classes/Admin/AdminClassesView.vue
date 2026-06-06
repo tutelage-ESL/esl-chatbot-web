@@ -1,18 +1,9 @@
 <script setup lang="ts">
 import { toast } from 'vue-sonner'
-import { useAuthStore } from '~~/stores/auth'
-import type { AdminClassItem, ClassDetail, ClassPaginationMeta } from '~/common/types/class-types'
+import type { AdminClassItem, ClassPaginationMeta } from '~/common/types/class-types'
 
-definePageMeta({ layout: 'dashboard', requiresAuth: true })
-
-const authStore = useAuthStore()
+const { listAllClasses } = useClasses()
 const router = useRouter()
-
-onMounted(() => {
-  if (authStore.getUser?.role !== 'ADMIN') router.replace('/dashboard/classes')
-})
-
-const { listAllClasses, getClass, refreshCode } = useClasses()
 
 // ─── State ────────────────────────────────────────────────────────────────────
 const classes = ref<AdminClassItem[]>([])
@@ -21,12 +12,6 @@ const loading = ref(true)
 const search = ref('')
 const statusFilter = ref<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL')
 const view = ref<'grid' | 'table'>('grid')
-
-// Drawer
-const drawerOpen = ref(false)
-const drawerClass = ref<ClassDetail | null>(null)
-const copyingId = ref<string | null>(null)
-const refreshingId = ref<string | null>(null)
 
 // Delete confirm dialog
 const deleteDialogOpen = ref(false)
@@ -63,31 +48,9 @@ async function load(page = 1) {
 onMounted(load)
 watch(statusFilter, () => load(1))
 
-// ─── Drawer ───────────────────────────────────────────────────────────────────
-async function openDrawer(id: string) {
-  drawerOpen.value = true
-  drawerClass.value = null
-  const res = await getClass(id)
-  if (!res.success) { toast.error(res.message || 'Could not load class'); return }
-  drawerClass.value = res.data?.data as ClassDetail
-}
-
-async function handleCopy(code: string, id: string) {
-  copyingId.value = id
-  useCopyToClipboard(code)
-  toast.success('Class code copied!')
-  setTimeout(() => { copyingId.value = null }, 1500)
-}
-
-async function handleRefresh(id: string) {
-  if (refreshingId.value) return
-  refreshingId.value = id
-  const res = await refreshCode(id)
-  refreshingId.value = null
-  if (!res.success) { toast.error(res.message || 'Could not rotate code'); return }
-  toast.success('Class code rotated!')
-  await load(meta.value.page)
-  if (drawerClass.value?.id === id) await openDrawer(id)
+// ─── Open full detail page ──────────────────────────────────────────────────────
+function openClass(id: string) {
+  router.push(`/dashboard/classes/${id}`)
 }
 
 // ─── Edit ─────────────────────────────────────────────────────────────────────
@@ -116,21 +79,20 @@ async function handleConfirmDelete() {
 
     <!-- Header -->
     <div class="flex items-center justify-between gap-4 animate-card-enter" style="--delay:0ms">
-      <div class="flex items-center gap-3">
+      <div>
+        <AppText size="22" weight="semibold" color="black" class-list="tracking-[-0.02em] block" :style="`color:var(--text-heading)`">All Classes</AppText>
+        <AppText size="13" color="neutral-400" class-list="mt-0.5 block" :style="`color:var(--text-muted)`">Admin overview · {{ meta.total }} total</AppText>
+      </div>
+      <div class="flex items-center gap-1.5">
         <AppButton
           variant="secondary"
           size="36"
           radius="8"
-          icon="ArrowLeft"
-          :icon-config="{ color: 'currentColor', size: 15 }"
-          :to="'/dashboard/classes'"
+          icon="Add"
+          :icon-config="{ color: 'currentColor', size: 14 }"
+          text="New class"
+          :to="'/dashboard/classes/create'"
         />
-        <div>
-          <AppText size="22" weight="semibold" color="black" class-list="tracking-[-0.02em] block" :style="`color:var(--text-heading)`">All Classes</AppText>
-          <AppText size="13" color="neutral-400" class-list="mt-0.5 block" :style="`color:var(--text-muted)`">Admin overview · {{ meta.total }} total</AppText>
-        </div>
-      </div>
-      <div class="flex items-center gap-1.5">
         <AppButton
           :variant="view === 'grid' ? 'primary' : 'secondary'"
           size="36"
@@ -237,7 +199,7 @@ async function handleConfirmDelete() {
           :cls="cls"
           class="animate-card-enter"
           :style="`--delay:${100 + i * 40}ms`"
-          @open="openDrawer"
+          @open="openClass"
           @edit="openEdit"
           @delete="openDelete"
         />
@@ -265,7 +227,7 @@ async function handleConfirmDelete() {
                 v-for="cls in filtered"
                 :key="cls.id"
                 :cls="cls"
-                @open="openDrawer"
+                @open="openClass"
                 @edit="openEdit"
                 @delete="openDelete"
               />
@@ -285,20 +247,6 @@ async function handleConfirmDelete() {
         <AppButton variant="secondary" size="32" radius="8" icon="ArrowRight2" :disabled="meta.page >= meta.totalPages" @click="load(meta.page + 1)" />
       </div>
     </div>
-
-    <!-- Detail drawer -->
-    <PagesDashboardClassesClassDetailDrawer
-      :open="drawerOpen"
-      :cls="drawerClass"
-      :copying="copyingId === drawerClass?.id"
-      :refreshing="refreshingId === drawerClass?.id"
-      :is-admin="true"
-      @update:open="drawerOpen = $event"
-      @copy="code => drawerClass && handleCopy(code, drawerClass.id)"
-      @refresh="handleRefresh"
-      @edit="openEdit"
-      @delete="openDelete"
-    />
 
     <!-- Delete confirm dialog -->
     <UiDialog v-model:open="deleteDialogOpen">

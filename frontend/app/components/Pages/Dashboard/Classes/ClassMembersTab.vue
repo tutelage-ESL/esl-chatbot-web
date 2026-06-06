@@ -18,6 +18,9 @@ const confirmUserId = ref<string | null>(null)
 const tutors = computed(() => props.members.filter(m => m.role === 'TUTOR'))
 const students = computed(() => props.members.filter(m => m.role === 'STUDENT'))
 
+// When the user is acting on their own membership it's a "leave", not a "remove".
+const isSelfLeave = computed(() => confirmUserId.value === props.currentUserId)
+
 const roleColorClass: Record<string, string> = {
   TUTOR: 'bg-brand-primary/10 text-brand-primary',
   ADMIN: 'bg-red-500/10 text-red-500',
@@ -53,12 +56,16 @@ async function doRemove() {
     <UiDialog :open="!!confirmUserId" @update:open="v => { if (!v) confirmUserId = null }">
       <UiDialogContent>
         <UiDialogHeader>
-          <UiDialogTitle>Remove member?</UiDialogTitle>
-          <UiDialogDescription>This will remove them from the class immediately. They can rejoin with the class code.</UiDialogDescription>
+          <UiDialogTitle>{{ isSelfLeave ? 'Leave class?' : 'Remove member?' }}</UiDialogTitle>
+          <UiDialogDescription>
+            {{ isSelfLeave
+              ? 'You will be removed from this class immediately and lose access to its sessions and announcements. You can rejoin later with the class code.'
+              : 'This will remove them from the class immediately. They can rejoin with the class code.' }}
+          </UiDialogDescription>
         </UiDialogHeader>
         <UiDialogFooter>
           <AppButton variant="secondary" size="36" radius="8" text="Cancel" @click="confirmUserId = null" />
-          <AppButton variant="primary" size="36" radius="8" text="Remove" :icon-config="{ color: 'white' }" @click="doRemove" />
+          <AppButton variant="primary" size="36" radius="8" :text="isSelfLeave ? 'Leave class' : 'Remove'" :icon-config="{ color: 'white' }" @click="doRemove" />
         </UiDialogFooter>
       </UiDialogContent>
     </UiDialog>
@@ -89,7 +96,7 @@ async function doRemove() {
           <!-- Self-leave only for tutors, no kick -->
           <AppButton
             v-if="m.user.id === currentUserId"
-            variant="secondary" size="28" radius="6"
+            variant="secondary" size="28" radius="8"
             icon="Logout" :icon-config="{ color: '#ef4444', size: 13 }"
             :loading="removingId === m.user.id"
             class="opacity-0 group-hover:opacity-100 transition-opacity"
@@ -124,11 +131,10 @@ async function doRemove() {
           <span class="text-[11px] font-semibold uppercase tracking-wide px-2.5 py-1 rounded-full font-poppins shrink-0" style="background:var(--surface-well);color:var(--text-muted)">STUDENT</span>
           <AppButton
             v-if="isTutorOrAdmin || m.user.id === currentUserId"
-            variant="secondary" size="28" radius="6"
+            variant="secondary" size="28" radius="8"
             :icon="m.user.id === currentUserId ? 'Logout' : 'Trash'"
             :icon-config="{ color: '#ef4444', size: 13 }"
             :loading="removingId === m.user.id"
-            class="opacity-0 group-hover:opacity-100 transition-opacity"
             @click="confirmRemove(m.user.id)"
           />
         </div>

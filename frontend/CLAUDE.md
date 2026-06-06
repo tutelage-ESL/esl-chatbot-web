@@ -274,10 +274,10 @@ All pages use `definePageMeta({ layout: 'dashboard', requiresAuth: true })`.
 | `/dashboard/lessons` | `pages/dashboard/lessons.vue` | Stub |
 | `/dashboard/profile` | `pages/dashboard/profile.vue` | Built |
 | `/dashboard/settings` | `pages/dashboard/settings.vue` | Built — account info + FIB subscription panel |
-| `/dashboard/classes` | `pages/dashboard/classes/index.vue` | Built |
+| `/dashboard/classes` | `pages/dashboard/classes/index.vue` | Built — **thin role switch** (like `dashboard/index.vue`): ADMIN→`Classes/Admin/AdminClassesView` (manage-all view, inline), TUTOR→`Classes/Tutor/TutorClassesView` (owned classes only), STUDENT→`Classes/Student/StudentClassesView` (enrolled + join) |
 | `/dashboard/classes/create` | `pages/dashboard/classes/create.vue` | Built (tutor/admin) |
-| `/dashboard/classes/manage` | `pages/dashboard/classes/manage.vue` | Built (admin) |
-| `/dashboard/classes/[id]` | `pages/dashboard/classes/[id].vue` | Built — full class detail page |
+| `/dashboard/classes/[id]` | `pages/dashboard/classes/[id]/index.vue` | Built — full class detail page |
+| `/dashboard/classes/[id]/edit` | `pages/dashboard/classes/[id]/edit.vue` | Built — edit class (tutor/admin) |
 
 ### Dashboard Component Folder (`components/Pages/Dashboard/`)
 
@@ -303,16 +303,21 @@ components/Pages/Dashboard/
 │  └─ CoachPane.vue          # Right live-coaching panel
 ├─ Classes/
 │  ├─ ClassCard.vue          # Card for a single class in the list
-│  ├─ ClassDetailDrawer.vue  # Right-side sheet — Members + Announcements tabs
+│  ├─ ClassForm.vue          # Shared create/edit class form
 │  ├─ ClassMembersTab.vue    # Members list with remove/leave actions
 │  ├─ ClassStudentsTab.vue   # Student progress list + detail sheet
 │  ├─ ClassAnalyticsTab.vue  # Class-wide skill averages + grammar errors
 │  ├─ AnnouncementsFeed.vue  # Paginated announcement feed + compose box (tutor/admin)
 │  ├─ ClassesEmptyState.vue  # Empty state for the classes list
 │  ├─ JoinClassModal.vue     # Dialog to join a class by code
-│  └─ Admin/
-│     ├─ ClassGridCard.vue   # Grid card for admin manage page
-│     └─ ClassTableRow.vue   # Table row for admin manage page
+│  ├─ Admin/                 # ADMIN role view (rendered by classes/index.vue)
+│  │  ├─ AdminClassesView.vue # Manage-all-classes UI: stats, filters, grid/table, delete → <PagesDashboardClassesAdminClassesView />
+│  │  ├─ ClassGridCard.vue   # Grid card for admin manage view
+│  │  └─ ClassTableRow.vue   # Table row for admin manage view
+│  ├─ Tutor/                 # TUTOR role view — owned classes only
+│  │  └─ TutorClassesView.vue # → <PagesDashboardClassesTutorClassesView />
+│  └─ Student/               # STUDENT role view — enrolled classes + join
+│     └─ StudentClassesView.vue # → <PagesDashboardClassesStudentClassesView />
 ├─ Voice/
 │  ├─ PromptCard.vue
 │  ├─ ScorePanel.vue

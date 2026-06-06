@@ -65,7 +65,7 @@ const inactiveUsers = computed(() =>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
         <AppButton variant="secondary" size="36" radius="8" icon="People" text="Users" @click="$router.push('/dashboard/users')" />
-        <AppButton variant="primary" size="36" radius="8" icon="BookSaved" text="Classes" :icon-config="{ color: 'white', size: 15 }" @click="$router.push('/dashboard/classes/manage')" />
+        <AppButton variant="primary" size="36" radius="8" icon="BookSaved" text="Classes" :icon-config="{ color: 'white', size: 15 }" @click="$router.push('/dashboard/classes')" />
       </div>
     </div>
 
