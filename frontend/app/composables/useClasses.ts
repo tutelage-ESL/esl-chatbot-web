@@ -22,19 +22,21 @@ interface SingleResponse<T> { success: boolean; message?: string; data: T }
 
 export function useClasses() {
 
-  async function listMyClasses() {
+  async function listMyClasses(params?: { archived?: boolean }) {
+    const qs = params?.archived ? '?archived=true' : ''
     return await useHttp<ListResponse<ClassItem>>({
       method: 'GET',
-      url: '/classes/mine',
+      url: `/classes/mine${qs}`,
       requireAuth: true,
     })
   }
 
-  async function listAllClasses(params?: { page?: number; limit?: number; status?: 'ACTIVE' | 'INACTIVE' }) {
+  async function listAllClasses(params?: { page?: number; limit?: number; status?: 'ACTIVE' | 'INACTIVE'; archived?: boolean }) {
     const query = new URLSearchParams()
     if (params?.page) query.set('page', String(params.page))
     if (params?.limit) query.set('limit', String(params.limit))
     if (params?.status) query.set('status', params.status)
+    if (params?.archived) query.set('archived', 'true')
     const qs = query.toString()
     return await useHttp<PaginatedResponse<AdminClassItem>>({
       method: 'GET',
@@ -104,6 +106,15 @@ export function useClasses() {
     })
   }
 
+  async function archiveClass(id: string, archived: boolean) {
+    return await useHttp<SingleResponse<ClassDetail>>({
+      method: 'PATCH',
+      url: `/classes/${id}/archive`,
+      body: { archived },
+      requireAuth: true,
+    })
+  }
+
   async function getClassStudents(classId: string) {
     return await useHttp<SingleResponse<ClassStudentSummary[]>>({
       method: 'GET',
@@ -167,6 +178,7 @@ export function useClasses() {
     refreshCode,
     updateCodeSettings,
     toggleBlock,
+    archiveClass,
     getClassStudents,
     getClassStudentDetail,
     getClassAnalytics,

@@ -18,6 +18,11 @@ export const getClassesQuerySchema = z.object({
     .transform((val) => (val ? parseInt(val, 10) : 10))
     .pipe(z.number().int().min(1).max(100)),
   status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
+  // "true" → only archived classes; omitted/"false" → only non-archived (default).
+  archived: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v === "true")),
 });
 
 export const getClassParamSchema = z.object({
@@ -54,6 +59,10 @@ export const setBlockedSchema = z.object({
   blocked: z.boolean(),
 });
 
+export const setArchivedSchema = z.object({
+  archived: z.boolean(),
+});
+
 export const joinByCodeSchema = z.object({
   classCode: z.string().trim().min(1, "Class code is required").max(32),
 });
@@ -77,5 +86,6 @@ export type GetClassesQuery = z.infer<typeof getClassesQuerySchema>;
 export type CreateClassBody = z.infer<typeof createClassSchema>;
 export type UpdateCodeSettingsBody = z.infer<typeof updateCodeSettingsSchema>;
 export type SetBlockedBody = z.infer<typeof setBlockedSchema>;
+export type SetArchivedBody = z.infer<typeof setArchivedSchema>;
 export type JoinByCodeBody = z.infer<typeof joinByCodeSchema>;
 export type UpdateClassBody = z.infer<typeof updateClassSchema>;

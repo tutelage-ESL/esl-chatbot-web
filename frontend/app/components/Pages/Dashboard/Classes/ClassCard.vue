@@ -26,6 +26,8 @@ const expiryLabel = computed(() => {
   return `Expires in ${Math.floor(diff / 1440)}d`
 })
 
+// Archived classes are read-only — hide the code actions and show a badge instead.
+const isArchived = computed(() => props.cls.archived)
 const isTutorOrAdmin = computed(() => props.cls.myRole === 'TUTOR' || props.cls.myRole === 'ADMIN')
 
 const roleStyle = computed(() => {
@@ -66,9 +68,14 @@ const codeStatusIcon = computed(() => {
       <div class="flex-1 min-w-0">
         <div class="flex items-start justify-between gap-2">
           <AppText size="14" weight="semibold" color="black" class-list="truncate block leading-snug" :style="`color:var(--text-heading)`">{{ cls.className }}</AppText>
-          <span class="shrink-0 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full font-poppins" :style="roleStyle">
-            {{ roleLabel }}
-          </span>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <span v-if="isArchived" class="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full font-poppins" style="background:var(--surface-well);color:var(--text-muted)">
+              Archived
+            </span>
+            <span class="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full font-poppins" :style="roleStyle">
+              {{ roleLabel }}
+            </span>
+          </div>
         </div>
         <AppText v-if="cls.classCategory" size="12" color="neutral-400" class-list="block mt-0.5 truncate" :style="`color:var(--text-muted)`">{{ cls.classCategory }}</AppText>
       </div>
@@ -86,7 +93,7 @@ const codeStatusIcon = computed(() => {
       <div class="flex items-center gap-1.5">
         <AppIconsax name="Calendar" color="var(--color-text-subtle)" :size="13" />
         <AppText size="12" color="neutral-400" :style="`color:var(--text-muted)`">
-          {{ new Date(cls.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' }) }}
+          {{ new Date(cls.joinedAt).toLocaleDateString([], { month: 'short', day: 'numeric' }) }}
         </AppText>
       </div>
       <div class="flex items-center gap-1.5 ml-auto">
@@ -97,8 +104,8 @@ const codeStatusIcon = computed(() => {
       </div>
     </div>
 
-    <!-- Code row (tutor/admin only) -->
-    <template v-if="isTutorOrAdmin">
+    <!-- Code row (tutor/admin only, hidden when archived — read-only) -->
+    <template v-if="isTutorOrAdmin && !isArchived">
       <div style="height:1px;background:var(--border-inner);margin:0 1.25rem" />
       <div class="px-5 py-3 flex items-center gap-2" @click.stop>
         <div class="flex-1 px-3 py-2 rounded-xl flex items-center" style="background:var(--surface-raised);border:1px solid var(--border-inner)">

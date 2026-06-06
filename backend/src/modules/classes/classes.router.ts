@@ -7,6 +7,7 @@ import {
   refreshCodeHandler,
   updateCodeSettingsHandler,
   setBlockedHandler,
+  setArchivedHandler,
   joinByCodeHandler,
   listMyClassesHandler,
   listClassStudentsHandler,
@@ -81,6 +82,12 @@ const router = Router();
  *         schema:
  *           type: string
  *           enum: [ACTIVE, INACTIVE]
+ *       - in: query
+ *         name: archived
+ *         schema:
+ *           type: string
+ *           enum: ["true", "false"]
+ *         description: "true = only archived classes; omitted/false = only non-archived (default)"
  *     responses:
  *       200:
  *         description: Paginated list of classes
@@ -101,6 +108,8 @@ const router = Router();
  *                       classCode: { type: string }
  *                       classCategory: { type: string, nullable: true }
  *                       classStatus: { type: string, enum: [ACTIVE, INACTIVE] }
+ *                       archived: { type: boolean }
+ *                       archivedAt: { type: string, format: date-time, nullable: true }
  *                       classCodeBlocked: { type: boolean }
  *                       classCodeExpiresAt: { type: string, format: date-time, nullable: true }
  *                       classCodeRefreshIntervalSeconds: { type: integer, nullable: true }
@@ -256,9 +265,19 @@ router.post("/join", authenticate, joinByCodeHandler);
  *       is a TUTOR and the code is currently expired is rotated to a new
  *       value. Student memberships do NOT trigger rotations — students
  *       cannot bump codes by listing their classes.
+ *
+ *       Pass `?archived=true` to list the caller's archived classes instead of
+ *       their active ones (default is non-archived only).
  *     tags: [Classes]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: archived
+ *         schema:
+ *           type: string
+ *           enum: ["true", "false"]
+ *         description: "true = only the caller's archived classes; omitted/false = only non-archived (default)"
  *     responses:
  *       200:
  *         description: Caller's class memberships
@@ -513,6 +532,61 @@ router.patch(
  *       404: { description: Class not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  */
 router.patch("/:id/code/block", authenticate, authorize("TUTOR", "ADMIN"), setBlockedHandler);
+
+// ─────────────────────────────────────────────────────────
+// ARCHIVE / UNARCHIVE (tutor in class / admin)
+// ─────────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /classes/{id}/archive:
+ *   patch:
+ *     summary: Archive or unarchive a class (Tutor in class or Admin)
+ *     description: |
+ *       Archiving hides the class from the default class lists and makes it
+ *       **read-only** — while archived, the class cannot be edited, its code
+ *       cannot be rotated/blocked, and no one can join it (these all return 409).
+ *       Members, code, and all data are preserved; archiving is fully reversible.
+ *
+ *       Archived classes still appear when listing with `?archived=true`. Unarchive
+ *       (`{ archived: false }`) to restore full functionality.
+ *
+ *       Authorization: tutor of the class or admin.
+ *     tags: [Classes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [archived]
+ *             properties:
+ *               archived: { type: boolean }
+ *     responses:
+ *       200:
+ *         description: Updated class detail
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 message: { type: string }
+ *                 data:
+ *                   type: object
+ *                   description: Full class detail including the archived/archivedAt fields
+ *       400: { description: Invalid body, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       403: { description: Not a tutor of this class, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       404: { description: Class not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ */
+router.patch("/:id/archive", authenticate, authorize("TUTOR", "ADMIN"), setArchivedHandler);
 
 // ─────────────────────────────────────────────────────────
 // STUDENT LIST (tutor in class / admin)

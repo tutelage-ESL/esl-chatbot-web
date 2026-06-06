@@ -55,6 +55,8 @@ export interface ClassListItem {
   classCode: string;
   classCategory: string | null;
   classStatus: ClassStatus;
+  archived: boolean;
+  archivedAt: Date | null;
   classCodeBlocked: boolean;
   classCodeExpiresAt: Date | null;
   classCodeRefreshIntervalSeconds: number | null;
@@ -79,6 +81,8 @@ export interface ClassDetail {
   classCode: string;
   classCategory: string | null;
   classStatus: ClassStatus;
+  archived: boolean;
+  archivedAt: Date | null;
   classCodeBlocked: boolean;
   classCodeExpiresAt: Date | null;
   classCodeRefreshIntervalSeconds: number | null;

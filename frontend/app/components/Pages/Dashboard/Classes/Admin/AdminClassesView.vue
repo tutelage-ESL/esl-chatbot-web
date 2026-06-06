@@ -12,6 +12,8 @@ const loading = ref(true)
 const search = ref('')
 const statusFilter = ref<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL')
 const view = ref<'grid' | 'table'>('grid')
+// 'active' = normal classes, 'archived' = read-only archived classes.
+const archivedView = ref<'active' | 'archived'>('active')
 
 // Delete confirm dialog
 const deleteDialogOpen = ref(false)
@@ -39,6 +41,7 @@ async function load(page = 1) {
     page,
     limit: meta.value.limit,
     status: statusFilter.value === 'ALL' ? undefined : statusFilter.value,
+    archived: archivedView.value === 'archived',
   })
   loading.value = false
   if (!res.success) { toast.error(res.message || 'Could not load classes'); return }
@@ -47,6 +50,7 @@ async function load(page = 1) {
 }
 onMounted(load)
 watch(statusFilter, () => load(1))
+watch(archivedView, () => load(1))
 
 // ─── Open full detail page ──────────────────────────────────────────────────────
 function openClass(id: string) {
@@ -160,6 +164,10 @@ async function handleConfirmDelete() {
         <AppButton :variant="statusFilter === 'ALL' ? 'primary' : 'secondary'" size="36" radius="8" text="All" :icon-config="{ color: statusFilter === 'ALL' ? 'white' : 'currentColor' }" @click="statusFilter = 'ALL'" />
         <AppButton :variant="statusFilter === 'ACTIVE' ? 'primary' : 'secondary'" size="36" radius="8" text="Active" :icon-config="{ color: statusFilter === 'ACTIVE' ? 'white' : 'currentColor' }" @click="statusFilter = 'ACTIVE'" />
         <AppButton :variant="statusFilter === 'INACTIVE' ? 'primary' : 'secondary'" size="36" radius="8" text="Inactive" :icon-config="{ color: statusFilter === 'INACTIVE' ? 'white' : 'currentColor' }" @click="statusFilter = 'INACTIVE'" />
+      </div>
+      <div class="flex items-center gap-1.5" style="border-left:1px solid var(--border-inner);padding-left:0.5rem">
+        <AppButton :variant="archivedView === 'active' ? 'primary' : 'secondary'" size="36" radius="8" text="Current" :icon-config="{ color: archivedView === 'active' ? 'white' : 'currentColor' }" @click="archivedView = 'active'" />
+        <AppButton :variant="archivedView === 'archived' ? 'primary' : 'secondary'" size="36" radius="8" icon="Archive" text="Archived" :icon-config="{ color: archivedView === 'archived' ? 'white' : 'currentColor', size: 14 }" @click="archivedView = 'archived'" />
       </div>
     </div>
 

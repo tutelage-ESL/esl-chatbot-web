@@ -10,6 +10,7 @@ import {
   updateClassSchema,
   updateCodeSettingsSchema,
   setBlockedSchema,
+  setArchivedSchema,
   joinByCodeSchema,
   classMemberParamSchema,
 } from "./classes.schema.ts";
@@ -21,6 +22,7 @@ import {
   refreshClassCode,
   updateClassCodeSettings,
   setClassCodeBlocked,
+  setClassArchived,
   joinClassByCode,
   listMyClasses,
   getClassStudents,
@@ -33,7 +35,7 @@ import {
 
 export const listClasses = asyncHandler(async (req: Request, res: Response) => {
   const query = getClassesQuerySchema.parse(req.query);
-  const { classes, total } = await getClasses(query.page, query.limit, query.status);
+  const { classes, total } = await getClasses(query.page, query.limit, query.status, query.archived);
   const meta = paginationMeta(total, query.page, query.limit);
   sendSuccess(res, classes, "Classes retrieved successfully", 200, meta);
 });
@@ -94,6 +96,16 @@ export const setBlockedHandler = asyncHandler(async (req: Request, res: Response
   sendSuccess(res, result, body.blocked ? "Class code blocked" : "Class code unblocked");
 });
 
+// ── Archive / unarchive (tutor in class / admin) ──────────
+
+export const setArchivedHandler = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.user) throw new AppError("Authentication required", 401);
+  const { id } = getClassParamSchema.parse(req.params);
+  const body = setArchivedSchema.parse(req.body);
+  const cls = await setClassArchived(id, req.user.id, req.user.role, body.archived);
+  sendSuccess(res, cls, body.archived ? "Class archived" : "Class unarchived");
+});
+
 // ── Join by code (any authenticated user) ─────────────────
 
 export const joinByCodeHandler = asyncHandler(async (req: Request, res: Response) => {
@@ -107,7 +119,8 @@ export const joinByCodeHandler = asyncHandler(async (req: Request, res: Response
 
 export const listMyClassesHandler = asyncHandler(async (req: Request, res: Response) => {
   if (!req.user) throw new AppError("Authentication required", 401);
-  const classes = await listMyClasses(req.user.id);
+  const archived = req.query.archived === "true" ? true : undefined;
+  const classes = await listMyClasses(req.user.id, archived);
   sendSuccess(res, classes, "Your classes retrieved");
 });
 

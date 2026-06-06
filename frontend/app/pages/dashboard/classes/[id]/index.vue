@@ -9,13 +9,17 @@ definePageMeta({ layout: 'dashboard', requiresAuth: true })
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
-const { getClass, refreshCode } = useClasses()
+const { getClass, refreshCode, archiveClass } = useClasses()
 
 const classId = computed(() => route.params.id as string)
 const cls = ref<ClassDetail | null>(null)
 const loading = ref(true)
 const copying = ref(false)
 const refreshing = ref(false)
+const archiving = ref(false)
+const archiveDialogOpen = ref(false)
+
+const isArchived = computed(() => cls.value?.archived ?? false)
 
 
 const currentUserId = computed(() => authStore.getUser?.id ?? '')
@@ -93,6 +97,20 @@ async function handleRefresh() {
   await load()
 }
 
+async function handleArchive(archived: boolean) {
+  if (!cls.value || archiving.value) return
+  archiving.value = true
+  const res = await archiveClass(cls.value.id, archived)
+  archiving.value = false
+  archiveDialogOpen.value = false
+  if (!res.success) { toast.error(res.message || 'Could not update class'); return }
+  toast.success(archived ? 'Class archived.' : 'Class unarchived — full access restored.')
+  if (res.data?.data) cls.value = res.data.data as ClassDetail
+  // Archiving from the active list context: leave the page so they don't sit on a
+  // now-hidden class. Unarchiving keeps them here with full access restored.
+  if (archived) router.push('/dashboard/classes')
+}
+
 function handleMemberRemoved(userId: string) {
   if (!cls.value) return
   if (userId === currentUserId.value) { router.replace('/dashboard/classes'); return }
@@ -136,13 +154,35 @@ onMounted(load)
         </template>
       </div>
       <template v-if="cls">
+        <!-- Edit only when not archived (archived = read-only) -->
         <AppButton
-          v-if="isTutorOrAdmin"
+          v-if="isTutorOrAdmin && !isArchived"
           variant="secondary" size="36" radius="8"
           icon="Edit2" :icon-config="{ color: 'currentColor', size: 14 }"
           text="Edit" class="shrink-0"
           :to="`/dashboard/classes/${classId}/edit`"
         />
+        <!-- Archive / Unarchive (tutor of class or admin) -->
+        <AppButton
+          v-if="isTutorOrAdmin && !isArchived"
+          variant="secondary" size="36" radius="8"
+          icon="Archive" :icon-config="{ color: 'currentColor', size: 14 }"
+          text="Archive" class="shrink-0"
+          @click="archiveDialogOpen = true"
+        />
+        <AppButton
+          v-if="isTutorOrAdmin && isArchived"
+          variant="primary" size="36" radius="8"
+          icon="ArchiveTick" :icon-config="{ color: 'white', size: 14 }"
+          text="Unarchive" class="shrink-0"
+          :loading="archiving"
+          @click="handleArchive(false)"
+        />
+        <span
+          v-if="isArchived"
+          class="text-[11px] font-semibold uppercase tracking-wide px-2.5 py-1 rounded-full font-poppins shrink-0"
+          style="background:var(--surface-well);color:var(--text-muted)"
+        >Archived</span>
         <span
           class="text-[11px] font-semibold uppercase tracking-wide px-2.5 py-1 rounded-full font-poppins shrink-0"
           :style="cls.classStatus === 'ACTIVE'
@@ -167,6 +207,31 @@ onMounted(load)
     </template>
 
     <template v-else-if="cls">
+
+      <!-- Archived banner — read-only notice (tutor/admin can unarchive) -->
+      <div
+        v-if="isArchived"
+        class="flex items-center gap-3 p-4 mb-6 rounded-xl animate-card-enter"
+        style="--delay:20ms;background:var(--surface-well);border:1px solid var(--border-card)"
+      >
+        <div class="size-9 rounded-xl flex items-center justify-center shrink-0" style="background:var(--surface-card)">
+          <AppIconsax name="Archive" color="var(--color-text-muted)" :size="16" />
+        </div>
+        <div class="flex-1 min-w-0">
+          <AppText size="14" weight="semibold" class-list="block" :style="`color:var(--text-heading)`">This class is archived</AppText>
+          <AppText size="13" class-list="block mt-0.5" :style="`color:var(--text-muted)`">
+            It's read-only — editing, code rotation, and new joins are disabled. {{ isTutorOrAdmin ? 'Unarchive it to restore full access.' : '' }}
+          </AppText>
+        </div>
+        <AppButton
+          v-if="isTutorOrAdmin"
+          variant="primary" size="36" radius="8"
+          icon="ArchiveTick" :icon-config="{ color: 'white', size: 14 }"
+          text="Unarchive" class="shrink-0"
+          :loading="archiving"
+          @click="handleArchive(false)"
+        />
+      </div>
 
       <!-- Stats row -->
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6 animate-card-enter" style="--delay:40ms">
@@ -201,7 +266,7 @@ onMounted(load)
       </div>
 
       <!-- Class code (tutor/admin) -->
-      <div v-if="isTutorOrAdmin" class="dash-card overflow-hidden mb-6 animate-card-enter" style="--delay:80ms">
+      <div v-if="isTutorOrAdmin && !isArchived" class="dash-card overflow-hidden mb-6 animate-card-enter" style="--delay:80ms">
         <div class="px-5 py-3 flex items-center justify-between" style="background:var(--surface-raised);border-bottom:1px solid var(--border-inner)">
           <div class="flex items-center gap-2">
             <AppIconsax name="Key" color="var(--color-text-subtle)" :size="13" />
@@ -252,7 +317,7 @@ onMounted(load)
             v-if="activeTab === 'members'"
             :class-id="cls.id"
             :members="cls.members"
-            :is-tutor-or-admin="isTutorOrAdmin"
+            :is-tutor-or-admin="isTutorOrAdmin && !isArchived"
             :current-user-id="currentUserId"
             @removed="handleMemberRemoved"
           />
@@ -267,12 +332,43 @@ onMounted(load)
           <PagesDashboardClassesAnnouncementsFeed
             v-else-if="activeTab === 'announcements'"
             :class-id="cls.id"
-            :can-post="isTutorOrAdmin"
+            :can-post="isTutorOrAdmin && !isArchived"
           />
         </div>
       </div>
 
     </template>
+
+    <!-- Archive confirm dialog -->
+    <UiDialog v-model:open="archiveDialogOpen">
+      <UiDialogContent class="p-0 gap-0 overflow-hidden" :style="`background:var(--surface-card)`">
+        <UiDialogHeader class="p-6 pb-4">
+          <div class="flex items-start gap-4">
+            <div class="size-11 rounded-xl flex items-center justify-center shrink-0" style="background:var(--surface-well)">
+              <AppIconsax name="Archive" color="var(--color-text-muted)" :size="20" />
+            </div>
+            <div>
+              <UiDialogTitle :style="`color:var(--text-heading)`">Archive this class?</UiDialogTitle>
+              <UiDialogDescription class="mt-1" :style="`color:var(--text-muted)`">
+                <strong :style="`color:var(--text-body)`">{{ cls?.className }}</strong> will be hidden from your active classes and become read-only — no edits, code rotation, or new joins. Members and data are kept, and you can unarchive it anytime.
+              </UiDialogDescription>
+            </div>
+          </div>
+        </UiDialogHeader>
+        <UiDialogFooter class="p-6 pt-0 flex gap-2">
+          <UiDialogClose as-child>
+            <AppButton variant="secondary" size="40" radius="8" text="Cancel" class="flex-1" />
+          </UiDialogClose>
+          <AppButton
+            variant="primary" size="40" radius="8"
+            icon="Archive" :icon-config="{ color: 'white', size: 15 }"
+            text="Archive class" class="flex-1"
+            :loading="archiving"
+            @click="handleArchive(true)"
+          />
+        </UiDialogFooter>
+      </UiDialogContent>
+    </UiDialog>
 
 
 

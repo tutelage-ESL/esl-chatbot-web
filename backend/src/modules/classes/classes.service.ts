@@ -76,6 +76,8 @@ const CLASS_LIST_SELECT = {
   classCode: true,
   classCategory: true,
   classStatus: true,
+  archived: true,
+  archivedAt: true,
   classCodeBlocked: true,
   classCodeExpiresAt: true,
   classCodeRefreshIntervalSeconds: true,
@@ -87,9 +89,14 @@ export async function getClasses(
   page: number,
   limit: number,
   status?: ClassStatus,
+  archived?: boolean,
 ): Promise<{ classes: ClassListItem[]; total: number }> {
   const skip = (page - 1) * limit;
-  const where = status ? { classStatus: status } : {};
+  // Default to non-archived classes unless explicitly asked for archived ones.
+  const where: Prisma.ClassWhereInput = {
+    ...(status ? { classStatus: status } : {}),
+    archived: archived ?? false,
+  };
 
   const [rawClasses, total] = await prisma.$transaction([
     prisma.class.findMany({
@@ -108,6 +115,8 @@ export async function getClasses(
     classCode: c.classCode,
     classCategory: c.classCategory,
     classStatus: c.classStatus,
+    archived: c.archived,
+    archivedAt: c.archivedAt,
     classCodeBlocked: c.classCodeBlocked,
     classCodeExpiresAt: c.classCodeExpiresAt,
     classCodeRefreshIntervalSeconds: c.classCodeRefreshIntervalSeconds,
@@ -131,6 +140,8 @@ async function readClassDetail(id: string): Promise<ClassDetail> {
       classCode: true,
       classCategory: true,
       classStatus: true,
+      archived: true,
+      archivedAt: true,
       classCodeBlocked: true,
       classCodeExpiresAt: true,
       classCodeRefreshIntervalSeconds: true,
@@ -219,6 +230,7 @@ export async function updateClass(
   input: UpdateClassInput,
 ): Promise<ClassDetail> {
   await assertTutorOfClass(classId, actorUserId, actorRole);
+  await assertNotArchived(classId);
 
   await prisma.class
     .update({
@@ -313,6 +325,51 @@ async function assertTutorOfClass(classId: string, userId: string, userRole: str
   }
 }
 
+/**
+ * Throws 409 if the class is archived. Archived classes are read-only —
+ * no edits, code rotation, joins, or announcements until unarchived.
+ * Call this in mutation paths AFTER the authorization check.
+ */
+async function assertNotArchived(classId: string): Promise<void> {
+  const cls = await prisma.class.findUnique({
+    where: { id: classId },
+    select: { archived: true },
+  });
+  if (!cls) throw new AppError("Class not found", 404);
+  if (cls.archived) {
+    throw new AppError("This class is archived. Unarchive it before making changes.", 409);
+  }
+}
+
+// ── Archive / unarchive ────────────────────────────────────
+
+/**
+ * Archive (true) or unarchive (false) a class. Tutors of the class and admins
+ * only. Archiving hides the class from the default lists and makes it read-only
+ * (other mutations reject with 409 until it's unarchived). The class code, members,
+ * and all data are preserved — archiving is fully reversible.
+ */
+export async function setClassArchived(
+  classId: string,
+  actorUserId: string,
+  actorRole: string,
+  archived: boolean,
+): Promise<ClassDetail> {
+  await assertTutorOfClass(classId, actorUserId, actorRole);
+
+  await prisma.class
+    .update({
+      where: { id: classId },
+      data: { archived, archivedAt: archived ? new Date() : null },
+    })
+    .catch((err: { code?: string }) => {
+      if (err.code === "P2025") throw new AppError("Class not found", 404);
+      throw err;
+    });
+
+  return readClassDetail(classId);
+}
+
 // ── Code management ────────────────────────────────────────
 
 function toCodeInfo(c: {
@@ -344,6 +401,7 @@ export async function refreshClassCode(
   actorRole: string,
 ): Promise<ClassCodeInfo> {
   await assertTutorOfClass(classId, actorUserId, actorRole);
+  await assertNotArchived(classId);
 
   const existing = await prisma.class.findUnique({
     where: { id: classId },
@@ -399,6 +457,7 @@ export async function updateClassCodeSettings(
   refreshIntervalSeconds: number | null,
 ): Promise<ClassCodeInfo> {
   await assertTutorOfClass(classId, actorUserId, actorRole);
+  await assertNotArchived(classId);
 
   const existing = await prisma.class.findUnique({
     where: { id: classId },
@@ -441,6 +500,7 @@ export async function setClassCodeBlocked(
   blocked: boolean,
 ): Promise<ClassCodeInfo> {
   await assertTutorOfClass(classId, actorUserId, actorRole);
+  await assertNotArchived(classId);
 
   const updated = await prisma.class
     .update({
@@ -489,11 +549,15 @@ export async function joinClassByCode(
       className: true,
       classCode: true,
       classStatus: true,
+      archived: true,
       classCodeBlocked: true,
       classCodeExpiresAt: true,
     },
   });
   if (!cls) throw new AppError("Invalid class code", 404);
+  if (cls.archived) {
+    throw new AppError("This class is archived and not accepting new members", 409);
+  }
   if (cls.classStatus !== "ACTIVE") {
     throw new AppError("This class is not currently active", 409);
   }
@@ -885,6 +949,8 @@ export interface MyClassListItem {
   classCode: string;
   classCategory: string | null;
   classStatus: ClassStatus;
+  archived: boolean;
+  archivedAt: Date | null;
   myRole: "STUDENT" | "TUTOR";
   memberCount: number;
   joinedAt: Date;
@@ -895,7 +961,10 @@ export interface MyClassListItem {
   classCodeRefreshedAt: Date;
 }
 
-export async function listMyClasses(userId: string): Promise<MyClassListItem[]> {
+export async function listMyClasses(
+  userId: string,
+  archived?: boolean,
+): Promise<MyClassListItem[]> {
   // Refresh-on-read: find any classes where the caller is a TUTOR and the
   // code is currently expired, then rotate them before reading the list.
   // Student memberships are skipped — students cannot bump the rotation by
@@ -920,7 +989,8 @@ export async function listMyClasses(userId: string): Promise<MyClassListItem[]> 
   }
 
   const memberships = await prisma.classUser.findMany({
-    where: { userId },
+    // Default to non-archived classes unless explicitly asked for archived ones.
+    where: { userId, class: { archived: archived ?? false } },
     select: {
       role: true,
       createdAt: true,
@@ -931,6 +1001,8 @@ export async function listMyClasses(userId: string): Promise<MyClassListItem[]> 
           classCode: true,
           classCategory: true,
           classStatus: true,
+          archived: true,
+          archivedAt: true,
           classCodeBlocked: true,
           classCodeExpiresAt: true,
           classCodeRefreshIntervalSeconds: true,
@@ -948,6 +1020,8 @@ export async function listMyClasses(userId: string): Promise<MyClassListItem[]> 
     classCode: m.class.classCode,
     classCategory: m.class.classCategory,
     classStatus: m.class.classStatus,
+    archived: m.class.archived,
+    archivedAt: m.class.archivedAt,
     myRole: m.role as "STUDENT" | "TUTOR",
     memberCount: m.class._count.users,
     joinedAt: m.createdAt,

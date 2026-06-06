@@ -33,14 +33,17 @@ function isExpired(expiresAt: string | null) {
       <div class="flex-1 min-w-0">
         <div class="flex items-start justify-between gap-2">
           <AppText size="14" weight="semibold" color="black" class-list="truncate block leading-snug" :style="`color:var(--text-heading)`">{{ cls.className }}</AppText>
-          <span
-            class="shrink-0 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full font-poppins"
-            :style="cls.classStatus === 'ACTIVE'
-              ? 'background:var(--status-active-bg);color:var(--status-active-text)'
-              : 'background:var(--status-expired-bg);color:var(--status-expired-text)'"
-          >
-            {{ cls.classStatus === 'ACTIVE' ? 'Active' : 'Inactive' }}
-          </span>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <span v-if="cls.archived" class="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full font-poppins" style="background:var(--surface-well);color:var(--text-muted)">Archived</span>
+            <span
+              class="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full font-poppins"
+              :style="cls.classStatus === 'ACTIVE'
+                ? 'background:var(--status-active-bg);color:var(--status-active-text)'
+                : 'background:var(--status-expired-bg);color:var(--status-expired-text)'"
+            >
+              {{ cls.classStatus === 'ACTIVE' ? 'Active' : 'Inactive' }}
+            </span>
+          </div>
         </div>
         <AppText v-if="cls.classCategory" size="12" color="neutral-400" class-list="block mt-0.5 truncate" :style="`color:var(--text-muted)`">{{ cls.classCategory }}</AppText>
       </div>
@@ -102,6 +105,7 @@ function isExpired(expiresAt: string | null) {
         @click="$emit('open', cls.id)"
       />
       <AppButton
+        v-if="!cls.archived"
         variant="secondary"
         size="32"
         radius="8"

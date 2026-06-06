@@ -169,6 +169,10 @@ model Class {
   className     String
   classCategory String?
   classStatus   ClassStatus @default(ACTIVE)
+  // Archived classes are hidden from the default lists and are read-only:
+  // no edits, code rotation, joins, or announcements until unarchived.
+  archived      Boolean     @default(false)
+  archivedAt    DateTime?
   createdById   String?
 
   // ── Class code lifecycle ──

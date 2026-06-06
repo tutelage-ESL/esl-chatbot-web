@@ -276,7 +276,7 @@ All pages use `definePageMeta({ layout: 'dashboard', requiresAuth: true })`.
 | `/dashboard/settings` | `pages/dashboard/settings.vue` | Built — account info + FIB subscription panel |
 | `/dashboard/classes` | `pages/dashboard/classes/index.vue` | Built — **thin role switch** (like `dashboard/index.vue`): ADMIN→`Classes/Admin/AdminClassesView` (manage-all view, inline), TUTOR→`Classes/Tutor/TutorClassesView` (owned classes only), STUDENT→`Classes/Student/StudentClassesView` (enrolled + join) |
 | `/dashboard/classes/create` | `pages/dashboard/classes/create.vue` | Built (tutor/admin) |
-| `/dashboard/classes/[id]` | `pages/dashboard/classes/[id]/index.vue` | Built — full class detail page |
+| `/dashboard/classes/[id]` | `pages/dashboard/classes/[id]/index.vue` | Built — full class detail page. **Archiving:** tutor/admin Archive/Unarchive button (PATCH `/classes/:id/archive`); when `cls.archived` the page is read-only (Edit, code Copy/Rotate, member-remove, announcement compose all hidden) and shows an archived banner with an Unarchive action. Admin & Tutor list views have an Active/Archived toggle. |
 | `/dashboard/classes/[id]/edit` | `pages/dashboard/classes/[id]/edit.vue` | Built — edit class (tutor/admin) |
 
 ### Dashboard Component Folder (`components/Pages/Dashboard/`)
@@ -314,7 +314,7 @@ components/Pages/Dashboard/
 │  │  ├─ AdminClassesView.vue # Manage-all-classes UI: stats, filters, grid/table, delete → <PagesDashboardClassesAdminClassesView />
 │  │  ├─ ClassGridCard.vue   # Grid card for admin manage view
 │  │  └─ ClassTableRow.vue   # Table row for admin manage view
-│  ├─ Tutor/                 # TUTOR role view — owned classes only
+│  ├─ Tutor/                 # TUTOR role view — owned classes only; Active/Archived toggle
 │  │  └─ TutorClassesView.vue # → <PagesDashboardClassesTutorClassesView />
 │  └─ Student/               # STUDENT role view — enrolled classes + join
 │     └─ StudentClassesView.vue # → <PagesDashboardClassesStudentClassesView />
@@ -358,7 +358,7 @@ Types are split by domain — never define them inline in a composable:
 | Composable | File | Exports |
 |---|---|---|
 | `useHttp` | [app/composables/useHttp.ts](app/composables/useHttp.ts) | Single `useHttp(options)` function — all API calls must go through this |
-| `useClasses` | [app/composables/useClasses.ts](app/composables/useClasses.ts) | `listMyClasses`, `listAllClasses`, `getClass`, `joinClass`, `createClass`, `updateClass`, `refreshCode`, `updateCodeSettings`, `toggleBlock`, `getClassStudents`, `getClassStudentDetail`, `getClassAnalytics`, `removeMember`, `listAnnouncements`, `createAnnouncement` |
+| `useClasses` | [app/composables/useClasses.ts](app/composables/useClasses.ts) | `listMyClasses` / `listAllClasses` (both accept `{ archived?: boolean }` — default lists hide archived), `getClass`, `joinClass`, `createClass`, `updateClass`, `refreshCode`, `updateCodeSettings`, `toggleBlock`, `archiveClass` (PATCH `/classes/:id/archive`), `getClassStudents`, `getClassStudentDetail`, `getClassAnalytics`, `removeMember`, `listAnnouncements`, `createAnnouncement` |
 | `useSubscription` | [app/composables/useSubscription.ts](app/composables/useSubscription.ts) | `getMySubscription`, `initiateFib`, `getFibStatus`, `cancelFib` |
 | `useChatPage` | [app/composables/useChatPage.ts](app/composables/useChatPage.ts) | All state and actions for the chat page — sessions, messages, send, newSession, openSession, endCurrent, refreshCurrent, fillSuggestion |
 | `useSessions` | [app/composables/useSessions.ts](app/composables/useSessions.ts) | Raw session API calls used by `useChatPage` |

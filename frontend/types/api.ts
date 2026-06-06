@@ -1596,6 +1596,8 @@ export interface paths {
                     page?: number;
                     limit?: number;
                     status?: "ACTIVE" | "INACTIVE";
+                    /** @description true = only archived classes; omitted/false = only non-archived (default) */
+                    archived?: "true" | "false";
                 };
                 header?: never;
                 path?: never;
@@ -1622,6 +1624,9 @@ export interface paths {
                                 classCategory?: string | null;
                                 /** @enum {string} */
                                 classStatus?: "ACTIVE" | "INACTIVE";
+                                archived?: boolean;
+                                /** Format: date-time */
+                                archivedAt?: string | null;
                                 classCodeBlocked?: boolean;
                                 /** Format: date-time */
                                 classCodeExpiresAt?: string | null;
@@ -1880,10 +1885,16 @@ export interface paths {
          *     is a TUTOR and the code is currently expired is rotated to a new
          *     value. Student memberships do NOT trigger rotations — students
          *     cannot bump codes by listing their classes.
+         *
+         *     Pass `?archived=true` to list the caller's archived classes instead of
+         *     their active ones (default is non-archived only).
          */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description true = only the caller's archived classes; omitted/false = only non-archived (default) */
+                    archived?: "true" | "false";
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -2302,6 +2313,102 @@ export interface paths {
                             success?: boolean;
                             message?: string;
                             data?: components["schemas"]["ClassCodeInfo"];
+                        };
+                    };
+                };
+                /** @description Invalid body */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not a tutor of this class */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Class not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/classes/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Archive or unarchive a class (Tutor in class or Admin)
+         * @description Archiving hides the class from the default class lists and makes it
+         *     **read-only** — while archived, the class cannot be edited, its code
+         *     cannot be rotated/blocked, and no one can join it (these all return 409).
+         *     Members, code, and all data are preserved; archiving is fully reversible.
+         *
+         *     Archived classes still appear when listing with `?archived=true`. Unarchive
+         *     (`{ archived: false }`) to restore full functionality.
+         *
+         *     Authorization: tutor of the class or admin.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        archived: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Updated class detail */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            message?: string;
+                            /** @description Full class detail including the archived/archivedAt fields */
+                            data?: Record<string, never>;
                         };
                     };
                 };
