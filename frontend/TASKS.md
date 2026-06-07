@@ -71,3 +71,7 @@ Rate limiting is now live in production on all auth and AI endpoints. The backen
 Response headers include `RateLimit-Limit`, `RateLimit-Remaining`, and `RateLimit-Reset` (seconds until window resets) — these can be used to show a countdown.
 
 **Action needed:** Auth forms (login, register, forgot-password) should display a user-friendly message when the API returns 429, e.g. _"Too many attempts. Please wait a few minutes and try again."_ The existing `useHttp` error handling should catch 429 like any other error — just make sure the UI surfaces the message rather than showing a generic error.
+
+** meeting **
+# add Ku-lang to landing page + fix the color a bit
+# get the agreement text from the business owner and let user sign it.

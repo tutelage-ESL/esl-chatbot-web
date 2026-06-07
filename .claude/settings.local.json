@@ -14,7 +14,8 @@
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
       "Bash(bunx nuxi *)",
-      "Bash(DATABASE_URL=\"postgresql://localhost/dummy\" bunx prisma generate)"
+      "Bash(DATABASE_URL=\"postgresql://localhost/dummy\" bunx prisma generate)",
+      "Bash(bun test *)"
     ]
   }
 }
