@@ -4,7 +4,7 @@ import { Sentry } from "./config/sentry.ts";
 
 import { createServer } from "http";
 import app from "./app.ts";
-import { env, logger } from "./config/index.ts";
+import { env, logger, connectRedis, disconnectRedis } from "./config/index.ts";
 import { connectDatabase, disconnectDatabase, resetDatabase } from "./config/database.ts";
 import { initializeSocket } from "./socket/index.ts";
 import { setIO } from "./socket/io-instance.ts";
@@ -17,12 +17,15 @@ async function bootstrap() {
   // 2. Test database connection and log table info
   await connectDatabase();
 
-  // 3. Attach Socket.io to the HTTP server
+  // 3. Connect to Redis (non-fatal — cache gracefully degrades to DB if unavailable)
+  await connectRedis();
+
+  // 4. Attach Socket.io to the HTTP server
   const httpServer = createServer(app);
   const io = initializeSocket(httpServer);
   setIO(io);
 
-  // 4. Start HTTP server
+  // 5. Start HTTP server
   const server = httpServer.listen(env.PORT, "0.0.0.0", () => {
     console.log("┌─────────────────────────────────────────┐");
     console.log("│           SERVER STARTED                 │");
@@ -35,7 +38,7 @@ async function bootstrap() {
     logger.info(`Server running on port ${env.PORT} in ${env.NODE_ENV} mode`);
   });
 
-  // 5. Start background cron jobs
+  // 6. Start background cron jobs
   startCronJobs();
 
   // Graceful shutdown
@@ -44,6 +47,7 @@ async function bootstrap() {
     stopCronJobs();
     io.close();
     server.close(async () => {
+      await disconnectRedis();
       await disconnectDatabase();
       logger.info("Server closed");
       process.exit(0);

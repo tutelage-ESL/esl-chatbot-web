@@ -5,6 +5,7 @@ import { AppError } from "../../utils/AppError.ts";
 import type { UserListItem, UserDetail, MyProfile, DashboardData } from "./users.types.ts";
 import type { UpdateMyProfileInput, UpdateLearnerProfileInput } from "./users.schema.ts";
 import { uploadAvatar, deleteAvatar } from "../../config/storage.ts";
+import { deleteCache, cacheKeys } from "../../config/cache.ts";
 
 const USER_LIST_SELECT = {
   id: true,
@@ -172,6 +173,8 @@ export async function updateMyProfile(
     data: input,
   });
 
+  await deleteCache(cacheKeys.authUser(userId));
+
   return getMyProfile(userId);
 }
 
@@ -315,6 +318,8 @@ export async function updateUserAvatar(
   // Best-effort: delete old avatar after the DB is updated
   await deleteAvatar(user.avatarUrl);
 
+  await deleteCache(cacheKeys.authUser(userId));
+
   return newUrl;
 }
 
@@ -351,6 +356,9 @@ export async function updateMyLearnerProfile(
       timezone: true,
     },
   });
+
+  // weeklyGoalMinutes feeds the dailyGoalMins calculation in the dashboard greeting hero
+  await deleteCache(cacheKeys.dashboard(userId));
 
   return profile as MyProfile["learnerProfile"];
 }

@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../../config/database.ts";
 import { AppError } from "../../utils/AppError.ts";
+import { deleteCache, cacheKeys } from "../../config/cache.ts";
 import type { VocabularyItem, VocabularyStats, ReviewResult } from "./vocabulary.types.ts";
 import type { NewVocabularyWord } from "../ai/ai.types.ts";
 import type {
@@ -199,8 +200,9 @@ export async function addVocabulary(
   userId: string,
   input: z.infer<typeof addVocabularySchema>,
 ): Promise<VocabularyItem> {
+  let item: VocabularyItem;
   try {
-    const item = await prisma.vocabulary.create({
+    item = await prisma.vocabulary.create({
       data: {
         userId,
         word: input.word.toLowerCase(),
@@ -213,8 +215,7 @@ export async function addVocabulary(
         source: "MANUAL",
       },
       select: VOCAB_SELECT,
-    });
-    return item;
+    }) as VocabularyItem;
   } catch (err) {
     const e = err as { code?: string };
     if (e.code === "P2002") {
@@ -222,6 +223,9 @@ export async function addVocabulary(
     }
     throw err;
   }
+
+  await deleteCache(cacheKeys.dashboard(userId));
+  return item;
 }
 
 // ── Get by ID ─────────────────────────────────────────────────
@@ -266,6 +270,7 @@ export async function deleteVocabulary(id: string, userId: string): Promise<void
   const existing = await prisma.vocabulary.findUnique({ where: { id }, select: { userId: true } });
   if (!existing || existing.userId !== userId) throw new AppError("Vocabulary item not found", 404);
   await prisma.vocabulary.delete({ where: { id } });
+  await deleteCache(cacheKeys.dashboard(userId));
 }
 
 // ── SRS review ────────────────────────────────────────────────
@@ -333,6 +338,9 @@ export async function reviewVocabulary(
     create: { userId, date: today, vocabularyPracticed: 1 },
     update: { vocabularyPracticed: { increment: 1 } },
   });
+
+  // dueVocabCount and totalWords in the dashboard are now stale
+  await deleteCache(cacheKeys.dashboard(userId));
 
   return updated as ReviewResult;
 }

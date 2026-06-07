@@ -1,4 +1,5 @@
 import { prisma } from "../../config/database.ts";
+import { getCache, setCache, cacheKeys, cacheTTL } from "../../config/cache.ts";
 import type {
   DashboardOverviewData,
   DashboardGreetingHero,
@@ -419,6 +420,9 @@ export async function getVocabGrowth(
 // ── Main export: all sections in parallel ─────────────────────────────────────
 
 export async function getDashboardOverview(userId: string): Promise<DashboardOverviewData> {
+  const cached = await getCache<DashboardOverviewData>(cacheKeys.dashboard(userId));
+  if (cached) return cached;
+
   const [greetingHero, statCards, vocabChart, nextUp, activityHeatmap, dueWords] =
     await Promise.all([
       buildGreetingHero(userId),
@@ -429,5 +433,7 @@ export async function getDashboardOverview(userId: string): Promise<DashboardOve
       buildDueWords(userId),
     ]);
 
-  return { greetingHero, statCards, vocabChart, nextUp, activityHeatmap, dueWords };
+  const result: DashboardOverviewData = { greetingHero, statCards, vocabChart, nextUp, activityHeatmap, dueWords };
+  await setCache(cacheKeys.dashboard(userId), result, cacheTTL.dashboard);
+  return result;
 }

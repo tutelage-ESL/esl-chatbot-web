@@ -22,6 +22,7 @@ import type {
   ResendVerificationInput,
 } from "./auth.types.ts";
 import { resend } from "../../config/resend.ts";
+import { getCache, setCache, deleteCache, cacheKeys, cacheTTL } from "../../config/cache.ts";
 
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -405,6 +406,9 @@ export async function refreshAccessToken(refreshToken: string): Promise<{ access
 // ─── Current user (GET /auth/me) ──────────────────────────────────────────────
 
 export async function getMe(userId: string): Promise<AuthUser> {
+  const cached = await getCache<AuthUser>(cacheKeys.authUser(userId));
+  if (cached) return cached;
+
   const user = await prisma.user.findUnique({
     where: { id: userId },
     include: { subscription: { select: { plan: true, status: true } } },
@@ -419,7 +423,7 @@ export async function getMe(userId: string): Promise<AuthUser> {
     throw new AppError("Your account has been deactivated. Please contact support.", 403);
   }
 
-  return {
+  const result: AuthUser = {
     id: user.id,
     username: user.username,
     email: user.email,
@@ -432,6 +436,10 @@ export async function getMe(userId: string): Promise<AuthUser> {
       ? { plan: user.subscription.plan, status: user.subscription.status }
       : null,
   };
+
+  await setCache(cacheKeys.authUser(userId), result, cacheTTL.authUser);
+
+  return result;
 }
 
 export async function logout(refreshToken: string): Promise<void> {
@@ -592,6 +600,8 @@ export async function linkGoogle(userId: string, input: LinkGoogleInput): Promis
       include: { subscription: { select: { plan: true, status: true } } },
     });
   });
+
+  await deleteCache(cacheKeys.authUser(userId));
 
   return {
     id: updated.id,
@@ -758,6 +768,9 @@ export async function verifyEmail(input: VerifyEmailInput): Promise<AuthUser> {
   } catch (err) {
     logger.warn(`Could not send welcome email to ${user.email}: ${(err as Error).message}`);
   }
+
+  // Invalidate before getMe so the next call re-fetches the updated emailVerified + subscription
+  await deleteCache(cacheKeys.authUser(user.id));
 
   return getMe(user.id);
 }

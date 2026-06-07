@@ -1,12 +1,3 @@
-// Redis client placeholder
-// Will be configured in a later phase with ioredis or similar
-
-import { env } from "./env.ts";
-
-export const redisConfig = {
-  url: env.REDIS_URL,
-};
-
-// TODO: Initialize Redis client
-// import Redis from "ioredis";
-// export const redis = new Redis(redisConfig.url);
+// Redis client configuration — see src/config/cache.ts for the full cache implementation
+// This file is kept as a thin re-export for backwards compatibility with any direct imports.
+export { connectRedis, disconnectRedis } from "./cache.ts";
