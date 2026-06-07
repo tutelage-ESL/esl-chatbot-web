@@ -287,6 +287,7 @@ export async function cancelFibSubscription(
       },
     }),
   ]);
+  await deleteCache(cacheKeys.authUser(userId));
 }
 
 // ─── Webhook ──────────────────────────────────────────────────────────────────

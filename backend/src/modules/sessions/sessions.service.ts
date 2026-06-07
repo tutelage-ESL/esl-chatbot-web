@@ -375,7 +375,7 @@ export async function endSession(
   }
 
   // Streak, study time, recent sessions, and due vocab can all change — bust the dashboard cache
-  await deleteCache(cacheKeys.dashboard(userId));
+  void deleteCache(cacheKeys.dashboard(userId));
 
   return getSessionById(sessionId, userId);
 }

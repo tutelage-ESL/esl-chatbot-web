@@ -233,5 +233,6 @@ export async function adminUpdateLearnerProfile(userId: string, input: AdminUpda
     create: { userId, ...data },
     update: data,
   });
+  await deleteCache(cacheKeys.dashboard(userId));
   return profile;
 }

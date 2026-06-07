@@ -73,9 +73,8 @@ process.on("unhandledRejection", (reason) => {
 
 // Catch synchronous exceptions that escape all try/catch blocks.
 // The process must exit afterward — V8 state is undefined after an uncaught exception.
-process.on("uncaughtException", async (err) => {
+process.on("uncaughtException", (err) => {
   logger.error("[process] Uncaught exception — shutting down", { error: err });
   Sentry.captureException(err);
-  await Sentry.close(2000); // flush pending events before exit
-  process.exit(1);
+  Sentry.close(2000).finally(() => process.exit(1));
 });

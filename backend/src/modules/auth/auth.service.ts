@@ -277,6 +277,7 @@ export async function googleAuth(input: GoogleAuthInput): Promise<GoogleAuthResp
           include: { subscription: { select: { plan: true, status: true } } },
         });
       });
+      await deleteCache(cacheKeys.authUser(localUser.id));
     }
   }
 
@@ -444,7 +445,14 @@ export async function getMe(userId: string): Promise<AuthUser> {
 
 export async function logout(refreshToken: string): Promise<void> {
   const tokenHash = hashToken(refreshToken);
+  const token = await prisma.refreshToken.findFirst({
+    where: { tokenHash },
+    select: { userId: true },
+  });
   await prisma.refreshToken.deleteMany({ where: { tokenHash } });
+  if (token) {
+    await deleteCache(cacheKeys.authUser(token.userId));
+  }
 }
 
 // ─── Forgot password (send OTP) ───────────────────────────────────────────────

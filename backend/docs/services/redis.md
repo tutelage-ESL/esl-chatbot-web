@@ -24,8 +24,10 @@ Every mutation that changes cached data must call `deleteCache(...)` after the D
 
 | File | Function | Why |
 |------|----------|-----|
+| `auth.service.ts` | `googleAuth()` Case B | email-merge sets `emailVerified=true` + subscription INACTIVE→ACTIVE |
 | `auth.service.ts` | `verifyEmail()` | `emailVerified` + subscription `status` INACTIVE→ACTIVE |
 | `auth.service.ts` | `linkGoogle()` | `emailVerified` + subscription `status` INACTIVE→ACTIVE |
+| `auth.service.ts` | `logout()` | clears entry so replayed access tokens within JWT TTL don't serve stale data |
 | `users.service.ts` | `updateMyProfile()` | `displayName`, `avatarUrl` |
 | `users.service.ts` | `updateUserAvatar()` | `avatarUrl` |
 | `admin.service.ts` | `updateUser()` | `role`, `isActive` (security-critical) |
@@ -34,6 +36,7 @@ Every mutation that changes cached data must call `deleteCache(...)` after the D
 | `admin.service.ts` | `adminUpdateProfile()` | `displayName`, `avatarUrl` |
 | `admin.service.ts` | `adminUploadAvatar()` | `avatarUrl` |
 | `subscriptions.service.ts` | `applyFibStatusChange()` | `plan`, `status` via FIB webhook/polling |
+| `subscriptions.service.ts` | `cancelFibSubscription()` | ACTIVE/TRIAL cancellation downgrades to FREE ACTIVE |
 
 ### Invalidates `user:dashboard:{userId}`
 
@@ -47,6 +50,7 @@ Every mutation that changes cached data must call `deleteCache(...)` after the D
 | `goals.service.ts` | `updateGoal()` | `nextUp` section |
 | `goals.service.ts` | `deleteGoal()` | `nextUp` section |
 | `users.service.ts` | `updateMyLearnerProfile()` | `weeklyGoalMinutes` → daily goal mins |
+| `admin.service.ts` | `adminUpdateLearnerProfile()` | `weeklyGoalMinutes` → daily goal mins (admin path) |
 
 ---
 
