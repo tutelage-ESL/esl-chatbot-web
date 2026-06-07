@@ -1,3 +1,7 @@
+// Sentry must be initialized before any other import so its instrumentation
+// can wrap all downstream modules (Express, Prisma, HTTP clients, etc.)
+import { Sentry } from "./config/sentry.ts";
+
 import { createServer } from "http";
 import app from "./app.ts";
 import { env, logger } from "./config/index.ts";
@@ -51,6 +55,23 @@ async function bootstrap() {
 }
 
 bootstrap().catch((err) => {
+  Sentry.captureException(err);
   console.error("❌ Failed to start server:", err);
+  process.exit(1);
+});
+
+// Catch promises that were rejected but never had a .catch() handler.
+// Common source: fire-and-forget async calls in socket handlers or jobs.
+process.on("unhandledRejection", (reason) => {
+  logger.error("[process] Unhandled promise rejection", { reason });
+  Sentry.captureException(reason instanceof Error ? reason : new Error(String(reason)));
+});
+
+// Catch synchronous exceptions that escape all try/catch blocks.
+// The process must exit afterward — V8 state is undefined after an uncaught exception.
+process.on("uncaughtException", async (err) => {
+  logger.error("[process] Uncaught exception — shutting down", { error: err });
+  Sentry.captureException(err);
+  await Sentry.close(2000); // flush pending events before exit
   process.exit(1);
 });
