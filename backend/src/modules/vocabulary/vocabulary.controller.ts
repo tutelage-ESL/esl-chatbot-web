@@ -39,8 +39,9 @@ export const getDueCardsHandler = asyncHandler(async (req: Request, res: Respons
 
 export const addVocabularyHandler = asyncHandler(async (req: Request, res: Response) => {
   const input = addVocabularySchema.parse(req.body);
-  const item = await addVocabulary(req.user!.id, input);
-  sendSuccess(res, item, "Word added to vocabulary", 201);
+  const item = await addVocabulary(req.user!.id, req.user!.role, input);
+  const assigned = !!input.assignedToUserId && input.assignedToUserId !== req.user!.id;
+  sendSuccess(res, item, assigned ? "Word assigned to student" : "Word added to vocabulary", 201);
 });
 
 export const getVocabularyByIdHandler = asyncHandler(async (req: Request, res: Response) => {

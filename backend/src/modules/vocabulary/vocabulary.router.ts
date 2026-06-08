@@ -93,8 +93,8 @@ router.get("/stats", authenticate, getVocabularyStatsHandler);
  *         name: source
  *         schema:
  *           type: string
- *           enum: [MANUAL, SESSION]
- *         description: Filter by how the word was added
+ *           enum: [MANUAL, SESSION, ASSIGNED]
+ *         description: Filter by how the word was added (MANUAL=self, SESSION=AI chat, ASSIGNED=tutor/admin)
  *       - in: query
  *         name: category
  *         schema:
@@ -158,8 +158,16 @@ router.get("/due", authenticate, getDueCardsHandler);
  * @swagger
  * /vocabulary:
  *   post:
- *     summary: Add a word to vocabulary
- *     description: Manually add a new word. Words are stored in lowercase. Returns 409 if the word already exists in the user's list.
+ *     summary: Add a word to your vocabulary, or assign one to a student (tutor/admin)
+ *     description: |
+ *       **Self-add** (no `assignedToUserId`): adds the word to your own list with
+ *       `source = MANUAL`. Words are stored in lowercase. 409 if it already exists.
+ *
+ *       **Assign to a student** (`assignedToUserId`, tutor/admin only): adds the word
+ *       to that student's list with `source = ASSIGNED` and `assignedByTutor` set to the
+ *       caller, and fires a `VOCABULARY_ASSIGNED` notification. A TUTOR must share a class
+ *       with the student (as TUTOR) — otherwise 404. STUDENT callers get 403. ADMIN is
+ *       unrestricted. 409 if the student already has the word.
  *     tags: [Vocabulary]
  *     security:
  *       - bearerAuth: []
@@ -195,9 +203,13 @@ router.get("/due", authenticate, getDueCardsHandler);
  *               category:
  *                 type: string
  *                 maxLength: 100
+ *               assignedToUserId:
+ *                 type: string
+ *                 format: uuid
+ *                 description: "Tutor/admin only — assign the word to this student instead of adding to your own list"
  *     responses:
  *       201:
- *         description: Word added
+ *         description: Word added (or assigned to the student)
  *         content:
  *           application/json:
  *             schema:
@@ -209,8 +221,12 @@ router.get("/due", authenticate, getDueCardsHandler);
  *                   $ref: '#/components/schemas/VocabularyItem'
  *       401:
  *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         description: A student tried to assign vocabulary to someone else
+ *       404:
+ *         description: Target student is not in the tutor's classes
  *       409:
- *         description: Word already in vocabulary
+ *         description: Word already in the target vocabulary list
  *       422:
  *         $ref: '#/components/responses/ValidationError'
  */
@@ -439,8 +455,21 @@ router.post("/:id/review", authenticate, reviewVocabularyHandler);
  *           nullable: true
  *         source:
  *           type: string
- *           enum: [MANUAL, SESSION]
- *           description: How the word was added — MANUAL by user, SESSION auto-detected by AI
+ *           enum: [MANUAL, SESSION, ASSIGNED]
+ *           description: How the word was added — MANUAL by the user, SESSION auto-detected by AI, ASSIGNED by a tutor/admin
+ *         assignedByTutorId:
+ *           type: string
+ *           format: uuid
+ *           nullable: true
+ *           description: Set only when source = ASSIGNED — the id of the tutor/admin who assigned it
+ *         assignedByTutor:
+ *           type: object
+ *           nullable: true
+ *           description: The tutor/admin who assigned this word (present only when source = ASSIGNED)
+ *           properties:
+ *             id: { type: string, format: uuid }
+ *             displayName: { type: string }
+ *             role: { type: string, enum: [STUDENT, TUTOR, ADMIN] }
  *         srsInterval:
  *           type: integer
  *           description: Days until next review

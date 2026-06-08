@@ -170,7 +170,8 @@ Each module under `src/modules/[name]/` follows:
 | AiPersonality | FRIENDLY, FORMAL, CASUAL, ENCOURAGING, STRICT, PATIENT |
 | Plan | FREE, GOLD, PREMIUM |
 | SubStatus | ACTIVE, INACTIVE, CANCELLED, PAST_DUE |
-| VocabSource | MANUAL, SESSION |
+| VocabSource | MANUAL, SESSION, ASSIGNED — MANUAL=user added, SESSION=AI-detected, ASSIGNED=given by a tutor/admin (see Vocabulary.assignedByTutorId) |
+| NotificationType | STREAK_MILESTONE, GOAL_COMPLETED, GOAL_ASSIGNED, VOCABULARY_ASSIGNED, CLASS_ANNOUNCEMENT |
 
 ### Models
 | Model | Table | Key Relations |
@@ -205,7 +206,8 @@ Each module under `src/modules/[name]/` follows:
   2. **`GET /classes/:id` by an admin or by a tutor of the class** — code is rotated before the response is built, so opening the class detail is enough to see a fresh code.
   3. **`GET /classes/mine`** — for each class where the caller is a TUTOR with a currently expired code, the code is rotated before the list is built. Student memberships do NOT trigger rotation, so students cannot bump the rotation by spamming reads.
 - No separate settings table — settings live in LearnerProfile. Key fields: `currentLevel`/`targetLevel` (CEFR A1–C2), `aiPersonality` (AiPersonality enum: FRIENDLY/FORMAL/CASUAL/ENCOURAGING/STRICT/PATIENT), `topicsOfInterest` (JSON string[]), `voiceSpeed` (0.5–2.0), `theme` (light/dark), `weeklyGoalMinutes` (5–840). Updated via `PATCH /users/me/learner-profile`.
-- Vocabulary uses SM-2 SRS algorithm fields (srsInterval, srsEase, srsDue). Has a `source` field (VocabSource enum: MANUAL/SESSION) — MANUAL = user added, SESSION = auto-detected by AI. `masteryLevel` (0-5) is computed from srsInterval: 0=new, 1=seen(1d), 2=learning(≤3d), 3=familiar(≤7d), 4=proficient(≤21d), 5=mastered(>21d). Words are stored in lowercase and must be unique per user.
+- Vocabulary uses SM-2 SRS algorithm fields (srsInterval, srsEase, srsDue). Has a `source` field (VocabSource enum: MANUAL/SESSION/ASSIGNED) — MANUAL = user added, SESSION = auto-detected by AI, ASSIGNED = given by a tutor/admin. ASSIGNED words carry `assignedByTutorId` (nullable FK → User, SetNull) so the UI can attribute "who added this word". `masteryLevel` (0-5) is computed from srsInterval: 0=new, 1=seen(1d), 2=learning(≤3d), 3=familiar(≤7d), 4=proficient(≤21d), 5=mastered(>21d). Words are stored in lowercase and must be unique per user.
+- **Vocabulary assignment:** `POST /vocabulary` accepts an optional `assignedToUserId` (tutor/admin only). When set, the word is added to that student's list with `source=ASSIGNED` + `assignedByTutorId=caller`, and a `VOCABULARY_ASSIGNED` notification fires. Same guard as goal assignment: STUDENT→403, TUTOR must share a class with the student (else 404), ADMIN unrestricted. The list/detail responses include `assignedByTutor { id, displayName, role }`. Mirrors the `createGoal` assign pattern in `goals.service.ts`.
 - Progress is exactly 1 row per user per calendar day. Updated automatically at session end (sessionsCount, studyMinutes, messagesCount, wordsTyped, skillSnapshot) and at vocabulary review (vocabularyPracticed).
 - **UserMetrics skill fields:** grammarSkill, vocabularySkill, fluencySkill, speakingSkill (all Float 0–100). Updated via EMA (85% old + 15% new session) when a session ends. `lessonsCompleted`, `readingSkill`, `writingSkill`, `listeningSkill` were removed — they had no data source in the current pipeline. Re-add when a Lesson model is built.
 - **Subscription payment fields:** `paymentProvider` (enum: STRIPE/FIB/CASH), `externalCustomerId` (Stripe customerId only), `externalSubscriptionId` (fibPaymentId for FIB, stripeSubscriptionId for Stripe). All nullable. Cash payments set `paymentProvider=CASH` only. FREE tier leaves all three null.
@@ -370,7 +372,7 @@ Includes: classes (with full code-lifecycle fields populated) with enrolled user
 ### Phase 5 — Vocabulary & SRS System
 - ✅ `GET /vocabulary` — list user's vocabulary, filterable by `?due=true/false`, `?source=MANUAL/SESSION`, `?category=`, `?search=`; paginated
 - ✅ `GET /vocabulary/due` — fetch up to 50 SRS cards due today (ordered by most overdue)
-- ✅ `POST /vocabulary` — add a word manually; word stored in lowercase; 409 if duplicate
+- ✅ `POST /vocabulary` — add a word (self: `source=MANUAL`). **Tutor/admin may pass `assignedToUserId`** to assign the word to a student (`source=ASSIGNED`, `assignedByTutorId` set, `VOCABULARY_ASSIGNED` notification fired; tutor must share a class with the student → else 404, student→403). Word stored in lowercase; 409 if the target already has it
 - ✅ `GET /vocabulary/:id` — get a single vocabulary item
 - ✅ `PATCH /vocabulary/:id` — update definition, pronunciation, example, partOfSpeech, difficulty, category
 - ✅ `DELETE /vocabulary/:id` — delete a word

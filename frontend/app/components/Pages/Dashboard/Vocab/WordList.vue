@@ -1,20 +1,28 @@
 <script setup lang="ts">
 import type { VocabularyItem } from '~/common/types/vocabulary-types'
-import { MASTERY_LABEL } from '~/common/types/vocabulary-types'
+import { MASTERY_LABEL, vocabSourceLabel } from '~/common/types/vocabulary-types'
+
+type SourceFilter = 'ALL' | 'MANUAL' | 'SESSION' | 'ASSIGNED'
 
 defineProps<{
   words: VocabularyItem[]
   total: number
   loading?: boolean
   search: string
-  source: 'ALL' | 'MANUAL' | 'SESSION'
+  source: SourceFilter
 }>()
 
 const emit = defineEmits<{
   'update:search': [val: string]
-  'update:source': [val: 'ALL' | 'MANUAL' | 'SESSION']
+  'update:source': [val: SourceFilter]
   delete: [item: VocabularyItem]
 }>()
+
+// Style the source badge per origin: assigned (brand), AI chat (muted), self (subtle).
+function sourceBadgeStyle(item: VocabularyItem) {
+  if (item.source === 'ASSIGNED') return 'background:rgba(245,158,11,0.1);color:var(--color-brand-primary)'
+  return 'background:var(--surface-raised);color:var(--text-muted)'
+}
 
 const confirmTarget = ref<VocabularyItem | null>(null)
 
@@ -54,14 +62,15 @@ function confirmDelete() {
           class-list="w-52"
           @update:model-value="emit('update:search', String($event))"
         />
-        <UiSelect :model-value="source" @update:model-value="emit('update:source', $event as 'ALL' | 'MANUAL' | 'SESSION')">
-          <UiSelectTrigger class="w-36 text-[14px]">
+        <UiSelect :model-value="source" @update:model-value="emit('update:source', $event as SourceFilter)">
+          <UiSelectTrigger class="w-40 text-[14px]">
             <UiSelectValue placeholder="Source" />
           </UiSelectTrigger>
           <UiSelectContent>
             <UiSelectItem value="ALL">All sources</UiSelectItem>
             <UiSelectItem value="MANUAL">Added by me</UiSelectItem>
             <UiSelectItem value="SESSION">From chat AI</UiSelectItem>
+            <UiSelectItem value="ASSIGNED">From my tutor</UiSelectItem>
           </UiSelectContent>
         </UiSelect>
       </div>
@@ -106,14 +115,14 @@ function confirmDelete() {
           {{ masteryLabel(w.masteryLevel) }}
         </span>
 
-        <!-- Source badge — SESSION words only -->
+        <!-- Source attribution — who added this word (you / AI chat / tutor name) -->
         <span
-          v-if="w.source === 'SESSION'"
-          class="hidden sm:inline-flex items-center gap-1 text-[14px] font-medium px-2.5 py-1 rounded-full font-poppins shrink-0"
-          style="background:var(--surface-raised);color:var(--text-muted)"
+          class="hidden sm:inline-flex items-center gap-1.5 text-[14px] font-medium px-2.5 py-1 rounded-full font-poppins shrink-0 max-w-44"
+          :style="sourceBadgeStyle(w)"
+          :title="vocabSourceLabel(w).label"
         >
-          <AppIconsax name="Message" color="currentColor" :size="13" />
-          Chat
+          <AppIconsax :name="vocabSourceLabel(w).icon" color="currentColor" :size="13" />
+          <span class="truncate">{{ vocabSourceLabel(w).label }}</span>
         </span>
 
         <!-- Delete -->

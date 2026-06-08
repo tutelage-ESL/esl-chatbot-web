@@ -96,14 +96,16 @@ enum PaymentProvider {
 }
 
 enum VocabSource {
-  MANUAL
-  SESSION
+  MANUAL   // user added it themselves
+  SESSION  // auto-detected by the AI during a conversation
+  ASSIGNED // given to the user by a tutor or admin (see Vocabulary.assignedByTutorId)
 }
 
 enum NotificationType {
   STREAK_MILESTONE
   GOAL_COMPLETED
   GOAL_ASSIGNED
+  VOCABULARY_ASSIGNED
   CLASS_ANNOUNCEMENT
 }
 
@@ -146,6 +148,7 @@ model User {
   sessions       ConversationSession[]
   messages       Message[]
   vocabularies   Vocabulary[]
+  assignedVocabularies Vocabulary[]     @relation("VocabAssigner")
   goals          Goal[]
   assignedGoals  Goal[]                @relation("GoalAssigner")
   progress       Progress[]
@@ -403,8 +406,11 @@ model Vocabulary {
   masteryLevel   Int         @default(0)
   lastPracticed  DateTime?
   source         VocabSource @default(MANUAL)
+  // Set when source = ASSIGNED — the tutor/admin who gave this word to the user.
+  assignedByTutorId String?
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedByTutor User? @relation("VocabAssigner", fields: [assignedByTutorId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

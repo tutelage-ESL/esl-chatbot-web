@@ -31,7 +31,7 @@ export function useVocabPage() {
   const listLoading = ref(false)
 
   const search = ref('')
-  const sourceFilter = ref<'ALL' | 'MANUAL' | 'SESSION'>('ALL')
+  const sourceFilter = ref<'ALL' | 'MANUAL' | 'SESSION' | 'ASSIGNED'>('ALL')
 
   const addOpen = ref(false)
   const adding = ref(false)

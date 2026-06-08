@@ -69,6 +69,16 @@ export function useVocabulary() {
     })
   }
 
+  // Tutor/admin: assign a word to a student (POST /vocabulary with assignedToUserId).
+  function assignVocabulary(studentId: string, input: AddVocabularyInput) {
+    return useHttp<SingleResponse<VocabularyItem>>({
+      method: 'POST',
+      url: '/vocabulary',
+      body: { ...input, assignedToUserId: studentId },
+      requireAuth: true,
+    })
+  }
+
   function getVocabularyById(id: string) {
     return useHttp<SingleResponse<VocabularyItem>>({
       method: 'GET',
@@ -108,6 +118,7 @@ export function useVocabulary() {
     getStats,
     getDueCards,
     addVocabulary,
+    assignVocabulary,
     getVocabularyById,
     updateVocabulary,
     deleteVocabulary,

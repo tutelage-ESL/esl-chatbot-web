@@ -1,16 +1,56 @@
 <script setup lang="ts">
 import { toast } from 'vue-sonner'
 import type { ClassStudentSummary, ClassStudentDetail } from '~/common/types/class-types'
+import type { AddVocabularyInput } from '~/common/types/vocabulary-types'
+import { assignGoalToStudent, type CreateGoalInput } from '~/composables/useGoals'
 
 const props = defineProps<{ classId: string }>()
 
 const { getClassStudents, getClassStudentDetail } = useClasses()
+const { assignVocabulary } = useVocabulary()
 
 const students = ref<ClassStudentSummary[]>([])
 const loading = ref(false)
 const detailOpen = ref(false)
 const detail = ref<ClassStudentDetail | null>(null)
 const detailLoading = ref(false)
+
+// Assign-vocabulary modal (tutor/admin gives a word to the open student)
+const assignOpen = ref(false)
+const assigning = ref(false)
+
+async function handleAssignWord(input: AddVocabularyInput) {
+  if (!detail.value || assigning.value) return
+  assigning.value = true
+  const res = await assignVocabulary(detail.value.userId, input)
+  assigning.value = false
+  if (!res.success) {
+    if (res.status === 409) toast.error(res.message || 'The student already has that word.')
+    else toast.error(res.message || 'Could not assign the word')
+    return
+  }
+  assignOpen.value = false
+  toast.success(`"${input.word}" assigned to ${detail.value.displayName || detail.value.username}.`)
+  // Reflect the new word in the student's vocab total without a full reload.
+  detail.value = { ...detail.value, vocabTotal: detail.value.vocabTotal + 1 }
+}
+
+// Assign-goal modal (reuses the shared GoalFormModal's create event)
+const goalOpen = ref(false)
+const assigningGoal = ref(false)
+
+async function handleAssignGoal(input: CreateGoalInput) {
+  if (!detail.value || assigningGoal.value) return
+  assigningGoal.value = true
+  const res = await assignGoalToStudent(detail.value.userId, input)
+  assigningGoal.value = false
+  if (!res.success) {
+    toast.error(res.message || 'Could not assign the goal')
+    return
+  }
+  goalOpen.value = false
+  toast.success(`Goal assigned to ${detail.value.displayName || detail.value.username}.`)
+}
 
 async function load() {
   loading.value = true
@@ -70,6 +110,28 @@ watch(() => props.classId, () => load(), { immediate: true })
                 <UiSheetTitle class="text-[16px] font-semibold" :style="`color:var(--text-heading)`">{{ detail.displayName || detail.username }}</UiSheetTitle>
                 <AppText size="12" :style="`color:var(--text-muted)`">@{{ detail.username }}</AppText>
               </div>
+            </div>
+            <div class="flex items-center gap-2 mt-4">
+              <AppButton
+                variant="secondary"
+                size="36"
+                radius="8"
+                icon="Book1"
+                :icon-config="{ color: 'currentColor', size: 14 }"
+                text="Assign word"
+                class="flex-1"
+                @click="assignOpen = true"
+              />
+              <AppButton
+                variant="secondary"
+                size="36"
+                radius="8"
+                icon="Flag"
+                :icon-config="{ color: 'currentColor', size: 14 }"
+                text="Assign goal"
+                class="flex-1"
+                @click="goalOpen = true"
+              />
             </div>
           </UiSheetHeader>
 
@@ -203,6 +265,23 @@ watch(() => props.classId, () => load(), { immediate: true })
         <AppIconsax name="ArrowRight3" color="var(--color-text-subtle)" :size="14" class="shrink-0" />
       </div>
     </div>
+
+    <!-- Assign vocabulary modal (for the open student) -->
+    <PagesDashboardClassesAssignVocabularyModal
+      v-if="detail"
+      v-model:open="assignOpen"
+      :student-name="detail.displayName || detail.username"
+      :assigning="assigning"
+      @submit="handleAssignWord"
+    />
+
+    <!-- Assign goal modal (reuses the shared goal form; we only need its create event) -->
+    <PagesDashboardGoalsGoalFormModal
+      v-if="detail"
+      v-model:open="goalOpen"
+      :submitting="assigningGoal"
+      @create="handleAssignGoal"
+    />
 
   </div>
 </template>

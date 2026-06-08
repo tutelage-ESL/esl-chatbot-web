@@ -45,7 +45,18 @@ export interface AddVocabularyInput {
   partOfSpeech?: string
   difficulty?: number // 1–5, default 1
   category?: string
+  // Tutor/admin only: assign to a student instead of adding to your own list.
+  assignedToUserId?: string
 }
+
+// Source attribution shown in the vocabulary list ("who added this word?").
+import type { VocabAssigner } from '~/common/model/vocabulary'
+import type { SvgBasedIconName } from '~/common/types/iconsax-types'
+export interface VocabSourceLabel {
+  label: string            // e.g. "You", "AI Chat", "Sarah · Tutor"
+  icon: SvgBasedIconName   // Iconsax name
+}
+export type { VocabAssigner }
 
 export interface UpdateVocabularyInput {
   definition?: string
@@ -93,4 +104,20 @@ export interface VocabPaginationMeta {
   limit: number
   total: number
   totalPages: number
+}
+
+// ─── Source attribution ("who added this word?") ──────────────────────────────
+// Maps a vocabulary item to a human label + icon describing where it came from.
+//  - ASSIGNED → the tutor/admin's name + role (e.g. "Sarah · Tutor")
+//  - SESSION  → "AI Chat"
+//  - MANUAL   → "You"
+export function vocabSourceLabel(
+  item: Pick<Vocabulary, 'source' | 'assignedByTutor'>,
+): VocabSourceLabel {
+  if (item.source === 'ASSIGNED' && item.assignedByTutor) {
+    const roleLabel = item.assignedByTutor.role === 'ADMIN' ? 'Admin' : 'Tutor'
+    return { label: `${item.assignedByTutor.displayName} · ${roleLabel}`, icon: 'Teacher' }
+  }
+  if (item.source === 'SESSION') return { label: 'AI Chat', icon: 'Magicpen' }
+  return { label: 'You', icon: 'User' }
 }

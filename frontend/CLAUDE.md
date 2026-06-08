@@ -305,7 +305,8 @@ components/Pages/Dashboard/
 │  ├─ ClassCard.vue          # Card for a single class in the list
 │  ├─ ClassForm.vue          # Shared create/edit class form
 │  ├─ ClassMembersTab.vue    # Members list with remove/leave actions
-│  ├─ ClassStudentsTab.vue   # Student progress list + detail sheet
+│  ├─ ClassStudentsTab.vue   # Student progress list + detail sheet (sheet has "Assign word" → AssignVocabularyModal)
+│  ├─ AssignVocabularyModal.vue # Tutor/admin assigns a vocab word to a student (POST /vocabulary { assignedToUserId })
 │  ├─ ClassAnalyticsTab.vue  # Class-wide skill averages + grammar errors
 │  ├─ AnnouncementsFeed.vue  # Paginated announcement feed + compose box (tutor/admin)
 │  ├─ ClassesEmptyState.vue  # Empty state for the classes list

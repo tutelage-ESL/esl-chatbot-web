@@ -5563,8 +5563,8 @@ export interface paths {
                     limit?: number;
                     /** @description Filter cards due today (true) or not yet due (false) */
                     due?: "true" | "false";
-                    /** @description Filter by how the word was added */
-                    source?: "MANUAL" | "SESSION";
+                    /** @description Filter by how the word was added (MANUAL=self, SESSION=AI chat, ASSIGNED=tutor/admin) */
+                    source?: "MANUAL" | "SESSION" | "ASSIGNED";
                     /** @description Filter by category (case-insensitive partial match) */
                     category?: string;
                     /** @description Search word or definition (case-insensitive) */
@@ -5594,8 +5594,15 @@ export interface paths {
         };
         put?: never;
         /**
-         * Add a word to vocabulary
-         * @description Manually add a new word. Words are stored in lowercase. Returns 409 if the word already exists in the user's list.
+         * Add a word to your vocabulary, or assign one to a student (tutor/admin)
+         * @description **Self-add** (no `assignedToUserId`): adds the word to your own list with
+         *     `source = MANUAL`. Words are stored in lowercase. 409 if it already exists.
+         *
+         *     **Assign to a student** (`assignedToUserId`, tutor/admin only): adds the word
+         *     to that student's list with `source = ASSIGNED` and `assignedByTutor` set to the
+         *     caller, and fires a `VOCABULARY_ASSIGNED` notification. A TUTOR must share a class
+         *     with the student (as TUTOR) — otherwise 404. STUDENT callers get 403. ADMIN is
+         *     unrestricted. 409 if the student already has the word.
          */
         post: {
             parameters: {
@@ -5616,11 +5623,16 @@ export interface paths {
                         /** @default 1 */
                         difficulty?: number;
                         category?: string;
+                        /**
+                         * Format: uuid
+                         * @description Tutor/admin only — assign the word to this student instead of adding to your own list
+                         */
+                        assignedToUserId?: string;
                     };
                 };
             };
             responses: {
-                /** @description Word added */
+                /** @description Word added (or assigned to the student) */
                 201: {
                     headers: {
                         [name: string]: unknown;
@@ -5633,7 +5645,21 @@ export interface paths {
                     };
                 };
                 401: components["responses"]["Unauthorized"];
-                /** @description Word already in vocabulary */
+                /** @description A student tried to assign vocabulary to someone else */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Target student is not in the tutor's classes */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Word already in the target vocabulary list */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -6168,10 +6194,23 @@ export interface components {
             difficulty?: number;
             category?: string | null;
             /**
-             * @description How the word was added — MANUAL by user, SESSION auto-detected by AI
+             * @description How the word was added — MANUAL by the user, SESSION auto-detected by AI, ASSIGNED by a tutor/admin
              * @enum {string}
              */
-            source?: "MANUAL" | "SESSION";
+            source?: "MANUAL" | "SESSION" | "ASSIGNED";
+            /**
+             * Format: uuid
+             * @description Set only when source = ASSIGNED — the id of the tutor/admin who assigned it
+             */
+            assignedByTutorId?: string | null;
+            /** @description The tutor/admin who assigned this word (present only when source = ASSIGNED) */
+            assignedByTutor?: {
+                /** Format: uuid */
+                id?: string;
+                displayName?: string;
+                /** @enum {string} */
+                role?: "STUDENT" | "TUTOR" | "ADMIN";
+            } | null;
             /** @description Days until next review */
             srsInterval?: number;
             /**

@@ -1,6 +1,7 @@
-import type { Prisma } from "@prisma/client";
+import type { Prisma, Role } from "@prisma/client";
 import { prisma } from "../../config/database.ts";
 import { AppError } from "../../utils/AppError.ts";
+import { createNotification } from "../notifications/notifications.service.ts";
 import type { VocabularyItem, VocabularyStats, ReviewResult } from "./vocabulary.types.ts";
 import type { NewVocabularyWord } from "../ai/ai.types.ts";
 import type {
@@ -29,6 +30,10 @@ const VOCAB_SELECT = {
   incorrectCount: true,
   masteryLevel: true,
   lastPracticed: true,
+  assignedByTutorId: true,
+  assignedByTutor: {
+    select: { id: true, displayName: true, role: true },
+  },
   createdAt: true,
   updatedAt: true,
 } as const;
@@ -195,12 +200,49 @@ export async function getDueCards(userId: string): Promise<VocabularyItem[]> {
 
 // ── Add word ──────────────────────────────────────────────────
 
+/**
+ * Add a word to a vocabulary list.
+ *
+ * Self-add (no `assignedToUserId`): the caller adds to their own list as `MANUAL`.
+ *
+ * Assign (`assignedToUserId` set, caller is TUTOR/ADMIN): the word is added to the
+ * target student's list as `ASSIGNED` with `assignedByTutorId` set to the caller, and
+ * a `VOCABULARY_ASSIGNED` notification is fired. Mirrors the goal-assignment guard:
+ *  - STUDENT callers cannot assign (403)
+ *  - TUTOR callers must share a class with the student as TUTOR (404 otherwise)
+ *  - ADMIN callers are unrestricted
+ */
 export async function addVocabulary(
-  userId: string,
+  callerId: string,
+  callerRole: Role,
   input: z.infer<typeof addVocabularySchema>,
 ): Promise<VocabularyItem> {
+  let userId = callerId;
+  let assignedByTutorId: string | null = null;
+  let source: "MANUAL" | "ASSIGNED" = "MANUAL";
+
+  if (input.assignedToUserId && input.assignedToUserId !== callerId) {
+    if (callerRole === "STUDENT") {
+      throw new AppError("Students cannot assign vocabulary to others", 403);
+    }
+    if (callerRole === "TUTOR") {
+      const membership = await prisma.classUser.findFirst({
+        where: {
+          userId: input.assignedToUserId,
+          role: "STUDENT",
+          class: { users: { some: { userId: callerId, role: "TUTOR" } } },
+        },
+      });
+      if (!membership) throw new AppError("Student not found in your classes", 404);
+    }
+    userId = input.assignedToUserId;
+    assignedByTutorId = callerId;
+    source = "ASSIGNED";
+  }
+
+  let item: VocabularyItem;
   try {
-    const item = await prisma.vocabulary.create({
+    item = await prisma.vocabulary.create({
       data: {
         userId,
         word: input.word.toLowerCase(),
@@ -210,18 +252,30 @@ export async function addVocabulary(
         partOfSpeech: input.partOfSpeech ?? null,
         difficulty: input.difficulty,
         category: input.category ?? null,
-        source: "MANUAL",
+        source,
+        assignedByTutorId,
       },
       select: VOCAB_SELECT,
     });
-    return item;
   } catch (err) {
     const e = err as { code?: string };
     if (e.code === "P2002") {
-      throw new AppError(`"${input.word}" is already in your vocabulary list`, 409);
+      const who = source === "ASSIGNED" ? "the student's" : "your";
+      throw new AppError(`"${input.word}" is already in ${who} vocabulary list`, 409);
     }
     throw err;
   }
+
+  // Notify the student when a tutor/admin assigns them a word.
+  if (assignedByTutorId) {
+    await createNotification(
+      userId,
+      "VOCABULARY_ASSIGNED",
+      `Your tutor added a new word to study: "${item.word}"`,
+    ).catch(() => {});
+  }
+
+  return item;
 }
 
 // ── Get by ID ─────────────────────────────────────────────────

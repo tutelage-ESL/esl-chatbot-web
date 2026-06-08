@@ -1,4 +1,11 @@
-import type { VocabSource } from "@prisma/client";
+import type { VocabSource, Role } from "@prisma/client";
+
+/** The tutor/admin who assigned a word — present only when source = ASSIGNED. */
+export interface VocabAssigner {
+  id: string;
+  displayName: string;
+  role: Role;
+}
 
 export interface VocabularyItem {
   id: string;
@@ -11,6 +18,8 @@ export interface VocabularyItem {
   difficulty: number;
   category: string | null;
   source: VocabSource;
+  assignedByTutorId: string | null;
+  assignedByTutor: VocabAssigner | null;
   srsInterval: number;
   srsDue: Date;
   srsEase: number;

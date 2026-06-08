@@ -8,6 +8,8 @@ export const addVocabularySchema = z.object({
   partOfSpeech: z.string().max(50).trim().optional(),
   difficulty: z.number().int().min(1).max(5).default(1),
   category: z.string().max(100).trim().optional(),
+  // Tutor/admin only: assign this word to a student instead of adding it to your own list.
+  assignedToUserId: z.string().uuid("Invalid user ID").optional(),
 });
 
 export const updateVocabularySchema = z.object({
@@ -27,7 +29,7 @@ export const listVocabularyQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(20),
   due: z.enum(["true", "false"]).optional(),
-  source: z.enum(["MANUAL", "SESSION"]).optional(),
+  source: z.enum(["MANUAL", "SESSION", "ASSIGNED"]).optional(),
   category: z.string().trim().optional(),
   search: z.string().trim().optional(),
 });

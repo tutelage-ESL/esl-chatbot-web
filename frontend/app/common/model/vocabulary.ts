@@ -2,7 +2,15 @@
 // Plain type — no extra fields. API response shapes that extend this live in
 // common/types/vocabulary-types.ts.
 
-export type VocabSource = 'MANUAL' | 'SESSION'
+// MANUAL = added by the user · SESSION = detected by the AI chat · ASSIGNED = given by a tutor/admin
+export type VocabSource = 'MANUAL' | 'SESSION' | 'ASSIGNED'
+
+// The tutor/admin who assigned a word — present only when source === 'ASSIGNED'.
+export type VocabAssigner = {
+  id: string
+  displayName: string
+  role: 'STUDENT' | 'TUTOR' | 'ADMIN'
+}
 
 export type Vocabulary = {
   id: string
@@ -23,6 +31,8 @@ export type Vocabulary = {
   masteryLevel: number // 0=new, 1=seen, 2=learning, 3=familiar, 4=proficient, 5=mastered
   lastPracticed: string | null // ISO date-time
   source: VocabSource
+  assignedByTutorId: string | null
+  assignedByTutor: VocabAssigner | null
   createdAt: string
   updatedAt: string
 }

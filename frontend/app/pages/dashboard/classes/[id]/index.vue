@@ -41,7 +41,7 @@ const activeTab = ref<Tab>('members')
 // `tutorOrAdmin` tabs are for tutors of the class + admins; `adminOnly` tabs only admins.
 const tabs = computed((): { key: Tab; label: string; icon: SvgBasedIconName; show: boolean }[] => [
   { key: 'members',       label: 'Members',      icon: 'People',       show: true },
-  { key: 'students',      label: 'Students',      icon: 'Teacher',      show: isAdmin.value },
+  { key: 'students',      label: 'Students',      icon: 'Teacher',      show: isTutorOrAdmin.value },
   { key: 'analytics',     label: 'Analytics',     icon: 'Chart21',      show: isTutorOrAdmin.value },
   { key: 'announcements', label: 'Announcements', icon: 'Notification', show: true },
 ])

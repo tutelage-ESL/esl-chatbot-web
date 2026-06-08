@@ -9,6 +9,22 @@ export interface CreateGoalInput {
   difficulty?: GoalDifficulty
   targetDate?: string
   actionPlan?: string
+  // Tutor/admin only: assign this goal to a student instead of creating it for yourself.
+  assignedToUserId?: string
+}
+
+/**
+ * Assign a goal to a student (tutor/admin). Standalone of the stateful `useGoals`
+ * list — used by the class student sheet. POST /goals with `assignedToUserId`.
+ * Returns the same uniform shape as useHttp.
+ */
+export function assignGoalToStudent(studentId: string, input: CreateGoalInput) {
+  return useHttp<{ success: boolean; message: string; data: Goal }>({
+    method: 'POST',
+    url: '/goals',
+    body: { ...input, assignedToUserId: studentId },
+    requireAuth: true,
+  })
 }
 
 export interface UpdateGoalInput {
