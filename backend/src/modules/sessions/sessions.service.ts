@@ -1,5 +1,6 @@
 import type { Prisma, SessionMode } from "@prisma/client";
 import { prisma } from "../../config/database.ts";
+import { deleteCache, cacheKeys } from "../../config/cache.ts";
 import { AppError } from "../../utils/AppError.ts";
 import { createNotification } from "../notifications/notifications.service.ts";
 import { upsertSessionVocabulary } from "../vocabulary/vocabulary.service.ts";
@@ -372,6 +373,9 @@ export async function endSession(
     // Session with no evaluated messages still counts toward progress
     await updateProgressAndMetrics(userId, studyMinutes, 0, totalUserWords, null, 0, 0, 0);
   }
+
+  // Streak, study time, recent sessions, and due vocab can all change — bust the dashboard cache
+  void deleteCache(cacheKeys.dashboard(userId));
 
   return getSessionById(sessionId, userId);
 }

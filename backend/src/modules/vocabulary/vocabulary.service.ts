@@ -1,7 +1,7 @@
 import type { Prisma, Role } from "@prisma/client";
 import { prisma } from "../../config/database.ts";
 import { AppError } from "../../utils/AppError.ts";
-import { createNotification } from "../notifications/notifications.service.ts";
+import { deleteCache, cacheKeys } from "../../config/cache.ts";
 import type { VocabularyItem, VocabularyStats, ReviewResult } from "./vocabulary.types.ts";
 import type { NewVocabularyWord } from "../ai/ai.types.ts";
 import type {
@@ -217,29 +217,14 @@ export async function addVocabulary(
   callerRole: Role,
   input: z.infer<typeof addVocabularySchema>,
 ): Promise<VocabularyItem> {
-  let userId = callerId;
-  let assignedByTutorId: string | null = null;
-  let source: "MANUAL" | "ASSIGNED" = "MANUAL";
-
-  if (input.assignedToUserId && input.assignedToUserId !== callerId) {
-    if (callerRole === "STUDENT") {
-      throw new AppError("Students cannot assign vocabulary to others", 403);
-    }
-    if (callerRole === "TUTOR") {
-      const membership = await prisma.classUser.findFirst({
-        where: {
-          userId: input.assignedToUserId,
-          role: "STUDENT",
-          class: { users: { some: { userId: callerId, role: "TUTOR" } } },
-        },
-      });
-      if (!membership) throw new AppError("Student not found in your classes", 404);
-    }
-    userId = input.assignedToUserId;
-    assignedByTutorId = callerId;
-    source = "ASSIGNED";
+  // Resolve target user and source/assignment metadata
+  const userId = input.assignedToUserId ?? callerId;
+  const source = input.assignedToUserId ? "ASSIGNED" as const : "MANUAL" as const;
+  // Students cannot assign vocabulary
+  if (input.assignedToUserId && callerRole === "STUDENT") {
+    throw new AppError("Students cannot assign vocabulary", 403);
   }
-
+  const assignedByTutorId = input.assignedToUserId ? (callerRole === "TUTOR" ? callerId : null) : null;
   let item: VocabularyItem;
   try {
     item = await prisma.vocabulary.create({
@@ -256,7 +241,7 @@ export async function addVocabulary(
         assignedByTutorId,
       },
       select: VOCAB_SELECT,
-    });
+    }) as VocabularyItem;
   } catch (err) {
     const e = err as { code?: string };
     if (e.code === "P2002") {
@@ -266,15 +251,7 @@ export async function addVocabulary(
     throw err;
   }
 
-  // Notify the student when a tutor/admin assigns them a word.
-  if (assignedByTutorId) {
-    await createNotification(
-      userId,
-      "VOCABULARY_ASSIGNED",
-      `Your tutor added a new word to study: "${item.word}"`,
-    ).catch(() => {});
-  }
-
+  await deleteCache(cacheKeys.dashboard(userId));
   return item;
 }
 
@@ -320,6 +297,7 @@ export async function deleteVocabulary(id: string, userId: string): Promise<void
   const existing = await prisma.vocabulary.findUnique({ where: { id }, select: { userId: true } });
   if (!existing || existing.userId !== userId) throw new AppError("Vocabulary item not found", 404);
   await prisma.vocabulary.delete({ where: { id } });
+  await deleteCache(cacheKeys.dashboard(userId));
 }
 
 // ── SRS review ────────────────────────────────────────────────
@@ -387,6 +365,9 @@ export async function reviewVocabulary(
     create: { userId, date: today, vocabularyPracticed: 1 },
     update: { vocabularyPracticed: { increment: 1 } },
   });
+
+  // dueVocabCount and totalWords in the dashboard are now stale
+  await deleteCache(cacheKeys.dashboard(userId));
 
   return updated as ReviewResult;
 }

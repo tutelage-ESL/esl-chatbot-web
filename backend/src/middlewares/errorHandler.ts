@@ -3,10 +3,11 @@ import { ZodError } from "zod/v4";
 import multer from "multer";
 import { AppError } from "../utils/AppError.ts";
 import { logger } from "../config/logger.ts";
+import { Sentry } from "../config/sentry.ts";
 
 export function errorHandler(
   err: Error,
-  _req: Request,
+  req: Request,
   res: Response,
   _next: NextFunction,
 ): void {
@@ -51,6 +52,20 @@ export function errorHandler(
   }
 
   logger.error(err.stack ?? err.message);
+
+  // Operational 4xx errors are filtered at the top — only genuine 500s reach here.
+  // Attach the authenticated user if available so Sentry issues are searchable by user ID.
+  Sentry.withScope((scope) => {
+    if (req.user) {
+      scope.setUser({ id: req.user.id, username: req.user.username });
+    }
+    scope.setContext("request", {
+      method: req.method,
+      url: req.url,
+      userAgent: req.headers["user-agent"],
+    });
+    Sentry.captureException(err);
+  });
 
   res.status(500).json({
     success: false,

@@ -1,6 +1,7 @@
 import type { Prisma, GoalStatus, GoalType, Role } from "@prisma/client";
 import { prisma } from "../../config/database.ts";
 import { AppError } from "../../utils/AppError.ts";
+import { deleteCache, cacheKeys } from "../../config/cache.ts";
 import { createNotification } from "../notifications/notifications.service.ts";
 import type { GoalItem } from "./goals.types.ts";
 import type { CreateGoalInput, UpdateGoalInput, ListGoalsQuery } from "./goals.schema.ts";
@@ -124,6 +125,8 @@ export async function createGoal(
     ).catch(() => {});
   }
 
+  await deleteCache(cacheKeys.dashboard(userId));
+
   return goal as GoalItem;
 }
 
@@ -191,6 +194,8 @@ export async function updateGoal(
     ).catch(() => {});
   }
 
+  await deleteCache(cacheKeys.dashboard(goal.userId));
+
   return updated as GoalItem;
 }
 
@@ -202,4 +207,5 @@ export async function deleteGoal(
   const goal = await findGoalOrThrow(goalId);
   assertCanAccess(goal, callerId, callerRole);
   await prisma.goal.delete({ where: { id: goalId } });
+  await deleteCache(cacheKeys.dashboard(goal.userId));
 }

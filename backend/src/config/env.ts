@@ -49,6 +49,9 @@ const envSchema = z.object({
   R2_PUBLIC_URL: z.string().url().optional(),
 
   CORS_ORIGIN: z.string().default("http://localhost:3000"),
+
+  // Sentry — optional; error reporting disabled if not set (always off in dev/test)
+  SENTRY_DSN: z.string().url().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

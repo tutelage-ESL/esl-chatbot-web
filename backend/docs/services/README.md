@@ -16,6 +16,7 @@ See individual files for full details, options, and setup guides.
 | Email | Resend (free tier) | Resend or AWS SES | [email.md](./email.md) |
 | App Hosting | Render or Railway | Railway or DigitalOcean | [hosting.md](./hosting.md) |
 | Secrets | Infisical (free) | Infisical | [secrets.md](./secrets.md) |
+| Error Monitoring | Disabled (dev/test) | Sentry (free tier) | [sentry.md](./sentry.md) |
 
 ---
 
@@ -31,3 +32,4 @@ See individual files for full details, options, and setup guides.
 | Phase 8 | Redis (Upstash) | Rate limiting, caching |
 | When deploying | App Hosting | Sharing with team / production |
 | Before sharing env | Secrets (Infisical) | Team access to env vars |
+| Before going live | Error Monitoring (Sentry) | Catch crashes before users do |

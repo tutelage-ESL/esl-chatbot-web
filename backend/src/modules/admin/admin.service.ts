@@ -5,6 +5,7 @@ import type { SubscriptionResult, AdminDashboardData } from "./admin.types.ts";
 import type { UpdateUserBody, AssignSubscriptionBody, AdminUpdateProfileInput, AdminUpdateLearnerProfileInput } from "./admin.schema.ts";
 import { uploadAvatar, deleteAvatar } from "../../config/storage.ts";
 import { getMyProfile } from "../users/users.service.ts";
+import { deleteCache, cacheKeys } from "../../config/cache.ts";
 
 function computeEndDate(durationMonths: number): Date {
   // setUTCMonth avoids local-timezone overflow (e.g. Jan 31 + 1 month = Mar 3 in setMonth)
@@ -24,7 +25,7 @@ function isP2025(err: unknown): boolean {
 
 export async function updateUser(id: string, data: UpdateUserBody) {
   try {
-    return await prisma.user.update({
+    const result = await prisma.user.update({
       where: { id },
       data,
       select: {
@@ -41,6 +42,9 @@ export async function updateUser(id: string, data: UpdateUserBody) {
         subscription: { select: { plan: true, status: true, currentPeriodEnd: true } },
       },
     });
+    // role or isActive change must be visible immediately on next page load
+    await deleteCache(cacheKeys.authUser(id));
+    return result;
   } catch (err) {
     if (isP2025(err)) throw new AppError("User not found", 404);
     throw err;
@@ -68,7 +72,7 @@ export async function assignSubscription(
 
   const paymentProvider = toPaymentProvider(data.paymentProvider);
 
-  return prisma.subscription.upsert({
+  const result = await prisma.subscription.upsert({
     where: { userId },
     create: {
       userId,
@@ -97,6 +101,9 @@ export async function assignSubscription(
       updatedAt: true,
     },
   });
+
+  await deleteCache(cacheKeys.authUser(userId));
+  return result;
 }
 
 export async function getAdminDashboardStats(): Promise<AdminDashboardData> {
@@ -182,12 +189,15 @@ export async function cancelSubscription(userId: string): Promise<void> {
       externalSubscriptionId: null,
     },
   });
+
+  await deleteCache(cacheKeys.authUser(userId));
 }
 
 export async function adminUpdateProfile(userId: string, input: AdminUpdateProfileInput) {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
   if (!user) throw new AppError("User not found", 404);
   await prisma.user.update({ where: { id: userId }, data: input });
+  await deleteCache(cacheKeys.authUser(userId));
   return getMyProfile(userId);
 }
 
@@ -202,6 +212,7 @@ export async function adminUploadAvatar(userId: string, buffer: Buffer, mimeType
   }
   const avatarUrl = await uploadAvatar(buffer, userId, mimeType);
   await prisma.user.update({ where: { id: userId }, data: { avatarUrl } });
+  await deleteCache(cacheKeys.authUser(userId));
   return { avatarUrl };
 }
 
@@ -222,5 +233,6 @@ export async function adminUpdateLearnerProfile(userId: string, input: AdminUpda
     create: { userId, ...data },
     update: data,
   });
+  await deleteCache(cacheKeys.dashboard(userId));
   return profile;
 }

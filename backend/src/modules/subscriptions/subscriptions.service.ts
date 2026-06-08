@@ -6,6 +6,7 @@ import { fib } from "../../config/fib.ts";
 import { AppError } from "../../utils/AppError.ts";
 import { env } from "../../config/env.ts";
 import { logger } from "../../config/index.ts";
+import { deleteCache, cacheKeys } from "../../config/cache.ts";
 import type {
   InitiateFibInput,
   InitiateFibResult,
@@ -78,6 +79,11 @@ export async function applyFibStatusChange(
           })
         : prisma.subscription.findUnique({ where: { userId: record.userId } }),
   ]);
+
+  // Plan/status changed — the auth cache for this user is now stale
+  if (isActivating || isCancelling) {
+    await deleteCache(cacheKeys.authUser(record.userId));
+  }
 }
 
 function requireFib() {
@@ -281,6 +287,7 @@ export async function cancelFibSubscription(
       },
     }),
   ]);
+  await deleteCache(cacheKeys.authUser(userId));
 }
 
 // ─── Webhook ──────────────────────────────────────────────────────────────────

@@ -1,72 +1,126 @@
-# Redis — Upstash
+# Redis — Upstash (Cache)
 
-## Decision
-**Upstash** for serverless Redis. Scaffolded as a placeholder in `src/config/redis.ts`.
-
----
-
-## Use Cases
-
-| Use Case | Phase |
-|----------|-------|
-| Rate limiting counters (per-plan) | Phase 8 |
-| Caching hot queries (user profiles, class lists) | Phase 8 |
-| Session state for real-time features | Phase 9 |
-| Refresh token blocklist (optional, fast lookup) | Phase 2+ |
+Redis is used for caching hot read paths to reduce database load. The backend uses
+**ioredis** with **Upstash** as the managed Redis provider.
 
 ---
 
-## Why Upstash
+## What Is Cached
 
-- **Serverless** — pay per request, zero cost when idle
-- **Free tier:** 10,000 requests/day, 256 MB
-- Works with the standard `ioredis` client (no code change needed vs hosted Redis)
-- Pairs perfectly with Neon (both serverless, both scale to zero)
+| Cache Key | TTL | Source | What It Avoids |
+|-----------|-----|--------|----------------|
+| `user:auth:{userId}` | 5 min | `auth.service.ts → getMe()` | 1 DB query per page load (User + Subscription join) |
+| `user:dashboard:{userId}` | 2 min | `dashboard.service.ts → getDashboardOverview()` | ~14 parallel DB queries per dashboard open |
 
-### Comparison
-| Service | Free Tier | Cost Model | Notes |
-|---------|-----------|-----------|-------|
-| **Upstash** ⭐ | 10K req/day | Pay-per-request | Best for serverless/low traffic |
-| Redis Cloud | 30 MB | Free then $7+/mo | Official Redis hosting |
-| Railway Redis | Trial credit | ~$5/mo | Easy if on Railway |
-| DigitalOcean Managed Redis | None | $15/mo | Good paired with DO Postgres |
+Cache key format is defined in `src/config/cache.ts → cacheKeys`. Never construct keys manually.
 
 ---
 
-## Setup
+## Cache Invalidation Map
 
-1. Go to [upstash.com](https://upstash.com) → Create account → New Database
+Every mutation that changes cached data must call `deleteCache(...)` after the DB write.
+
+### Invalidates `user:auth:{userId}`
+
+| File | Function | Why |
+|------|----------|-----|
+| `auth.service.ts` | `googleAuth()` Case B | email-merge sets `emailVerified=true` + subscription INACTIVE→ACTIVE |
+| `auth.service.ts` | `verifyEmail()` | `emailVerified` + subscription `status` INACTIVE→ACTIVE |
+| `auth.service.ts` | `linkGoogle()` | `emailVerified` + subscription `status` INACTIVE→ACTIVE |
+| `auth.service.ts` | `logout()` | clears entry so replayed access tokens within JWT TTL don't serve stale data |
+| `users.service.ts` | `updateMyProfile()` | `displayName`, `avatarUrl` |
+| `users.service.ts` | `updateUserAvatar()` | `avatarUrl` |
+| `admin.service.ts` | `updateUser()` | `role`, `isActive` (security-critical) |
+| `admin.service.ts` | `assignSubscription()` | `plan`, `status` |
+| `admin.service.ts` | `cancelSubscription()` | `plan`, `status` |
+| `admin.service.ts` | `adminUpdateProfile()` | `displayName`, `avatarUrl` |
+| `admin.service.ts` | `adminUploadAvatar()` | `avatarUrl` |
+| `subscriptions.service.ts` | `applyFibStatusChange()` | `plan`, `status` via FIB webhook/polling |
+| `subscriptions.service.ts` | `cancelFibSubscription()` | ACTIVE/TRIAL cancellation downgrades to FREE ACTIVE |
+
+### Invalidates `user:dashboard:{userId}`
+
+| File | Function | Why |
+|------|----------|-----|
+| `sessions.service.ts` | `endSession()` | Streak, study time, skills, recent sessions |
+| `vocabulary.service.ts` | `addVocabulary()` | `totalWords`, vocab chart |
+| `vocabulary.service.ts` | `deleteVocabulary()` | `totalWords`, vocab chart |
+| `vocabulary.service.ts` | `reviewVocabulary()` | `dueVocabCount` |
+| `goals.service.ts` | `createGoal()` | `nextUp` section |
+| `goals.service.ts` | `updateGoal()` | `nextUp` section |
+| `goals.service.ts` | `deleteGoal()` | `nextUp` section |
+| `users.service.ts` | `updateMyLearnerProfile()` | `weeklyGoalMinutes` → daily goal mins |
+| `admin.service.ts` | `adminUpdateLearnerProfile()` | `weeklyGoalMinutes` → daily goal mins (admin path) |
+
+---
+
+## Graceful Degradation
+
+Redis is **never** required for the app to function. All cache operations in
+`src/config/cache.ts` are wrapped in try/catch and silently return `null`/`undefined`
+on any error. The caller falls through to the database.
+
+- **Dev without Redis running**: server boots, logs a warning, cache is disabled
+- **Redis goes down in production**: app continues, DB handles all reads, Sentry captures reconnect errors
+- **Test environment**: cache is skipped entirely (no Redis connection attempt)
+
+---
+
+## Architecture
+
+```
+src/config/cache.ts     ← client init, key factories, TTL constants, get/set/delete helpers
+src/config/redis.ts     ← re-exports connectRedis/disconnectRedis (kept for back-compat)
+src/index.ts            ← connectRedis() after DB connect; disconnectRedis() before shutdown
+```
+
+All service files import directly from `../../config/cache.ts`.
+
+---
+
+## One-Time Setup
+
+### Step 1 — Create Upstash database
+1. Go to **https://upstash.com** → sign up → **Create Database**
 2. Settings:
 
 | Setting | Value |
 |---------|-------|
 | Name | `tutelage-cache` |
-| Region | **eu-central-1 (Frankfurt)** — match your Neon region |
-| Type | Regional (not Global, unless multi-region needed) |
-| TLS | Enabled |
+| Region | Match your Neon DB region (eu-central-1 for Frankfurt) |
+| Type | Regional |
+| TLS | **Enabled** (required) |
+| Eviction Policy | `allkeys-lru` ← set this, or the cache will refuse writes when full |
 
-3. Copy the Redis URL
+### Step 2 — Copy the Redis URL
+From the Upstash dashboard → your database → **Details** → copy **Redis URL**.
+It looks like: `rediss://default:password@your-instance.upstash.io:6379`
 
-### Required Env Vars
-```env
-REDIS_URL=rediss://default:password@your-endpoint.upstash.io:6379
+The `rediss://` prefix (with double `s`) enables TLS. Never use plain `redis://` in production.
+
+### Step 3 — Add to Infisical
+1. Open **https://app.infisical.com** → `esl-chatbot` project
+2. Add `REDIS_URL` to both **dev** and **prod** environments with the URL from Step 2
+3. In `dev`, you can also use `redis://localhost:6379` if you run a local Redis — but Upstash works in dev too
+
+### Step 4 — Verify
+After restarting the server, check logs for:
 ```
-
-### Current Placeholder
-`src/config/redis.ts` likely has a commented-out or stub Redis client.
-When ready to implement, replace with:
-
-```typescript
-import { Redis } from "ioredis";
-
-export const redis = new Redis(process.env.REDIS_URL);
+[redis] Connected to rediss://default:***@your-instance.upstash.io:6379
 ```
 
 ---
 
-## Production
+## Rate Limiter Upgrade Path
 
-Upstash scales automatically. For production:
-- Upgrade to **Pay-as-you-go** (no daily limit cap)
-- Enable **Eviction Policy**: `allkeys-lru` for caching use cases
-- Consider **Global** database if you add servers in multiple regions
+The in-memory rate limiters in `src/middlewares/rateLimits.ts` are sufficient for a single
+server process. When horizontal scaling is needed, switch to `rate-limit-redis` with the same
+Upstash connection — it is a one-line store change per limiter.
+
+---
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `REDIS_URL` | `redis://localhost:6379` | Full Redis connection URL. Use `rediss://` for Upstash (TLS required) |

@@ -1,5 +1,6 @@
 import { env } from "../../config/env.ts";
 import { AppError } from "../../utils/AppError.ts";
+import { Sentry } from "../../config/sentry.ts";
 import { callGeminiLLM } from "./providers/gemini.llm.ts";
 import { callOpenAILLM } from "./providers/openai.llm.ts";
 import { edgeTTS } from "./providers/edge.tts.ts";
@@ -93,8 +94,14 @@ export async function generateAIResponse(
       try {
         return await callOpenAILLM(userMessage, conversationHistory, learner);
       } catch (err) {
-        // Auto-fallback: OpenAI failed — transparently switch to Gemini 2.5 Flash
-        console.error("[AI] OpenAI failed, falling back to Gemini:", err instanceof Error ? err.message : err);
+        // Auto-fallback: OpenAI failed — transparently switch to Gemini 2.5 Flash.
+        // Reported as a warning (not error) because the user still gets a response.
+        Sentry.withScope((scope) => {
+          scope.setLevel("warning");
+          scope.setTag("ai.provider", "openai");
+          scope.setTag("ai.fallback", "gemini");
+          Sentry.captureException(err);
+        });
         if (env.GEMINI_API_KEY) {
           return callGeminiLLM(userMessage, conversationHistory, learner, plan, false);
         }
@@ -133,7 +140,12 @@ export async function generateTTS(text: string, plan: Plan): Promise<Buffer> {
     try {
       return await openaiTTS(text);
     } catch (err) {
-      console.error("[TTS] OpenAI failed, falling back to Azure:", err instanceof Error ? err.message : err);
+      Sentry.withScope((scope) => {
+        scope.setLevel("warning");
+        scope.setTag("ai.provider", "openai-tts");
+        scope.setTag("ai.fallback", "azure-tts");
+        Sentry.captureException(err);
+      });
       if (env.AZURE_SPEECH_KEY) return azureTTS(text);
       throw err;
     }
