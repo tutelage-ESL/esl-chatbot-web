@@ -1,34 +1,75 @@
 <script setup lang="ts">
-const metrics = [
-  { label: 'Accuracy',   value: 88 },
-  { label: 'Fluency',    value: 82 },
-  { label: 'Pace',       value: 91 },
-  { label: 'Intonation', value: 79 },
-]
+import type { VoiceEvaluation } from '~/common/types/voice-types'
+
+const props = defineProps<{ evaluation: VoiceEvaluation | null }>()
+
+const metrics = computed(() => {
+  const e = props.evaluation
+  return [
+    { label: 'Grammar', value: e?.grammarScore ?? null },
+    { label: 'Vocabulary', value: e?.vocabularyScore ?? null },
+    { label: 'Fluency', value: e?.fluencyScore ?? null },
+  ]
+})
+
+const overall = computed(() => props.evaluation ? Math.round(props.evaluation.overallScore) : null)
+const cefr = computed(() => props.evaluation?.detectedCefrLevel ?? '—')
+
+function barColor(v: number) {
+  if (v >= 85) return 'var(--status-active-text)'
+  if (v >= 70) return 'var(--color-brand-primary)'
+  return 'var(--status-expired-text)'
+}
 </script>
 
 <template>
   <div class="dash-card p-5">
-    <p class="text-[11px] uppercase tracking-[0.18em] text-zinc-400 font-semibold font-poppins">Score</p>
-    <div class="mt-2 flex items-baseline gap-2">
-      <span class="text-[48px] font-semibold tracking-[-0.03em] text-brand-ink dark:text-white font-poppins leading-none">86</span>
-      <span class="text-[14px] text-zinc-400 font-poppins">/100</span>
+    <div class="flex items-center justify-between">
+      <AppText size="11" weight="semibold" color="neutral-400" :uppercase="true" class-list="tracking-[0.18em] font-poppins">
+        Last turn
+      </AppText>
+      <span
+        v-if="evaluation"
+        class="rounded-md bg-surface-raised px-2 py-0.5 font-mono text-[11px] font-semibold text-text-body"
+      >CEFR {{ cefr }}</span>
     </div>
-    <p class="text-[12px] text-brand-primary font-medium font-poppins">+4 vs last attempt</p>
 
-    <div class="mt-4 space-y-2.5">
-      <div v-for="(m, i) in metrics" :key="m.label">
-        <div class="flex justify-between text-[11.5px] mb-1">
-          <span class="text-zinc-500 dark:text-zinc-400 font-poppins">{{ m.label }}</span>
-          <span class="text-brand-ink dark:text-white font-medium font-poppins">{{ m.value }}</span>
+    <!-- Overall score -->
+    <div class="mt-2 flex items-baseline gap-2">
+      <span class="font-poppins text-[44px] font-semibold leading-none tracking-[-0.03em] text-text-heading">
+        {{ overall ?? '—' }}
+      </span>
+      <span class="font-poppins text-[14px] text-text-subtle">/ 100</span>
+    </div>
+    <AppText size="13" :color="overall == null ? 'neutral-400' : 'brand-primary'" weight="medium" class-list="mt-0.5 font-poppins block">
+      {{ overall == null ? 'Speak a turn to get scored' : 'Overall spoken score' }}
+    </AppText>
+
+    <!-- Sub-metrics -->
+    <div class="mt-5 space-y-3">
+      <div v-for="m in metrics" :key="m.label">
+        <div class="mb-1 flex justify-between font-poppins text-[13px]">
+          <span class="text-text-muted">{{ m.label }}</span>
+          <span class="font-medium text-text-heading">{{ m.value == null ? '—' : Math.round(m.value) }}</span>
         </div>
-        <div class="h-1.5 rounded-full bg-zinc-100 dark:bg-white/5 overflow-hidden">
+        <div class="h-1.5 overflow-hidden rounded-full bg-surface-raised">
           <div
-            class="h-full bg-linear-to-r from-brand-primary to-brand-accent rounded-full animate-fill-bar"
-            :style="`width:${m.value}%; --delay:${200 + i * 80}ms`"
+            class="h-full rounded-full transition-[width] duration-500 ease-out"
+            :style="{ width: `${m.value ?? 0}%`, background: m.value == null ? 'transparent' : barColor(m.value) }"
           />
         </div>
       </div>
+    </div>
+
+    <!-- Coach feedback -->
+    <div v-if="evaluation?.feedback" class="mt-5 rounded-xl border border-border-inner bg-surface-raised p-3">
+      <div class="mb-1 flex items-center gap-1.5">
+        <AppIconsax name="Magicpen" color="var(--color-brand-primary)" :size="12" />
+        <AppText size="11" weight="semibold" color="brand-primary" :uppercase="true" class-list="tracking-wider font-poppins">
+          Coach note
+        </AppText>
+      </div>
+      <p class="text-[13px] leading-relaxed text-text-body font-poppins">{{ evaluation.feedback }}</p>
     </div>
   </div>
 </template>

@@ -191,7 +191,7 @@ export function useVoiceChat() {
     recorder.onerror = () => {
       abortRecorder()
       voiceState.value = 'ready'
-      callbacks.onError?.()
+      callbacks.onError?.('RECORDER_ERROR', 'Recording failed. Please try again.')
     }
 
     recorder.start(250)

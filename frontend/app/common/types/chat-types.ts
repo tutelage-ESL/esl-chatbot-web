@@ -59,6 +59,8 @@ export interface ChatMessage {
   type: MessageType
   content: string
   wordCount?: number | null
+  audioUrl?: string | null
+  audioDurationSec?: number | null
   createdAt: string
   evaluation?: MessageEvaluation | null
   // client-only:

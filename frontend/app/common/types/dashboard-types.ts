@@ -87,7 +87,8 @@ export interface ChatMessage {
   text: string
   time: string
   type?: 'TEXT' | 'VOICE'
-  audioBase64?: string | null  // TTS audio for AI voice replies
+  audioUrl?: string | null    // R2 URL for stored voice audio (TTS reply or user recording), from a fetched session
+  audioBase64?: string | null  // TTS audio for AI voice replies, streamed live during a voice turn
   correction?: {
     original: string
     suggested: string
@@ -96,12 +97,9 @@ export interface ChatMessage {
 }
 
 // ─── Voice Lab ────────────────────────────────────────────────────────────────
-
-export interface PhonemeScore {
-  word: string
-  score: number
-  issue: string | null
-}
+// Voice Lab types live in common/types/voice-types.ts (wired to the real
+// /chat voice pipeline). The old hardcoded PhonemeScore was removed — the
+// backend produces pronunciation assessment, not per-word phoneme grids.
 
 // ─── Vocabulary ───────────────────────────────────────────────────────────────
 // Vocabulary types moved to common/types/vocabulary-types.ts (wired to the real API).

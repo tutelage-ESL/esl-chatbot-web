@@ -8,17 +8,31 @@ When Aland adds a new backend API, he notes it here so Rekar knows what to wire 
 
 ---
 
-### 7. Voice Lab — connect to real Socket.io pipeline
-**File:** `app/pages/dashboard/voice.vue`  
-**Status:** Hardcoded phoneme scores and prompt. Real backend pipeline exists but is not wired.
+### 7. Voice Lab — connect to real Socket.io pipeline ✅ DONE
+**File:** `app/pages/dashboard/voice.vue`
+**Status:** Wired to the real `/chat` voice pipeline via a new `useVoiceLab.ts` composable
+(built on the existing `useVoiceChat.ts`).
 
-The backend has a full Socket.io voice pipeline on the `/chat` namespace:
-- `voice:start` → begins a voice session
-- `voice:chunk` → stream base64 audio chunks during recording
-- `voice:end` → finalizes: STT → LLM → TTS response + pronunciation assessment
-- Server emits `message:new` with the AI response + pronunciation scores
-
-This page should use the Socket.io composable (or create `useVoice.ts`) to stream mic audio and display real pronunciation scores per word returned from the backend.
+What was built — a hands-free live **CALL**, not a chat:
+- The page is a full-screen voice-call experience (per Rekar: "it should be like a call, no
+  text mid-conversation — a live call"). You tap Start, then talk hands-free: the mic stays
+  open, **client-side silence detection (VAD)** auto-ends your turn after a ~1.4s pause, the AI
+  reply auto-plays, and the mic auto-resumes listening. Tap End to hang up.
+- The backend voice pipeline is half-duplex (processes a turn only on `voice:end`), so the
+  continuous-call feel is built entirely on the client in `useVoiceLab.ts` (a call state machine:
+  connecting → listening → thinking → speaking → listening). **No backend changes.**
+- New components under `components/Pages/Dashboard/Voice/`: `CallIntro` (pre-call screen),
+  `CallStage` (orb + live caption + timer + mute/end/log controls), `CallOrb` (reactive avatar
+  that breathes with the AI and reacts to your mic level), `TranscriptLog` (a `UiSheet` record of
+  the conversation, reusing `TurnRow`), rebuilt `ScorePanel`, new `PronunciationCard`.
+- The transcript is kept as a quiet record (toggle the log button), never the main surface.
+- **Pronunciation gating:** Azure pronunciation assessment is GOLD/PREMIUM-only, so FREE users
+  get the full voice conversation + grammar/vocab/fluency scores, and the pronunciation card
+  shows a locked upsell (with a `UiPopover` hover hint) instead of fake numbers. The *feature*
+  is gated, not the page.
+- New types in `common/types/voice-types.ts`; removed the dead `PhonemeScore` type and the
+  obsolete `PromptCard.vue` / `PhonemeGrid.vue`.
+- Fixed a latent bug in `useVoiceChat.ts` (`recorder.onerror` called `onError()` with no args).
 
 ---
 

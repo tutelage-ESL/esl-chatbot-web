@@ -168,6 +168,8 @@ export function useChatPage() {
       who: m.role === 'USER' ? 'user' : 'ai',
       text: m.content,
       time: fmtTime(m.createdAt),
+      type: m.type,
+      audioUrl: m.audioUrl ?? null,
       correction: c
         ? { original: c.original ?? '', suggested: c.corrected ?? '', why: c.explanation ?? '' }
         : undefined,
