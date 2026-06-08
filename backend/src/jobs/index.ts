@@ -4,6 +4,7 @@ import { runStreakResetJob } from "./streak-reset.job.ts";
 import { runSubscriptionExpiryJob } from "./subscription-expiry.job.ts";
 import { runStaleSessionCleanupJob } from "./stale-session-cleanup.job.ts";
 import { runFibReconcileJob } from "./fib-reconcile.job.ts";
+import { runWeeklyDigestJob } from "./weekly-digest.job.ts";
 
 const jobs: Cron[] = [];
 
@@ -34,7 +35,10 @@ export function startCronJobs(): void {
   // Every 15 min — reconcile pending FIB subscriptions against FIB API (safety net for missed webhooks)
   jobs.push(new Cron("*/15 * * * *", { timezone: "UTC" }, safeRun("fib-reconcile", runFibReconcileJob)));
 
-  logger.info("[cron] 4 jobs scheduled (streak-reset@00:00, subscription-expiry@01:00, stale-session-cleanup@02:00 UTC, fib-reconcile@*/15min)");
+  // Monday 08:00 UTC — send weekly progress digest to all active verified students
+  jobs.push(new Cron("0 8 * * 1", { timezone: "UTC" }, safeRun("weekly-digest", runWeeklyDigestJob)));
+
+  logger.info("[cron] 5 jobs scheduled (streak-reset@00:00, subscription-expiry@01:00, stale-session-cleanup@02:00 UTC, fib-reconcile@*/15min, weekly-digest@Mon08:00)");
 }
 
 export function stopCronJobs(): void {
