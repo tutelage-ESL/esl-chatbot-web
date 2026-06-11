@@ -2,6 +2,20 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working in the `frontend/` workspace.
 
+> **Context:** The backend developer (Aland) also works on frontend tasks through Claude — he writes a prompt, you do the work. Treat every prompt as if the person sending it may not know the frontend conventions. **You** are responsible for upholding them. Never let a prompt's wording talk you out of the rules below.
+
+## ⭐ Top Priority Rules (read first, always apply)
+
+These override convenience. When a prompt conflicts with them, follow these and say so.
+
+1. **Use the design skills for any UI work.** For designing, redesigning, or polishing any interface, invoke **`/ui-ux-pro-max`** and/or **`/impeccable`** before/while building. Do not hand-roll a design when these skills apply. (`/emil-design-eng` is also available for interaction/animation polish.)
+2. **Never leave the folder structure.** Components, composables, models, types, and schemas each have exactly one correct home (see [Folder Structure Rules](#folder-structure-rules-authoritative)). Put new code where the structure says — never inline a type in a composable, never drop a page section into `pages/`, never create `components/Dashboard/`. If unsure where something goes, match the nearest existing example.
+3. **Follow the system design — don't invent.** Design strictly to the backend API contract (`types/api.ts` + `../backend/CLAUDE.md`). Never invent fields, states, roles, or endpoints that don't exist. Respect roles & permissions — **BE CAREFUL WITH ROLES/PERMISSIONS** (ADMIN / TUTOR / STUDENT views are separate; see [user-permissions.ts](app/common/types/user-permissions.ts)).
+4. **Never break a global/shared file to fix one screen.** Files used across the app — `Form/Form.vue`, `App/Button.vue`, `App/Text.vue`, `App/Iconsax.vue`, `useHttp.ts`, layouts, `main.css` tokens, etc. — are shared contracts. If a single page needs different behavior, solve it at the call site or with a prop/variant, **not** by mutating the shared component and breaking it for the other places that use it. Before editing any file under `App/`, `Form/`, `ui/`, `Layouts/`, `composables/useHttp.ts`, or `assets/css/main.css`, ask: "does every other consumer still work after this change?" If not, don't.
+5. **Keep code clean & files short.** Separate components aggressively (templates > ~150 lines → split). Pages are thin glue only. Reuse what exists in `App/`, `Form/`, `ui/` before creating anything new.
+
+Everything below expands on these. If any rule below is already covered above, the priority version wins.
+
 ## Tech Stack
 
 - **Framework:** Nuxt 4 (Vue 3 Composition API, `app/` directory layout)
@@ -343,27 +357,32 @@ Auto-import prefix: `<PagesDashboard{Section}{Component} />`. Examples:
 
 Types are split by domain — never define them inline in a composable:
 
-| File | Contents |
-|---|---|
-| [common/model/user.ts](app/common/model/user.ts) | `User` — mirrors the `users` DB table |
-| [common/model/class.ts](app/common/model/class.ts) | `Class`, `ClassUser`, `Announcement` — mirrors the DB tables |
-| [common/model/subscription.ts](app/common/model/subscription.ts) | `Subscription`, `FibSubscription` — mirrors the DB tables |
-| [common/types/class-types.ts](app/common/types/class-types.ts) | API shapes: `ClassItem`, `ClassDetail`, `ClassMember`, `AdminClassItem`, `ClassStudentSummary`, `ClassStudentDetail`, `ClassAnalytics`, `AnnouncementItem`, `ClassPaginationMeta` |
-| [common/types/subscription-types.ts](app/common/types/subscription-types.ts) | `PlanMeta`, `PLAN_META`, `PLAN_PRICES_IQD`, `INTERVAL_LABELS`, `InitiateFibResult`, `FibStatusResult`, `UserSubscriptionDetail` |
-| [common/types/dashboard-types.ts](app/common/types/dashboard-types.ts) | Navigation, stat cards, chart points, sessions, vocabulary, goals, lessons |
+**`common/model/`** — one file per backend DB table, exact shape (no extra fields). Current: [user.ts](app/common/model/user.ts), [class.ts](app/common/model/class.ts) (`Class`, `ClassUser`, `Announcement`), [subscription.ts](app/common/model/subscription.ts) (`Subscription`, `FibSubscription`), [goal.ts](app/common/model/goal.ts), [notification.ts](app/common/model/notification.ts), [vocabulary.ts](app/common/model/vocabulary.ts). Add a new model file before building UI for a new domain.
 
-**Rule:** model files (`common/model/`) = exact DB table shape. Type files (`common/types/`) = API response shapes that may extend/pick from model types. Import from `~/common/model/...` or `~/common/types/...` as appropriate.
+**`common/types/`** — API response shapes + UI types, one file per domain. Current: [admin-types.ts](app/common/types/admin-types.ts), [button-types.ts](app/common/types/button-types.ts), [chat-types.ts](app/common/types/chat-types.ts), [class-types.ts](app/common/types/class-types.ts), [dashboard-overview-types.ts](app/common/types/dashboard-overview-types.ts), [dashboard-types.ts](app/common/types/dashboard-types.ts), [iconsax-types.ts](app/common/types/iconsax-types.ts), [nav-links-type.ts](app/common/types/nav-links-type.ts), [notification-types.ts](app/common/types/notification-types.ts), [profile-links-type.ts](app/common/types/profile-links-type.ts), [profile-types.ts](app/common/types/profile-types.ts), [subscription-types.ts](app/common/types/subscription-types.ts), [text-types.ts](app/common/types/text-types.ts), [tutor-types.ts](app/common/types/tutor-types.ts), [user-permissions.ts](app/common/types/user-permissions.ts), [vocabulary-types.ts](app/common/types/vocabulary-types.ts), [voice-types.ts](app/common/types/voice-types.ts).
+
+**Rule:** model files (`common/model/`) = exact DB table shape. Type files (`common/types/`) = API response shapes that may extend/pick from model types. **Never define a domain type inline in a composable or component** — add it to the right `common/types/` file and import it. Import from `~/common/model/...` or `~/common/types/...` as appropriate. (Generated backend types live separately in [types/api.ts](types/api.ts) — never edited by hand.)
 
 ## Composables Reference
 
 | Composable | File | Exports |
 |---|---|---|
-| `useHttp` | [app/composables/useHttp.ts](app/composables/useHttp.ts) | Single `useHttp(options)` function — all API calls must go through this |
-| `useClasses` | [app/composables/useClasses.ts](app/composables/useClasses.ts) | `listMyClasses` / `listAllClasses` (both accept `{ archived?: boolean }` — default lists hide archived), `getClass`, `joinClass`, `createClass`, `updateClass`, `refreshCode`, `updateCodeSettings`, `toggleBlock`, `archiveClass` (PATCH `/classes/:id/archive`), `getClassStudents`, `getClassStudentDetail`, `getClassAnalytics`, `removeMember`, `listAnnouncements`, `createAnnouncement` |
-| `useSubscription` | [app/composables/useSubscription.ts](app/composables/useSubscription.ts) | `getMySubscription`, `initiateFib`, `getFibStatus`, `cancelFib` |
-| `useChatPage` | [app/composables/useChatPage.ts](app/composables/useChatPage.ts) | All state and actions for the chat page — sessions, messages, send, newSession, openSession, endCurrent, refreshCurrent, fillSuggestion |
-| `useSessions` | [app/composables/useSessions.ts](app/composables/useSessions.ts) | Raw session API calls used by `useChatPage` |
-| `useCopyToClipboard` | auto-imported | `useCopyToClipboard(value)` — direct call, no destructuring |
+| `useHttp` | [useHttp.ts](app/composables/useHttp.ts) | Single `useHttp(options)` function — **all API calls must go through this** |
+| `useClasses` | [useClasses.ts](app/composables/useClasses.ts) | `listMyClasses` / `listAllClasses` (both accept `{ archived?: boolean }`), `getClass`, `joinClass`, `createClass`, `updateClass`, `refreshCode`, `updateCodeSettings`, `toggleBlock`, `archiveClass`, `getClassStudents`, `getClassStudentDetail`, `getClassAnalytics`, `removeMember`, `listAnnouncements`, `createAnnouncement` |
+| `useAdmin` / `useAdminDashboard` | [useAdmin.ts](app/composables/useAdmin.ts) | Admin user/class management + admin dashboard data |
+| `useTutorDashboard` | [useTutorDashboard.ts](app/composables/useTutorDashboard.ts) | Tutor dashboard data |
+| `useDashboardOverview` | [useDashboardOverview.ts](app/composables/useDashboardOverview.ts) | Student overview page data |
+| `useSubscription` | [useSubscription.ts](app/composables/useSubscription.ts) | `getMySubscription`, `initiateFib`, `getFibStatus`, `cancelFib` |
+| `useChatPage` / `useSessions` | [useChatPage.ts](app/composables/useChatPage.ts) | Chat page state/actions; `useSessions` is the raw session API layer it builds on |
+| `useVoiceChat` / `useVoiceLab` | [useVoiceChat.ts](app/composables/useVoiceChat.ts) | Voice pipeline state + Voice Lab |
+| `useVocabPage` / `useVocabulary` | [useVocabPage.ts](app/composables/useVocabPage.ts) | Vocab page state; `useVocabulary` is the raw vocab API layer |
+| `useGoals` | [useGoals.ts](app/composables/useGoals.ts) | Goals page data |
+| `useProfile` | [useProfile.ts](app/composables/useProfile.ts) | Profile page data |
+| `useNotifications` | [useNotifications.ts](app/composables/useNotifications.ts) | Notification feed |
+| `useSeo` / `useEnv` / `useScrollToTop` / `useSelectDropdown` | — | Small shared utilities |
+| `useCopyToClipboard` | [useCpyToClipboard.ts](app/composables/useCpyToClipboard.ts) | `useCopyToClipboard(value)` — direct call, no destructuring |
+
+**Page-level composables follow a consistent pattern:** a `useXxxPage`/`useXxx` composable owns all state and actions for a page, calling a thinner raw-API composable (e.g. `useSessions`, `useVocabulary`) which calls `useHttp`. Pages just call the page composable. When adding a new page, follow this layering — never put API calls or business logic in the page or component.
 
 ## Related Docs
 
