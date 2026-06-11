@@ -4,29 +4,35 @@ Tasks are ordered by recommended priority. Work top-to-bottom.
 
 ---
 
-## 1. Teacher Task System — NEW FEATURE (High Priority)
-Tutors assign homework/tasks with deadlines. Students submit their work. AI or tutor gives feedback.
+## 1. Teacher Task System ✅ DONE (2026-06-11)
+Tutors assign homework/tasks with deadlines. Students submit their work. Tutor gives feedback.
 
-- New `Task` and `TaskSubmission` models in Prisma schema
-- `POST /classes/:id/tasks` — tutor creates a task with title, description, deadline
-- `GET /classes/:id/tasks` — list tasks for a class (tutor/admin sees all, student sees assigned)
-- `GET /tasks/:id` — task detail
-- `PATCH /tasks/:id` — tutor updates or closes a task
-- `DELETE /tasks/:id` — tutor deletes
-- `POST /tasks/:id/submissions` — student uploads their submission (text or file)
-- `GET /tasks/:id/submissions` — tutor lists submissions for a task
-- `PATCH /tasks/:id/submissions/:submissionId/feedback` — tutor writes feedback
-- Notifications: `TASK_ASSIGNED` (student), `TASK_SUBMITTED` (tutor)
-- Add to `frontend/TASKS.md` so Rekar knows what to wire
+- ✅ New `Task` and `TaskSubmission` models in Prisma schema + `TaskStatus` enum (OPEN/CLOSED)
+- ✅ `TASK_ASSIGNED` + `TASK_SUBMITTED` added to `NotificationType` enum
+- ✅ `POST /classes/:id/tasks` — tutor creates a task with title, description, deadline
+- ✅ `GET /classes/:id/tasks` — list tasks for a class (tutors/admins get submissionCount, students get mySubmission)
+- ✅ `GET /tasks/:id` — task detail
+- ✅ `PATCH /tasks/:id` — tutor updates title/description/deadline or opens/closes a task (`closed: bool`)
+- ✅ `DELETE /tasks/:id` — tutor deletes
+- ✅ `POST /tasks/:id/submissions` — student uploads their submission (text or fileUrl; 409 if already submitted or task closed)
+- ✅ `GET /tasks/:id/submissions` — tutor lists submissions for a task
+- ✅ `PATCH /tasks/:id/submissions/:submissionId/feedback` — tutor writes feedback
+- ✅ Notifications: TASK_ASSIGNED → all students on create; TASK_SUBMITTED → all tutors on submit
+- ✅ Added to `frontend/TASKS.md` so Rekar knows what to wire
+- ✅ `bun run db:push` applied schema to DB; `bun run generate:types` updated `frontend/types/api.ts`
 
 ---
 
-## 2. CI/CD Pipeline — GitHub Actions
+## 2. CI/CD Pipeline — GitHub Actions ✅ DONE (2026-06-12)
 Automated checks on every push to main and on PRs.
 
-- `.github/workflows/ci.yml`: typecheck → `bun test` → (optional) deploy to Render on merge to main
-- Requires `TEST_DATABASE_URL` as a GitHub Actions secret
-- Gate: PRs cannot merge if typecheck or tests fail
+- ✅ `.github/workflows/ci.yml` created — two parallel jobs: `typecheck` and `test`
+- ✅ `typecheck` job: `bun install` → `prisma generate` → `tsc --noEmit` (dummy DATABASE_URL, no real DB needed)
+- ✅ `test` job: spins up a **Postgres 16 service container** (no external secret needed) → `prisma generate` → `test:setup:env` (db push + seed) → `test:env` (239 tests, AI mocked, FIB stubbed)
+- ✅ Concurrency group cancels redundant runs on the same branch
+- **Manual step required:** Enable branch protection in GitHub repo settings:
+  `Settings → Branches → Add rule for main → "Require status checks to pass before merging"` → select `Typecheck` and `Integration tests`
+- **CD deferred:** auto-deploy to Render will be wired in Task 5 (Hosting) once a host is configured
 
 ---
 
