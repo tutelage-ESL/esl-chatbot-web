@@ -1,6 +1,6 @@
 import bcryptjs from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { createHash, randomInt } from "crypto";
+import { createHash, randomInt, randomUUID } from "crypto";
 import { prisma } from "../../config/database.ts";
 import { env } from "../../config/env.ts";
 import { logger } from "../../config/logger.ts";
@@ -40,7 +40,9 @@ function signAccessToken(payload: JwtPayload): string {
 }
 
 function signRefreshToken(userId: string): string {
-  return jwt.sign({ sub: userId }, env.JWT_REFRESH_SECRET, {
+  // jti (JWT ID) ensures uniqueness even when two tokens are issued within the same second,
+  // preventing a tokenHash collision on the @unique constraint in RefreshToken.
+  return jwt.sign({ sub: userId, jti: randomUUID() }, env.JWT_REFRESH_SECRET, {
     expiresIn: env.JWT_REFRESH_EXPIRES,
   } as jwt.SignOptions);
 }
