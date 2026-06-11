@@ -725,3 +725,180 @@ Roadmap — Deep Analysis
 
 
 
+Redis Caching — Implementation Plan
+1. Goals
+Eliminate the DB hit on every page load (GET /auth/me — called on every navigation)
+Eliminate 6 parallel DB queries per dashboard open (GET /dashboard/overview)
+Never crash the app if Redis is unavailable (graceful degradation to DB)
+Never serve stale data after mutations (explicit invalidation for high-impact writes)
+Zero changes to the test suite (cache is disabled in test environment automatically)
+2. What Gets Cached — Two Caches Only
+Scope is deliberately narrow. Don't cache everything — cache the two most expensive paths that run on every page load.
+
+Cache A: user:auth:{userId} → AuthUser
+Source: getMe(userId) in auth.service.ts
+
+Hit pattern: Every page navigation (frontend calls /auth/me as a token probe)
+
+DB work it replaces: 1 User + 1 Subscription JOIN query
+
+TTL: 300s (5 minutes)
+
+What AuthUser contains: id, username, email, displayName, role, avatarUrl, isActive, emailVerified, subscription.plan, subscription.status
+
+Cache B: user:dashboard:{userId} → DashboardOverviewData
+Source: getDashboardOverview(userId) in dashboard.service.ts
+
+Hit pattern: Every time the student opens the dashboard
+
+DB work it replaces: 6 parallel builders = ~14 individual Prisma queries
+
+TTL: 120s (2 minutes) — shorter because streak/due-vocab update frequently
+
+3. Cache Key Design
+
+user:auth:{userId}           → AuthUser shape
+user:dashboard:{userId}      → DashboardOverviewData shape
+Rules:
+
+Always namespaced by user: prefix → easy bulk-delete per entity type
+Always scoped to userId → never bleed between users
+Never include the JWT token as part of the key → key survives token refresh
+4. TTL Strategy
+Cache	TTL	Rationale
+user:auth:{userId}	300s	Role/subscription changes visible within 5 min. Admin deactivation (isActive=false) visible within 5 min max — acceptable for a small platform
+user:dashboard:{userId}	120s	SRS due-cards and streak are time-sensitive. User expects "I just reviewed a card, dashboard should update" — 2 min is acceptable
+TTL is the safety net. Explicit invalidation (below) is the primary freshness mechanism for high-impact mutations.
+
+5. Invalidation Map — Every Function That Must Invalidate
+This is the most critical section. For each function, what cache key(s) to delete and why.
+
+Invalidate user:auth:{userId}
+File	Function	Reason
+auth.service.ts	verifyEmail()	Sets emailVerified=true, activates subscription INACTIVE→ACTIVE
+auth.service.ts	linkGoogle()	Sets emailVerified=true, activates subscription
+auth.service.ts	logout()	Clean up; prevents stale profile on next login from same device
+users.service.ts	updateMyProfile()	displayName, avatarUrl, phoneNumber change
+users.service.ts	updateUserAvatar()	avatarUrl changes
+admin.service.ts	updateUser()	role or isActive change — security-critical
+admin.service.ts	assignSubscription()	plan and status change
+admin.service.ts	cancelSubscription()	status changes to CANCELLED
+admin.service.ts	adminUpdateProfile()	Admin editing a user's basic fields
+admin.service.ts	adminUploadAvatar()	Admin replacing a user's avatar
+subscriptions.service.ts	applyFibStatusChange()	plan/status upgrade via FIB webhook/polling
+Invalidate user:dashboard:{userId}
+File	Function	Reason
+sessions.service.ts	endSession()	Streak, study minutes, skills, recentSessions all update
+vocabulary.service.ts	reviewVocabulary()	dueVocabCount changes immediately
+vocabulary.service.ts	addVocabulary()	totalWords and vocab chart change
+vocabulary.service.ts	deleteVocabulary()	totalWords and vocab chart change
+goals.service.ts	createGoal()	nextUp.primary may change
+goals.service.ts	updateGoal()	Goal progress/status change → nextUp changes
+goals.service.ts	deleteGoal()	nextUp changes
+users.service.ts	updateMyLearnerProfile()	weeklyGoalMinutes → goalMins in greetingHero
+What is NOT explicitly invalidated (covered by TTL)
+Cron job subscription expiry (subscription-expiry.job.ts) — runs at 01:00 UTC, TTL covers it
+Cron job streak reset (streak-reset.job.ts) — runs at 00:00 UTC, TTL covers it
+Cron job stale session cleanup — only closes zombie sessions, no UI impact
+6. Architecture
+New file: src/config/cache.ts
+This is the single cache abstraction. Everything else imports from here. It wraps ioredis and provides:
+
+
+// Connection management
+export async function connectRedis(): Promise<void>
+export async function disconnectRedis(): Promise<void>
+
+// Typed operations — all silently no-op if Redis is unavailable
+export async function getCache<T>(key: string): Promise<T | null>
+export async function setCache(key: string, value: unknown, ttlSeconds: number): Promise<void>
+export async function deleteCache(...keys: string[]): Promise<void>
+
+// Key factories — single source of truth for key names
+export const cacheKeys = {
+  authUser:  (userId: string) => `user:auth:${userId}`,
+  dashboard: (userId: string) => `user:dashboard:${userId}`,
+}
+Graceful degradation rule: Every function in cache.ts is wrapped in try/catch. On any Redis error: log a warn via Winston, return null (for get) or undefined (for set/delete). The app never throws because of a cache failure.
+
+Test environment rule: If env.NODE_ENV === "test", connectRedis() is a no-op, all cache ops return null/undefined immediately. The 347 tests continue to work without any Redis instance.
+
+Dev without Redis rule: If Redis connection fails at startup, log a warning and set redisAvailable = false — all subsequent ops skip Redis entirely. The server boots normally.
+
+Updated file: src/config/redis.ts
+Replace the placeholder with the real ioredis client instance used by cache.ts. Keep connection options:
+
+lazyConnect: true — don't attempt connection on import, only when connectRedis() is called explicitly
+maxRetriesPerRequest: 1 — fail fast on cache miss, don't hang the request retrying
+enableReadyCheck: false — don't wait for READY signal on reconnect
+TLS: enabled automatically when URL is rediss:// (Upstash requires this)
+7. Implementation Order
+Build in this order to keep the app working at every step:
+
+Step	Task	Risk if skipped
+1	bun add ioredis	Nothing works
+2	src/config/redis.ts — real client with graceful degradation	Nothing works
+3	src/config/cache.ts — helpers + key factories	Nothing works
+4	src/config/index.ts — export connectRedis/disconnectRedis	App won't connect
+5	src/index.ts — call connect/disconnect in bootstrap/shutdown	Won't connect
+6	auth.service.ts — cache getMe, invalidate on mutations	Biggest win
+7	dashboard.service.ts — cache getDashboardOverview	Second biggest win
+8	Invalidation in sessions.service.ts	Dashboard stale after sessions
+9	Invalidation in users.service.ts	Profile stale after edits
+10	Invalidation in vocabulary.service.ts	Dashboard stale after vocab
+11	Invalidation in goals.service.ts	Dashboard stale after goals
+12	Invalidation in admin.service.ts	Auth cache stale after admin ops
+13	Invalidation in subscriptions.service.ts	Auth stale after FIB payment
+14	docs/services/redis.md — update docs	Just docs
+15	docs/services/README.md — update status	Just docs
+8. Complete File List
+Install
+bun add ioredis (in backend/)
+New files (2)
+File	Purpose
+src/config/cache.ts	Redis helpers, key factories, graceful degradation
+(Note: src/config/redis.ts already exists as a placeholder — we replace its content)
+
+Modified files (13)
+File	What changes
+src/config/redis.ts	Replace placeholder with real ioredis client
+src/config/index.ts	Add connectRedis, disconnectRedis to barrel
+src/index.ts	connectRedis() in bootstrap; disconnectRedis() in shutdown
+src/modules/auth/auth.service.ts	Cache hit/write in getMe; invalidate in verifyEmail, linkGoogle, logout
+src/modules/dashboard/dashboard.service.ts	Cache hit/write in getDashboardOverview
+src/modules/sessions/sessions.service.ts	Invalidate both caches at end of endSession()
+src/modules/users/users.service.ts	Invalidate auth in updateMyProfile, updateUserAvatar; invalidate both in updateMyLearnerProfile
+src/modules/admin/admin.service.ts	Invalidate auth in updateUser, assignSubscription, cancelSubscription, adminUpdateProfile, adminUploadAvatar
+src/modules/subscriptions/subscriptions.service.ts	Invalidate auth in applyFibStatusChange
+src/modules/vocabulary/vocabulary.service.ts	Invalidate dashboard in addVocabulary, deleteVocabulary, reviewVocabulary
+src/modules/goals/goals.service.ts	Invalidate dashboard in createGoal, updateGoal, deleteGoal
+docs/services/redis.md	Update from placeholder to real implementation details
+docs/services/README.md	Update Redis row status
+Total: 1 install + 1 new file + 12 modified files
+
+9. Security Rules
+REDIS_URL stays in Infisical — never in .env.example with a real value. The example already has REDIS_URL=redis://localhost:6379 (local dev only).
+Always use rediss:// in production (Upstash requires TLS). The s is the TLS flag. Validate this: if NODE_ENV === "production" and REDIS_URL starts with redis:// (no TLS), log a security warning.
+Cache only derived read data, never write-path inputs — keys come from the DB, not from request bodies. No cache poisoning possible.
+Per-user scoping is strict — the userId always comes from req.user.id (decoded from a verified JWT), not from request parameters. This is already how the service functions are called.
+No tokens or passwords in cache — AuthUser contains id, role, plan, status, not the JWT itself or any credential.
+Eviction policy on Upstash — set allkeys-lru so Redis never runs out of memory and silently drops writes. Without this, Redis can throw OOM command not allowed errors when full.
+10. What Stays Out of This Phase
+Intentionally deferred — mention in plan, do not implement:
+
+Rate limiter Redis store (rate-limit-redis) — in-memory is fine for single-server. Upgrade when horizontal scaling.
+GET /users/me (getMyProfile) caching — lower traffic than /auth/me, defer.
+Thundering herd protection — Redis SET NX PX lock. Not needed at this scale.
+Cache hit/miss metrics — useful for monitoring, but adds complexity. Add after Redis is stable.
+Pub/sub for cross-instance cache invalidation — only needed if running multiple server instances.
+11. One Setup Step for You (before we code)
+Create the Upstash Redis database and add the URL to Infisical:
+
+Go to upstash.com → Create account → New Database
+Name: tutelage-cache, Region: match your Neon region (Frankfurt or closest), TLS: on
+Copy the Redis URL (starts with rediss://)
+In Infisical → esl-chatbot → dev environment → add REDIS_URL = the URL
+Also add it to prod environment
+Set Eviction Policy in Upstash dashboard: allkeys-lru
+That's it on your side — everything else is code.
+

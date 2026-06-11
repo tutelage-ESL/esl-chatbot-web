@@ -107,6 +107,13 @@ enum NotificationType {
   GOAL_ASSIGNED
   VOCABULARY_ASSIGNED
   CLASS_ANNOUNCEMENT
+  TASK_ASSIGNED
+  TASK_SUBMITTED
+}
+
+enum TaskStatus {
+  OPEN
+  CLOSED
 }
 
 enum FibSubStatus {
@@ -158,6 +165,8 @@ model User {
   notifications    Notification[]
   announcements    Announcement[]
   fibSubscriptions FibSubscription[]
+  createdTasks     Task[]            @relation("TaskCreator")
+  taskSubmissions  TaskSubmission[]  @relation("TaskSubmitter")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -189,6 +198,7 @@ model Class {
 
   users         ClassUser[]
   announcements Announcement[]
+  tasks         Task[]
   createdBy User?       @relation("ClassCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
@@ -551,6 +561,47 @@ model Notification {
 
   @@index([userId])
   @@map("notifications")
+}
+
+// ─── Tasks ───────────────────────────────────────────────
+
+model Task {
+  id          String     @id @default(uuid())
+  classId     String
+  createdById String
+  title       String
+  description String
+  deadline    DateTime?
+  status      TaskStatus @default(OPEN)
+  closedAt    DateTime?
+
+  class       Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
+  createdBy   User           @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  submissions TaskSubmission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tasks")
+}
+
+model TaskSubmission {
+  id         String    @id @default(uuid())
+  taskId     String
+  studentId  String
+  content    String?
+  fileUrl    String?
+  feedback   String?
+  feedbackAt DateTime?
+
+  task    Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  student User @relation("TaskSubmitter", fields: [studentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([taskId, studentId])
+  @@map("task_submissions")
 }
 
 // ─── FIB Subscription Audit ──────────────────────────────

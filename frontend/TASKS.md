@@ -79,6 +79,32 @@ type DashboardOverviewData = NonNullable<
 
 Not urgent (the duplicate currently mirrors the backend correctly), but it will silently drift the next time the backend shape changes. **Reminder for future endpoints:** after any backend route lands, run `bun run generate:types` from `backend/` and commit `frontend/types/api.ts` — no hand-written mirror files.
 
+### Teacher Task System — NEW (2026-06-11)
+Backend is complete. Two new Prisma models (`Task`, `TaskSubmission`) + two new notification types (`TASK_ASSIGNED`, `TASK_SUBMITTED`). Run `bun run generate:types` from `backend/` then commit `frontend/types/api.ts` before wiring the UI.
+
+**API surface:**
+- `GET  /classes/:id/tasks` — list tasks for a class (members only). Tutors/admins get `submissionCount`; students also receive `mySubmission` (null if not yet submitted).
+- `POST /classes/:id/tasks` — tutor/admin creates a task (`{ title, description, deadline? }`). Fires `TASK_ASSIGNED` notification to all students.
+- `GET  /tasks/:id` — task detail (same shape, student gets `mySubmission`).
+- `PATCH /tasks/:id` — tutor/admin updates (`{ title?, description?, deadline?, closed? }`). `closed: true` locks submissions; `closed: false` reopens.
+- `DELETE /tasks/:id` — tutor/admin deletes.
+- `POST /tasks/:id/submissions` — student submits (`{ content?, fileUrl? }` — at least one required). 409 if already submitted or task is closed.
+- `GET  /tasks/:id/submissions` — tutor/admin lists all submissions with student info.
+- `PATCH /tasks/:id/submissions/:submissionId/feedback` — tutor/admin writes `{ feedback }`.
+
+**Notification routing to add to `NotificationPanel.vue`:**
+- `TASK_ASSIGNED` → `/dashboard/classes` (student: navigate to the class tasks tab)
+- `TASK_SUBMITTED` → `/dashboard/classes` (tutor: navigate to the class tasks tab)
+
+**Suggested UI placement:**
+- Add a **Tasks tab** to the class detail page (`/dashboard/classes/[id]`), alongside the existing Members, Students, Analytics, and Announcements tabs.
+  - Tutor/admin tab view: task list with Create button (dialog or inline form), submission counts, close/delete actions per task; clicking a task opens a sheet with all submissions + feedback form per submission.
+  - Student tab view: task list with status (Not submitted / Submitted / Feedback received); clicking a task opens a sheet to submit text/file and view feedback.
+- Task status badges: `OPEN` → active style, `CLOSED` → inactive/muted style.
+- Deadline should be displayed as a relative date ("Due in 3 days", "Overdue") using `@vueuse/core`'s `useTimeAgo` or a simple helper.
+
+**New model file needed:** `app/common/model/task.ts` (plain types mirroring `Task` and `TaskSubmission` schema). New types file: `app/common/types/task-types.ts` (API shapes: `TaskItem`, `TaskSubmissionItem`).
+
 ### Rate limiting (2026-05-29)
 Rate limiting is now live in production on all auth and AI endpoints. The backend returns **HTTP 429** with `{ success: false, message: "Too many requests. Please wait and try again.", data: null }`.
 

@@ -1,7 +1,7 @@
 import { env } from "../../config/env.ts";
 import { AppError } from "../../utils/AppError.ts";
 import { Sentry } from "../../config/sentry.ts";
-import { callGeminiLLM } from "./providers/gemini.llm.ts";
+import { callGeminiLLM, DEV_FALLBACK_MODEL } from "./providers/gemini.llm.ts";
 import { callOpenAILLM } from "./providers/openai.llm.ts";
 import { edgeTTS } from "./providers/edge.tts.ts";
 import { azureTTS } from "./providers/azure.tts.ts";
@@ -82,10 +82,19 @@ export async function generateAIResponse(
     return heuristicResponse(userMessage);
   }
 
-  // Development: all plans use Gemini free tier
+  // Development: all plans use Gemini free tier (gemini-flash-latest / gemini-3-flash-preview).
+  // If that preview model is overloaded, automatically retry with the stable DEV_FALLBACK_MODEL.
   if (isDev) {
     if (!env.GEMINI_API_KEY) return heuristicResponse(userMessage);
-    return callGeminiLLM(userMessage, conversationHistory, learner, plan, true);
+    try {
+      return await callGeminiLLM(userMessage, conversationHistory, learner, plan, true);
+    } catch (err) {
+      if (err instanceof Error && err.message === "AI_CAPACITY_OVERLOAD") {
+        console.warn(`[AI] gemini-flash-latest overloaded — retrying with ${DEV_FALLBACK_MODEL}`);
+        return callGeminiLLM(userMessage, conversationHistory, learner, plan, false, DEV_FALLBACK_MODEL);
+      }
+      throw err;
+    }
   }
 
   // Production PREMIUM: GPT-5 mini with automatic Gemini fallback on error

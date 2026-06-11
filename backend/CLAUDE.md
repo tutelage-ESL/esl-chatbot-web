@@ -171,7 +171,8 @@ Each module under `src/modules/[name]/` follows:
 | Plan | FREE, GOLD, PREMIUM |
 | SubStatus | ACTIVE, INACTIVE, CANCELLED, PAST_DUE |
 | VocabSource | MANUAL, SESSION, ASSIGNED — MANUAL=user added, SESSION=AI-detected, ASSIGNED=given by a tutor/admin (see Vocabulary.assignedByTutorId) |
-| NotificationType | STREAK_MILESTONE, GOAL_COMPLETED, GOAL_ASSIGNED, VOCABULARY_ASSIGNED, CLASS_ANNOUNCEMENT |
+| NotificationType | STREAK_MILESTONE, GOAL_COMPLETED, GOAL_ASSIGNED, VOCABULARY_ASSIGNED, CLASS_ANNOUNCEMENT, TASK_ASSIGNED, TASK_SUBMITTED |
+| TaskStatus | OPEN, CLOSED — used on Task.status; OPEN = accepting submissions, CLOSED = no more submissions |
 
 ### Models
 | Model | Table | Key Relations |
@@ -189,6 +190,8 @@ Each module under `src/modules/[name]/` follows:
 | Vocabulary | vocabularies | belongs to User, SRS fields, unique(userId, word) |
 | Goal | goals | belongs to User, optional tutor assigner. Type is GoalType enum. Difficulty is GoalDifficulty enum (EASY/MEDIUM/HARD/EXPERT). No timeframe or milestones columns. |
 | Progress | progress | daily snapshot, unique(userId, date) |
+| Task | tasks | belongs to Class + creator (User), has many TaskSubmissions. status=OPEN accepts submissions; status=CLOSED does not. Archived classes reject task creation (409). |
+| TaskSubmission | task_submissions | belongs to Task + student (User), unique(taskId, studentId) — one submission per student per task. Has optional feedback + feedbackAt set by tutor. |
 
 ### Key Design Decisions
 - All IDs are UUID v4

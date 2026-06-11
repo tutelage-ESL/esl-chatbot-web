@@ -15,6 +15,7 @@ import notificationsRouter from "../../modules/notifications/notifications.route
 import subscriptionsRouter from "../../modules/subscriptions/subscriptions.router.ts";
 import dashboardRouter from "../../modules/dashboard/dashboard.router.ts";
 import tutorRouter from "../../modules/tutor/tutor.router.ts";
+import { classTasksRouter, tasksRouter } from "../../modules/tasks/tasks.router.ts";
 import devRouter from "./dev.router.ts";
 import { env } from "../../config/env.ts";
 
@@ -31,6 +32,8 @@ router.use("/users", usersRouter);
 router.use("/users", notificationsRouter);
 router.use("/classes", classesRouter);
 router.use("/classes/:id/announcements", announcementsRouter);
+router.use("/classes/:id/tasks", classTasksRouter);
+router.use("/tasks", tasksRouter);
 router.use("/sessions", sessionsRouter);
 router.use("/sessions", messagesRouter);
 router.use("/admin", adminRouter);

@@ -13,9 +13,10 @@ const GEMINI_MODEL_BY_PLAN: Record<Plan, string> = {
   PREMIUM: "gemini-flash-latest",  // fallback only — normally PREMIUM uses OpenAI
 };
 
-// "gemini-flash-latest" resolves to the latest available Flash model (currently gemini-3-flash-preview)
-// Confirmed working via curl. Switch to a pinned stable ID when gemini-3-flash reaches GA.
+// "gemini-flash-latest" resolves to the latest available Flash model (currently gemini-3-flash-preview).
+// Preview models can hit capacity limits — DEV_FALLBACK_MODEL is used when DEV_MODEL is overloaded.
 const DEV_MODEL = "gemini-flash-latest";
+export const DEV_FALLBACK_MODEL = "gemini-2.5-flash";
 
 export async function callGeminiLLM(
   userMessage: string,
@@ -23,13 +24,14 @@ export async function callGeminiLLM(
   learner: LearnerContext | null,
   plan: Plan,
   isDev = false,
+  modelOverride?: string,
 ): Promise<AIResponse> {
   if (!env.GEMINI_API_KEY) {
     throw new Error("GEMINI_API_KEY is not configured");
   }
 
   const client = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
-  const model = isDev ? DEV_MODEL : GEMINI_MODEL_BY_PLAN[plan];
+  const model = modelOverride ?? (isDev ? DEV_MODEL : GEMINI_MODEL_BY_PLAN[plan]);
 
   // Gemini uses "model" for assistant role (not "assistant")
   const contents = [
@@ -58,6 +60,16 @@ export async function callGeminiLLM(
     const isQuota = raw.includes("RESOURCE_EXHAUSTED") || raw.includes("quota") || raw.includes("429");
     if (isQuota) {
       throw new Error("AI quota exceeded — please try again in a few minutes.");
+    }
+    // Preview models (gemini-flash-latest → gemini-3-flash-preview) can report capacity errors.
+    // Throw a sentinel so the caller (ai.service.ts) can retry with a stable fallback model.
+    const isCapacity =
+      raw.toLowerCase().includes("high demand") ||
+      raw.toLowerCase().includes("overloaded") ||
+      raw.includes("503") ||
+      raw.toLowerCase().includes("temporarily unavailable");
+    if (isCapacity) {
+      throw new Error("AI_CAPACITY_OVERLOAD");
     }
     // Try to surface a clean message from the embedded JSON
     try {
