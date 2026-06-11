@@ -9,6 +9,7 @@ See individual files for full details, options, and setup guides.
 
 | Layer | Dev / Free | Production | File |
 |-------|-----------|------------|------|
+| Local Dev Stack | Docker Compose | — | [docker.md](./docker.md) |
 | PostgreSQL | Neon (free) | Neon Scale | [database.md](./database.md) |
 | Google OAuth | Google Cloud (free) | Google Cloud | [google-oauth.md](./google-oauth.md) |
 | Redis | Upstash (free) | Upstash Pay-as-you-go | [redis.md](./redis.md) |

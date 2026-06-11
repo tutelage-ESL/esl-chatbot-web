@@ -36,13 +36,15 @@ Automated checks on every push to main and on PRs.
 
 ---
 
-## 3. Docker — Local Dev Setup
-Not needed for Render deployment but helps new devs onboard in minutes.
+## 3. Docker — Local Dev Setup ✅ DONE (2026-06-12)
+One-command local stack for onboarding without Infisical or cloud accounts.
 
-- `backend/Dockerfile` — multi-stage: install → build → run with Bun
-- `docker-compose.yml` at repo root — services: `api` (backend), `postgres`, `redis`
-- `.dockerignore` — exclude node_modules, .env, openapi.json
-- Update `docs/` with a "local dev via Docker" quickstart
+- ✅ `backend/Dockerfile` — multi-stage: `deps` (full install + prisma generate) → `dev` (db push + bun --watch) → `prod-deps` → `production` (prod-only deps, ready for Task 5)
+- ✅ `docker-compose.yml` at repo root — services: `api` (dev target), `postgres:16-alpine`, `redis:7-alpine`; healthchecks; persistent `pgdata` volume; targeted bind mounts for hot reload; optional AI keys via root `.env`
+- ✅ `backend/.dockerignore` — excludes node_modules, .env*, uploads, logs, docs, openapi.json, .git
+- ✅ `backend/docs/services/docker.md` — quickstart, seeding, infra-only mode, hot reload scope, troubleshooting
+- ✅ Root `.gitignore` updated: `/.env` (compose interpolation file) is now gitignored
+- ✅ Root `CLAUDE.md` updated: Docker compose listed as the no-Infisical dev alternative
 
 ---
 

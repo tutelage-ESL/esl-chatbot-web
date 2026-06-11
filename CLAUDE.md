@@ -36,6 +36,14 @@ cd frontend && bun run dev      # uses infisical run; port 3001
 cd frontend && bun run dev:env  # fallback when Infisical isn't set up, needs a local .env
 ```
 
+**No Infisical? No cloud accounts? Use Docker instead** (API + Postgres + Redis in one command):
+
+```bash
+docker compose up --build       # from repo root; API on :8000, schema auto-pushed
+```
+
+See [backend/docs/services/docker.md](backend/docs/services/docker.md) for seeding, hot reload, and optional AI keys.
+
 Key backend commands:
 
 ```bash
