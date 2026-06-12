@@ -660,3 +660,104 @@ describe("GET /api/v1/classes — admin list", () => {
     expect(res.status).toBe(401);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+describe("Internal user stealth (isInternal)", () => {
+  const createInternalStudent = async () =>
+    track(await createTestUser({ role: "STUDENT", isInternal: true }));
+
+  it("GET /:id — internal member is hidden from the member list", async () => {
+    const tutor = await createTutor();
+    const internal = await createInternalStudent();
+    const cls = await makeClass(tutor.id);
+    await addMember(cls.id, internal.id, "STUDENT");
+
+    const res = await request(app).get(`/api/v1/classes/${cls.id}`).set(auth(tutor.token));
+    expect(res.status).toBe(200);
+    const memberIds = res.body.data.members.map((m: { user: { id: string } }) => m.user.id);
+    expect(memberIds).not.toContain(internal.id);
+    expect(memberIds).toContain(tutor.id);
+  });
+
+  it("GET /classes — memberCount excludes internal members", async () => {
+    const admin = await createAdmin();
+    const internal = await createInternalStudent();
+    const cls = await makeClass(admin.id);
+    await addMember(cls.id, internal.id, "STUDENT");
+
+    const res = await request(app).get("/api/v1/classes?limit=100").set(auth(admin.token));
+    expect(res.status).toBe(200);
+    const row = res.body.data.find((c: { id: string }) => c.id === cls.id);
+    expect(row.memberCount).toBe(1); // only the admin/tutor creator, not the internal member
+  });
+
+  it("GET /classes/mine — memberCount excludes internal members", async () => {
+    const tutor = await createTutor();
+    const internal = await createInternalStudent();
+    const cls = await makeClass(tutor.id);
+    await addMember(cls.id, internal.id, "STUDENT");
+
+    const res = await request(app).get("/api/v1/classes/mine").set(auth(tutor.token));
+    expect(res.status).toBe(200);
+    const row = res.body.data.find((c: { id: string }) => c.id === cls.id);
+    expect(row.memberCount).toBe(1);
+  });
+
+  it("GET /:id/students — internal student is hidden from the roster", async () => {
+    const tutor = await createTutor();
+    const student = await createStudent();
+    const internal = await createInternalStudent();
+    const cls = await makeClass(tutor.id);
+    await addMember(cls.id, student.id, "STUDENT");
+    await addMember(cls.id, internal.id, "STUDENT");
+
+    const res = await request(app).get(`/api/v1/classes/${cls.id}/students`).set(auth(tutor.token));
+    expect(res.status).toBe(200);
+    const ids = res.body.data.map((s: { userId: string }) => s.userId);
+    expect(ids).toContain(student.id);
+    expect(ids).not.toContain(internal.id);
+  });
+
+  it("GET /:id/students/:userId — internal target returns 404 even to a tutor", async () => {
+    const tutor = await createTutor();
+    const internal = await createInternalStudent();
+    const cls = await makeClass(tutor.id);
+    await addMember(cls.id, internal.id, "STUDENT");
+
+    const res = await request(app)
+      .get(`/api/v1/classes/${cls.id}/students/${internal.id}`)
+      .set(auth(tutor.token));
+    expect(res.status).toBe(404);
+  });
+
+  it("GET /:id/analytics — studentCount excludes internal members", async () => {
+    const tutor = await createTutor();
+    const student = await createStudent();
+    const internal = await createInternalStudent();
+    const cls = await makeClass(tutor.id);
+    await addMember(cls.id, student.id, "STUDENT");
+    await addMember(cls.id, internal.id, "STUDENT");
+
+    const res = await request(app)
+      .get(`/api/v1/classes/${cls.id}/analytics`)
+      .set(auth(tutor.token));
+    expect(res.status).toBe(200);
+    expect(res.body.data.studentCount).toBe(1);
+  });
+
+  it("internal user keeps full access — can join and list their own classes", async () => {
+    const tutor = await createTutor();
+    const internal = await createInternalStudent();
+    const cls = await makeClass(tutor.id);
+
+    const join = await request(app)
+      .post("/api/v1/classes/join")
+      .set(auth(internal.token))
+      .send({ classCode: cls.classCode });
+    expect(join.status).toBe(201);
+
+    const mine = await request(app).get("/api/v1/classes/mine").set(auth(internal.token));
+    expect(mine.status).toBe(200);
+    expect(mine.body.data.some((c: { id: string }) => c.id === cls.id)).toBe(true);
+  });
+});

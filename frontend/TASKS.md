@@ -52,6 +52,9 @@ On click: close the dropdown, navigate to the route. Mark the individual item as
 
 ## Backend Notes for Frontend
 
+### Internal (stealth) admin accounts — FYI only, nothing to wire (2026-06-12)
+The backend now supports hidden internal admin accounts (`isInternal` flag, never serialized in any API response — `types/api.ts` is unchanged). They are automatically excluded from `GET /users`, admin dashboard counts, class member lists / rosters / analytics, `memberCount`, and notifications. **No frontend changes needed** — just be aware that an internal account logged into the dashboard sees everything normally, while other users (including admins) never see it anywhere.
+
 ### Email verification is now MANDATORY before login (2026-06-06) — ⚠️ flow changed
 Security fix: registering no longer logs the user in. The account is created but **unverified and unusable** until the email is verified — `POST /auth/login` returns **403** for unverified accounts. This closes the hole where you could register with someone else's email and log straight in. `AuthUser` (login / register / `GET /auth/me` / Google / verify-email) carries **`emailVerified: boolean`**.
 

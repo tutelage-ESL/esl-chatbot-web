@@ -118,6 +118,8 @@ export interface CreateTestUserOptions {
   currentPeriodEnd?: Date | null;
   paymentProvider?: PaymentProvider | null;
   isActive?: boolean;
+  /** Stealth internal account — hidden from listings/dashboards/class lists. */
+  isInternal?: boolean;
   /** Overrides for the UserMetrics row (streak, skills, lastStudyDate, …). */
   metrics?: Omit<Prisma.UserMetricsUncheckedCreateInput, "userId">;
 }
@@ -152,6 +154,7 @@ export async function createTestUser(opts: CreateTestUserOptions = {}): Promise<
       authProvider: "LOCAL",
       role,
       isActive: opts.isActive ?? true,
+      isInternal: opts.isInternal ?? false,
     },
     select: { id: true },
   });

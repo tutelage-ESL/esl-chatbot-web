@@ -117,9 +117,9 @@ export async function createTask(
     select: TASK_SELECT,
   });
 
-  // Notify all student members
+  // Notify all student members (internal stealth accounts excluded)
   const students = await prisma.classUser.findMany({
-    where: { classId, role: "STUDENT" },
+    where: { classId, role: "STUDENT", user: { isInternal: false } },
     select: { userId: true },
   });
   await Promise.all(
@@ -263,9 +263,9 @@ export async function createSubmission(
     select: SUBMISSION_SELECT,
   });
 
-  // Notify tutor(s) of the class
+  // Notify tutor(s) of the class (internal stealth accounts excluded)
   const tutors = await prisma.classUser.findMany({
-    where: { classId: task.classId, role: "TUTOR" },
+    where: { classId: task.classId, role: "TUTOR", user: { isInternal: false } },
     select: { userId: true },
   });
   const student = await prisma.user.findUnique({

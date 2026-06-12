@@ -220,3 +220,80 @@ describe("GET /api/v1/admin/dashboard", () => {
     expect(res.status).toBe(403);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+describe("Internal user stealth (isInternal)", () => {
+  const createInternalAdmin = async () =>
+    track(await createTestUser({ role: "ADMIN", isInternal: true }));
+
+  it("PATCH /admin/users/:id on an internal target → 404 even for an admin", async () => {
+    const admin = await createAdmin();
+    const internal = await createInternalAdmin();
+    const res = await request(app)
+      .patch(`/api/v1/admin/users/${internal.id}`)
+      .set(auth(admin.token))
+      .send({ role: "STUDENT" });
+    expect(res.status).toBe(404);
+    expect(res.body.message).toBe("User not found");
+  });
+
+  it("PUT /admin/users/:id/subscription on an internal target → 404", async () => {
+    const admin = await createAdmin();
+    const internal = await createInternalAdmin();
+    const res = await request(app)
+      .put(`/api/v1/admin/users/${internal.id}/subscription`)
+      .set(auth(admin.token))
+      .send({ plan: "GOLD", durationMonths: 1 });
+    expect(res.status).toBe(404);
+  });
+
+  it("DELETE /admin/users/:id/subscription on an internal target → 404", async () => {
+    const admin = await createAdmin();
+    const internal = await createInternalAdmin();
+    const res = await request(app)
+      .delete(`/api/v1/admin/users/${internal.id}/subscription`)
+      .set(auth(admin.token));
+    expect(res.status).toBe(404);
+  });
+
+  it("PATCH /admin/users/:id/profile on an internal target → 404", async () => {
+    const admin = await createAdmin();
+    const internal = await createInternalAdmin();
+    const res = await request(app)
+      .patch(`/api/v1/admin/users/${internal.id}/profile`)
+      .set(auth(admin.token))
+      .send({ displayName: "Renamed" });
+    expect(res.status).toBe(404);
+  });
+
+  it("PATCH /admin/users/:id/learner-profile on an internal target → 404", async () => {
+    const admin = await createAdmin();
+    const internal = await createInternalAdmin();
+    const res = await request(app)
+      .patch(`/api/v1/admin/users/${internal.id}/learner-profile`)
+      .set(auth(admin.token))
+      .send({ currentLevel: "B1" });
+    expect(res.status).toBe(404);
+  });
+
+  it("dashboard counts are unchanged by creating an internal admin", async () => {
+    const admin = await createAdmin();
+    const before = await request(app).get("/api/v1/admin/dashboard").set(auth(admin.token));
+    expect(before.status).toBe(200);
+
+    await createInternalAdmin();
+
+    const after = await request(app).get("/api/v1/admin/dashboard").set(auth(admin.token));
+    expect(after.status).toBe(200);
+    expect(after.body.data.users.byRole.ADMIN).toBe(before.body.data.users.byRole.ADMIN);
+    expect(after.body.data.users.total).toBe(before.body.data.users.total);
+    expect(after.body.data.subscriptions.FREE).toBe(before.body.data.subscriptions.FREE);
+  });
+
+  it("the internal admin keeps full access to the dashboard", async () => {
+    const internal = await createInternalAdmin();
+    const res = await request(app).get("/api/v1/admin/dashboard").set(auth(internal.token));
+    expect(res.status).toBe(200);
+    expect(res.body.data.users.byRole).toBeDefined();
+  });
+});

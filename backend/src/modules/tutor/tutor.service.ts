@@ -60,7 +60,7 @@ export async function getTutorDashboardStats(tutorId: string): Promise<TutorDash
 
   // All STUDENT members in tutor's classes
   const studentMembers = await prisma.classUser.findMany({
-    where: { classId: { in: classIds }, role: "STUDENT" },
+    where: { classId: { in: classIds }, role: "STUDENT", user: { isInternal: false } },
     select: { userId: true, classId: true },
   });
 

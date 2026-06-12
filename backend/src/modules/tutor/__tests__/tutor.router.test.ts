@@ -238,4 +238,20 @@ describe("GET /api/v1/tutor/dashboard", () => {
     const res = await request(app).get("/api/v1/tutor/dashboard");
     expect(res.status).toBe(401);
   });
+
+  it("200 — internal (stealth) student members are not counted in students.total", async () => {
+    const tutor = await createTutor();
+    const cls = await makeClass(tutor.id);
+    const student = await createStudent();
+    const internal = track(await createTestUser({ role: "STUDENT", isInternal: true }));
+    await addStudent(cls.id, student.id);
+    await addStudent(cls.id, internal.id);
+
+    const res = await request(app)
+      .get("/api/v1/tutor/dashboard")
+      .set(auth(tutor.token));
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.students.total).toBe(1);
+  });
 });

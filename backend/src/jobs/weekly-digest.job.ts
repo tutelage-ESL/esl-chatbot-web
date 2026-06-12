@@ -36,6 +36,7 @@ export async function runWeeklyDigestJob(): Promise<void> {
       isActive: true,
       emailVerified: true,
       role: "STUDENT",
+      isInternal: false,
     },
     select: {
       id: true,

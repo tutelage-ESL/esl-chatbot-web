@@ -136,6 +136,11 @@ model User {
   displayName  String
   avatarUrl    String?
   isActive     Boolean      @default(true)
+  // Stealth internal account (programmer monitoring). Never serialized in API
+  // responses, never settable via any endpoint — set only via seed or direct SQL.
+  // Internal users are hidden from listings, dashboards, class member lists, and
+  // notification fan-outs; endpoints targeting them by id return 404.
+  isInternal   Boolean      @default(false)
   role         Role         @default(STUDENT)
   phoneNumber  String?
   // Verification = a verified means of contact (Google link OR email OTP).

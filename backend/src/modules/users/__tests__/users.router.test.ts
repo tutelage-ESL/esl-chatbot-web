@@ -426,3 +426,63 @@ describe("GET /api/v1/users/:id — admin get user by id", () => {
     expect(res.status).toBe(401);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+describe("Internal user stealth (isInternal)", () => {
+  let internal: TestUser;
+
+  beforeAll(async () => {
+    internal = track(await createTestUser({ role: "ADMIN", isInternal: true }));
+  });
+
+  it("internal user is absent from GET /users", async () => {
+    const res = await request(app)
+      .get("/api/v1/users?limit=100")
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    const ids = res.body.data.map((u: { id: string }) => u.id);
+    expect(ids).not.toContain(internal.id);
+  });
+
+  it("internal user is absent even when searched by its exact username", async () => {
+    const res = await request(app)
+      .get(`/api/v1/users?search=${internal.username}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.length).toBe(0);
+    expect(res.body.meta.total).toBe(0);
+  });
+
+  it("internal user is absent from the ?role=ADMIN filter", async () => {
+    const res = await request(app)
+      .get("/api/v1/users?role=ADMIN&limit=100")
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    const ids = res.body.data.map((u: { id: string }) => u.id);
+    expect(ids).not.toContain(internal.id);
+  });
+
+  it("GET /users/:id for an internal user returns 404 even to an admin", async () => {
+    const res = await request(app)
+      .get(`/api/v1/users/${internal.id}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(404);
+    expect(res.body.message).toBe("User not found");
+  });
+
+  it("the internal user keeps full ADMIN access (can list users)", async () => {
+    const res = await request(app).get("/api/v1/users").set(auth(internal.token));
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.data)).toBe(true);
+  });
+
+  it("isInternal is never serialized in the user listing", async () => {
+    const res = await request(app)
+      .get("/api/v1/users")
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    for (const user of res.body.data) {
+      expect(user).not.toHaveProperty("isInternal");
+    }
+  });
+});

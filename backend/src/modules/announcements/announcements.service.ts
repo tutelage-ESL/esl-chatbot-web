@@ -81,9 +81,9 @@ export async function createAnnouncement(
     select: ANNOUNCEMENT_SELECT,
   });
 
-  // Notify all student members of the class
+  // Notify all student members of the class (internal stealth accounts excluded)
   const students = await prisma.classUser.findMany({
-    where: { classId, role: "STUDENT" },
+    where: { classId, role: "STUDENT", user: { isInternal: false } },
     select: { userId: true },
   });
 

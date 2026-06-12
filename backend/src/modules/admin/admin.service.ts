@@ -23,7 +23,18 @@ function isP2025(err: unknown): boolean {
   return (err as { code?: string }).code === "P2025";
 }
 
+// Internal (stealth) accounts must be indistinguishable from nonexistent users,
+// even to admins — every admin mutation targeting one returns 404.
+async function assertTargetNotInternal(userId: string): Promise<void> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { isInternal: true },
+  });
+  if (!user || user.isInternal) throw new AppError("User not found", 404);
+}
+
 export async function updateUser(id: string, data: UpdateUserBody) {
+  await assertTargetNotInternal(id);
   try {
     const result = await prisma.user.update({
       where: { id },
@@ -57,9 +68,9 @@ export async function assignSubscription(
 ): Promise<SubscriptionResult> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true },
+    select: { id: true, isInternal: true },
   });
-  if (!user) throw new AppError("User not found", 404);
+  if (!user || user.isInternal) throw new AppError("User not found", 404);
 
   const now = new Date();
   const isPaidPlan = data.plan !== "FREE";
@@ -115,26 +126,33 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardData> {
 
   const [usersByRole, subsByPlan, dailyUsers, weeklyUsers, totalSessionsToday, paymentByProvider] =
     await Promise.all([
-      prisma.user.groupBy({ by: ["role"], _count: { _all: true } }),
+      prisma.user.groupBy({ by: ["role"], where: { isInternal: false }, _count: { _all: true } }),
       prisma.subscription.groupBy({
         by: ["plan"],
-        where: { status: "ACTIVE" },
+        where: { status: "ACTIVE", user: { isInternal: false } },
         _count: { _all: true },
       }),
       prisma.conversationSession.findMany({
-        where: { startedAt: { gte: todayStart } },
+        where: { startedAt: { gte: todayStart }, user: { isInternal: false } },
         distinct: ["userId"],
         select: { userId: true },
       }),
       prisma.conversationSession.findMany({
-        where: { startedAt: { gte: weekAgo } },
+        where: { startedAt: { gte: weekAgo }, user: { isInternal: false } },
         distinct: ["userId"],
         select: { userId: true },
       }),
-      prisma.conversationSession.count({ where: { startedAt: { gte: todayStart } } }),
+      prisma.conversationSession.count({
+        where: { startedAt: { gte: todayStart }, user: { isInternal: false } },
+      }),
       prisma.subscription.groupBy({
         by: ["paymentProvider"],
-        where: { status: "ACTIVE", plan: { not: "FREE" }, paymentProvider: { not: null } },
+        where: {
+          status: "ACTIVE",
+          plan: { not: "FREE" },
+          paymentProvider: { not: null },
+          user: { isInternal: false },
+        },
         _count: { _all: true },
       }),
     ]);
@@ -170,9 +188,9 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardData> {
 export async function cancelSubscription(userId: string): Promise<void> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, subscription: { select: { id: true } } },
+    select: { id: true, isInternal: true, subscription: { select: { id: true } } },
   });
-  if (!user) throw new AppError("User not found", 404);
+  if (!user || user.isInternal) throw new AppError("User not found", 404);
   if (!user.subscription) throw new AppError("User has no subscription to cancel", 404);
 
   // Downgrade to FREE ACTIVE — user retains AI access at FREE limits.
@@ -194,8 +212,7 @@ export async function cancelSubscription(userId: string): Promise<void> {
 }
 
 export async function adminUpdateProfile(userId: string, input: AdminUpdateProfileInput) {
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
-  if (!user) throw new AppError("User not found", 404);
+  await assertTargetNotInternal(userId);
   await prisma.user.update({ where: { id: userId }, data: input });
   await deleteCache(cacheKeys.authUser(userId));
   return getMyProfile(userId);
@@ -204,9 +221,9 @@ export async function adminUpdateProfile(userId: string, input: AdminUpdateProfi
 export async function adminUploadAvatar(userId: string, buffer: Buffer, mimeType: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, avatarUrl: true },
+    select: { id: true, isInternal: true, avatarUrl: true },
   });
-  if (!user) throw new AppError("User not found", 404);
+  if (!user || user.isInternal) throw new AppError("User not found", 404);
   if (user.avatarUrl) {
     try { await deleteAvatar(user.avatarUrl); } catch {}
   }
@@ -217,8 +234,7 @@ export async function adminUploadAvatar(userId: string, buffer: Buffer, mimeType
 }
 
 export async function adminUpdateLearnerProfile(userId: string, input: AdminUpdateLearnerProfileInput) {
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
-  if (!user) throw new AppError("User not found", 404);
+  await assertTargetNotInternal(userId);
 
   // Prisma requires Prisma.JsonNull (not plain null) for nullable JSON fields
   const topicsOfInterest =

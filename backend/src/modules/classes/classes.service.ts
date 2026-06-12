@@ -82,7 +82,8 @@ const CLASS_LIST_SELECT = {
   classCodeExpiresAt: true,
   classCodeRefreshIntervalSeconds: true,
   createdAt: true,
-  _count: { select: { users: true } },
+  // Internal (stealth) members are hidden, so the count must match the visible list
+  _count: { select: { users: { where: { user: { isInternal: false } } } } },
 } satisfies Prisma.ClassSelect;
 
 export async function getClasses(
@@ -150,6 +151,7 @@ async function readClassDetail(id: string): Promise<ClassDetail> {
       createdAt: true,
       updatedAt: true,
       users: {
+        where: { user: { isInternal: false } },
         select: {
           id: true,
           role: true,
@@ -630,7 +632,7 @@ export async function getClassStudents(
   }
 
   const members = await prisma.classUser.findMany({
-    where: { classId, role: "STUDENT" },
+    where: { classId, role: "STUDENT", user: { isInternal: false } },
     select: {
       createdAt: true,
       user: {
@@ -739,6 +741,7 @@ export async function getClassStudentDetail(
     where: { id: studentId },
     select: {
       id: true,
+      isInternal: true,
       username: true,
       displayName: true,
       avatarUrl: true,
@@ -769,7 +772,8 @@ export async function getClassStudentDetail(
       _count: { select: { vocabularies: true } },
     },
   });
-  if (!user) throw new AppError("Student not found", 404);
+  // Internal (stealth) accounts are indistinguishable from nonexistent students
+  if (!user || user.isInternal) throw new AppError("Student not found in this class", 404);
 
   const vocabDueToday = await prisma.vocabulary.count({
     where: { userId: studentId, srsDue: { lte: new Date() } },
@@ -864,7 +868,7 @@ export async function getClassAnalytics(
   if (!cls) throw new AppError("Class not found", 404);
 
   const studentMembers = await prisma.classUser.findMany({
-    where: { classId, role: "STUDENT" },
+    where: { classId, role: "STUDENT", user: { isInternal: false } },
     select: { userId: true },
   });
 
@@ -1007,7 +1011,7 @@ export async function listMyClasses(
           classCodeExpiresAt: true,
           classCodeRefreshIntervalSeconds: true,
           classCodeRefreshedAt: true,
-          _count: { select: { users: true } },
+          _count: { select: { users: { where: { user: { isInternal: false } } } } },
         },
       },
     },

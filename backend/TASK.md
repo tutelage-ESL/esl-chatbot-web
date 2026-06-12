@@ -122,13 +122,21 @@ Legal requirement before charging users.
 
 ---
 
-## 9. Hidden Programmer Admin
-A stealth monitoring account not visible as "ADMIN" to regular users.
+## 9. Hidden Programmer Admin ✅ DONE (2026-06-12)
+A stealth monitoring account not visible as "ADMIN" to anyone — including other admins.
 
-- Decide on approach: separate `SUPERADMIN` role vs a flag on the User model (e.g. `isInternal: Boolean`)
-- Internal users excluded from `GET /users` admin listing
-- Full access to all endpoints
-- Not shown in class member lists
+- ✅ Approach decided: `isInternal Boolean @default(false)` on the User model (NOT a new role — keeps every `authorize("ADMIN")` callsite and the shared `Role` enum untouched)
+- ✅ `isInternal` is never serialized in any API response, never in Swagger (`frontend/types/api.ts` unchanged), and not settable via any endpoint — set only via seed (dev) or direct SQL (prod)
+- ✅ Excluded from `GET /users` (incl. `?search=` and `?role=` filters); `GET /users/:id` → 404
+- ✅ All 6 admin mutation routes (`PATCH /admin/users/:id`, profile, avatar, learner-profile, PUT/DELETE subscription) → 404 on internal targets (`assertTargetNotInternal` in `admin.service.ts`)
+- ✅ Admin dashboard counts exclude internal users (roles, subscriptions by plan, DAU/WAU, sessions today, revenue by provider)
+- ✅ Hidden from class member lists, student rosters, student detail (404), class analytics, and `memberCount` on `GET /classes` + `/classes/mine`; tutor dashboard excludes them
+- ✅ Notification/email fan-outs skip internal recipients (announcements, TASK_ASSIGNED, TASK_SUBMITTED, weekly digest)
+- ✅ Full access preserved: internal account passes all role guards, can join classes, list users, view dashboards
+- ✅ Seed: `sys_monitor` / monitor@tutelage.com (`password123`) — stealth ADMIN with FREE ACTIVE sub + zeroed metrics
+- ✅ Catch-up migration generated via `bun run db:migrate` (bundles drifted Task-system/archiving/vocab changes + `isInternal`)
+- ✅ Tests: stealth describe blocks in users/admin/classes/tutor router tests; `createTestUser({ isInternal: true })` helper
+- **Prod note (Task 5):** the prod DB was schema-pushed, so before `migrate deploy` it must be baselined with `prisma migrate resolve --applied <catch-up-migration>`. Create the prod internal account via SQL with a non-guessable username/email.
 
 ---
 

