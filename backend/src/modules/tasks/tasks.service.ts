@@ -124,7 +124,7 @@ export async function createTask(
   });
   await Promise.all(
     students.map((s) =>
-      createNotification(s.userId, "TASK_ASSIGNED", `New task in ${cls.className}: ${data.title}`),
+      createNotification(s.userId, "TASK_ASSIGNED", `New task in ${cls.className}: ${data.title}`, { classId, taskId: task.id }),
     ),
   ).catch(() => {});
 
@@ -278,6 +278,7 @@ export async function createSubmission(
         t.userId,
         "TASK_SUBMITTED",
         `${student?.displayName ?? "A student"} submitted "${task.title}"`,
+        { classId: task.classId, taskId },
       ),
     ),
   ).catch(() => {});

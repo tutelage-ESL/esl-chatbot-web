@@ -385,7 +385,7 @@ Types are split by domain — never define them inline in a composable:
 | `useTasks` | [useTasks.ts](app/composables/useTasks.ts) | `listClassTasks`, `getTask`, `createTask`, `updateTask`, `deleteTask`, `submitTask`, `listSubmissions`, `giveFeedback` |
 | `useGoals` | [useGoals.ts](app/composables/useGoals.ts) | Goals page data |
 | `useProfile` | [useProfile.ts](app/composables/useProfile.ts) | Profile page data |
-| `useNotifications` | [useNotifications.ts](app/composables/useNotifications.ts) | Notification feed |
+| `useNotifications` | [useNotifications.ts](app/composables/useNotifications.ts) | `fetchNotifications`, `markAllRead`, `markOneRead(id)`, `connectSocket`, `disconnectSocket` |
 | `useSeo` / `useEnv` / `useScrollToTop` / `useSelectDropdown` | — | Small shared utilities |
 | `useCopyToClipboard` | [useCpyToClipboard.ts](app/composables/useCpyToClipboard.ts) | `useCopyToClipboard(value)` — direct call, no destructuring |
 

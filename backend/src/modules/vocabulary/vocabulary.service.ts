@@ -2,6 +2,7 @@ import type { Prisma, Role } from "@prisma/client";
 import { prisma } from "../../config/database.ts";
 import { AppError } from "../../utils/AppError.ts";
 import { deleteCache, cacheKeys } from "../../config/cache.ts";
+import { createNotification } from "../notifications/notifications.service.ts";
 import type { VocabularyItem, VocabularyStats, ReviewResult } from "./vocabulary.types.ts";
 import type { NewVocabularyWord } from "../ai/ai.types.ts";
 import type {
@@ -220,10 +221,26 @@ export async function addVocabulary(
   // Resolve target user and source/assignment metadata
   const userId = input.assignedToUserId ?? callerId;
   const source = input.assignedToUserId ? "ASSIGNED" as const : "MANUAL" as const;
-  // Students cannot assign vocabulary
-  if (input.assignedToUserId && callerRole === "STUDENT") {
-    throw new AppError("Students cannot assign vocabulary", 403);
+
+  if (input.assignedToUserId) {
+    // Students cannot assign vocabulary to others
+    if (callerRole === "STUDENT") {
+      throw new AppError("Students cannot assign vocabulary", 403);
+    }
+    // TUTORs must share a class with the target student
+    if (callerRole === "TUTOR") {
+      const membership = await prisma.classUser.findFirst({
+        where: {
+          userId: input.assignedToUserId,
+          role: "STUDENT",
+          class: { users: { some: { userId: callerId, role: "TUTOR" } } },
+        },
+      });
+      if (!membership) throw new AppError("Student not found in your classes", 404);
+    }
+    // ADMIN is unrestricted
   }
+
   const assignedByTutorId = input.assignedToUserId ? (callerRole === "TUTOR" ? callerId : null) : null;
   let item: VocabularyItem;
   try {
@@ -249,6 +266,16 @@ export async function addVocabulary(
       throw new AppError(`"${input.word}" is already in ${who} vocabulary list`, 409);
     }
     throw err;
+  }
+
+  // Fire notification when a tutor/admin assigns to a student
+  if (input.assignedToUserId && userId !== callerId) {
+    createNotification(
+      userId,
+      "VOCABULARY_ASSIGNED",
+      `Your tutor assigned you a new word: "${input.word.toLowerCase()}"`,
+      { vocabularyId: item.id },
+    ).catch(() => {});
   }
 
   await deleteCache(cacheKeys.dashboard(userId));

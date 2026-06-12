@@ -57,6 +57,20 @@ export function useNotifications() {
     }
   }
 
+  async function markOneRead(id: string) {
+    const target = notifications.value.find(n => n.id === id)
+    if (!target || target.read) return
+    // Optimistic update — don't block navigation on PATCH result
+    notifications.value = notifications.value.map(n => n.id === id ? { ...n, read: true } : n)
+    unreadCount.value = Math.max(0, unreadCount.value - 1)
+    await useHttp({
+      method: 'PATCH',
+      url: `/users/me/notifications/${id}/read`,
+      requireAuth: true,
+      showToast: false,
+    })
+  }
+
   // ── Socket ────────────────────────────────────────────────────────────────
 
   function connectSocket() {
@@ -92,6 +106,7 @@ export function useNotifications() {
     fetchUnreadCount,
     fetchNotifications,
     markAllRead,
+    markOneRead,
     connectSocket,
     disconnectSocket,
   }

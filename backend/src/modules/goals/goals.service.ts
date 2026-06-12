@@ -122,6 +122,7 @@ export async function createGoal(
       userId,
       "GOAL_ASSIGNED",
       `Your tutor assigned you a new goal: ${input.description.slice(0, 80)}`,
+      { goalId: goal.id },
     ).catch(() => {});
   }
 
@@ -191,6 +192,7 @@ export async function updateGoal(
       goal.userId,
       "GOAL_COMPLETED",
       `You completed a goal: ${goal.description.slice(0, 80)}`,
+      { goalId },
     ).catch(() => {});
   }
 

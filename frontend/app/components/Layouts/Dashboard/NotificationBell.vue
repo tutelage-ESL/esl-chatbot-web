@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { useNotifications } from '~/composables/useNotifications'
+import { notificationRoute } from '~/common/data/notification-routes'
+import type { Notification } from '~/common/model/notification'
 
 const {
   notifications, unreadCount, loading,
-  fetchNotifications, markAllRead,
+  fetchNotifications, markAllRead, markOneRead,
   connectSocket, disconnectSocket,
 } = useNotifications()
 
@@ -33,6 +35,12 @@ async function onMarkAllRead() {
   await markAllRead()
   marking.value = false
 }
+
+function onSelect(n: Notification) {
+  open.value = false
+  markOneRead(n.id)
+  navigateTo(notificationRoute(n))
+}
 </script>
 
 <template>
@@ -59,6 +67,7 @@ async function onMarkAllRead() {
         :marking="marking"
         @close="onClose"
         @mark-all-read="onMarkAllRead"
+        @select="onSelect"
       />
     </UiDropdownMenuContent>
   </UiDropdownMenu>

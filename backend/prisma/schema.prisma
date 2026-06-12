@@ -561,6 +561,7 @@ model Notification {
   type    NotificationType
   message String
   read    Boolean          @default(false)
+  data    Json?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

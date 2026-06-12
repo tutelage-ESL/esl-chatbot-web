@@ -1,4 +1,4 @@
-import type { NotificationType } from "@prisma/client";
+import type { NotificationType, Prisma } from "@prisma/client";
 import { prisma } from "../../config/database.ts";
 import { getIO } from "../../socket/io-instance.ts";
 import { AppError } from "../../utils/AppError.ts";
@@ -9,6 +9,7 @@ const NOTIFICATION_SELECT = {
   type: true,
   message: true,
   read: true,
+  data: true,
   createdAt: true,
 } as const;
 
@@ -18,9 +19,10 @@ export async function createNotification(
   userId: string,
   type: NotificationType,
   message: string,
+  data?: Prisma.InputJsonValue,
 ): Promise<void> {
   const notification = await prisma.notification.create({
-    data: { userId, type, message },
+    data: { userId, type, message, ...(data !== undefined ? { data } : {}) },
     select: NOTIFICATION_SELECT,
   });
 

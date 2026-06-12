@@ -1,0 +1,24 @@
+import type { Notification } from '~/common/model/notification'
+
+export function notificationRoute(n: Notification): string {
+  switch (n.type) {
+    case 'STREAK_MILESTONE':
+      return '/dashboard'
+    case 'GOAL_COMPLETED':
+    case 'GOAL_ASSIGNED':
+      return '/dashboard/goals'
+    case 'VOCABULARY_ASSIGNED':
+      return '/dashboard/vocab'
+    case 'TASK_ASSIGNED':
+    case 'TASK_SUBMITTED':
+      return n.data?.classId
+        ? `/dashboard/classes/${n.data.classId}?tab=tasks`
+        : '/dashboard/classes'
+    case 'CLASS_ANNOUNCEMENT':
+      return n.data?.classId
+        ? `/dashboard/classes/${n.data.classId}?tab=announcements`
+        : '/dashboard/classes'
+    default:
+      return '/dashboard'
+  }
+}

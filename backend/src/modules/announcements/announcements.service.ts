@@ -89,7 +89,7 @@ export async function createAnnouncement(
 
   await Promise.all(
     students.map((s) =>
-      createNotification(s.userId, "CLASS_ANNOUNCEMENT", `New announcement in ${className}`),
+      createNotification(s.userId, "CLASS_ANNOUNCEMENT", `New announcement in ${className}`, { classId }),
     ),
   ).catch(() => {});
 

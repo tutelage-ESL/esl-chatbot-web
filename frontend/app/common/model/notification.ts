@@ -7,11 +7,19 @@ export type NotificationType =
   | 'TASK_ASSIGNED'
   | 'TASK_SUBMITTED'
 
+export interface NotificationData {
+  classId?: string
+  taskId?: string
+  goalId?: string
+  vocabularyId?: string
+}
+
 export interface Notification {
   id: string
   userId: string
   type: NotificationType
   message: string
   read: boolean
+  data?: NotificationData | null
   createdAt: string
 }

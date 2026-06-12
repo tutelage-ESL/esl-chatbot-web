@@ -36,17 +36,31 @@ What was built — a hands-free live **CALL**, not a chat:
 
 ---
 
-### 8. Notification items — make clickable with redirect
-**File:** `app/components/Layouts/Dashboard/NotificationPanel.vue`  
-**Status:** Items are static — clicking does nothing.
+### 8. Notification items — make clickable with redirect ✅ DONE (2026-06-12)
 
-Each notification type should navigate to the relevant page when clicked:
-- `STREAK_MILESTONE` → `/dashboard` (overview)
-- `GOAL_COMPLETED` → `/dashboard/goals`
-- `GOAL_ASSIGNED` → `/dashboard/goals`
-- `CLASS_ANNOUNCEMENT` → `/dashboard/classes`
+**Files changed:**
+- `backend/prisma/schema.prisma` — added `data Json?` to Notification model (db:pushed)
+- `backend/src/modules/notifications/notifications.service.ts` — `createNotification` accepts optional 4th `data` arg; `NOTIFICATION_SELECT` includes `data`
+- `backend/src/modules/notifications/notifications.types.ts` — `NotificationItem.data: Prisma.JsonValue | null`
+- `backend/src/modules/notifications/notifications.router.ts` — Swagger updated: all 7 types in enum, `data` field documented
+- `backend/src/modules/tasks/tasks.service.ts` — TASK_ASSIGNED passes `{ classId, taskId }`, TASK_SUBMITTED passes `{ classId: task.classId, taskId }`
+- `backend/src/modules/announcements/announcements.service.ts` — CLASS_ANNOUNCEMENT passes `{ classId }`
+- `backend/src/modules/goals/goals.service.ts` — GOAL_ASSIGNED passes `{ goalId }`, GOAL_COMPLETED passes `{ goalId }`
+- `backend/src/modules/vocabulary/vocabulary.service.ts` — **security fix:** added TUTOR class-membership guard (mirrors goals); **bug fix:** now fires VOCABULARY_ASSIGNED notification with `{ vocabularyId }` (was documented but never implemented)
+- `app/common/model/notification.ts` — added `NotificationData` interface, `data?: NotificationData | null` on `Notification`
+- `app/common/data/notification-routes.ts` — new `notificationRoute(n)` function mapping all 7 types to routes
+- `app/composables/useNotifications.ts` — added `markOneRead(id)` (optimistic + fire-and-forget PATCH)
+- `app/components/Layouts/Dashboard/NotificationPanel.vue` — rows are now clickable (cursor-pointer, hover surface, `select` emit)
+- `app/components/Layouts/Dashboard/NotificationBell.vue` — `onSelect` closes dropdown, calls `markOneRead`, navigates via `notificationRoute`
+- `app/pages/dashboard/classes/[id]/index.vue` — `?tab=` query param deep-link support; `route.params.id` watcher so class-to-class navigation reloads; post-load tab validation
 
-On click: close the dropdown, navigate to the route. Mark the individual item as read if it isn't already — use `PATCH /users/me/notifications/:id/read` (now available). Returns the updated notification with `read: true`. 404 if the notification doesn't exist or belongs to another user.
+**Routes:**
+- `STREAK_MILESTONE` → `/dashboard`
+- `GOAL_COMPLETED` / `GOAL_ASSIGNED` → `/dashboard/goals`
+- `VOCABULARY_ASSIGNED` → `/dashboard/vocab`
+- `TASK_ASSIGNED` / `TASK_SUBMITTED` → `/dashboard/classes/{classId}?tab=tasks`
+- `CLASS_ANNOUNCEMENT` → `/dashboard/classes/{classId}?tab=announcements`
+- Old notifications with `data=null` fall back to the generic list page gracefully.
 
 ---
 
@@ -108,11 +122,6 @@ UI fully implemented. Tasks tab added to `/dashboard/classes/[id]` alongside Mem
 - `app/components/Pages/Dashboard/Classes/Tasks/TaskDetailSheet.vue` — right-side sheet: tutor sees all submissions; student sees submit form / own feedback
 - `app/components/Pages/Dashboard/Classes/Tasks/SubmissionRow.vue` — per-submission row with write/edit feedback form
 - `app/common/model/notification.ts` + `NotificationPanel.vue` — extended with `TASK_ASSIGNED`, `TASK_SUBMITTED`, `VOCABULARY_ASSIGNED` icon/color mappings
-
-**Notification routing still pending (task #8):**
-- `TASK_ASSIGNED` → `/dashboard/classes/{classId}` (student should land on Tasks tab)
-- `TASK_SUBMITTED` → `/dashboard/classes/{classId}` (tutor should land on Tasks tab)
-- Wire this when implementing notification click routing in `NotificationPanel.vue`.
 
 ### Rate limiting (2026-05-29)
 Rate limiting is now live in production on all auth and AI endpoints. The backend returns **HTTP 429** with `{ success: false, message: "Too many requests. Please wait and try again.", data: null }`.

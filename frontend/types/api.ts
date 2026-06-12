@@ -3787,7 +3787,16 @@ export interface paths {
          *     - `STREAK_MILESTONE` — reached a 7-day or 30-day streak
          *     - `GOAL_COMPLETED` — a goal was marked completed
          *     - `GOAL_ASSIGNED` — a tutor assigned you a new goal
+         *     - `VOCABULARY_ASSIGNED` — a tutor assigned you a new vocabulary word
          *     - `CLASS_ANNOUNCEMENT` — new announcement in one of your classes
+         *     - `TASK_ASSIGNED` — a new task was posted in one of your classes
+         *     - `TASK_SUBMITTED` — a student submitted a task (tutor-facing)
+         *
+         *     The `data` field carries routing metadata when present (may be null for older notifications):
+         *     - `classId` — for CLASS_ANNOUNCEMENT, TASK_ASSIGNED, TASK_SUBMITTED
+         *     - `taskId` — for TASK_ASSIGNED, TASK_SUBMITTED
+         *     - `goalId` — for GOAL_ASSIGNED, GOAL_COMPLETED
+         *     - `vocabularyId` — for VOCABULARY_ASSIGNED
          */
         get: {
             parameters: {
@@ -3815,9 +3824,19 @@ export interface paths {
                                 /** Format: uuid */
                                 id?: string;
                                 /** @enum {string} */
-                                type?: "STREAK_MILESTONE" | "GOAL_COMPLETED" | "GOAL_ASSIGNED" | "CLASS_ANNOUNCEMENT";
+                                type?: "STREAK_MILESTONE" | "GOAL_COMPLETED" | "GOAL_ASSIGNED" | "VOCABULARY_ASSIGNED" | "CLASS_ANNOUNCEMENT" | "TASK_ASSIGNED" | "TASK_SUBMITTED";
                                 message?: string;
                                 read?: boolean;
+                                data?: {
+                                    /** Format: uuid */
+                                    classId?: string;
+                                    /** Format: uuid */
+                                    taskId?: string;
+                                    /** Format: uuid */
+                                    goalId?: string;
+                                    /** Format: uuid */
+                                    vocabularyId?: string;
+                                } | null;
                                 /** Format: date-time */
                                 createdAt?: string;
                             }[];
@@ -3941,10 +3960,20 @@ export interface paths {
                                 /** Format: uuid */
                                 id?: string;
                                 /** @enum {string} */
-                                type?: "STREAK_MILESTONE" | "GOAL_COMPLETED" | "GOAL_ASSIGNED" | "CLASS_ANNOUNCEMENT";
+                                type?: "STREAK_MILESTONE" | "GOAL_COMPLETED" | "GOAL_ASSIGNED" | "VOCABULARY_ASSIGNED" | "CLASS_ANNOUNCEMENT" | "TASK_ASSIGNED" | "TASK_SUBMITTED";
                                 message?: string;
                                 /** @example true */
                                 read?: boolean;
+                                data?: {
+                                    /** Format: uuid */
+                                    classId?: string;
+                                    /** Format: uuid */
+                                    taskId?: string;
+                                    /** Format: uuid */
+                                    goalId?: string;
+                                    /** Format: uuid */
+                                    vocabularyId?: string;
+                                } | null;
                                 /** Format: date-time */
                                 createdAt?: string;
                             };

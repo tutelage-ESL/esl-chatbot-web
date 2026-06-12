@@ -10,6 +10,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: []
   markAllRead: []
+  select: [n: Notification]
 }>()
 
 const TYPE_ICON: Record<NotificationType, string> = {
@@ -80,8 +81,13 @@ function relativeTime(iso: string): string {
     <!-- Notification list -->
     <div v-else class="max-h-90 overflow-y-auto">
       <div v-for="n in notifications" :key="n.id"
-        class="flex items-start gap-3 px-4 py-3.5 transition-colors duration-150"
-        :style="!n.read ? 'background:var(--surface-raised)' : ''" style="border-bottom:1px solid var(--border-inner)">
+        role="button"
+        class="flex items-start gap-3 px-4 py-3.5 transition-colors duration-150 cursor-pointer"
+        :style="!n.read ? 'background:var(--surface-raised)' : ''"
+        style="border-bottom:1px solid var(--border-inner)"
+        :onmouseenter="(e: MouseEvent) => (e.currentTarget as HTMLElement).style.background = 'var(--surface-well)'"
+        :onmouseleave="(e: MouseEvent) => (e.currentTarget as HTMLElement).style.background = !n.read ? 'var(--surface-raised)' : ''"
+        @click="emit('select', n)">
         <!-- Type icon -->
         <div :class="['size-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5', TYPE_COLOR[n.type]]">
           <AppIconsax :name="(TYPE_ICON[n.type]) as any" color="currentColor" :size="16" />

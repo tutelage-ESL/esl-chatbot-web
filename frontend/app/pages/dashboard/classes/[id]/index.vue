@@ -36,7 +36,11 @@ const myClassRole = computed(() =>
 const isTutorOrAdmin = computed(() => myClassRole.value === 'TUTOR' || isAdmin.value)
 
 type Tab = 'members' | 'students' | 'analytics' | 'announcements' | 'tasks'
-const activeTab = ref<Tab>('members')
+const ALL_TABS: Tab[] = ['members', 'students', 'analytics', 'announcements', 'tasks']
+function parseTab(raw: unknown): Tab | null {
+  return ALL_TABS.includes(raw as Tab) ? (raw as Tab) : null
+}
+const activeTab = ref<Tab>(parseTab(route.query.tab) ?? 'members')
 
 // Caller is a student in the class (drives submit UI — ADMIN is never a student)
 const isStudentInClass = computed(() => myClassRole.value === 'STUDENT' && !isAdmin.value)
@@ -81,6 +85,10 @@ async function load() {
     return
   }
   cls.value = res.data?.data as ClassDetail
+  // After roles are known, reset to 'members' if the current tab isn't visible to this user
+  if (!visibleTabs.value.some(t => t.key === activeTab.value)) {
+    activeTab.value = 'members'
+  }
 }
 
 async function handleCopy() {
@@ -133,6 +141,17 @@ function fmtExpiry(iso: string) {
   if (diff < 1440) return `Expires in ${Math.floor(diff / 60)}h`
   return `Expires ${fmtDate(iso)}`
 }
+
+// Reload when navigating to a different class (e.g. from a notification deep-link)
+watch(() => route.params.id, () => { load() })
+
+// Sync active tab when ?tab= query param changes (e.g. navigating from a notification on the same class)
+watch(() => route.query.tab, (tab) => {
+  const parsed = parseTab(tab)
+  if (parsed && visibleTabs.value.some(t => t.key === parsed)) {
+    activeTab.value = parsed
+  }
+})
 
 onMounted(load)
 </script>

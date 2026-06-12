@@ -28,7 +28,16 @@ const router = Router();
  *       - `STREAK_MILESTONE` — reached a 7-day or 30-day streak
  *       - `GOAL_COMPLETED` — a goal was marked completed
  *       - `GOAL_ASSIGNED` — a tutor assigned you a new goal
+ *       - `VOCABULARY_ASSIGNED` — a tutor assigned you a new vocabulary word
  *       - `CLASS_ANNOUNCEMENT` — new announcement in one of your classes
+ *       - `TASK_ASSIGNED` — a new task was posted in one of your classes
+ *       - `TASK_SUBMITTED` — a student submitted a task (tutor-facing)
+ *
+ *       The `data` field carries routing metadata when present (may be null for older notifications):
+ *       - `classId` — for CLASS_ANNOUNCEMENT, TASK_ASSIGNED, TASK_SUBMITTED
+ *       - `taskId` — for TASK_ASSIGNED, TASK_SUBMITTED
+ *       - `goalId` — for GOAL_ASSIGNED, GOAL_COMPLETED
+ *       - `vocabularyId` — for VOCABULARY_ASSIGNED
  *     tags: [Notifications]
  *     security:
  *       - bearerAuth: []
@@ -58,9 +67,19 @@ const router = Router();
  *                     type: object
  *                     properties:
  *                       id: { type: string, format: uuid }
- *                       type: { type: string, enum: [STREAK_MILESTONE, GOAL_COMPLETED, GOAL_ASSIGNED, CLASS_ANNOUNCEMENT] }
+ *                       type:
+ *                         type: string
+ *                         enum: [STREAK_MILESTONE, GOAL_COMPLETED, GOAL_ASSIGNED, VOCABULARY_ASSIGNED, CLASS_ANNOUNCEMENT, TASK_ASSIGNED, TASK_SUBMITTED]
  *                       message: { type: string }
  *                       read: { type: boolean }
+ *                       data:
+ *                         type: object
+ *                         nullable: true
+ *                         properties:
+ *                           classId: { type: string, format: uuid }
+ *                           taskId: { type: string, format: uuid }
+ *                           goalId: { type: string, format: uuid }
+ *                           vocabularyId: { type: string, format: uuid }
  *                       createdAt: { type: string, format: date-time }
  *                 meta:
  *                   type: object
@@ -126,9 +145,19 @@ router.patch("/me/notifications/read-all", authenticate, markAllReadHandler);
  *                   type: object
  *                   properties:
  *                     id: { type: string, format: uuid }
- *                     type: { type: string, enum: [STREAK_MILESTONE, GOAL_COMPLETED, GOAL_ASSIGNED, CLASS_ANNOUNCEMENT] }
+ *                     type:
+ *                       type: string
+ *                       enum: [STREAK_MILESTONE, GOAL_COMPLETED, GOAL_ASSIGNED, VOCABULARY_ASSIGNED, CLASS_ANNOUNCEMENT, TASK_ASSIGNED, TASK_SUBMITTED]
  *                     message: { type: string }
  *                     read: { type: boolean, example: true }
+ *                     data:
+ *                       type: object
+ *                       nullable: true
+ *                       properties:
+ *                         classId: { type: string, format: uuid }
+ *                         taskId: { type: string, format: uuid }
+ *                         goalId: { type: string, format: uuid }
+ *                         vocabularyId: { type: string, format: uuid }
  *                     createdAt: { type: string, format: date-time }
  *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  *       404: { description: Notification not found or does not belong to the caller }
