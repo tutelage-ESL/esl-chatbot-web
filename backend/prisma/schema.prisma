@@ -242,8 +242,10 @@ model LearnerProfile {
   autoSpeak         Boolean @default(false)
   uiLanguage        String  @default("en")
   theme             String  @default("light")
-  weeklyGoalMinutes Int     @default(60)
-  timezone          String  @default("UTC")
+  weeklyGoalMinutes  Int      @default(60)
+  timezone           String   @default("UTC")
+  emailDigestEnabled Boolean  @default(true)
+  digestLastSentAt   DateTime?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

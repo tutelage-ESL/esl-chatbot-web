@@ -49,6 +49,9 @@ const envSchema = z.object({
   R2_PUBLIC_URL: z.string().url().optional(),
 
   CORS_ORIGIN: z.string().default("http://localhost:3000"),
+  // Public URL of the frontend app — used in digest emails as the CTA link.
+  // Falls back to CORS_ORIGIN if unset (fine for single-origin setups).
+  FRONTEND_URL: z.string().url().optional(),
 
   // Sentry — optional; error reporting disabled if not set (always off in dev/test)
   SENTRY_DSN: z.string().url().optional(),

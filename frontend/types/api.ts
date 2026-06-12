@@ -5797,6 +5797,8 @@ export interface paths {
                         weeklyGoalMinutes?: number;
                         /** @example Asia/Baghdad */
                         timezone?: string;
+                        /** @description Opt out of the weekly progress digest email */
+                        emailDigestEnabled?: boolean;
                     };
                 };
             };
@@ -5982,6 +5984,7 @@ export interface paths {
                                     timezone?: string;
                                     uiLanguage?: string;
                                     theme?: string;
+                                    emailDigestEnabled?: boolean;
                                 } | null;
                                 subscription?: {
                                     /** Format: uuid */
@@ -6543,6 +6546,8 @@ export interface components {
             weeklyGoalMinutes?: number;
             /** @example Asia/Baghdad */
             timezone?: string;
+            /** @example true */
+            emailDigestEnabled?: boolean;
         } | null;
         MyProfile: {
             /** Format: uuid */

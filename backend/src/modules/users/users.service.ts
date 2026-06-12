@@ -74,6 +74,7 @@ export async function getUserById(id: string): Promise<UserDetail> {
           timezone: true,
           uiLanguage: true,
           theme: true,
+          emailDigestEnabled: true,
         },
       },
       subscription: {
@@ -158,6 +159,7 @@ export async function getMyProfile(userId: string): Promise<MyProfile> {
           theme: true,
           weeklyGoalMinutes: true,
           timezone: true,
+          emailDigestEnabled: true,
         },
       },
     },
@@ -358,6 +360,7 @@ export async function updateMyLearnerProfile(
       theme: true,
       weeklyGoalMinutes: true,
       timezone: true,
+      emailDigestEnabled: true,
     },
   });
 

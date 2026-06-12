@@ -50,6 +50,18 @@ On click: close the dropdown, navigate to the route. Mark the individual item as
 
 ---
 
+### 9. Settings — Weekly digest email toggle (2026-06-12)
+**File:** `app/pages/dashboard/settings.vue` (or the relevant settings section component)  
+**Status:** Backend done. Needs a UI toggle.
+
+Add a "Email me a weekly progress digest" toggle in the Settings → Profile section:
+- **Read:** `GET /users/me` → `data.learnerProfile.emailDigestEnabled` (boolean, default `true`)
+- **Write:** `PATCH /users/me/learner-profile` → `{ emailDigestEnabled: false/true }`
+- Show a labeled toggle switch. When off, show a short helper text: "You won't receive weekly progress emails."
+- Types are already in `frontend/types/api.ts` — look for `emailDigestEnabled` in the learner profile shape.
+
+---
+
 ## Backend Notes for Frontend
 
 ### Internal (stealth) admin accounts — FYI only, nothing to wire (2026-06-12)

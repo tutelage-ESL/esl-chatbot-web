@@ -22,7 +22,8 @@
     "test:setup:env": "bun scripts/setup-test-db.ts",
     "test": "infisical run --env=dev -- bun test",
     "test:env": "bun test",
-    "test:watch": "infisical run --env=dev -- bun test --watch"
+    "test:watch": "infisical run --env=dev -- bun test --watch",
+    "job:digest": "infisical run --env=dev -- bun scripts/run-digest.ts"
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",

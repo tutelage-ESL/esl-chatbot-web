@@ -175,6 +175,7 @@ async function main() {
       voiceSpeed: 0.8,
       weeklyGoalMinutes: 90,
       timezone: "Asia/Tokyo",
+      emailDigestEnabled: false,
     },
   });
   console.log("   ✅ 2 learner profiles created\n");

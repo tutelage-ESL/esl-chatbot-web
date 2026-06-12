@@ -100,14 +100,22 @@ Unblocked once the app is hosted and has a public URL.
 
 ---
 
-## 7. Weekly Digest Email
+## 7. Weekly Digest Email ✅ DONE (2026-06-12)
 Resend is already wired (welcome + password reset done). This adds the weekly summary.
 
-- New cron job `src/jobs/weekly-digest.job.ts` — runs Sunday 08:00 UTC
-- Email: streak, study time this week, skill progress, vocab due count, encouraging CTA
-- Respect user timezone (`LearnerProfile.timezone`)
-- Add `emailDigestEnabled` boolean to `LearnerProfile` (opt-out, default true)
-- New migration + seed update
+- ✅ `emailDigestEnabled Boolean @default(true)` + `digestLastSentAt DateTime?` added to `LearnerProfile`; migration `20260612150622_add_email_digest_fields` applied
+- ✅ `PATCH /users/me/learner-profile` accepts `emailDigestEnabled` (opt-out toggle); exposed in `GET /users/me` and `GET /users/:id` responses; Swagger + `frontend/types/api.ts` updated
+- ✅ `FRONTEND_URL` optional env var added (`config/env.ts` + `.env.example`); digest CTA defaults to `CORS_ORIGIN`
+- ✅ Cron changed to hourly tick (`0 * * * *`); `runWeeklyDigestJob()` matches users whose local time is **Sunday 08:00** per `LearnerProfile.timezone` — satisfies both "Sunday 08:00" and "respect timezone" spec requirements
+- ✅ Email content: streak, study time, sessions, messages, vocab reviewed, skill scores (grammar/vocab/fluency) with weekly delta from `Progress.skillSnapshot`, vocab due, active goals (truncated 80 chars), CTA button, "turn off in Settings → Profile" footer note
+- ✅ HTML builder split into `src/jobs/weekly-digest.email.ts`; orchestration in `weekly-digest.job.ts`
+- ✅ Fixed Resend SDK bug: SDK returns `{ data, error }` not throws — now checks `if (error) throw` so per-user `catch + failed++` actually fires on API errors
+- ✅ `digestLastSentAt` stamped only on success; 6-day dedup guard prevents double-sends from DST shifts or manual reruns
+- ✅ `bun run job:digest` (+ `-- --force`) dev trigger in `scripts/run-digest.ts`
+- ✅ Seed: `student_yuki` has `emailDigestEnabled: false`; `student_ali` defaults to `true` — lets `--force` verify the filter
+- ✅ Tests: `src/jobs/__tests__/weekly-digest.test.ts` (unit: `isLocalSundayDigestHour`, `buildDigestHtml`, `esc`); 3 new integration tests in `users.router.test.ts` (set false/true, 422 non-boolean, `GET /users/me` includes field)
+- **Follow-up (pre-launch):** tokenized one-click unsubscribe link — settings toggle is sufficient for now
+- **Prod note:** set `FRONTEND_URL` in Infisical `prod` env to the live frontend domain
 
 ---
 

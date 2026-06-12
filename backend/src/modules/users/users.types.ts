@@ -28,6 +28,7 @@ export interface UserDetail extends UserListItem {
     timezone: string;
     uiLanguage: string;
     theme: string;
+    emailDigestEnabled: boolean;
   } | null;
   subscription: {
     id: string;
@@ -128,5 +129,6 @@ export interface MyProfile {
     theme: string;
     weeklyGoalMinutes: number;
     timezone: string;
+    emailDigestEnabled: boolean;
   } | null;
 }

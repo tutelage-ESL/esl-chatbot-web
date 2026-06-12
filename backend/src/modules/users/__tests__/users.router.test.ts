@@ -384,6 +384,58 @@ describe("PATCH /api/v1/users/me/learner-profile — update learner settings", (
       .send({ currentLevel: "B1" });
     expect(res.status).toBe(401);
   });
+
+  it("200 — can set emailDigestEnabled to false", async () => {
+    const u = track(await createTestUser());
+    const res = await request(app)
+      .patch("/api/v1/users/me/learner-profile")
+      .set(auth(u.token))
+      .send({ emailDigestEnabled: false });
+    expect(res.status).toBe(200);
+    expect(res.body.data.emailDigestEnabled).toBe(false);
+  });
+
+  it("200 — can set emailDigestEnabled back to true", async () => {
+    const u = track(await createTestUser());
+    await request(app)
+      .patch("/api/v1/users/me/learner-profile")
+      .set(auth(u.token))
+      .send({ emailDigestEnabled: false });
+    const res = await request(app)
+      .patch("/api/v1/users/me/learner-profile")
+      .set(auth(u.token))
+      .send({ emailDigestEnabled: true });
+    expect(res.status).toBe(200);
+    expect(res.body.data.emailDigestEnabled).toBe(true);
+  });
+
+  it("422 — emailDigestEnabled must be a boolean, not a string", async () => {
+    const u = track(await createTestUser());
+    const res = await request(app)
+      .patch("/api/v1/users/me/learner-profile")
+      .set(auth(u.token))
+      .send({ emailDigestEnabled: "yes" });
+    expect(res.status).toBe(422);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+describe("GET /api/v1/users/me — emailDigestEnabled in profile", () => {
+  it("GET /users/me includes emailDigestEnabled in learnerProfile", async () => {
+    const u = track(await createTestUser());
+    // Create a profile first
+    await request(app)
+      .patch("/api/v1/users/me/learner-profile")
+      .set(auth(u.token))
+      .send({ emailDigestEnabled: false });
+    const res = await request(app)
+      .get("/api/v1/users/me")
+      .set(auth(u.token));
+    expect(res.status).toBe(200);
+    expect(res.body.data.learnerProfile).toBeDefined();
+    expect(typeof res.body.data.learnerProfile.emailDigestEnabled).toBe("boolean");
+    expect(res.body.data.learnerProfile.emailDigestEnabled).toBe(false);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────

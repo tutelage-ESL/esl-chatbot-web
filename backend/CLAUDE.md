@@ -309,7 +309,7 @@ Run `bun run db:seed` to populate the database with test data:
 - **Admin:** admin_main / admin@tutelage.com
 - **Tutor:** tutor_sarah / sarah@tutelage.com (class code: `SARAH123`, weekly auto-refresh, expires in 7 days)
 - **Student 1:** student_ali / ali@tutelage.com (PREMIUM, B1 level)
-- **Student 2:** student_yuki / yuki@tutelage.com (FREE, A2 level)
+- **Student 2:** student_yuki / yuki@tutelage.com (FREE, A2 level, `emailDigestEnabled=false` — opted out of weekly digest)
 - **Internal:** sys_monitor / monitor@tutelage.com (stealth ADMIN, `isInternal=true` — hidden from listings/dashboards/class lists)
 - **Password for all:** `password123`
 
@@ -423,10 +423,10 @@ Includes: classes (with full code-lifecycle fields populated) with enrolled user
 ### Phase 9 — Infrastructure & Polish
 - Redis caching for hot queries (user profiles, session data)
 - ✅ Rate limiting — `src/middlewares/rateLimits.ts`: IP-based limits on all auth endpoints (10 login / 5 register / 5 forgot-password per window), per-user burst limits on AI endpoints (10 msg/min, 5 voice/min, 20 sessions/hr), global fallback 500/15 min. `trust proxy 1` set in `app.ts`. Active in production only (no-op in dev/test).
-- Email notifications (SendGrid): welcome, password reset, weekly digest
+- ✅ Email notifications (Resend): welcome, password reset, weekly digest. Weekly digest opt-out via `LearnerProfile.emailDigestEnabled` (default true); `bun run job:digest [-- --force]` for manual runs
 - File upload handling (audio recordings, avatars)
 - ✅ Socket.io real-time chat — `/chat` namespace (text `message:send` + voice `voice:start/chunk/end` pipeline) + `/notifications` namespace (server-push). JWT auth at handshake. See `src/socket/`. Voice: client streams base64 chunks → server buffers + streams to Deepgram live for partial transcripts → on `voice:end` runs batch STT→LLM→TTS via `sendVoiceMessage`. To push a notification from any service: `getIO().of('/notifications').to('user:{userId}').emit('notification:new', data)`
-- ✅ Cron jobs: streak reset (00:00 UTC), subscription expiry (01:00 UTC), stale session cleanup (02:00 UTC)
+- ✅ Cron jobs: streak reset (00:00 UTC), subscription expiry (01:00 UTC), stale session cleanup (02:00 UTC), weekly digest (hourly tick — fires per-user at local Sunday 08:00 via `LearnerProfile.timezone`)
 - Comprehensive error logging and monitoring
 - API documentation completion (Swagger)
 - Integration and unit tests

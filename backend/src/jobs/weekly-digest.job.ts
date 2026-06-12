@@ -2,233 +2,235 @@ import { prisma } from "../config/database.ts";
 import { logger } from "../config/index.ts";
 import { resend } from "../config/resend.ts";
 import { env } from "../config/env.ts";
+import { buildDigestHtml, formatWeekLabel, type SkillSnapshot } from "./weekly-digest.email.ts";
 
-interface GoalSummary {
-  description: string;
-  progress: number;
-  type: string;
+export interface DigestJobOptions {
+  force?: boolean;
 }
 
-interface DigestData {
-  displayName: string;
-  weeklyStudyMinutes: number;
-  weeklySessions: number;
-  weeklyMessages: number;
-  weeklyVocabPracticed: number;
-  streak: number;
-  activeGoals: GoalSummary[];
-  vocabDue: number;
-  estimatedLevel: string | null;
+/**
+ * Returns true when the given timezone's local time is Sunday, hour 8.
+ * Falls back to UTC on any invalid IANA timezone string (free-text DB column).
+ */
+export function isLocalSundayDigestHour(timezone: string, now: Date): boolean {
+  let tz = timezone;
+  try {
+    new Intl.DateTimeFormat(undefined, { timeZone: tz });
+  } catch {
+    tz = "UTC";
+  }
+
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    weekday: "short",
+    hour: "numeric",
+    hour12: false,
+  }).formatToParts(now);
+
+  const weekday = parts.find((p) => p.type === "weekday")?.value ?? "";
+  const hourRaw = parts.find((p) => p.type === "hour")?.value ?? "-1";
+  const hour = parseInt(hourRaw, 10);
+
+  return weekday === "Sun" && hour === 8;
 }
 
-export async function runWeeklyDigestJob(): Promise<void> {
+/**
+ * Compute today's UTC-midnight date anchor for a given timezone.
+ * Uses the en-CA locale (YYYY-MM-DD) so we can Date.UTC-pin it, matching
+ * the same pattern used in sessions.service.ts for progress tracking.
+ */
+function localTodayUtc(timezone: string, now: Date): Date {
+  let tz = timezone;
+  try {
+    new Intl.DateTimeFormat(undefined, { timeZone: tz });
+  } catch {
+    tz = "UTC";
+  }
+  const dateStr = now.toLocaleDateString("en-CA", { timeZone: tz });
+  const parts = dateStr.split("-");
+  const y = Number(parts[0]);
+  const m = Number(parts[1]);
+  const d = Number(parts[2]);
+  return new Date(Date.UTC(y, m - 1, d));
+}
+
+/**
+ * Parse a skillSnapshot JSON value defensively.
+ * Returns null if the shape is unexpected (avoids crashing on malformed DB data).
+ */
+function parseSkillSnapshot(raw: unknown): SkillSnapshot | null {
+  if (
+    raw !== null &&
+    typeof raw === "object" &&
+    typeof (raw as Record<string, unknown>).grammar === "number" &&
+    typeof (raw as Record<string, unknown>).vocabulary === "number" &&
+    typeof (raw as Record<string, unknown>).fluency === "number"
+  ) {
+    const r = raw as { grammar: number; vocabulary: number; fluency: number };
+    return { grammar: r.grammar, vocabulary: r.vocabulary, fluency: r.fluency };
+  }
+  return null;
+}
+
+export async function runWeeklyDigestJob(opts: DigestJobOptions = {}): Promise<void> {
+  const { force = false } = opts;
+
   if (!resend || !env.RESEND_API_KEY) {
     logger.warn("[cron:weekly-digest] RESEND_API_KEY not configured — skipping");
     return;
   }
 
   const now = new Date();
-  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const weekStart = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const appUrl = env.FRONTEND_URL ?? env.CORS_ORIGIN;
 
-  const users = await prisma.user.findMany({
-    where: {
-      isActive: true,
-      emailVerified: true,
-      role: "STUDENT",
-      isInternal: false,
-    },
-    select: {
-      id: true,
-      email: true,
-      displayName: true,
-      metrics: {
-        select: {
-          currentStreak: true,
-          estimatedLevel: true,
-        },
-      },
-      progress: {
-        where: { date: { gte: weekStart } },
-        select: {
-          studyMinutes: true,
-          sessionsCount: true,
-          messagesCount: true,
-          vocabularyPracticed: true,
-        },
-      },
-      goals: {
-        where: { status: "ACTIVE" },
-        select: { description: true, progress: true, type: true },
-        take: 3,
-        orderBy: { lastProgressUpdate: "desc" },
-      },
-      _count: {
-        select: {
-          vocabularies: { where: { srsDue: { lte: today } } },
-        },
-      },
-    },
+  // ── 1. Find timezones whose local time is currently Sunday 08:xx ─────────────
+  const allTimezones = await prisma.learnerProfile.groupBy({
+    by: ["timezone"],
+    where: { emailDigestEnabled: true },
   });
+
+  const matchedTimezones = force
+    ? allTimezones.map((r) => r.timezone)
+    : allTimezones.map((r) => r.timezone).filter((tz) => isLocalSundayDigestHour(tz, now));
+
+  if (matchedTimezones.length === 0) {
+    logger.debug("[cron:weekly-digest] No timezones at local Sunday 08:00 — skipping");
+    return;
+  }
+
+  logger.info(`[cron:weekly-digest] Processing ${matchedTimezones.length} timezone(s): ${matchedTimezones.join(", ")}`);
 
   let sent = 0;
   let failed = 0;
 
-  for (const user of users) {
-    try {
-      const weeklyStudyMinutes = user.progress.reduce((acc, p) => acc + p.studyMinutes, 0);
-      const weeklySessions = user.progress.reduce((acc, p) => acc + p.sessionsCount, 0);
-      const weeklyMessages = user.progress.reduce((acc, p) => acc + p.messagesCount, 0);
-      const weeklyVocabPracticed = user.progress.reduce((acc, p) => acc + p.vocabularyPracticed, 0);
+  // ── 2. Process each matching timezone separately (different date windows) ────
+  for (const tz of matchedTimezones) {
+    const today = localTodayUtc(tz, now);
+    const weekStart = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const sixDaysAgo = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
 
-      const html = buildDigestHtml({
-        displayName: user.displayName,
-        weeklyStudyMinutes,
-        weeklySessions,
-        weeklyMessages,
-        weeklyVocabPracticed,
-        streak: user.metrics?.currentStreak ?? 0,
-        activeGoals: user.goals,
-        vocabDue: user._count.vocabularies,
-        estimatedLevel: user.metrics?.estimatedLevel ?? null,
-      });
+    const users = await prisma.user.findMany({
+      where: {
+        isActive: true,
+        emailVerified: true,
+        role: "STUDENT",
+        isInternal: false,
+        learnerProfile: {
+          is: {
+            emailDigestEnabled: true,
+            timezone: tz,
+            ...(force
+              ? {}
+              : {
+                  OR: [
+                    { digestLastSentAt: null },
+                    { digestLastSentAt: { lt: sixDaysAgo } },
+                  ],
+                }),
+          },
+        },
+      },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        metrics: {
+          select: {
+            currentStreak: true,
+            estimatedLevel: true,
+            grammarSkill: true,
+            vocabularySkill: true,
+            fluencySkill: true,
+          },
+        },
+        progress: {
+          where: { date: { gte: weekStart, lte: today } },
+          select: {
+            studyMinutes: true,
+            sessionsCount: true,
+            messagesCount: true,
+            vocabularyPracticed: true,
+            skillSnapshot: true,
+          },
+          orderBy: { date: "asc" },
+        },
+        goals: {
+          where: { status: "ACTIVE" },
+          select: { description: true, progress: true, type: true },
+          take: 3,
+          orderBy: { lastProgressUpdate: "desc" },
+        },
+        _count: {
+          select: {
+            vocabularies: { where: { srsDue: { lte: today } } },
+          },
+        },
+      },
+    });
 
-      await resend.emails.send({
-        from: env.EMAIL_FROM ?? "noreply@resend.dev",
-        to: user.email,
-        subject: `Your weekly Tutelage progress — ${formatWeekLabel(weekStart, now)}`,
-        html,
-      });
+    for (const user of users) {
+      try {
+        const weeklyStudyMinutes = user.progress.reduce((acc, p) => acc + p.studyMinutes, 0);
+        const weeklySessions = user.progress.reduce((acc, p) => acc + p.sessionsCount, 0);
+        const weeklyMessages = user.progress.reduce((acc, p) => acc + p.messagesCount, 0);
+        const weeklyVocabPracticed = user.progress.reduce((acc, p) => acc + p.vocabularyPracticed, 0);
 
-      sent++;
-    } catch (err) {
-      logger.error(`[cron:weekly-digest] Failed to send to ${user.email}`, { error: err });
-      failed++;
+        // Compute skill delta: compare earliest vs latest valid snapshot in the window
+        const snapshots = user.progress
+          .map((p) => parseSkillSnapshot(p.skillSnapshot))
+          .filter((s): s is SkillSnapshot => s !== null);
+        const earliest = snapshots[0];
+        const skillDelta =
+          snapshots.length >= 2 && earliest
+            ? {
+                grammar: earliest.grammar,
+                vocabulary: earliest.vocabulary,
+                fluency: earliest.fluency,
+              }
+            : null;
+
+        const html = buildDigestHtml({
+          displayName: user.displayName,
+          weeklyStudyMinutes,
+          weeklySessions,
+          weeklyMessages,
+          weeklyVocabPracticed,
+          streak: user.metrics?.currentStreak ?? 0,
+          activeGoals: user.goals,
+          vocabDue: user._count.vocabularies,
+          estimatedLevel: user.metrics?.estimatedLevel ?? null,
+          grammarSkill: user.metrics?.grammarSkill ?? 0,
+          vocabularySkill: user.metrics?.vocabularySkill ?? 0,
+          fluencySkill: user.metrics?.fluencySkill ?? 0,
+          skillDelta,
+          appUrl,
+        });
+
+        const { error } = await resend.emails.send({
+          from: env.EMAIL_FROM ?? "noreply@resend.dev",
+          to: user.email,
+          subject: `Your weekly Tutelage progress — ${formatWeekLabel(weekStart, today)}`,
+          html,
+        });
+
+        if (error) throw new Error(`Resend: ${error.message}`);
+
+        // Stamp only on confirmed success — a failed send must not block a retry
+        await prisma.learnerProfile.update({
+          where: { userId: user.id },
+          data: { digestLastSentAt: now },
+        });
+
+        sent++;
+
+        // Respect Resend's ~2 req/s limit (upgrade path: resend.batch.send for large lists)
+        await new Promise((r) => setTimeout(r, 600));
+      } catch (err) {
+        logger.error(`[cron:weekly-digest] Failed to send to ${user.email}`, { error: err });
+        failed++;
+      }
     }
   }
 
-  logger.info(`[cron:weekly-digest] Sent ${sent} digest(s), ${failed} failed, ${users.length} total`);
-}
-
-function esc(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function formatWeekLabel(start: Date, end: Date): string {
-  const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
-  return `${start.toLocaleDateString("en-US", opts)} – ${end.toLocaleDateString("en-US", opts)}`;
-}
-
-function buildDigestHtml(data: DigestData): string {
-  const {
-    displayName,
-    weeklyStudyMinutes,
-    weeklySessions,
-    weeklyMessages,
-    weeklyVocabPracticed,
-    streak,
-    activeGoals,
-    vocabDue,
-    estimatedLevel,
-  } = data;
-
-  const hours = Math.floor(weeklyStudyMinutes / 60);
-  const minutes = weeklyStudyMinutes % 60;
-  const studyTimeStr = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-
-  const streakLine =
-    streak === 0
-      ? "You haven't studied yet this week — now's a great time to start!"
-      : streak >= 30
-        ? `🔥 ${streak}-day streak — incredible consistency!`
-        : streak >= 7
-          ? `🔥 ${streak}-day streak — keep the momentum going!`
-          : `${streak}-day streak — build that habit!`;
-
-  const goalsHtml =
-    activeGoals.length > 0
-      ? `
-        <h3 style="margin-bottom:8px;">Active goals</h3>
-        <ul style="margin:0;padding-left:20px;">
-          ${activeGoals
-            .map(
-              (g) =>
-                `<li style="margin-bottom:6px;">${esc(g.description)} — <strong>${Math.round(g.progress)}% complete</strong></li>`,
-            )
-            .join("")}
-        </ul>
-      `
-      : `<p style="color:#6b7280;">No active goals set yet. Add one from your profile to stay on track.</p>`;
-
-  const vocabDueHtml =
-    vocabDue > 0
-      ? `<p>📚 You have <strong>${vocabDue} vocabulary card${vocabDue !== 1 ? "s" : ""}</strong> due for review today.</p>`
-      : `<p>✅ No vocabulary cards due — you're all caught up!</p>`;
-
-  const levelLine = estimatedLevel
-    ? `<p><strong>Estimated level:</strong> ${esc(estimatedLevel)}</p>`
-    : "";
-
-  const noActivityNote =
-    weeklySessions === 0
-      ? `<p style="background:#fef9c3;border-left:4px solid #facc15;padding:12px;margin:16px 0;">
-          You didn't have any sessions last week. Even one 10-minute chat can keep your skills sharp — give it a try!
-        </p>`
-      : "";
-
-  return `
-    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a;line-height:1.6;">
-      <div style="background:#4f46e5;padding:24px 32px;border-radius:8px 8px 0 0;">
-        <h1 style="color:#fff;margin:0;font-size:22px;">Your weekly progress</h1>
-        <p style="color:#c7d2fe;margin:4px 0 0;">Tutelage — English Learning</p>
-      </div>
-
-      <div style="padding:24px 32px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
-        <p>Hi ${esc(displayName)},</p>
-        <p>Here's a look at your English learning activity over the past 7 days.</p>
-
-        ${noActivityNote}
-
-        <h3 style="margin-bottom:8px;">Last 7 days</h3>
-        <table style="width:100%;border-collapse:collapse;margin-bottom:20px;text-align:center;">
-          <tr>
-            <td style="padding:16px 8px;border:1px solid #e5e7eb;border-radius:4px;">
-              <div style="font-size:26px;font-weight:700;">${studyTimeStr}</div>
-              <div style="font-size:13px;color:#6b7280;margin-top:2px;">Study time</div>
-            </td>
-            <td style="padding:16px 8px;border:1px solid #e5e7eb;">
-              <div style="font-size:26px;font-weight:700;">${weeklySessions}</div>
-              <div style="font-size:13px;color:#6b7280;margin-top:2px;">Sessions</div>
-            </td>
-            <td style="padding:16px 8px;border:1px solid #e5e7eb;">
-              <div style="font-size:26px;font-weight:700;">${weeklyMessages}</div>
-              <div style="font-size:13px;color:#6b7280;margin-top:2px;">Messages</div>
-            </td>
-            <td style="padding:16px 8px;border:1px solid #e5e7eb;border-radius:4px;">
-              <div style="font-size:26px;font-weight:700;">${weeklyVocabPracticed}</div>
-              <div style="font-size:13px;color:#6b7280;margin-top:2px;">Vocab reviewed</div>
-            </td>
-          </tr>
-        </table>
-
-        <p><strong>Streak:</strong> ${streakLine}</p>
-        ${levelLine}
-        ${vocabDueHtml}
-
-        <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;" />
-        ${goalsHtml}
-
-        <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;" />
-        <p style="color:#6b7280;font-size:13px;margin:0;">
-          You're receiving this weekly digest as a Tutelage learner.<br/>
-          — The Tutelage Team
-        </p>
-      </div>
-    </div>
-  `;
+  logger.info(`[cron:weekly-digest] Done — sent=${sent} failed=${failed}`);
 }

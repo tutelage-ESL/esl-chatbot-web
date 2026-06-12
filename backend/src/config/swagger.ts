@@ -70,6 +70,7 @@ const options: swaggerJsdoc.Options = {
             theme: { type: "string", enum: ["light", "dark"], example: "light" },
             weeklyGoalMinutes: { type: "integer", minimum: 5, maximum: 840, example: 60 },
             timezone: { type: "string", example: "Asia/Baghdad" },
+            emailDigestEnabled: { type: "boolean", example: true },
           },
         },
         MyProfile: {

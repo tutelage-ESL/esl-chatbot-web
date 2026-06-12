@@ -329,6 +329,9 @@ router.patch("/me", authenticate, updateMe);
  *               timezone:
  *                 type: string
  *                 example: Asia/Baghdad
+ *               emailDigestEnabled:
+ *                 type: boolean
+ *                 description: Opt out of the weekly progress digest email
  *     responses:
  *       200:
  *         description: Updated learner profile
@@ -562,6 +565,8 @@ router.get("/", authenticate, authorize("ADMIN"), listUsers);
  *                           type: string
  *                         theme:
  *                           type: string
+ *                         emailDigestEnabled:
+ *                           type: boolean
  *                     subscription:
  *                       type: object
  *                       nullable: true
