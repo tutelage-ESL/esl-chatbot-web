@@ -16,14 +16,20 @@ const TYPE_ICON: Record<NotificationType, string> = {
   STREAK_MILESTONE: 'Flash',
   GOAL_COMPLETED: 'TickCircle',
   GOAL_ASSIGNED: 'Flag',
+  VOCABULARY_ASSIGNED: 'Book1',
   CLASS_ANNOUNCEMENT: 'Notification',
+  TASK_ASSIGNED: 'TaskSquare',
+  TASK_SUBMITTED: 'DirectboxReceive',
 }
 
 const TYPE_COLOR: Record<NotificationType, string> = {
   STREAK_MILESTONE: 'bg-amber-500/15 text-amber-500',
   GOAL_COMPLETED: 'bg-emerald-500/15 text-emerald-500',
   GOAL_ASSIGNED: 'bg-brand-primary/15 text-brand-primary',
+  VOCABULARY_ASSIGNED: 'bg-violet-500/15 text-violet-500',
   CLASS_ANNOUNCEMENT: 'bg-sky-500/15 text-sky-500',
+  TASK_ASSIGNED: 'bg-brand-primary/15 text-brand-primary',
+  TASK_SUBMITTED: 'bg-teal-500/15 text-teal-500',
 }
 
 const hasUnread = computed(() => props.notifications.some(n => !n.read))

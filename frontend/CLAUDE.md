@@ -325,6 +325,12 @@ components/Pages/Dashboard/
 │  ├─ AnnouncementsFeed.vue  # Paginated announcement feed + compose box (tutor/admin)
 │  ├─ ClassesEmptyState.vue  # Empty state for the classes list
 │  ├─ JoinClassModal.vue     # Dialog to join a class by code
+│  ├─ Tasks/                 # Tasks tab — visible to all members, write access tutor/admin only
+│  │  ├─ ClassTasksTab.vue   # Tab root: list + pagination + create/edit/delete/toggle actions → <PagesDashboardClassesTasksClassTasksTab />
+│  │  ├─ TaskCard.vue        # Task row with status badge, deadline chip, submission-state chip, 3-dot menu
+│  │  ├─ TaskFormDialog.vue  # Create + edit task dialog (title / description / deadline)
+│  │  ├─ TaskDetailSheet.vue # Right sheet: tutor sees all submissions + feedback; student submits / views own feedback
+│  │  └─ SubmissionRow.vue   # Per-submission row with write/edit feedback (tutor only)
 │  ├─ Admin/                 # ADMIN role view (rendered by classes/index.vue)
 │  │  ├─ AdminClassesView.vue # Manage-all-classes UI: stats, filters, grid/table, delete → <PagesDashboardClassesAdminClassesView />
 │  │  ├─ ClassGridCard.vue   # Grid card for admin manage view
@@ -357,9 +363,9 @@ Auto-import prefix: `<PagesDashboard{Section}{Component} />`. Examples:
 
 Types are split by domain — never define them inline in a composable:
 
-**`common/model/`** — one file per backend DB table, exact shape (no extra fields). Current: [user.ts](app/common/model/user.ts), [class.ts](app/common/model/class.ts) (`Class`, `ClassUser`, `Announcement`), [subscription.ts](app/common/model/subscription.ts) (`Subscription`, `FibSubscription`), [goal.ts](app/common/model/goal.ts), [notification.ts](app/common/model/notification.ts), [vocabulary.ts](app/common/model/vocabulary.ts). Add a new model file before building UI for a new domain.
+**`common/model/`** — one file per backend DB table, exact shape (no extra fields). Current: [user.ts](app/common/model/user.ts), [class.ts](app/common/model/class.ts) (`Class`, `ClassUser`, `Announcement`), [subscription.ts](app/common/model/subscription.ts) (`Subscription`, `FibSubscription`), [goal.ts](app/common/model/goal.ts), [notification.ts](app/common/model/notification.ts), [vocabulary.ts](app/common/model/vocabulary.ts), [task.ts](app/common/model/task.ts) (`Task`, `TaskSubmission`). Add a new model file before building UI for a new domain.
 
-**`common/types/`** — API response shapes + UI types, one file per domain. Current: [admin-types.ts](app/common/types/admin-types.ts), [button-types.ts](app/common/types/button-types.ts), [chat-types.ts](app/common/types/chat-types.ts), [class-types.ts](app/common/types/class-types.ts), [dashboard-overview-types.ts](app/common/types/dashboard-overview-types.ts), [dashboard-types.ts](app/common/types/dashboard-types.ts), [iconsax-types.ts](app/common/types/iconsax-types.ts), [nav-links-type.ts](app/common/types/nav-links-type.ts), [notification-types.ts](app/common/types/notification-types.ts), [profile-links-type.ts](app/common/types/profile-links-type.ts), [profile-types.ts](app/common/types/profile-types.ts), [subscription-types.ts](app/common/types/subscription-types.ts), [text-types.ts](app/common/types/text-types.ts), [tutor-types.ts](app/common/types/tutor-types.ts), [user-permissions.ts](app/common/types/user-permissions.ts), [vocabulary-types.ts](app/common/types/vocabulary-types.ts), [voice-types.ts](app/common/types/voice-types.ts).
+**`common/types/`** — API response shapes + UI types, one file per domain. Current: [admin-types.ts](app/common/types/admin-types.ts), [button-types.ts](app/common/types/button-types.ts), [chat-types.ts](app/common/types/chat-types.ts), [class-types.ts](app/common/types/class-types.ts), [dashboard-overview-types.ts](app/common/types/dashboard-overview-types.ts), [dashboard-types.ts](app/common/types/dashboard-types.ts), [iconsax-types.ts](app/common/types/iconsax-types.ts), [nav-links-type.ts](app/common/types/nav-links-type.ts), [notification-types.ts](app/common/types/notification-types.ts), [profile-links-type.ts](app/common/types/profile-links-type.ts), [profile-types.ts](app/common/types/profile-types.ts), [subscription-types.ts](app/common/types/subscription-types.ts), [task-types.ts](app/common/types/task-types.ts), [text-types.ts](app/common/types/text-types.ts), [tutor-types.ts](app/common/types/tutor-types.ts), [user-permissions.ts](app/common/types/user-permissions.ts), [vocabulary-types.ts](app/common/types/vocabulary-types.ts), [voice-types.ts](app/common/types/voice-types.ts).
 
 **Rule:** model files (`common/model/`) = exact DB table shape. Type files (`common/types/`) = API response shapes that may extend/pick from model types. **Never define a domain type inline in a composable or component** — add it to the right `common/types/` file and import it. Import from `~/common/model/...` or `~/common/types/...` as appropriate. (Generated backend types live separately in [types/api.ts](types/api.ts) — never edited by hand.)
 
@@ -376,6 +382,7 @@ Types are split by domain — never define them inline in a composable:
 | `useChatPage` / `useSessions` | [useChatPage.ts](app/composables/useChatPage.ts) | Chat page state/actions; `useSessions` is the raw session API layer it builds on |
 | `useVoiceChat` / `useVoiceLab` | [useVoiceChat.ts](app/composables/useVoiceChat.ts) | Voice pipeline state + Voice Lab |
 | `useVocabPage` / `useVocabulary` | [useVocabPage.ts](app/composables/useVocabPage.ts) | Vocab page state; `useVocabulary` is the raw vocab API layer |
+| `useTasks` | [useTasks.ts](app/composables/useTasks.ts) | `listClassTasks`, `getTask`, `createTask`, `updateTask`, `deleteTask`, `submitTask`, `listSubmissions`, `giveFeedback` |
 | `useGoals` | [useGoals.ts](app/composables/useGoals.ts) | Goals page data |
 | `useProfile` | [useProfile.ts](app/composables/useProfile.ts) | Profile page data |
 | `useNotifications` | [useNotifications.ts](app/composables/useNotifications.ts) | Notification feed |

@@ -35,15 +35,19 @@ const myClassRole = computed(() =>
 )
 const isTutorOrAdmin = computed(() => myClassRole.value === 'TUTOR' || isAdmin.value)
 
-type Tab = 'members' | 'students' | 'analytics' | 'announcements'
+type Tab = 'members' | 'students' | 'analytics' | 'announcements' | 'tasks'
 const activeTab = ref<Tab>('members')
+
+// Caller is a student in the class (drives submit UI — ADMIN is never a student)
+const isStudentInClass = computed(() => myClassRole.value === 'STUDENT' && !isAdmin.value)
 
 // `tutorOrAdmin` tabs are for tutors of the class + admins; `adminOnly` tabs only admins.
 const tabs = computed((): { key: Tab; label: string; icon: SvgBasedIconName; show: boolean }[] => [
-  { key: 'members',       label: 'Members',      icon: 'People',       show: true },
-  { key: 'students',      label: 'Students',      icon: 'Teacher',      show: isTutorOrAdmin.value },
-  { key: 'analytics',     label: 'Analytics',     icon: 'Chart21',      show: isTutorOrAdmin.value },
-  { key: 'announcements', label: 'Announcements', icon: 'Notification', show: true },
+  { key: 'members',       label: 'Members',       icon: 'People',       show: true },
+  { key: 'students',      label: 'Students',       icon: 'Teacher',      show: isTutorOrAdmin.value },
+  { key: 'analytics',     label: 'Analytics',      icon: 'Chart21',      show: isTutorOrAdmin.value },
+  { key: 'tasks',         label: 'Tasks',          icon: 'TaskSquare',   show: true },
+  { key: 'announcements', label: 'Announcements',  icon: 'Notification', show: true },
 ])
 
 const visibleTabs = computed(() => tabs.value.filter(t => t.show))
@@ -328,6 +332,12 @@ onMounted(load)
           <PagesDashboardClassesClassAnalyticsTab
             v-else-if="activeTab === 'analytics'"
             :class-id="cls.id"
+          />
+          <PagesDashboardClassesTasksClassTasksTab
+            v-else-if="activeTab === 'tasks'"
+            :class-id="cls.id"
+            :can-manage="isTutorOrAdmin && !isArchived"
+            :is-student="isStudentInClass"
           />
           <PagesDashboardClassesAnnouncementsFeed
             v-else-if="activeTab === 'announcements'"
