@@ -39,6 +39,8 @@ async function main() {
   await prisma.subscription.deleteMany();
   await prisma.learnerProfile.deleteMany();
   await prisma.classUser.deleteMany();
+  await prisma.taskSubmission.deleteMany();
+  await prisma.task.deleteMany();
   await prisma.class.deleteMany();
   await prisma.user.deleteMany();
   console.log("✅ Existing data cleared\n");
@@ -517,13 +519,35 @@ async function main() {
       await prisma.vocabulary.create({ data: { ...items[i]!, createdAt } });
     }
   }
-  console.log(`   ✅ ${vocabItems.length} vocabulary items (10 Ali, 8 Yuki) with varied SRS states + spread createdAt\n`);
+  // Assigned word — tutor pushes to Ali; captured so VOCABULARY_ASSIGNED notification can reference it
+  const assignedVocab = await prisma.vocabulary.create({
+    data: {
+      userId: student1.id,
+      word: "perseverance",
+      definition: "Continued effort and determination despite difficulty or failure",
+      pronunciation: "/ˌpɜːrsɪˈvɪərəns/",
+      example: "Learning English requires perseverance, but the results are worth it.",
+      partOfSpeech: "noun",
+      difficulty: 4,
+      category: "academic",
+      source: "ASSIGNED",
+      assignedByTutorId: tutor.id,
+      masteryLevel: 0,
+      reviewCount: 0,
+      correctCount: 0,
+      incorrectCount: 0,
+      srsInterval: 0,
+      srsEase: 2.5,
+      srsDue: new Date(),
+    },
+  });
+  console.log(`   ✅ ${vocabItems.length + 1} vocabulary items (10 Ali + 1 assigned, 8 Yuki) with varied SRS states + spread createdAt\n`);
 
   // ─── Goals ──────────────────────────────────────────────────────────────────
   console.log("🎯 Creating goals...");
 
   // Ali — 1 completed + 3 active
-  await prisma.goal.create({
+  const aliGoalCompleted = await prisma.goal.create({
     data: {
       userId: student1.id,
       type: "CONVERSATION",
@@ -565,7 +589,7 @@ async function main() {
       lastProgressUpdate: new Date(),
     },
   });
-  await prisma.goal.create({
+  const aliGoalSpeaking = await prisma.goal.create({
     data: {
       userId: student1.id,
       assignedByTutorId: tutor.id,
@@ -582,7 +606,7 @@ async function main() {
   });
 
   // Yuki — 1 active
-  await prisma.goal.create({
+  const yukiGoalConversation = await prisma.goal.create({
     data: {
       userId: student2.id,
       assignedByTutorId: tutor.id,
@@ -665,8 +689,41 @@ async function main() {
   });
   console.log("   ✅ 3 class announcements\n");
 
+  // ─── Tasks ──────────────────────────────────────────────────────────────────
+  console.log("📝 Creating tasks...");
+  const task1 = await prisma.task.create({
+    data: {
+      classId: sarahClass.id,
+      createdById: tutor.id,
+      title: "Write a diary entry",
+      description: "Write a 100-word diary entry about your day using past simple tense. Focus on accurate article usage and time expressions. Submit as text.",
+      deadline: new Date(Date.now() + 7 * 86400000),
+      status: "OPEN",
+    },
+  });
+  const task2 = await prisma.task.create({
+    data: {
+      classId: sarahClass.id,
+      createdById: tutor.id,
+      title: "Café roleplay recording",
+      description: "Record yourself ordering food and asking about prices at a café. Use 'Could I have...' and 'How much is...' polite forms. Upload as audio file.",
+      deadline: new Date(Date.now() + 14 * 86400000),
+      status: "OPEN",
+    },
+  });
+  // Yuki has already submitted task2 — mirrors the real TASK_SUBMITTED notification flow
+  await prisma.taskSubmission.create({
+    data: {
+      taskId: task2.id,
+      studentId: student2.id,
+      content: "Here is my café roleplay! I practiced ordering a coffee and a piece of cake and asking the price. It felt very natural!",
+    },
+  });
+  console.log("   ✅ 2 tasks (both OPEN) + 1 submission (Yuki → task2)\n");
+
   // ─── Notifications ──────────────────────────────────────────────────────────
   console.log("🔔 Creating notifications...");
+  // STREAK_MILESTONE — no routing target entity, data intentionally omitted
   await prisma.notification.create({
     data: {
       userId: student1.id,
@@ -679,16 +736,46 @@ async function main() {
     data: {
       userId: student1.id,
       type: "GOAL_COMPLETED",
-      message: "🎉 Congratulations! You completed your goal: 'Complete 5 conversation sessions'. Your next goal is ready!",
+      message: "🎉 You completed your goal: 'Complete 5 conversation sessions'. Your consistency paid off!",
       read: true,
+      data: { goalId: aliGoalCompleted.id },
     },
   });
   await prisma.notification.create({
     data: {
       userId: student1.id,
       type: "GOAL_ASSIGNED",
-      message: "📋 Sarah Johnson assigned you a new goal: 'Achieve average pronunciation score of 85+ in voice sessions'. Check your goals page for details.",
+      message: "📋 Sarah Johnson assigned you a new goal: 'Achieve average pronunciation score of 85+'. Check your goals page.",
       read: false,
+      data: { goalId: aliGoalSpeaking.id },
+    },
+  });
+  await prisma.notification.create({
+    data: {
+      userId: student1.id,
+      type: "TASK_ASSIGNED",
+      message: `📝 Sarah Johnson assigned you a new task in Sarah's ESL Class: "Write a diary entry". Deadline in 7 days.`,
+      read: false,
+      data: { classId: sarahClass.id, taskId: task1.id },
+    },
+  });
+  await prisma.notification.create({
+    data: {
+      userId: student1.id,
+      type: "VOCABULARY_ASSIGNED",
+      message: `📖 Your tutor assigned you a new word: "perseverance". Head to your vocabulary page to start learning it.`,
+      read: false,
+      data: { vocabularyId: assignedVocab.id },
+    },
+  });
+  // Goes to the tutor — student submitted their task
+  await prisma.notification.create({
+    data: {
+      userId: tutor.id,
+      type: "TASK_SUBMITTED",
+      message: `✅ Yuki Tanaka submitted "Café roleplay recording". Review their work in Sarah's ESL Class.`,
+      read: false,
+      data: { classId: sarahClass.id, taskId: task2.id },
     },
   });
   await prisma.notification.create({
@@ -697,9 +784,10 @@ async function main() {
       type: "CLASS_ANNOUNCEMENT",
       message: "📢 New announcement from Sarah Johnson in Sarah's ESL Class: 'Great progress this week everyone! ...'",
       read: false,
+      data: { classId: sarahClass.id },
     },
   });
-  console.log("   ✅ 4 notifications (3 for Ali, 1 for Yuki)\n");
+  console.log("   ✅ 7 notifications — one per NotificationType, all with data field where applicable\n");
 
   // ─── Summary ────────────────────────────────────────────────────────────────
   const counts = {
@@ -717,6 +805,8 @@ async function main() {
     goals: await prisma.goal.count(),
     progress: await prisma.progress.count(),
     announcements: await prisma.announcement.count(),
+    tasks: await prisma.task.count(),
+    taskSubmissions: await prisma.taskSubmission.count(),
     notifications: await prisma.notification.count(),
   };
 
