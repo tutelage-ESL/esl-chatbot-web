@@ -33,6 +33,7 @@ const voiceSpeed = ref(1.0)
 const autoSpeak = ref(false)
 const timezone = ref('Asia/Baghdad')
 const theme = ref<'light' | 'dark'>('light')
+const emailDigestEnabled = ref(true)
 const topicInput = ref('')
 const topics = ref<string[]>([])
 
@@ -64,6 +65,7 @@ watch(() => props.open, (v) => {
   autoSpeak.value = lp?.autoSpeak ?? false
   timezone.value = lp?.timezone ?? 'Asia/Baghdad'
   theme.value = (lp?.theme as 'light' | 'dark') ?? 'light'
+  emailDigestEnabled.value = lp?.emailDigestEnabled ?? true
   topics.value = Array.isArray(lp?.topicsOfInterest) ? [...lp!.topicsOfInterest] : []
   tzSearch.value = ''
 }, { immediate: true })
@@ -92,6 +94,7 @@ function submit() {
     autoSpeak: autoSpeak.value,
     timezone: timezone.value,
     theme: theme.value,
+    emailDigestEnabled: emailDigestEnabled.value,
     topicsOfInterest: topics.value,
   })
 }
@@ -281,6 +284,17 @@ const voiceSpeedLabel = computed(() => `${voiceSpeed.value.toFixed(1)}×`)
               </div>
             </button>
           </div>
+        </div>
+
+        <!-- Email digest toggle -->
+        <div class="flex items-center justify-between p-3.5 rounded-xl" style="background:var(--surface-raised)">
+          <div>
+            <p class="text-[14px] font-medium font-poppins" :style="`color:var(--text-heading)`">Weekly digest</p>
+            <p class="text-[14px] font-poppins" :style="`color:var(--text-muted)`">
+              {{ emailDigestEnabled ? 'Receive progress recap' : 'Disabled' }}
+            </p>
+          </div>
+          <UiSwitch :model-value="emailDigestEnabled" @update:model-value="emailDigestEnabled = $event" />
         </div>
 
         <!-- Learning purpose -->

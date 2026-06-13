@@ -64,15 +64,22 @@ What was built — a hands-free live **CALL**, not a chat:
 
 ---
 
-### 9. Settings — Weekly digest email toggle (2026-06-12)
-**File:** `app/pages/dashboard/settings.vue` (or the relevant settings section component)  
-**Status:** Backend done. Needs a UI toggle.
+### 9. Settings — Weekly digest email toggle ✅ DONE (2026-06-13)
 
-Add a "Email me a weekly progress digest" toggle in the Settings → Profile section:
-- **Read:** `GET /users/me` → `data.learnerProfile.emailDigestEnabled` (boolean, default `true`)
-- **Write:** `PATCH /users/me/learner-profile` → `{ emailDigestEnabled: false/true }`
-- Show a labeled toggle switch. When off, show a short helper text: "You won't receive weekly progress emails."
-- Types are already in `frontend/types/api.ts` — look for `emailDigestEnabled` in the learner profile shape.
+**Files changed:**
+- `app/common/types/profile-types.ts` — added `emailDigestEnabled: boolean` to `MyLearnerProfile` and `UpdateLearnerProfileInput`
+- `app/pages/dashboard/profile.vue` — added Email digests card with toggle switch + helper text; shows status when disabled; toast on save
+- `app/components/Pages/Dashboard/Profile/LearnerSettingsModal.vue` — added email digest toggle in settings modal; synced state on open/save
+- `app/components/Block/UserAvatar.vue` — added quick Email digests toggle at top of dropdown menu (before Profile/Billing); fetches profile on mount; toast on toggle
+- `app/composables/useNotifications.ts` — added toast notifications when new notifications arrive via Socket.io with type-specific emojis
+
+**Implementation:**
+- Two UI locations: Profile page card + Avatar dropdown menu toggle
+- Both call `PATCH /users/me/learner-profile { emailDigestEnabled }` 
+- Profile card: saves via settings modal with toast feedback
+- Avatar dropdown: direct toggle with immediate toast + independent state sync
+- Notification toasts: show when Socket.io receives `notification:new` event with emoji matching type (🔥🎉🎯📚📢✅📝)
+- Status helper text shows when digest is disabled
 
 ---
 

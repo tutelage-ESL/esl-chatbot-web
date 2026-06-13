@@ -156,6 +156,7 @@ Tailwind exposes them as `bg-surface-card`, `border-border-inner`, `text-text-he
 - `dash-card` already applies `var(--surface-card)` and `var(--border-card)` — do not override its background inline.
 - For icon colors that track text tokens, pass `color="var(--color-text-muted)"` etc. to `<AppIconsax>`.
 
+- dont make icon size too smal!! specially in buttons they should be 16 + !! 
 - **NEVER use raw HTML elements or custom modal/overlay/drawer implementations when a shadcn or custom component exists.** Always prefer the component library. Mandatory substitutions:
   - Text/headings (`p`, `h1`–`h6`, `span` for content) → `<AppText>` with `size`, `weight`, `color`, `font-family` props. Valid sizes: `10 11 12 13 14 15 16 17 18 20 22 24 30 32 36 40 48`. Valid colors: `black neutral-600 neutral-400 brand-primary brand-ink brand-sub white error` etc. (see `common/types/text-types.ts`).
   - Buttons → `<AppButton>` with `variant` (`primary` | `secondary`), `size` (`24 28 32 36 38 48`), `radius` (`4 8 12 16`), `icon`, `text`, `loading`, `disabled`. Icon-only buttons omit `text`. Never use `<button>`. **Primary variant: always pass `color: 'white'` in `:icon-config`.**

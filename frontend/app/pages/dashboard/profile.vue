@@ -33,7 +33,19 @@ async function onSaveProfile(input: UpdateProfileInput, avatarFile: File | null)
 
 async function onSaveSettings(input: UpdateLearnerProfileInput) {
   savingSettings.value = true
-  await updateLearnerProfile(input)
+  const res = await updateLearnerProfile(input)
+  if (res.success && profile.value?.learnerProfile) {
+    Object.assign(profile.value.learnerProfile, input)
+    // Show toast for email digest toggle
+    if (input.emailDigestEnabled !== undefined) {
+      const { toast } = await import('vue-sonner')
+      toast.success(
+        input.emailDigestEnabled
+          ? '📧 Email digests enabled — you\'ll receive weekly summaries'
+          : '💤 Email digests disabled — you won\'t receive weekly emails'
+      )
+    }
+  }
   savingSettings.value = false
   settingsOpen.value = false
 }
@@ -303,11 +315,32 @@ const isGoogleLinked = computed(() => profile.value?.authProvider === 'GOOGLE')
         </div>
       </div>
 
+      <!-- Email digests card -->
+      <div class="dash-card p-6 animate-card-enter" style="--delay:400ms">
+        <div class="flex items-start justify-between">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-1">
+              <AppIconsax name="Send2" color="var(--color-brand-primary)" :size="18" />
+              <p class="text-[16px] font-semibold font-poppins" :style="`color:var(--text-heading)`">Email digests</p>
+            </div>
+            <p class="text-[14px] font-poppins" :style="`color:var(--text-muted)`">
+              Receive a weekly summary of your progress every Sunday morning.
+            </p>
+          </div>
+          <UiSwitch
+            :model-value="profile?.learnerProfile?.emailDigestEnabled ?? true"
+            @update:model-value="onSaveSettings({ emailDigestEnabled: $event })"
+          />
+        </div>
+        <p v-if="!(profile?.learnerProfile?.emailDigestEnabled ?? true)" class="text-[13px] font-poppins mt-3" :style="`color:var(--text-muted)`">
+          💤 You won't receive email digests.
+        </p>
+      </div>
+
       <!-- Empty state CTA when no learner profile at all -->
       <div
-        v-else
         class="dash-card p-8 flex flex-col items-center text-center animate-card-enter"
-        style="--delay:360ms"
+        style="--delay:440ms"
       >
         <div class="size-14 rounded-2xl flex items-center justify-center mb-4" style="background:var(--surface-raised)">
           <AppIconsax name="Setting2" color="var(--color-brand-primary)" :size="24" />

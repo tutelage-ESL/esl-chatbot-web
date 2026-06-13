@@ -87,9 +87,23 @@ export function useNotifications() {
       reconnectionAttempts: 5,
     })
 
-    socket.on('notification:new', (item: Notification) => {
+    socket.on('notification:new', async (item: Notification) => {
       notifications.value.unshift(item)
       unreadCount.value++
+
+      // Show toast notification
+      const { toast } = await import('vue-sonner')
+      const typeEmoji: Record<string, string> = {
+        STREAK_MILESTONE: '🔥',
+        GOAL_COMPLETED: '🎉',
+        GOAL_ASSIGNED: '🎯',
+        VOCABULARY_ASSIGNED: '📚',
+        CLASS_ANNOUNCEMENT: '📢',
+        TASK_ASSIGNED: '✅',
+        TASK_SUBMITTED: '📝',
+      }
+      const emoji = typeEmoji[item.type] || '🔔'
+      toast.success(`${emoji} ${item.message}`)
     })
   }
 

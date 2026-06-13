@@ -11,6 +11,7 @@ export interface MyLearnerProfile {
   theme: string
   weeklyGoalMinutes: number
   timezone: string
+  emailDigestEnabled: boolean
 }
 
 export interface MyProfileData {
@@ -48,4 +49,5 @@ export interface UpdateLearnerProfileInput {
   theme?: string
   weeklyGoalMinutes?: number
   timezone?: string
+  emailDigestEnabled?: boolean
 }

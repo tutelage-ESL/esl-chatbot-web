@@ -20,6 +20,48 @@ const planLabel: Record<string, string> = {
 const plan = computed(() => planLabel[user.value?.subscription?.plan ?? 'FREE'] ?? 'Free')
 const isFree = computed(() => (user.value?.subscription?.plan ?? 'FREE') === 'FREE')
 
+// Local state for email digest toggle
+const emailDigestEnabled = ref(true)
+const togglingDigest = ref(false)
+
+async function toggleEmailDigest(val: boolean) {
+  togglingDigest.value = true
+  try {
+    const res = await useHttp({
+      method: 'PATCH',
+      url: '/users/me/learner-profile',
+      body: { emailDigestEnabled: val },
+      requireAuth: true,
+      showToast: false,
+    })
+    if (res.success) {
+      emailDigestEnabled.value = val
+      // Show custom toast
+      const { toast } = await import('vue-sonner')
+      toast.success(
+        val
+          ? '📧 Email digests enabled — you\'ll receive weekly summaries'
+          : '💤 Email digests disabled — you won\'t receive weekly emails'
+      )
+    }
+  } finally {
+    togglingDigest.value = false
+  }
+}
+
+// Fetch profile on mount to sync the toggle
+onMounted(async () => {
+  const res = await useHttp({
+    method: 'GET',
+    url: '/users/me',
+    requireAuth: true,
+    showToast: false,
+  })
+  if (res.success && res.data?.data?.learnerProfile) {
+    emailDigestEnabled.value = res.data.data.learnerProfile.emailDigestEnabled ?? true
+  }
+})
+
 async function handleSignOut() {
   await authStore.signOut()
   router.push('/signin')
@@ -69,6 +111,17 @@ async function handleSignOut() {
             {{ plan }}
           </span>
         </div>
+      </div>
+
+      <UiDropdownMenuSeparator />
+
+      <!-- Email digest toggle -->
+      <div class="px-3 py-2 flex items-center justify-between cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-sm transition-colors" @click.stop>
+        <div>
+          <p class="text-[13px] font-medium text-zinc-900 dark:text-white">Email digests</p>
+          <p class="text-[11px] text-zinc-500 dark:text-zinc-400">Weekly summary</p>
+        </div>
+        <UiSwitch :model-value="emailDigestEnabled" :disabled="togglingDigest" @update:model-value="toggleEmailDigest($event)" />
       </div>
 
       <UiDropdownMenuSeparator />

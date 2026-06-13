@@ -42,13 +42,11 @@ const submissionState = computed(() => {
 </script>
 
 <template>
-  <div
-    class="rounded-xl p-4 cursor-pointer transition-colors animate-card-enter"
+  <div class="rounded-xl p-4 cursor-pointer transition-colors animate-card-enter"
     style="background:var(--surface-raised);border:1px solid var(--border-inner)"
     :onmouseenter="(e: MouseEvent) => (e.currentTarget as HTMLElement).style.background = 'var(--surface-well)'"
     :onmouseleave="(e: MouseEvent) => (e.currentTarget as HTMLElement).style.background = 'var(--surface-raised)'"
-    @click="emit('open')"
-  >
+    @click="emit('open')">
     <div class="flex items-start gap-3">
       <!-- Left content -->
       <div class="flex-1 min-w-0">
@@ -58,12 +56,9 @@ const submissionState = computed(() => {
             {{ task.title }}
           </AppText>
           <!-- Status badge -->
-          <span
-            class="text-[11px] font-semibold font-poppins px-2 py-0.5 rounded-lg shrink-0"
-            :style="task.status === 'OPEN'
-              ? 'background:var(--status-active-bg);color:var(--status-active-text)'
-              : 'background:var(--status-inactive-bg);color:var(--status-inactive-text)'"
-          >
+          <span class="text-[11px] font-semibold font-poppins px-2 py-0.5 rounded-lg shrink-0" :style="task.status === 'OPEN'
+            ? 'background:var(--status-active-bg);color:var(--status-active-text)'
+            : 'background:var(--status-inactive-bg);color:var(--status-inactive-text)'">
             {{ task.status === 'OPEN' ? 'Open' : 'Closed' }}
           </span>
         </div>
@@ -85,13 +80,11 @@ const submissionState = computed(() => {
           <template v-if="deadlineInfo">
             <span style="color:var(--text-subtle);font-size:10px">·</span>
             <div class="flex items-center gap-1">
-              <AppIconsax name="Clock" :size="11" :style="deadlineInfo.overdue && task.status === 'OPEN' ? 'color:var(--status-expired-text)' : 'color:var(--color-text-subtle)'" />
-              <AppText
-                size="11"
-                :style="deadlineInfo.overdue && task.status === 'OPEN'
-                  ? 'color:var(--status-expired-text)'
-                  : 'color:var(--text-subtle)'"
-              >
+              <AppIconsax name="Clock" :size="11"
+                :style="deadlineInfo.overdue && task.status === 'OPEN' ? 'color:var(--status-expired-text)' : 'color:var(--color-text-subtle)'" />
+              <AppText size="11" :style="deadlineInfo.overdue && task.status === 'OPEN'
+                ? 'color:var(--status-expired-text)'
+                : 'color:var(--text-subtle)'">
                 {{ deadlineInfo.label }}
               </AppText>
             </div>
@@ -102,7 +95,8 @@ const submissionState = computed(() => {
             <span style="color:var(--text-subtle);font-size:10px">·</span>
             <div class="flex items-center gap-1">
               <AppIconsax name="DirectboxReceive" color="var(--color-text-subtle)" :size="11" />
-              <AppText size="11" :style="`color:var(--text-subtle)`">{{ task.submissionCount }} submission{{ task.submissionCount === 1 ? '' : 's' }}</AppText>
+              <AppText size="11" :style="`color:var(--text-subtle)`">{{ task.submissionCount }} submission{{
+                task.submissionCount === 1 ? '' : 's' }}</AppText>
             </div>
           </template>
 
@@ -117,7 +111,8 @@ const submissionState = computed(() => {
           </template>
           <template v-else-if="submissionState === 'feedback'">
             <span style="color:var(--text-subtle);font-size:10px">·</span>
-            <AppText size="11" class-list="font-semibold" :style="`color:var(--color-brand-primary)`">Feedback received</AppText>
+            <AppText size="11" class-list="font-semibold" :style="`color:var(--color-brand-primary)`">Feedback received
+            </AppText>
           </template>
         </div>
       </div>
@@ -126,42 +121,24 @@ const submissionState = computed(() => {
       <div v-if="canManage" class="shrink-0" @click.stop>
         <UiDropdownMenu>
           <UiDropdownMenuTrigger as-child>
-            <AppButton
-              variant="secondary"
-              size="28"
-              radius="8"
-              aspect="square"
-              icon="More"
-              :icon-config="{ color: 'currentColor', size: 13 }"
-            />
+            <AppButton variant="secondary" size="28" radius="8" aspect="square" icon="More"
+              :icon-config="{ color: 'currentColor', size: 16 }" />
           </UiDropdownMenuTrigger>
           <UiDropdownMenuContent align="end" :style="`background:var(--surface-card);border-color:var(--border-card)`">
-            <UiDropdownMenuItem
-              class="cursor-pointer font-poppins text-[13px]"
-              :style="`color:var(--text-body)`"
-              @click="emit('edit')"
-            >
+            <UiDropdownMenuItem class="cursor-pointer font-poppins text-[13px]" :style="`color:var(--text-body)`"
+              @click="emit('edit')">
               <AppIconsax name="Edit2" color="var(--color-text-muted)" :size="14" class="mr-2" />
               Edit
             </UiDropdownMenuItem>
-            <UiDropdownMenuItem
-              class="cursor-pointer font-poppins text-[13px]"
-              :style="`color:var(--text-body)`"
-              @click="emit('toggleClosed')"
-            >
-              <AppIconsax
-                :name="task.status === 'OPEN' ? 'Lock1' : 'Unlock'"
-                color="var(--color-text-muted)"
-                :size="14"
-                class="mr-2"
-              />
+            <UiDropdownMenuItem class="cursor-pointer font-poppins text-[13px]" :style="`color:var(--text-body)`"
+              @click="emit('toggleClosed')">
+              <AppIconsax :name="task.status === 'OPEN' ? 'Lock1' : 'Unlock'" color="var(--color-text-muted)" :size="14"
+                class="mr-2" />
               {{ task.status === 'OPEN' ? 'Close task' : 'Reopen task' }}
             </UiDropdownMenuItem>
             <UiDropdownMenuSeparator />
-            <UiDropdownMenuItem
-              class="cursor-pointer font-poppins text-[13px] text-red-500 focus:text-red-500"
-              @click="emit('delete')"
-            >
+            <UiDropdownMenuItem class="cursor-pointer font-poppins text-[13px] text-red-500 focus:text-red-500"
+              @click="emit('delete')">
               <AppIconsax name="Trash" color="rgb(239,68,68)" :size="14" class="mr-2" />
               Delete
             </UiDropdownMenuItem>
