@@ -149,7 +149,7 @@ function handleSubmit() {
 
     <!-- Actions -->
     <div class="flex gap-3 pt-2">
-      <AppButton variant="secondary" size="40" radius="8" text="Cancel" class="flex-1" @click="emit('cancel')" />
+      <AppButton variant="secondary" size="40" radius="8" text="Cancel" class="flex-1" @click="$router.back()" />
       <AppButton variant="primary" size="40" radius="8" :icon="isEdit ? 'TickCircle' : 'Add'"
         :icon-config="{ color: 'white' }" :text="isEdit ? 'Save changes' : 'Create class'" class="flex-1"
         :loading="submitting" :disabled="!className.trim() || submitting" @click="handleSubmit" />
