@@ -450,6 +450,9 @@ Check them off (✅) as they are built.
 - ✅ `GET /users/me/subscription` — dedicated endpoint returning the authenticated user's full subscription record (plan, status, currentPeriodStart, currentPeriodEnd, paymentProvider).
 - [ ] **FIB payment flow** — `POST /subscriptions/initiate-fib` (creates payment intent, returns QR/deep-link) + `POST /subscriptions/webhook/fib` (receives callback, sets plan=GOLD/PREMIUM, status=ACTIVE, externalSubscriptionId=fibPaymentId). See existing Phase 8 notes for context.
 
+### Search
+- ✅ `GET /search?q=` — role-aware global search (module `src/modules/search/`). Returns grouped results `{ users, classes, vocabulary, goals, sessions }`, each capped to 6. Scoping: every user searches their **own** vocabulary/goals/sessions; classes are scoped (ADMIN→all, TUTOR/STUDENT→classes they belong to); users are **ADMIN only** (stealth `isInternal` accounts always excluded). Powers the frontend header command palette.
+
 ### Admin & Notifications
 - ✅ `GET /admin/dashboard` — platform-wide stats for the admin panel: total users by role, active subscriptions by plan (FREE/GOLD/PREMIUM counts), daily/weekly active users (users with a session in last 1/7 days), total sessions today, revenue by payment method (CASH/FIB/STRIPE). Single aggregated query, no pagination needed.
 - ✅ `GET /users/me/notifications` + `PATCH /users/me/notifications/read-all` + `PATCH /users/me/notifications/:id/read` — in-app notification feed. All 7 types implemented: `STREAK_MILESTONE`, `GOAL_COMPLETED`, `GOAL_ASSIGNED`, `VOCABULARY_ASSIGNED`, `CLASS_ANNOUNCEMENT`, `TASK_ASSIGNED`, `TASK_SUBMITTED`. Filter by `?read=false`. Notification model has a `data Json?` field carrying routing metadata (`{ classId, taskId, goalId, vocabularyId }`) — used by the frontend to deep-link to the relevant page+tab.

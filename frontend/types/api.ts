@@ -4149,6 +4149,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Global search
+         * @description Role-aware search across multiple entity types. Every user searches their own learner content (vocabulary, goals, sessions). Classes are scoped by role (ADMIN sees all; TUTOR/STUDENT see only classes they belong to). Users are returned for ADMIN only (stealth internal accounts excluded). Each group is capped to a small number of results for a quick palette.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Search term */
+                    q: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Grouped, role-scoped search results */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            message?: string;
+                            data?: components["schemas"]["SearchResults"];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                422: components["responses"]["ValidationError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/sessions": {
         parameters: {
             query?: never;
@@ -6748,6 +6796,58 @@ export interface components {
             messagesCount?: number;
             wordsTyped?: number;
             vocabularyPracticed?: number;
+        };
+        SearchUserResult: {
+            /** Format: uuid */
+            id?: string;
+            displayName?: string;
+            username?: string;
+            /** Format: email */
+            email?: string;
+            /** Format: uri */
+            avatarUrl?: string | null;
+            /** @enum {string} */
+            role?: "STUDENT" | "TUTOR" | "ADMIN";
+        };
+        SearchClassResult: {
+            /** Format: uuid */
+            id?: string;
+            className?: string;
+            classCategory?: string | null;
+        };
+        SearchVocabResult: {
+            /** Format: uuid */
+            id?: string;
+            word?: string;
+            definition?: string;
+        };
+        SearchGoalResult: {
+            /** Format: uuid */
+            id?: string;
+            description?: string;
+            /** @enum {string} */
+            type?: "VOCABULARY" | "SPEAKING" | "GRAMMAR" | "CONVERSATION" | "STUDY_TIME";
+            /** @enum {string} */
+            status?: "ACTIVE" | "COMPLETED" | "PAUSED" | "CANCELLED";
+        };
+        SearchSessionResult: {
+            /** Format: uuid */
+            id?: string;
+            topic?: string | null;
+            /** Format: date-time */
+            startedAt?: string;
+        };
+        SearchResults: {
+            query?: string;
+            /** @description Total number of results across all groups */
+            total?: number;
+            results?: {
+                users?: components["schemas"]["SearchUserResult"][];
+                classes?: components["schemas"]["SearchClassResult"][];
+                vocabulary?: components["schemas"]["SearchVocabResult"][];
+                goals?: components["schemas"]["SearchGoalResult"][];
+                sessions?: components["schemas"]["SearchSessionResult"][];
+            };
         };
         SessionListItem: {
             /** Format: uuid */
