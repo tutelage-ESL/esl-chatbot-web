@@ -23,9 +23,7 @@ const isArchived = computed(() => cls.value?.archived ?? false)
 
 
 const currentUserId = computed(() => authStore.getUser?.id ?? '')
-const userRole = computed(() => authStore.getUser?.role)
-
-const isAdmin = computed(() => userRole.value === 'ADMIN')
+const { isAdmin } = useRole()
 
 // `myRole` isn't always present on the getClass response, so derive the caller's
 // role from the members list as the source of truth, falling back to it / global role.

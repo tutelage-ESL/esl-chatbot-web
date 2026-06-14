@@ -3,7 +3,7 @@ import { onClickOutside } from '@vueuse/core'
 import { useAdmin } from '~/composables/useAdmin'
 import type { AdminUserItem } from '~/common/types/admin-types'
 
-definePageMeta({ layout: 'dashboard', requiresAuth: true })
+definePageMeta({ layout: 'dashboard', requiresAuth: true, requiresAdmin: true })
 
 const route = useRoute()
 const router = useRouter()

@@ -4,12 +4,14 @@ import { useAuthStore } from '~~/stores/auth'
 
 const authStore = useAuthStore()
 const currentPlan = computed(() => authStore.getUser?.subscription?.plan ?? 'FREE')
-const userRole = computed(() => authStore.getUser?.role ?? 'STUDENT')
+const { isAdmin, isStaff } = useRole()
 
 const { getStats } = useVocabulary()
 const vocabDueCount = ref<number | undefined>(undefined)
 
 onMounted(async () => {
+  // Staff (admins + tutors) don't see the vocab nav item — skip the stats fetch.
+  if (isStaff.value) return
   const res = await getStats()
   if (res.success && res.data?.data) {
     vocabDueCount.value = res.data.data.dueToday || undefined
@@ -29,19 +31,29 @@ watch(() => route.path, () => {
 })
 
 const primaryNav = computed<DashboardNavItem[]>(() => {
-  const adminOnly: DashboardNavItem[] = userRole.value === 'ADMIN'
+  const adminOnly: DashboardNavItem[] = isAdmin.value
     ? [{ id: 'users', label: 'Users', icon: 'People', path: '/dashboard/users' }]
     : []
+  // Billing is a personal-subscription page — irrelevant for staff.
+  const billing: DashboardNavItem[] = isStaff.value
+    ? []
+    : [{ id: 'billing', label: 'Billing', icon: 'Wallet2', path: '/dashboard/billing' }]
+  // Learner features — hidden for staff.
+  const learnerNav: DashboardNavItem[] = isStaff.value
+    ? []
+    : [
+      { id: 'chat', label: 'AI Chat', icon: 'Messages', path: '/dashboard/chat' },
+      // { id: 'lessons', label: 'Lessons', icon: 'Candle', path: '/dashboard/lessons' },
+      { id: 'voice', label: 'Voice Lab', icon: 'Microphone', path: '/dashboard/voice' },
+      { id: 'vocab', label: 'Vocabulary', icon: 'Book1', path: '/dashboard/vocab', badge: vocabDueCount.value },
+      { id: 'goals', label: 'Goals', icon: 'Flag', path: '/dashboard/goals' },
+    ]
   return [
     { id: 'dashboard', label: 'Dashboard', icon: 'Chart', path: '/dashboard' },
     ...adminOnly,
-    { id: 'chat', label: 'AI Chat', icon: 'Messages', path: '/dashboard/chat' },
     { id: 'classes', label: 'Classes', icon: 'BookSaved', path: '/dashboard/classes' },
-    // { id: 'lessons', label: 'Lessons', icon: 'Candle', path: '/dashboard/lessons' },
-    { id: 'voice', label: 'Voice Lab', icon: 'Microphone', path: '/dashboard/voice' },
-    { id: 'vocab', label: 'Vocabulary', icon: 'Book1', path: '/dashboard/vocab', badge: vocabDueCount.value },
-    { id: 'goals', label: 'Goals', icon: 'Flag', path: '/dashboard/goals' },
-    { id: 'billing', label: 'Billing', icon: 'Wallet2', path: '/dashboard/billing' },
+    ...learnerNav,
+    ...billing,
   ]
 })
 
@@ -122,9 +134,9 @@ function isActive(path: string) {
       </NuxtLink>
     </nav>
 
-    <!-- Upgrade card — FREE plan only, hidden when collapsed -->
+    <!-- Upgrade card — FREE plan only, students only, hidden when collapsed -->
     <Transition name="fade">
-      <NuxtLink v-if="!collapsed && currentPlan === 'FREE'" to="/dashboard/billing"
+      <NuxtLink v-if="!collapsed && currentPlan === 'FREE' && !isStaff" to="/dashboard/billing"
         class="m-3 p-3.5 rounded-xl bg-linear-to-br from-[#151517] to-[#1e1e22] text-white relative overflow-hidden shrink-0 block group cursor-pointer">
         <div class="absolute -right-8 -top-8 w-24 h-24 rounded-full bg-brand-primary/25 blur-2xl pointer-events-none" />
         <div class="relative">

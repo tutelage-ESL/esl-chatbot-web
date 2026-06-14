@@ -1,15 +1,13 @@
 <script setup lang="ts">
 import { toast } from 'vue-sonner'
-import { useAuthStore } from '~~/stores/auth'
 
 definePageMeta({ layout: 'dashboard', requiresAuth: true })
 
-const authStore = useAuthStore()
 const router = useRouter()
+const { isStaff } = useRole()
 
 onMounted(() => {
-  const role = authStore.getUser?.role
-  if (role !== 'TUTOR' && role !== 'ADMIN') router.replace('/dashboard/classes')
+  if (!isStaff.value) router.replace('/dashboard/classes')
 })
 
 const { createClass } = useClasses()

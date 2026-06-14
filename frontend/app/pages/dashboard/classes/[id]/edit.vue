@@ -8,6 +8,7 @@ definePageMeta({ layout: 'dashboard', requiresAuth: true })
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const { isStaff, isTutor } = useRole()
 const { getClass, updateClass, updateCodeSettings } = useClasses()
 
 const classId = computed(() => route.params.id as string)
@@ -17,8 +18,7 @@ const submitting = ref(false)
 
 // Guard: only tutors of this class or admins can edit
 onMounted(async () => {
-  const role = authStore.getUser?.role
-  if (role !== 'TUTOR' && role !== 'ADMIN') {
+  if (!isStaff.value) {
     router.replace('/dashboard/classes')
     return
   }
@@ -39,7 +39,7 @@ onMounted(async () => {
   const isTutorOfClass = data.members?.some(m => m.user.id === myId && m.role === 'TUTOR')
 
   // Tutors can only edit classes they are a tutor of (admins can edit any).
-  if (role === 'TUTOR' && !isTutorOfClass) {
+  if (isTutor.value && !isTutorOfClass) {
     toast.error('You can only edit classes you manage.')
     router.replace('/dashboard/classes')
     return

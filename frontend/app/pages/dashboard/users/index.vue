@@ -2,7 +2,7 @@
 import { useAdmin } from '~/composables/useAdmin'
 import type { AdminUserItem, AssignSubscriptionInput, UserRole, SubStatus } from '~/common/types/admin-types'
 
-definePageMeta({ layout: 'dashboard', requiresAuth: true })
+definePageMeta({ layout: 'dashboard', requiresAuth: true, requiresAdmin: true })
 
 const { listUsers, patchUser, assignSubscription, cancelSubscription } = useAdmin()
 const route = useRoute()

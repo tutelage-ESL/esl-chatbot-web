@@ -219,8 +219,21 @@ const { success, data, message } = await useHttp<User>({
 
 - **Store:** Pinia store at [stores/auth.ts](../stores/auth.ts). Exposes state (`user`, `accessToken`, `refreshToken`, `isAuthenticated`, `isLoading`, `isCheckedUser`, `isTokenRefreshed`), getters (`getAccessToken`, `getRefreshToken`, `getUser`, `getIsAuthenticated`, `getIsLoading`), and actions (`signIn`, `signUp`, `googleAuth`, `forgotPassword`, `resetPassword`, `fetchUser`, `refreshTokens`, `signOut`).
 - **Tokens:** access token in memory + `localStorage` + cookie; refresh handled silently by `useHttp` via `refreshTokens()`.
-- **Route guarding:** [app/middleware/middleware.global.ts](app/middleware/middleware.global.ts) calls `fetchUser()` once per session and reads `to.meta.requiresAuth` / `to.meta.guestOnly`. Unauthenticated users on protected routes → `/signin`. Authenticated users on guest-only routes → `/dashboard`.
+- **Route guarding:** [app/middleware/middleware.global.ts](app/middleware/middleware.global.ts) calls `fetchUser()` once per session and reads `to.meta.requiresAuth` / `to.meta.guestOnly` / `to.meta.requiresAdmin`. Unauthenticated users on protected routes → `/signin`. Authenticated users on guest-only routes → `/dashboard`. **Admin-only pages set `requiresAdmin: true` in `definePageMeta` — non-admins are bounced to `/dashboard`** (currently `dashboard/users/*`).
 - **Landing:** `/` is the public marketing page. `/dashboard` is the authenticated home.
+
+### Roles & Permissions (read before gating any UI)
+
+The current user's **global account role** (STUDENT / TUTOR / ADMIN) comes from `useAuthStore().getUser?.role`. **Always read it through the [useRole](app/composables/useRole.ts) composable — never re-derive role checks inline:**
+
+```ts
+const { isAdmin, isTutor, isStaff } = useRole()   // isStaff = isAdmin || isTutor
+```
+
+- **`isStaff` (admin + tutor)** are teachers/operators, not learners. Personal-subscription and learner-only chrome is hidden from them: Billing nav + the FREE upgrade card (sidebar), the "New session" CTA + Billing/learner entries in the command palette (header), and the plan badge / email-digest toggle / Billing item (user avatar — staff show their role label instead of a plan). The student-only learner nav is AI Chat, Voice Lab, Vocabulary, Goals.
+- **`requiresAdmin: true`** page meta is the route-level half of admin gating; the sidebar link visibility is the UI half. **Add both** when introducing an admin-only page.
+- **This is the account role only.** Class-specific membership roles (`ClassUser.role`, `myRole`, `member.role`) are a *different* concept — keep deriving those from the class members list, not from `useRole`. Note: ADMIN is never a class-membership role (only TUTOR/STUDENT appear in a class).
+- All of this is **frontend UX**; the backend independently enforces authorization on every endpoint.
 
 ### Auth pages + layout
 
@@ -232,6 +245,7 @@ const { success, data, message } = await useHttp<User>({
   - [forgot-password.vue](app/pages/forgot-password.vue) — emails a 6-digit OTP; always succeeds (backend never reveals enumeration).
   - [verify-otp.vue](app/pages/verify-otp.vue) — collects the OTP; backend has no separate verify endpoint, so this is a UX step that passes the OTP to the next page.
   - [reset-password.vue](app/pages/reset-password.vue) — submits `{ email, otp, newPassword }` to `/auth/reset-password`; on success swaps in `<FormAllDone>` inline and auto-redirects to `/signin` after 3s. **No `/all-done` route** — the all-done state is rendered in place.
+  - [verify-email.vue](app/pages/verify-email.vue) — registration OTP step: submits `{ email, otp }` to `/auth/verify-email`, which returns a token pair (this is when a LOCAL account first logs in). Activates the FREE subscription (`INACTIVE→ACTIVE`).
   - [google-username.vue](app/pages/google-username.vue) — handles `needsRegistration: true` from `/auth/google`. Entry requires `sessionStorage.googleIdToken` (set by `<FormGoogleButton>`).
 - Cross-page state (email + OTP between forgot → verify → reset, idToken + profile for Google sign-up) is carried via `sessionStorage` (keys: `resetEmail`, `resetOtp`, `googleIdToken`, `googleProfile`) and cleared on success.
 
@@ -281,14 +295,16 @@ All pages use `definePageMeta({ layout: 'dashboard', requiresAuth: true })`.
 
 | Route | File | Status |
 |---|---|---|
-| `/dashboard` | `pages/dashboard/index.vue` | Overview (fully built) |
-| `/dashboard/chat` | `pages/dashboard/chat.vue` | Built |
-| `/dashboard/voice` | `pages/dashboard/voice.vue` | Stub |
-| `/dashboard/vocab` | `pages/dashboard/vocab.vue` | Stub |
-| `/dashboard/goals` | `pages/dashboard/goals.vue` | Stub |
-| `/dashboard/lessons` | `pages/dashboard/lessons.vue` | Stub |
+| `/dashboard` | `pages/dashboard/index.vue` | Built — **thin role switch**: ADMIN→`Dashboard/Admin/AdminDashboard`, TUTOR→`Dashboard/Tutor/TutorDashboard`, STUDENT→`Dashboard/Overview/UserDashboard` |
+| `/dashboard/chat` | `pages/dashboard/chat.vue` | Built (student learner feature) |
+| `/dashboard/voice` | `pages/dashboard/voice.vue` | Built — voice-call learner feature (student) |
+| `/dashboard/vocab` | `pages/dashboard/vocab.vue` | Built — SRS vocabulary (student) |
+| `/dashboard/goals` | `pages/dashboard/goals.vue` | Built (student) |
+| `/dashboard/lessons` | `pages/dashboard/lessons.vue` | Stub — not yet linked in nav (commented out) |
 | `/dashboard/profile` | `pages/dashboard/profile.vue` | Built |
-| `/dashboard/settings` | `pages/dashboard/settings.vue` | Built — account info + FIB subscription panel |
+| `/dashboard/billing` | `pages/dashboard/billing.vue` | Built — subscription + FIB payment panel (student-only; hidden from staff) |
+| `/dashboard/users` | `pages/dashboard/users/index.vue` | Built — **ADMIN only** (`requiresAdmin: true`): user list, role/status toggles, assign/cancel subscription |
+| `/dashboard/users/[id]` | `pages/dashboard/users/[id].vue` | Built — **ADMIN only** (`requiresAdmin: true`): full user detail + admin edit |
 | `/dashboard/classes` | `pages/dashboard/classes/index.vue` | Built — **thin role switch** (like `dashboard/index.vue`): ADMIN→`Classes/Admin/AdminClassesView` (manage-all view, inline), TUTOR→`Classes/Tutor/TutorClassesView` (owned classes only), STUDENT→`Classes/Student/StudentClassesView` (enrolled + join) |
 | `/dashboard/classes/create` | `pages/dashboard/classes/create.vue` | Built (tutor/admin) |
 | `/dashboard/classes/[id]` | `pages/dashboard/classes/[id]/index.vue` | Built — full class detail page. **Archiving:** tutor/admin Archive/Unarchive button (PATCH `/classes/:id/archive`); when `cls.archived` the page is read-only (Edit, code Copy/Rotate, member-remove, announcement compose all hidden) and shows an archived banner with an Unarchive action. Admin & Tutor list views have an Active/Archived toggle. |
@@ -297,6 +313,8 @@ All pages use `definePageMeta({ layout: 'dashboard', requiresAuth: true })`.
 ### Dashboard Component Folder (`components/Pages/Dashboard/`)
 
 All dashboard page sub-components live here. **Never use `components/Dashboard/`** — that path is banned.
+
+Beyond the learner sections shown in the tree below, these role-specific + shared folders also exist (mirroring the role-switch pages): `Dashboard/Admin/` (AdminDashboard), `Dashboard/Tutor/` (TutorDashboard, TutorActivityRow), `Dashboard/Overview/` (UserDashboard for students), `Dashboard/Users/` (admin user-management: UserTableRow, UserFilters, AssignSubscriptionModal), `Dashboard/Settings/` (SubscriptionPanel, FibPaymentModal), `Dashboard/Profile/`, and `Dashboard/Shared/` (DashStatCard, DashDonutChart, DashSparkbar, DashSectionCard, DashBreakdownRow — reused across all three dashboards). Notification chrome lives in `Layouts/Dashboard/` (NotificationBell, NotificationPanel).
 
 ```
 components/Pages/Dashboard/
@@ -375,6 +393,7 @@ Types are split by domain — never define them inline in a composable:
 | Composable | File | Exports |
 |---|---|---|
 | `useHttp` | [useHttp.ts](app/composables/useHttp.ts) | Single `useHttp(options)` function — **all API calls must go through this** |
+| `useRole` | [useRole.ts](app/composables/useRole.ts) | `isAdmin`, `isTutor`, `isStaff` — current user's **global account role**. Use for all role-gated UI (see [Roles & Permissions](#roles--permissions-read-before-gating-any-ui)) |
 | `useClasses` | [useClasses.ts](app/composables/useClasses.ts) | `listMyClasses` / `listAllClasses` (both accept `{ archived?: boolean }`), `getClass`, `joinClass`, `createClass`, `updateClass`, `refreshCode`, `updateCodeSettings`, `toggleBlock`, `archiveClass`, `getClassStudents`, `getClassStudentDetail`, `getClassAnalytics`, `removeMember`, `listAnnouncements`, `createAnnouncement` |
 | `useAdmin` / `useAdminDashboard` | [useAdmin.ts](app/composables/useAdmin.ts) | Admin user/class management + admin dashboard data |
 | `useTutorDashboard` | [useTutorDashboard.ts](app/composables/useTutorDashboard.ts) | Tutor dashboard data |

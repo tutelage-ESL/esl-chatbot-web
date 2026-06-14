@@ -113,7 +113,7 @@ const {
       />
     </div>
 
-    <!-- Live coaching pane (fixed width, right side) -->
-    <PagesDashboardChatCoachPane />
+    <!-- Live coaching pane (fixed width, right side)
+    <PagesDashboardChatCoachPane /> -->
   </div>
 </template>

@@ -19,6 +19,9 @@ const planLabel: Record<string, string> = {
 
 const plan = computed(() => planLabel[user.value?.subscription?.plan ?? 'FREE'] ?? 'Free')
 const isFree = computed(() => (user.value?.subscription?.plan ?? 'FREE') === 'FREE')
+// Staff = admins + tutors. Subscription/learner items are hidden for them.
+const { isAdmin, isStaff } = useRole()
+const roleLabel = computed(() => (isAdmin.value ? 'Admin' : 'Tutor'))
 
 // Local state for email digest toggle
 const emailDigestEnabled = ref(true)
@@ -87,7 +90,7 @@ async function handleSignOut() {
           <AppText size="12" weight="medium" color="brand-ink">
             {{ user?.username ?? 'User' }}
           </AppText>
-          <AppText size="10" color="neutral-400" class="font-mono">{{ plan }}</AppText>
+          <AppText size="10" color="neutral-400" class="font-mono">{{ isStaff ? roleLabel : plan }}</AppText>
         </div>
       </button>
     </UiDropdownMenuTrigger>
@@ -108,21 +111,23 @@ async function handleSignOut() {
           <p class="text-[11px] text-zinc-400 font-mono truncate">{{ user?.email }}</p>
           <span
             class="inline-block mt-0.5 text-[10px] font-semibold font-poppins px-1.5 py-0.5 rounded-sm bg-brand-primary text-white">
-            {{ plan }}
+            {{ isStaff ? roleLabel : plan }}
           </span>
         </div>
       </div>
 
-      <UiDropdownMenuSeparator />
+      <template v-if="!isStaff">
+        <UiDropdownMenuSeparator />
 
-      <!-- Email digest toggle -->
-      <div class="px-3 py-2 flex items-center justify-between cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-sm transition-colors" @click.stop>
-        <div>
-          <p class="text-[13px] font-medium text-zinc-900 dark:text-white">Email digests</p>
-          <p class="text-[11px] text-zinc-500 dark:text-zinc-400">Weekly summary</p>
+        <!-- Email digest toggle (learner feature) -->
+        <div class="px-3 py-2 flex items-center justify-between cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-sm transition-colors" @click.stop>
+          <div>
+            <p class="text-[13px] font-medium text-zinc-900 dark:text-white">Email digests</p>
+            <p class="text-[11px] text-zinc-500 dark:text-zinc-400">Weekly summary</p>
+          </div>
+          <UiSwitch :model-value="emailDigestEnabled" :disabled="togglingDigest" @update:model-value="toggleEmailDigest($event)" />
         </div>
-        <UiSwitch :model-value="emailDigestEnabled" :disabled="togglingDigest" @update:model-value="toggleEmailDigest($event)" />
-      </div>
+      </template>
 
       <UiDropdownMenuSeparator />
 
@@ -134,8 +139,8 @@ async function handleSignOut() {
         </NuxtLink>
       </UiDropdownMenuItem>
 
-      <!-- Billing — visible to all users -->
-      <UiDropdownMenuItem as-child class="focus:text-white group">
+      <!-- Billing — personal subscription, hidden for staff -->
+      <UiDropdownMenuItem v-if="!isStaff" as-child class="focus:text-white group">
         <NuxtLink to="/dashboard/billing" class="flex items-center gap-2.5 cursor-pointer">
           <AppIconsax name="Wallet2" color="currentColor" :size="14" class="text-zinc-500 group-focus:text-white" />
           <span class="text-[13px]">Billing</span>

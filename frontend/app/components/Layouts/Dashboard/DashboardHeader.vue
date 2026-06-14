@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import type { SvgBasedIconName } from '~/common/types/iconsax-types'
-import { useAuthStore } from '~~/stores/auth'
 
 const emit = defineEmits<{ 'open-sidebar': [] }>()
-const isAdmin = computed(() => useAuthStore().getUser?.role === 'ADMIN')
+// Staff = admins + tutors. Learner/subscription features are hidden for them.
+const { isStaff } = useRole()
 
 const route = useRoute()
 
@@ -37,10 +37,17 @@ const navActions: { label: string; icon: SvgBasedIconName; to: string }[] = [
   { label: 'Billing', icon: 'Wallet2', to: '/dashboard/billing' },
 ]
 
+const availableActions = computed(() => {
+  if (!isStaff.value) return navActions
+  // Staff have no billing/learner pages — drop them from the palette.
+  const staffHidden = ['/dashboard/billing', '/dashboard/chat', '/dashboard/voice', '/dashboard/vocab', '/dashboard/goals', '/dashboard/lessons']
+  return navActions.filter(a => !staffHidden.includes(a.to))
+})
+
 const filteredActions = computed(() => {
   const q = cmdQuery.value.trim().toLowerCase()
-  if (!q) return navActions
-  return navActions.filter(a => a.label.toLowerCase().includes(q))
+  if (!q) return availableActions.value
+  return availableActions.value.filter(a => a.label.toLowerCase().includes(q))
 })
 
 function openCmd() {
@@ -118,8 +125,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
       <LayoutsDashboardNotificationBell />
 
 
-      <!-- New session CTA -->
-      <NuxtLink to="/dashboard/chat">
+      <!-- New session CTA — learner feature, hidden for admins -->
+      <NuxtLink v-if="!isStaff" to="/dashboard/chat">
         <AppButton variant="primary" size="36" radius="8" icon="Candle" :icon-config="{ color: 'white' }"
           text="New session" class="hidden sm:flex text-[12.5px]!" />
       </NuxtLink>
