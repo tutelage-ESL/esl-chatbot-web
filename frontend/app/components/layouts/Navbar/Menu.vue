@@ -124,11 +124,15 @@ onUnmounted(() => {
                       <AppText size="15" color="white" class-list="text-inherit font-medium tracking-tight">
                         {{ item.name ?? 'Menu item' }}
                       </AppText>
-                      <Icon icon="lucide:arrow-right" width="14" class="text-inherit" />
+                      <Icon icon="lucide:arrow-right" width="14" class="text-inherit rtl:rotate-180" />
                     </AppLink>
                   </li>
                 </ul>
               </nav>
+
+              <div class="mt-6 pt-6 border-t border-neutral-50/10">
+                <LayoutsNavbarLanguageSwitcher />
+              </div>
             </div>
           </div>
         </div>

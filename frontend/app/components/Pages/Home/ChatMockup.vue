@@ -13,10 +13,10 @@
             <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-brand-dark" />
           </div>
           <div class="leading-tight">
-            <AppText size="14" weight="semibold" color="white" class-list="text-sm">AI Tutor · Tutelage AI</AppText>
+            <AppText size="14" weight="semibold" color="white" class-list="text-sm">{{ t.chatMockup.tutorName }}</AppText>
             <div class="text-neutral-50/50 text-[11px] flex items-center gap-1.5">
               <span class="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              <AppText size="11" color="white" class-list="text-neutral-50/50">Session · B2 Intermediate</AppText>
+              <AppText size="11" color="white" class-list="text-neutral-50/50">{{ t.chatMockup.sessionLabel }}</AppText>
             </div>
           </div>
         </div>
@@ -86,7 +86,7 @@
             />
           </div>
           <div class="flex-1 text-[13px] text-neutral-50/60">
-            Listening<span class="animate-[blink_1s_steps(1)_infinite]">…</span>
+            {{ t.chatMockup.listening }}<span class="animate-[blink_1s_steps(1)_infinite]">…</span>
           </div>
           <button class="w-8 h-8 rounded-lg bg-brand-primary text-brand-ink flex items-center justify-center shadow">
             <Icon icon="lucide:send" width="14" />
@@ -95,10 +95,10 @@
         <div class="flex items-center justify-between mt-2 px-1">
           <div class="flex items-center gap-3 text-[10px] text-neutral-50/40">
             <span class="flex items-center gap-1">
-              <Icon icon="lucide:mic" width="10" /> Voice mode
+              <Icon icon="lucide:mic" width="10" /> {{ t.chatMockup.voiceMode }}
             </span>
             <span>·</span>
-            <span>Pronunciation: <span class="text-emerald-400 font-medium">92%</span></span>
+            <span>{{ t.chatMockup.pronunciation }} <span class="text-emerald-400 font-medium">92%</span></span>
           </div>
           <span class="text-[10px] text-neutral-50/40 font-mono">Session 14:22</span>
         </div>
@@ -118,12 +118,24 @@ type ConvoMessage = {
   tip?: boolean
 }
 
-const convo: ConvoMessage[] = [
-  { who: 'ai',   text: "Hi! I'm your English tutor. What would you like to practice today?", t: '10:04' },
-  { who: 'user', text: 'I want to practice talking about travel.', t: '10:04' },
-  { who: 'ai',   text: "Great choice! Tell me about a place you've visited recently.", t: '10:05' },
-  { who: 'user', text: 'I went to Erbil last summer. It was very hot but beautiful.', t: '10:05' },
+const { t } = useLocale()
+
+// Structural metadata (speaker + timestamp) stays here; the message text is
+// pulled from the active locale by index, so the demo translates live.
+const convoMeta: { who: 'ai' | 'user'; t: string }[] = [
+  { who: 'ai',   t: '10:04' },
+  { who: 'user', t: '10:04' },
+  { who: 'ai',   t: '10:05' },
+  { who: 'user', t: '10:05' },
 ]
+
+const convo = computed<ConvoMessage[]>(() =>
+  convoMeta.map((meta, i) => ({
+    who: meta.who,
+    t: meta.t,
+    text: t.value.chatMockup.messages[i] ?? '',
+  })),
+)
 
 const waveBars = [0.3, 0.7, 0.5, 0.9, 0.4, 0.8, 0.5]
 
@@ -133,17 +145,17 @@ const aiBubbleClasses = 'bg-neutral-50/4 border border-neutral-50/8 text-neutral
 const visible = ref(0)
 const typing  = ref(false)
 
-const visibleMessages = computed(() => convo.slice(0, visible.value))
+const visibleMessages = computed(() => convo.value.slice(0, visible.value))
 
 onMounted(() => {
   const timers: ReturnType<typeof setTimeout>[] = []
 
   function step(i: number) {
-    if (i >= convo.length) {
+    if (i >= convo.value.length) {
       timers.push(setTimeout(() => { visible.value = 0; step(0) }, 3500))
       return
     }
-    const current = convo[i]
+    const current = convo.value[i]
     if (!current) return
 
     typing.value = current.who === 'ai' && i > 0

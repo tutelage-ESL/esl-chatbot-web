@@ -25,17 +25,18 @@
                 </AppLink>
             </nav>
 
-            <div class="hidden md-lg:flex items-center gap-2">
+            <div class="hidden md-lg:flex items-center gap-3">
+                <LayoutsNavbarLanguageSwitcher />
                 <AppButton to="/signin" variant="brand" size="38" class-list="px-3.5 text-[13px] gap-1.5">
-                    <span>Get Started</span>
-                    <Icon icon="lucide:arrow-right" width="13" />
+                    <span>{{ t.nav.getStarted }}</span>
+                    <Icon icon="lucide:arrow-right" width="13" class="rtl:rotate-180" />
                 </AppButton>
             </div>
 
             <div class="md-lg:hidden flex items-center gap-2">
                 <AppButton to="/#cta" variant="brand" size="38" class-list="px-3 sm:px-3.5 text-[13px] gap-1.5">
-                    <span>Get Started</span>
-                    <Icon icon="lucide:arrow-right" width="13" />
+                    <span>{{ t.nav.getStarted }}</span>
+                    <Icon icon="lucide:arrow-right" width="13" class="rtl:rotate-180" />
                 </AppButton>
                 <LayoutsNavbarMenu :nav-items="navLinks" :active-link="activeLink" @select="handleLinkClick" />
             </div>
@@ -51,17 +52,19 @@ import type { NavItemTypes } from '~/common/types/nav-links-type'
 const scrolled = ref(false)
 const route = useRoute()
 const activeLink = ref('')
+const { t } = useLocale()
 
 let sectionObserver: IntersectionObserver | null = null
 
-const navLinks: NavItemTypes[] = [
-    { name: 'Features', link: '/#features' },
-    { name: 'How It Works', link: '/#how' },
-    { name: 'Dashboard', link: '/#dashboard' },
-    { name: 'Pricing', link: '/#pricing' },
-]
+// Links are constant (used for scroll-spy); only the labels are localized.
+const navLinks = computed<NavItemTypes[]>(() => [
+    { name: t.value.nav.features, link: '/#features' },
+    { name: t.value.nav.howItWorks, link: '/#how' },
+    { name: t.value.nav.dashboard, link: '/#dashboard' },
+    { name: t.value.nav.pricing, link: '/#pricing' },
+])
 
-const sectionIds = computed(() => navLinks.reduce<string[]>((ids, item) => {
+const sectionIds = computed(() => navLinks.value.reduce<string[]>((ids, item) => {
     const sectionId = item.link.split('#')[1]
     if (sectionId) ids.push(sectionId)
     return ids

@@ -2,9 +2,9 @@
   <section id="dashboard" class="bg-neutral-50 py-28 sm:py-36 overflow-hidden">
     <div class="container-lg layout-padding-lg">
       <LayoutsSectionHeader
-        eyebrow="Dashboard"
-        title="Your learning command center."
-        description="Streaks, vocabulary, minutes and level — all in one calm view, so you always know what to do next."
+        :eyebrow="t.dashboardPreview.eyebrow"
+        :title="t.dashboardPreview.title"
+        :description="t.dashboardPreview.description"
         align="center"
         wrapper-class="mb-14"
       />
@@ -15,3 +15,7 @@
     </div>
   </section>
 </template>
+
+<script setup lang="ts">
+const { t } = useLocale()
+</script>

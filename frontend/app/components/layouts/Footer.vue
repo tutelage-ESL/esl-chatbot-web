@@ -11,7 +11,7 @@
                     </AppLink>
 
                     <AppText size="13" color="white-50" class-list="mt-5 max-w-xs leading-relaxed">
-                        An AI-powered English learning platform — conversations, voice, vocabulary and real progress in one place.
+                        {{ t.footer.tagline }}
                     </AppText>
 
                     <div class="mt-6 flex items-center gap-2">
@@ -51,15 +51,15 @@
             </div>
 
             <div class="mt-16 pt-6 border-t border-neutral-50/10 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <AppText size="12" color="white-40">© 2026 Tutelage AI. All rights reserved.</AppText>
+                <AppText size="12" color="white-40">{{ t.footer.rights }}</AppText>
                 <div class="flex items-center gap-4 text-[12px] text-neutral-50/40">
                     <div class="flex items-center gap-1.5">
                         <Icon icon="lucide:globe" width="12" />
-                        <AppText size="12" color="white-40">English</AppText>
+                        <AppText size="12" color="white-40">{{ config.nativeName }}</AppText>
                     </div>
                     <div class="flex items-center gap-1.5">
                         <span class="size-1.5 rounded-full bg-emerald-400" />
-                        <AppText size="12" color="white-40">All systems normal</AppText>
+                        <AppText size="12" color="white-40">{{ t.footer.status }}</AppText>
                     </div>
                 </div>
             </div>
@@ -70,11 +70,14 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
 
+const { t, config } = useLocale()
+
+// Social handles are brand abbreviations — not translated.
 const socials = ['X', 'in', 'gh', 'yt']
 
-const cols = [
-    { heading: 'Product', links: ['Features', 'AI Chat', 'Voice Lab', 'Vocabulary', 'Pricing'] },
-    { heading: 'Resources', links: ['Blog', 'Guides', 'Placement Test', 'Changelog', 'Status'] },
-    { heading: 'Company', links: ['About', 'Careers', 'Press', 'Partners', 'Contact'] },
-]
+const cols = computed(() => [
+    t.value.footer.columns.product,
+    t.value.footer.columns.resources,
+    t.value.footer.columns.company,
+])
 </script>

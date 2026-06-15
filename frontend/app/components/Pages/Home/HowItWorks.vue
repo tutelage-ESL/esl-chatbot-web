@@ -2,14 +2,14 @@
   <section id="how" class="bg-brand-muted/60 py-28 sm:py-32 border-y border-neutral-200/70">
     <div class="container-lg layout-padding-lg">
       <LayoutsSectionHeader
-        eyebrow="How it works"
-        title="Three steps. Real fluency."
+        :eyebrow="t.howItWorks.eyebrow"
+        :title="t.howItWorks.title"
         align="start"
         wrapper-class="mb-14"
       >
         <template #action>
           <AppLink to="#cta" class="text-[13px] font-medium text-brand-ink inline-flex items-center gap-1 hover:text-brand-primary transition-colors">
-            See it in action <Icon icon="lucide:arrow-right" width="13" />
+            {{ t.howItWorks.seeInAction }} <Icon icon="lucide:arrow-right" width="13" class="rtl:rotate-180" />
           </AppLink>
         </template>
       </LayoutsSectionHeader>
@@ -29,8 +29,8 @@
             <div class="flex-1 h-px bg-neutral-200" />
             <Icon :icon="step.icon" width="18" class="text-brand-sub" />
           </div>
-          <AppText size="20" weight="semibold" color="brand-ink" class-list="tracking-tight">{{ step.title }}</AppText>
-          <AppText size="14" color="brand-sub" class-list="mt-2 leading-relaxed">{{ step.description }}</AppText>
+          <AppText size="20" weight="semibold" color="brand-ink" class-list="tracking-tight">{{ t.howItWorks.steps[step.key].title }}</AppText>
+          <AppText size="14" color="brand-sub" class-list="mt-2 leading-relaxed">{{ t.howItWorks.steps[step.key].description }}</AppText>
         </div>
       </div>
     </div>
@@ -40,9 +40,12 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
 
+const { t } = useLocale()
+
+// Step number + icon are structural; `key` maps to the localized text.
 const steps = [
-  { n: '01', icon: 'lucide:message-circle', title: 'Start a Conversation', description: 'Choose a topic — travel, work, interviews — and begin chatting with an AI tuned to your level.' },
-  { n: '02', icon: 'lucide:mic',            title: 'Practice Speaking',    description: 'Switch on voice mode for real pronunciation practice with instant feedback on what you said.' },
-  { n: '03', icon: 'lucide:bar-chart-2',    title: 'Track & Improve',      description: 'Watch your vocabulary, fluency and streak grow with analytics that celebrate real progress.' },
-]
+  { n: '01', icon: 'lucide:message-circle', key: 'one' },
+  { n: '02', icon: 'lucide:mic',            key: 'two' },
+  { n: '03', icon: 'lucide:bar-chart-2',    key: 'three' },
+] as const
 </script>

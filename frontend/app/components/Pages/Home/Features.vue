@@ -2,9 +2,9 @@
   <section id="features" class="bg-neutral-50 py-28 sm:py-32">
     <div class="container-lg layout-padding-lg">
       <LayoutsSectionHeader
-        eyebrow="Features"
-        title="Everything you need to master English."
-        description="A complete toolkit — designed together, not bolted on. Every session feeds your goals, your vocabulary, and your analytics."
+        :eyebrow="t.features.eyebrow"
+        :title="t.features.title"
+        :description="t.features.description"
         align="start"
         description-class="max-w-xl"
       />
@@ -19,11 +19,11 @@
           <div class="w-11 h-11 rounded-xl bg-neutral-50 border border-neutral-200/70 flex items-center justify-center shadow-soft mb-5 text-brand-ink group-hover:text-brand-primary group-hover:border-brand-primary/30 transition">
             <Icon :icon="feature.icon" width="20" />
           </div>
-          <AppText size="17" weight="semibold" color="brand-ink" class-list="tracking-tight">{{ feature.title }}</AppText>
-          <AppText size="14" color="brand-sub" class-list="mt-2 leading-relaxed">{{ feature.description }}</AppText>
+          <AppText size="17" weight="semibold" color="brand-ink" class-list="tracking-tight">{{ t.features.items[feature.key].title }}</AppText>
+          <AppText size="14" color="brand-sub" class-list="mt-2 leading-relaxed">{{ t.features.items[feature.key].description }}</AppText>
           <div class="mt-5 flex items-center gap-1.5 text-[12px] font-medium text-brand-primary opacity-0 group-hover:opacity-100 transition">
-            <AppText class-list="cursor-pointer" size="12" color="brand-primary">Learn more</AppText>
-            <Icon icon="lucide:arrow-right" width="12" />
+            <AppText class-list="cursor-pointer" size="12" color="brand-primary">{{ t.features.learnMore }}</AppText>
+            <Icon icon="lucide:arrow-right" width="12" class="rtl:rotate-180" />
           </div>
         </div>
       </div>
@@ -34,12 +34,15 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
 
+const { t } = useLocale()
+
+// Icons are structural; the `key` maps to the localized title/description.
 const features = [
-  { icon: 'lucide:message-circle', title: 'AI Conversation',    description: 'Session-based chat with an AI tutor that adapts to your level, goals, and the topics you care about.' },
-  { icon: 'lucide:mic',            title: 'Voice Practice',     description: 'Real-time speaking with live pronunciation feedback and natural back-and-forth dialogue.' },
-  { icon: 'lucide:brain',          title: 'Vocabulary SRS',     description: 'A spaced repetition system that schedules reviews so new words actually stick long-term.' },
-  { icon: 'lucide:activity',       title: 'Pronunciation Score',description: 'AI-powered accuracy scoring on individual phonemes so you know exactly what to work on.' },
-  { icon: 'lucide:target',         title: 'Learning Goals',     description: 'Set weekly targets, track milestones, and get nudges when your streak is slipping.' },
-  { icon: 'lucide:bar-chart-2',    title: 'Progress Analytics', description: 'Clear visual insights into time, vocabulary growth, fluency, and accuracy over time.' },
-]
+  { icon: 'lucide:message-circle', key: 'conversation' },
+  { icon: 'lucide:mic',            key: 'voice' },
+  { icon: 'lucide:brain',          key: 'vocab' },
+  { icon: 'lucide:activity',       key: 'pronunciation' },
+  { icon: 'lucide:target',         key: 'goals' },
+  { icon: 'lucide:bar-chart-2',    key: 'analytics' },
+] as const
 </script>

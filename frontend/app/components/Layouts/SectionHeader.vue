@@ -67,7 +67,8 @@ const wrapperClasses = computed(() => {
 
 const contentClasses = computed(() => twMerge(
 	'w-full max-w-2xl',
-	props.align === 'center' ? 'mx-auto text-center' : 'text-left',
+	// `text-start` is logical — left in LTR, right in RTL (no LTR change).
+	props.align === 'center' ? 'mx-auto text-center' : 'text-start',
 	props.contentClass,
 ))
 

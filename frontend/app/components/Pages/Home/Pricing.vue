@@ -1,7 +1,7 @@
 <template>
   <section id="pricing" class="bg-brand-muted/60 py-28 sm:py-32 border-y border-neutral-200/70">
     <div class="container-lg layout-padding-lg">
-      <LayoutsSectionHeader eyebrow="Pricing" title="Real Progress for Pocket Change" align="center"
+      <LayoutsSectionHeader :eyebrow="t.pricing.eyebrow" :title="t.pricing.title" align="center"
         wrapper-class="mb-14" />
 
       <div class="grid md:grid-cols-3 gap-5 items-stretch max-w-7xl mx-auto">
@@ -28,7 +28,7 @@
             </AppText>
             <span v-if="plan.featured"
               class="text-[11px] font-medium text-white flex items-center gap-1.5 bg-white/20 backdrop-blur px-2.5 py-1 rounded-full">
-              <Icon icon="lucide:sparkles" width="11" /> Most Popular
+              <Icon icon="lucide:sparkles" width="11" /> {{ t.pricing.mostPopular }}
             </span>
           </div>
 
@@ -38,7 +38,7 @@
               {{ plan.price }}
             </AppText>
             <AppText size="14" :class="plan.featured ? 'text-white/85' : 'text-brand-sub'">
-              /month
+              {{ t.pricing.perMonth }}
             </AppText>
           </div>
 
@@ -66,7 +66,7 @@
                     : 'gap-2 text-[13px] px-5 bg-neutral-100! border-neutral-200/70! text-brand-ink!'
                   ">
                 <span>{{ plan.cta }}</span>
-                <Icon icon="lucide:arrow-right" width="14" />
+                <Icon icon="lucide:arrow-right" width="14" class="rtl:rotate-180" />
               </AppButton>
             </div>
           </div>
@@ -74,7 +74,7 @@
       </div>
 
       <AppText size="12" color="brand-sub" class-list="text-center mt-12">
-        Cancel anytime · Team & school plans on request
+        {{ t.pricing.footnote }}
       </AppText>
     </div>
   </section>
@@ -85,9 +85,10 @@ import { Icon } from '@iconify/vue'
 import { useAuthStore } from '~~/stores/auth'
 
 const authStore = useAuthStore()
+const { t } = useLocale()
 
 type Plan = {
-  id: string
+  id: 'starter' | 'gold' | 'premium'
   name: string
   price: string
   description: string
@@ -126,53 +127,20 @@ const premiumStars: PremiumStar[] = [
   { id: 's10', x: 74, y: 33, size: 12, opacity: 0.8, rotate: 7 },
 ]
 
-const plans: Plan[] = [
-  {
-    id: 'starter',
-    name: 'Starter',
-    price: 'Free',
-    description: 'Try the core experience and see how Tutelage fits into your routine.',
-    features: [
-      '3 sessions/day',
-      '20 msgs/session',
-      'Gemini Flash-Lite AI',
-      'Basic vocabulary SRS',
-      'Progress tracking',
-    ],
-    cta: 'Start Free',
-  },
-  {
-    id: 'gold',
-    name: 'Gold',
-    price: '25,000 IQD',
-    description: 'Serious learners who want more sessions, smarter AI, and full analytics.',
-    features: [
-      '15 sessions/day',
-      '100 msgs/session',
-      'Gemini 2.5 Flash AI',
-      'Full vocabulary SRS',
-      'Progress analytics',
-    ],
-    cta: 'Get Gold',
-    planKey: 'GOLD',
-    featured: true,
-  },
-  {
-    id: 'premium',
-    name: 'Premium',
-    price: '45,000 IQD',
-    description: 'Everything you need to go all-in on the full Tutelage experience.',
-    features: [
-      '50 sessions/day',
-      '150 msgs/session',
-      'GPT-5 mini AI',
-      'Priority voice TTS',
-      'Advanced analytics',
-    ],
-    cta: 'Get Premium',
-    planKey: 'PREMIUM',
-  },
+// Structural plan data (id / billing key / featured flag) lives here; all
+// copy (name, price, description, cta, features) comes from the active locale.
+const planMeta: Pick<Plan, 'id' | 'planKey' | 'featured'>[] = [
+  { id: 'starter' },
+  { id: 'gold', planKey: 'GOLD', featured: true },
+  { id: 'premium', planKey: 'PREMIUM' },
 ]
+
+const plans = computed<Plan[]>(() =>
+  planMeta.map((meta) => ({
+    ...meta,
+    ...t.value.pricing.plans[meta.id],
+  })),
+)
 </script>
 
 <style scoped>

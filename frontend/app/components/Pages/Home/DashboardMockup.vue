@@ -37,7 +37,7 @@
           </div>
           <div class="mt-auto pt-4 text-[11px] text-neutral-400 px-2">
             <div class="rounded-lg bg-neutral-50 border border-neutral-100 p-2.5">
-              <div class="font-medium text-neutral-600 mb-0.5">Daily goal</div>
+              <div class="font-medium text-neutral-600 mb-0.5">{{ m.dailyGoal }}</div>
               <div class="h-1.5 rounded-full bg-neutral-200 overflow-hidden">
                 <div class="h-full w-[68%] bg-brand-primary rounded-full" />
               </div>
@@ -53,11 +53,11 @@
           <!-- Top bar -->
           <div class="flex items-center justify-between">
             <div>
-              <div class="text-[11px] text-neutral-400 uppercase tracking-wider font-medium">Good morning</div>
-              <div class="text-lg font-semibold tracking-tight">Welcome back, Aram 👋</div>
+              <div class="text-[11px] text-neutral-400 uppercase tracking-wider font-medium">{{ m.greeting }}</div>
+              <div class="text-lg font-semibold tracking-tight">{{ m.welcome }}</div>
             </div>
             <button class="cursor-pointer hidden sm:flex items-center gap-2 text-[12px] bg-brand-ink text-neutral-50 px-3 py-1.5 rounded-lg">
-              <Icon icon="lucide:message-circle" width="13" /> New session
+              <Icon icon="lucide:message-circle" width="13" /> {{ m.newSession }}
             </button>
           </div>
 
@@ -83,7 +83,7 @@
             <div class="col-span-3 rounded-xl border border-neutral-100 p-4">
               <div class="flex items-center justify-between mb-2">
                 <div>
-                  <div class="text-[11px] text-neutral-400 uppercase tracking-wider font-medium">Words learned</div>
+                  <div class="text-[11px] text-neutral-400 uppercase tracking-wider font-medium">{{ m.wordsLearned }}</div>
                   <div class="text-base font-semibold tracking-tight">
                     1,248 <span class="text-brand-primary text-[12px] font-medium">+12.4%</span>
                   </div>
@@ -106,7 +106,7 @@
               </svg>
               <!-- Heatmap -->
               <div class="mt-3">
-                <div class="text-[10px] text-neutral-400 uppercase tracking-wider font-medium mb-1.5">Practice consistency</div>
+                <div class="text-[10px] text-neutral-400 uppercase tracking-wider font-medium mb-1.5">{{ m.consistency }}</div>
                 <div class="flex gap-1">
                   <div v-for="(week, i) in heatWeeks" :key="i" class="flex flex-col gap-1">
                     <span
@@ -123,8 +123,8 @@
             <!-- Recent session -->
             <div class="col-span-2 rounded-xl border border-neutral-100 p-3 flex flex-col">
               <div class="flex items-center justify-between mb-2">
-                <div class="text-[11px] text-neutral-400 uppercase tracking-wider font-medium">Recent session</div>
-                <span class="text-[10px] font-mono text-neutral-400">8 min ago</span>
+                <div class="text-[11px] text-neutral-400 uppercase tracking-wider font-medium">{{ m.recentSession }}</div>
+                <span class="text-[10px] font-mono text-neutral-400">{{ m.minutesAgo }}</span>
               </div>
               <div class="space-y-2 text-[11px] flex-1">
                 <div class="flex gap-1.5">
@@ -144,9 +144,9 @@
                 </div>
               </div>
               <div class="mt-2 pt-2 border-t border-neutral-100 flex items-center justify-between">
-                <div class="text-[10px] text-neutral-400">12 turns · 94% accuracy</div>
+                <div class="text-[10px] text-neutral-400">{{ m.turnsAccuracy }}</div>
                 <button class="cursor-pointer text-[10px] font-medium text-brand-primary flex items-center gap-0.5">
-                  Continue <Icon icon="lucide:arrow-right" width="10" />
+                  {{ m.continue }} <Icon icon="lucide:arrow-right" width="10" class="rtl:rotate-180" />
                 </button>
               </div>
             </div>
@@ -159,6 +159,10 @@
 
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
+
+const { t } = useLocale()
+// Shorthand for the mockup's localized labels.
+const m = computed(() => t.value.dashboardPreview.mockup)
 
 // Sparkline
 const pts = [12, 18, 14, 22, 19, 28, 24, 32, 30, 38, 35, 44, 42, 52]
@@ -194,12 +198,13 @@ const sidebarItems = [
   { label: 'Goals',     icon: 'lucide:target',         active: false },
 ]
 
-const stats = [
-  { label: 'Lessons',    value: '124', sub: '+8 this week',       icon: 'lucide:book-open',       color: 'text-neutral-900' },
-  { label: 'Study time', value: '42h', sub: 'this month',         icon: 'lucide:clock',           color: 'text-neutral-900' },
-  { label: 'Streak',     value: '23',  sub: 'days · keep going',  icon: 'lucide:flame',           color: 'text-brand-primary' },
-  { label: 'Level',      value: 'B2',  sub: 'Upper-Intermediate', icon: 'lucide:star',            color: 'text-neutral-900' },
-]
+// Numbers/icons are structural; labels + subs come from the active locale.
+const stats = computed(() => [
+  { label: m.value.statLessons,   value: '124', sub: m.value.statLessonsSub,   icon: 'lucide:book-open', color: 'text-neutral-900' },
+  { label: m.value.statStudyTime, value: '42h', sub: m.value.statStudyTimeSub, icon: 'lucide:clock',     color: 'text-neutral-900' },
+  { label: m.value.statStreak,    value: '23',  sub: m.value.statStreakSub,    icon: 'lucide:flame',     color: 'text-brand-primary' },
+  { label: m.value.statLevel,     value: 'B2',  sub: m.value.statLevelSub,     icon: 'lucide:star',      color: 'text-neutral-900' },
+])
 </script>
 
 <style scoped>
