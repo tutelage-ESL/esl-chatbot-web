@@ -4163,7 +4163,7 @@ export interface paths {
         get: {
             parameters: {
                 query: {
-                    /** @description Search term */
+                    /** @description Search term (minimum 2 characters) */
                     q: string;
                 };
                 header?: never;
@@ -4187,6 +4187,15 @@ export interface paths {
                 };
                 401: components["responses"]["Unauthorized"];
                 422: components["responses"]["ValidationError"];
+                /** @description Rate limit exceeded (30 searches per minute per user) */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
             };
         };
         put?: never;

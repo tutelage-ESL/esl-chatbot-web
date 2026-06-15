@@ -140,6 +140,20 @@ export const avatarUploadLimiter = rateLimit({
   handler: jsonHandler,
 });
 
+// ── Search — per-user (fans out to 5 DB queries per request) ──────────────────
+// Keyed by user id (runs after authenticate). The header palette debounces at
+// 250ms, so 30/min comfortably covers active typing while capping abuse.
+
+export const searchLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  skip,
+  keyGenerator: userOrIpKey,
+  handler: jsonHandler,
+});
+
 // ── Global fallback — last-resort DDoS protection ─────────────────────────────
 
 export const globalLimiter = rateLimit({

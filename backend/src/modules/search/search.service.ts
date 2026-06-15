@@ -26,6 +26,9 @@ export async function globalSearch(
 
   const classWhere: Prisma.ClassWhereInput = {
     className: like(q),
+    // Archived classes are read-only dead-ends — keep them out of the palette
+    // (mirrors the default `archived=false` scoping on the class list endpoints).
+    archived: false,
     ...(isAdmin ? {} : { users: { some: { userId: actorId } } }),
   };
 

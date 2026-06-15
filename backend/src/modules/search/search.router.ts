@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { globalSearchHandler } from "./search.controller.ts";
 import { authenticate } from "../../middlewares/authenticate.ts";
+import { searchLimiter } from "../../middlewares/rateLimits.ts";
 
 const router = Router();
 
@@ -31,9 +32,9 @@ const router = Router();
  *         required: true
  *         schema:
  *           type: string
- *           minLength: 1
+ *           minLength: 2
  *           maxLength: 100
- *         description: Search term
+ *         description: Search term (minimum 2 characters)
  *     responses:
  *       200:
  *         description: Grouped, role-scoped search results
@@ -52,8 +53,14 @@ const router = Router();
  *         $ref: '#/components/responses/Unauthorized'
  *       422:
  *         $ref: '#/components/responses/ValidationError'
+ *       429:
+ *         description: Rate limit exceeded (30 searches per minute per user)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.get("/", authenticate, globalSearchHandler);
+router.get("/", authenticate, searchLimiter, globalSearchHandler);
 
 /**
  * @swagger

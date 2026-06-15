@@ -422,7 +422,7 @@ Includes: classes (with full code-lifecycle fields populated) with enrolled user
 
 ### Phase 9 — Infrastructure & Polish
 - Redis caching for hot queries (user profiles, session data)
-- ✅ Rate limiting — `src/middlewares/rateLimits.ts`: IP-based limits on all auth endpoints (10 login / 5 register / 5 forgot-password per window), per-user burst limits on AI endpoints (10 msg/min, 5 voice/min, 20 sessions/hr), global fallback 500/15 min. `trust proxy 1` set in `app.ts`. Active in production only (no-op in dev/test).
+- ✅ Rate limiting — `src/middlewares/rateLimits.ts`: IP-based limits on all auth endpoints (10 login / 5 register / 5 forgot-password per window), per-user burst limits on AI endpoints (10 msg/min, 5 voice/min, 20 sessions/hr) + search (30/min), global fallback 500/15 min. `trust proxy 1` set in `app.ts`. Active in production only (no-op in dev/test).
 - ✅ Email notifications (Resend): welcome, password reset, weekly digest. Weekly digest opt-out via `LearnerProfile.emailDigestEnabled` (default true); `bun run job:digest [-- --force]` for manual runs
 - File upload handling (audio recordings, avatars)
 - ✅ Socket.io real-time chat — `/chat` namespace (text `message:send` + voice `voice:start/chunk/end` pipeline) + `/notifications` namespace (server-push). JWT auth at handshake. See `src/socket/`. Voice: client streams base64 chunks → server buffers + streams to Deepgram live for partial transcripts → on `voice:end` runs batch STT→LLM→TTS via `sendVoiceMessage`. To push a notification from any service: `getIO().of('/notifications').to('user:{userId}').emit('notification:new', data)`
@@ -451,7 +451,7 @@ Check them off (✅) as they are built.
 - [ ] **FIB payment flow** — `POST /subscriptions/initiate-fib` (creates payment intent, returns QR/deep-link) + `POST /subscriptions/webhook/fib` (receives callback, sets plan=GOLD/PREMIUM, status=ACTIVE, externalSubscriptionId=fibPaymentId). See existing Phase 8 notes for context.
 
 ### Search
-- ✅ `GET /search?q=` — role-aware global search (module `src/modules/search/`). Returns grouped results `{ users, classes, vocabulary, goals, sessions }`, each capped to 6. Scoping: every user searches their **own** vocabulary/goals/sessions; classes are scoped (ADMIN→all, TUTOR/STUDENT→classes they belong to); users are **ADMIN only** (stealth `isInternal` accounts always excluded). Powers the frontend header command palette.
+- ✅ `GET /search?q=` — role-aware global search (module `src/modules/search/`). Returns grouped results `{ users, classes, vocabulary, goals, sessions }`, each capped to 6. Scoping: every user searches their **own** vocabulary/goals/sessions; classes are scoped (ADMIN→all, TUTOR/STUDENT→classes they belong to, archived excluded); users are **ADMIN only** (stealth `isInternal` accounts always excluded). Query requires min 2 chars; rate-limited 30/min per user. Powers the frontend header command palette.
 
 ### Admin & Notifications
 - ✅ `GET /admin/dashboard` — platform-wide stats for the admin panel: total users by role, active subscriptions by plan (FREE/GOLD/PREMIUM counts), daily/weekly active users (users with a session in last 1/7 days), total sessions today, revenue by payment method (CASH/FIB/STRIPE). Single aggregated query, no pagination needed.
