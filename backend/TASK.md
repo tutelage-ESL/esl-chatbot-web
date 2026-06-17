@@ -119,14 +119,19 @@ Resend is already wired (welcome + password reset done). This adds the weekly su
 
 ---
 
-## 8. User Agreement / Terms of Service Signing
-Legal requirement before charging users.
+## 8. User Agreement / Terms of Service Signing ✅ DONE (2026-06-17, infra) — ⚠️ placeholder text pending
+Legal requirement before charging users. **Plumbing is final; only the legal copy is outstanding.**
 
-- Get agreement text from business owner
-- New `UserAgreement` model: `{ userId, version, acceptedAt, ipAddress }`
-- On registration: store acceptance with version string and IP
-- `GET /auth/agreement` — returns current agreement version + text
-- Guard: if a new agreement version is published, prompt user to re-accept on next login (frontend banner)
+- ✅ New `UserAgreement` model: `{ userId, version, ipAddress, acceptedAt }`, `@@unique([userId, version])` (one row per accepted version = full audit history); migration `20260617190000_add_user_agreement`
+- ✅ Agreement content + version live in `src/modules/auth/agreement.content.ts` (`CURRENT_AGREEMENT`, currently v1.0). Bumping `version` forces every user to re-accept — no code/migration change. The `text` is a **project-specific v1.0 template** (real Tutelage terms: service, tiers, FIB/cash payment, AI-content disclaimer, classes, data, etc.); have legal/owner review the `[Company]`/governing-law/refund clauses, then bump version — nothing else changes.
+- ✅ `GET /auth/agreement` — public; returns `{ version, effectiveDate, text }`
+- ✅ `POST /auth/register` now requires `acceptAgreement: true` (422 otherwise); records acceptance with version + `req.ip` inside the create transaction. Google new-account branch (`POST /auth/google` with username) requires `acceptAgreement: true` too (400 otherwise).
+- ✅ Re-accept guard on **both** `POST /auth/login` and the existing-user/merge paths of `POST /auth/google` → **403** `{ needsAgreement: true, agreementVersion }` (via new `AppError.details`) when the current version isn't accepted. Blocked user calls **`POST /auth/accept-agreement`** — `{ username, password }` (LOCAL) or `{ idToken }` (Google, no password) — re-proves identity, records acceptance, returns tokens. (Google guard added in review so version bumps truly force *everyone* to re-accept, not just password users.)
+- ✅ `errorHandler` hardened: `AppError.details` is spread so it can only *add* fields, never clobber `success`/`message`/`data`.
+- ✅ Seed: all 5 seed users get an acceptance row so they can log in. Existing prod users (none accepted yet) will be prompted to re-accept on first login post-deploy — intended.
+- ✅ Tests: 8 new cases in `auth.router.test.ts` (GET agreement, login 403 needsAgreement, accept-agreement records + unblocks, wrong-pw 400, idToken-variant 401/503, 422 ×2, register-without-agreement 422). Auth suite **50 pass**; full suite green (heavy DB tests occasionally hit the 5s timeout on remote Neon — environmental, not logic).
+- **Remaining (business):** provide final Terms text → drop into `agreement.content.ts` + bump version. Frontend (Rekar): register checkbox + login-403 `needsAgreement` re-accept modal (noted in `frontend/TASKS.md`).
+- **Prod note (Task 5):** baseline `20260617190000_add_user_agreement` alongside the other catch-up migrations before `migrate deploy` (see Account/Hosting runbook in `docs/handover/`).
 
 ---
 
@@ -151,9 +156,17 @@ A stealth monitoring account not visible as "ADMIN" to anyone — including othe
 ## 10. Documentation × 3 Audiences
 Content task — coordinate with business owner for non-technical sections.
 
-- **Business owner doc** (simple): monthly costs breakdown (AI, hosting, storage, email), how subscriptions work, how to use the admin panel, who to contact for support
-- **Developer doc** (complex): full architecture, how to onboard, how to deploy, how to rotate secrets, module map — update `backend/CLAUDE.md` + `docs/`
-- **Investor doc** (medium): product overview, market, tech stack summary, growth levers, subscription tiers
+- ✅ **Developer doc** (complex) — DONE (2026-06-17): `docs/handover/` — `developer-guide.md`
+  (architecture, onboarding, testing, CI, module map), `deployment-runbook.md` (hosting +
+  the migration-baseline procedure + FIB + smoke tests + rollback), `secret-rotation.md`
+  (account migration + rotating every credential). `backend/CLAUDE.md` already kept current.
+- **Business owner doc** (simple): monthly costs breakdown (AI, hosting, storage, email), how subscriptions work, how to use the admin panel, who to contact for support — **blocked: needs owner's cost numbers**
+- **Investor doc** (medium): product overview, market, tech stack summary, growth levers, subscription tiers — **blocked: needs owner's market/business input**
+
+> **Prod-hardening note:** the `NODE_ENV=production` + `FIB_WEBHOOK_URL` startup guard is
+> already implemented in `src/config/env.ts` (fails fast only when `FIB_CLIENT_ID` is set
+> without a webhook URL). The migration-baseline procedure is documented in
+> `docs/handover/deployment-runbook.md`.
 
 ---
 

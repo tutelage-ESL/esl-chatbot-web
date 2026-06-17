@@ -1,5 +1,6 @@
 import bcryptjs from "bcryptjs";
 import jwt from "jsonwebtoken";
+import type { Role, Plan, SubStatus } from "@prisma/client";
 import { createHash, randomInt, randomUUID } from "crypto";
 import { prisma } from "../../config/database.ts";
 import { env } from "../../config/env.ts";
@@ -20,9 +21,12 @@ import type {
   SetPasswordInput,
   VerifyEmailInput,
   ResendVerificationInput,
+  AcceptAgreementInput,
+  AgreementContent,
 } from "./auth.types.ts";
 import { resend } from "../../config/resend.ts";
 import { getCache, setCache, deleteCache, cacheKeys, cacheTTL } from "../../config/cache.ts";
+import { CURRENT_AGREEMENT } from "./agreement.content.ts";
 
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -47,8 +51,11 @@ function signRefreshToken(userId: string): string {
   } as jwt.SignOptions);
 }
 
-async function issueTokenPair(userId: string): Promise<{ accessToken: string; refreshToken: string }> {
-  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+/** Signs an access+refresh pair and persists the refresh hash. No DB read — the
+ *  caller supplies the identity fields it already holds. */
+async function persistTokenPair(
+  user: { id: string; username: string; email: string; role: Role },
+): Promise<{ accessToken: string; refreshToken: string }> {
   const payload: JwtPayload = {
     sub: user.id,
     username: user.username,
@@ -67,6 +74,12 @@ async function issueTokenPair(userId: string): Promise<{ accessToken: string; re
   });
 
   return { accessToken, refreshToken };
+}
+
+/** Convenience wrapper for callers that only have a userId (fetches identity first). */
+async function issueTokenPair(userId: string): Promise<{ accessToken: string; refreshToken: string }> {
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+  return persistTokenPair(user);
 }
 
 /**
@@ -106,14 +119,60 @@ async function verifyGoogleToken(idToken: string): Promise<GoogleProfile> {
   };
 }
 
+// ─── Agreement (Terms of Service) helpers ─────────────────────────────────────
+
+/** Returns the current Terms-of-Service version + text for GET /auth/agreement. */
+export function getCurrentAgreement(): AgreementContent {
+  return CURRENT_AGREEMENT;
+}
+
+/** True if the user has accepted the *current* agreement version (exact match). */
+async function hasAcceptedCurrentAgreement(userId: string): Promise<boolean> {
+  const row = await prisma.userAgreement.findUnique({
+    where: { userId_version: { userId, version: CURRENT_AGREEMENT.version } },
+    select: { id: true },
+  });
+  return row !== null;
+}
+
+/**
+ * Records acceptance of the current agreement version for a user. Idempotent —
+ * upsert means re-accepting the same version is a no-op (the original acceptedAt
+ * and ipAddress are preserved as the authoritative record).
+ */
+async function recordAgreementAcceptance(userId: string, ipAddress?: string | null): Promise<void> {
+  await prisma.userAgreement.upsert({
+    where: { userId_version: { userId, version: CURRENT_AGREEMENT.version } },
+    create: { userId, version: CURRENT_AGREEMENT.version, ipAddress: ipAddress ?? null },
+    update: {},
+  });
+}
+
 // ─── Login ───────────────────────────────────────────────────────────────────
 
-export async function login(input: LoginInput): Promise<LoginResponse> {
+type CredentialUser = {
+  id: string;
+  username: string;
+  email: string;
+  displayName: string;
+  role: Role;
+  avatarUrl: string | null;
+  isActive: boolean;
+  emailVerified: boolean;
+  password: string | null;
+  subscription: { plan: Plan; status: SubStatus } | null;
+};
+
+/**
+ * Validates username + password and the account's login eligibility (active,
+ * has a password, email verified). Throws the appropriate 400/403 on failure.
+ * Shared by `login` and `acceptAgreement` so the re-accept flow re-checks
+ * credentials exactly like a normal login. Does NOT run the agreement guard.
+ */
+async function verifyLoginCredentials(username: string, password: string): Promise<CredentialUser> {
   const user = await prisma.user.findUnique({
-    where: { username: input.username },
-    include: {
-      subscription: { select: { plan: true, status: true } },
-    },
+    where: { username },
+    include: { subscription: { select: { plan: true, status: true } } },
   });
 
   // Same error for "not found" and "wrong password" — prevents username enumeration
@@ -129,11 +188,11 @@ export async function login(input: LoginInput): Promise<LoginResponse> {
   if (!user.password) {
     throw new AppError(
       "This account was created with Google Sign-In. Please use the 'Sign in with Google' option.",
-      400
+      400,
     );
   }
 
-  const passwordValid = await bcryptjs.compare(input.password, user.password);
+  const passwordValid = await bcryptjs.compare(password, user.password);
   if (!passwordValid) {
     throw new AppError(INVALID_CREDENTIALS_MSG, 400);
   }
@@ -148,46 +207,91 @@ export async function login(input: LoginInput): Promise<LoginResponse> {
     );
   }
 
-  const jwtPayload: JwtPayload = {
-    sub: user.id,
+  return user;
+}
+
+function toAuthUser(user: CredentialUser): AuthUser {
+  return {
+    id: user.id,
     username: user.username,
     email: user.email,
+    displayName: user.displayName,
     role: user.role,
+    avatarUrl: user.avatarUrl,
+    isActive: user.isActive,
+    emailVerified: user.emailVerified,
+    subscription: user.subscription
+      ? { plan: user.subscription.plan, status: user.subscription.status }
+      : null,
   };
+}
 
-  const accessToken = signAccessToken(jwtPayload);
-  const refreshToken = signRefreshToken(user.id);
+export async function login(input: LoginInput): Promise<LoginResponse> {
+  const user = await verifyLoginCredentials(input.username, input.password);
 
-  await prisma.refreshToken.create({
-    data: {
-      userId: user.id,
-      tokenHash: hashToken(refreshToken),
-      expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
-    },
-  });
+  // Re-accept guard: a user who has not accepted the current Terms of Service
+  // version is blocked (403) and must re-accept via POST /auth/accept-agreement.
+  // Bumping CURRENT_AGREEMENT.version invalidates every prior acceptance.
+  if (!(await hasAcceptedCurrentAgreement(user.id))) {
+    throw new AppError(
+      "Please review and accept the updated Terms of Service to continue.",
+      403,
+      { needsAgreement: true, agreementVersion: CURRENT_AGREEMENT.version },
+    );
+  }
 
-  return {
-    user: {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      displayName: user.displayName,
-      role: user.role,
-      avatarUrl: user.avatarUrl,
-      isActive: user.isActive,
-      emailVerified: user.emailVerified,
-      subscription: user.subscription
-        ? { plan: user.subscription.plan, status: user.subscription.status }
-        : null,
-    },
-    accessToken,
-    refreshToken,
-  };
+  const { accessToken, refreshToken } = await persistTokenPair(user);
+  return { user: toAuthUser(user), accessToken, refreshToken };
+}
+
+/**
+ * Re-accepts the current Terms of Service for a user whose login was blocked with
+ * `needsAgreement`. Credentials are re-validated (the blocked user holds no token),
+ * acceptance is recorded, and a token pair is issued — completing login in one call.
+ */
+export async function acceptAgreement(
+  input: AcceptAgreementInput,
+  ipAddress?: string | null,
+): Promise<LoginResponse> {
+  const user =
+    input.idToken !== undefined
+      ? await verifyGoogleCredentials(input.idToken)
+      : await verifyLoginCredentials(input.username, input.password);
+  await recordAgreementAcceptance(user.id, ipAddress);
+  const { accessToken, refreshToken } = await persistTokenPair(user);
+  return { user: toAuthUser(user), accessToken, refreshToken };
+}
+
+/**
+ * Resolves the account behind a Google ID token for the re-accept flow (Google
+ * accounts have no password to re-validate). Verifies the token, then finds the
+ * user by googleId (falling back to the verified email for a not-yet-linked
+ * LOCAL account). Throws the same 404/403 shape as a normal login.
+ */
+async function verifyGoogleCredentials(idToken: string): Promise<CredentialUser> {
+  const profile = await verifyGoogleToken(idToken);
+  const user =
+    (await prisma.user.findUnique({
+      where: { googleId: profile.googleId },
+      include: { subscription: { select: { plan: true, status: true } } },
+    })) ??
+    (await prisma.user.findUnique({
+      where: { email: profile.email },
+      include: { subscription: { select: { plan: true, status: true } } },
+    }));
+
+  if (!user) {
+    throw new AppError("No account is linked to this Google sign-in.", 404);
+  }
+  if (!user.isActive) {
+    throw new AppError("Your account has been deactivated. Please contact support.", 403);
+  }
+  return user;
 }
 
 // ─── Register ────────────────────────────────────────────────────────────────
 
-export async function register(input: RegisterInput): Promise<AuthUser> {
+export async function register(input: RegisterInput, ipAddress?: string | null): Promise<AuthUser> {
   // Check uniqueness before the transaction to give a clear error message
   const existingByUsername = await prisma.user.findUnique({ where: { username: input.username } });
   if (existingByUsername) throw new AppError("Username is already taken", 409);
@@ -197,7 +301,9 @@ export async function register(input: RegisterInput): Promise<AuthUser> {
 
   const hashedPassword = await bcryptjs.hash(input.password, 12);
 
-  // Create User + LearnerProfile + Subscription (FREE/INACTIVE) + UserMetrics atomically
+  // Create User + LearnerProfile + Subscription (FREE/INACTIVE) + UserMetrics +
+  // Terms-of-Service acceptance atomically. The schema requires acceptAgreement:true,
+  // so by this point the user has accepted the current agreement version.
   const newUser = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: {
@@ -217,6 +323,10 @@ export async function register(input: RegisterInput): Promise<AuthUser> {
     });
 
     await tx.userMetrics.create({ data: { userId: user.id } });
+
+    await tx.userAgreement.create({
+      data: { userId: user.id, version: CURRENT_AGREEMENT.version, ipAddress: ipAddress ?? null },
+    });
 
     return user;
   });
@@ -251,7 +361,10 @@ export async function register(input: RegisterInput): Promise<AuthUser> {
 
 // ─── Google Auth ─────────────────────────────────────────────────────────────
 
-export async function googleAuth(input: GoogleAuthInput): Promise<GoogleAuthResponse> {
+export async function googleAuth(
+  input: GoogleAuthInput,
+  ipAddress?: string | null,
+): Promise<GoogleAuthResponse> {
   const profile = await verifyGoogleToken(input.idToken);
 
   // Case A: existing Google user — direct login
@@ -305,7 +418,14 @@ export async function googleAuth(input: GoogleAuthInput): Promise<GoogleAuthResp
     const usernameExists = await prisma.user.findUnique({ where: { username: input.username } });
     if (usernameExists) throw new AppError("Username is already taken", 409);
 
-    // Create User + LearnerProfile + Subscription (FREE/ACTIVE) + UserMetrics atomically
+    // Creating a brand-new account requires accepting the Terms of Service. The
+    // frontend collects this checkbox on the same screen as the username.
+    if (!input.acceptAgreement) {
+      throw new AppError("You must accept the Terms of Service to create an account", 400);
+    }
+
+    // Create User + LearnerProfile + Subscription (FREE/ACTIVE) + UserMetrics +
+    // Terms-of-Service acceptance atomically.
     // Google-authenticated users are verified immediately — FREE tier is active from day one
     const created = await prisma.$transaction(async (tx) => {
       const newUser = await tx.user.create({
@@ -328,6 +448,9 @@ export async function googleAuth(input: GoogleAuthInput): Promise<GoogleAuthResp
         data: { userId: newUser.id, plan: "FREE", status: "ACTIVE" },
       });
       await tx.userMetrics.create({ data: { userId: newUser.id } });
+      await tx.userAgreement.create({
+        data: { userId: newUser.id, version: CURRENT_AGREEMENT.version, ipAddress: ipAddress ?? null },
+      });
 
       return newUser;
     });
@@ -354,6 +477,18 @@ export async function googleAuth(input: GoogleAuthInput): Promise<GoogleAuthResp
 
   if (!user.isActive) {
     throw new AppError("Your account has been deactivated. Please contact support.", 403);
+  }
+
+  // Same re-accept guard as password login — applies to existing Google logins and
+  // to the LOCAL→Google merge above. Without this, bumping the agreement version
+  // would force password users to re-accept but silently let Google users through.
+  // Google users re-accept via POST /auth/accept-agreement with their idToken.
+  if (!(await hasAcceptedCurrentAgreement(user.id))) {
+    throw new AppError(
+      "Please review and accept the updated Terms of Service to continue.",
+      403,
+      { needsAgreement: true, agreementVersion: CURRENT_AGREEMENT.version },
+    );
   }
 
   const { accessToken, refreshToken } = await issueTokenPair(user.id);

@@ -85,6 +85,15 @@ What was built — a hands-free live **CALL**, not a chat:
 
 ## Backend Notes for Frontend
 
+### Terms of Service / agreement signing — NEW, needs UI wiring (2026-06-17)
+Backend is done. Three touch points (all types are in `frontend/types/api.ts`):
+
+1. **Registration** — `POST /auth/register` now **requires** `acceptAgreement: true` in the body (returns 422 with `errors.acceptAgreement` if missing/false). Add an **"I accept the Terms of Service" checkbox** to `signup.vue` (and to `google-username.vue` for the Google new-account flow — `POST /auth/google` with a username now needs `acceptAgreement: true`, else 400). Add `acceptAgreement` to `signUpSchema` (must be `true`).
+2. **Show the terms** — `GET /auth/agreement` (public, no auth) returns `{ version, effectiveDate, text }`. Render `text` (markdown-friendly) in a dialog/sheet opened from the checkbox label, and on the re-accept prompt below.
+3. **Re-accept on login** — **both** `POST /auth/login` **and** `POST /auth/google` can now return **403 with `{ needsAgreement: true, agreementVersion }`** in the response body (alongside `message`) when the Terms changed since the user last accepted. Detect this in `signin.vue` / `stores/auth.ts` (similar to the existing unverified-email 403 redirect) and show a **re-accept modal** with the agreement text. On accept, call **`POST /auth/accept-agreement`** — for a password login send `{ username, password }` (the same credentials just typed); for a Google login send `{ idToken }` (the same Google credential). Either way it returns the normal `LoginResponse` (`{ user, accessToken, refreshToken }`), so persist tokens and proceed to `/dashboard` exactly like a successful login.
+
+Note: the agreement **text is currently a placeholder** — the real legal copy lands later by the backend bumping the version; no frontend change needed when that happens (you always fetch the current text + version live).
+
 ### Internal (stealth) admin accounts — FYI only, nothing to wire (2026-06-12)
 The backend now supports hidden internal admin accounts (`isInternal` flag, never serialized in any API response — `types/api.ts` is unchanged). They are automatically excluded from `GET /users`, admin dashboard counts, class member lists / rosters / analytics, `memberCount`, and notifications. **No frontend changes needed** — just be aware that an internal account logged into the dashboard sees everything normally, while other users (including admins) never see it anywhere.
 
@@ -138,5 +147,7 @@ Response headers include `RateLimit-Limit`, `RateLimit-Remaining`, and `RateLimi
 **Action needed:** Auth forms (login, register, forgot-password) should display a user-friendly message when the API returns 429, e.g. _"Too many attempts. Please wait a few minutes and try again."_ The existing `useHttp` error handling should catch 429 like any other error — just make sure the UI surfaces the message rather than showing a generic error.
 
 ** meeting **
-# add Ku-lang to landing page + fix the color a bit
+# add Ku-lang to landing page + fix the color a bit  ✅ DONE (commit 440cfcb — Kurdish/Sorani + RTL on public pages)
 # get the agreement text from the business owner and let user sign it.
+#   → Backend signing flow DONE (2026-06-17) — see "Terms of Service / agreement signing" note above for the UI to wire.
+#   → Still pending from the business owner: the actual legal Terms text (backend drops it in + bumps version, no FE change).

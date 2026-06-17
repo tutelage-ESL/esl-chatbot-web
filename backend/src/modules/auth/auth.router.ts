@@ -15,6 +15,8 @@ import {
   setPasswordHandler,
   verifyEmailHandler,
   resendVerificationHandler,
+  getAgreementHandler,
+  acceptAgreementHandler,
 } from "./auth.controller.ts";
 import { env } from "../../config/env.ts";
 import { authenticate } from "../../middlewares/authenticate.ts";
@@ -180,6 +182,7 @@ if (env.NODE_ENV !== "production") {
  *               - email
  *               - password
  *               - displayName
+ *               - acceptAgreement
  *             properties:
  *               username:
  *                 type: string
@@ -200,6 +203,14 @@ if (env.NODE_ENV !== "production") {
  *                 type: string
  *                 maxLength: 100
  *                 example: Ali Hassan
+ *               acceptAgreement:
+ *                 type: boolean
+ *                 enum: [true]
+ *                 example: true
+ *                 description: >
+ *                   Must be true. The user accepts the current Terms of Service
+ *                   (fetch the text + version from GET /auth/agreement). Acceptance
+ *                   is recorded with the version and the request IP.
  *     responses:
  *       201:
  *         description: >
@@ -291,8 +302,12 @@ router.post("/register", registerLimiter, registerHandler);
  *               $ref: '#/components/schemas/ErrorResponse'
  *       403:
  *         description: >
- *           Account deactivated, OR email not yet verified. Unverified accounts must
- *           complete `POST /auth/verify-email` before they can log in.
+ *           Blocked login. One of:
+ *           (a) account deactivated;
+ *           (b) email not yet verified — complete `POST /auth/verify-email` first;
+ *           (c) the Terms of Service have changed — the body includes
+ *           `needsAgreement: true` and `agreementVersion`. Show the agreement
+ *           (`GET /auth/agreement`) and call `POST /auth/accept-agreement` to continue.
  *         content:
  *           application/json:
  *             schema:
@@ -411,6 +426,15 @@ router.post("/login", loginLimiter, loginHandler);
  *                               nullable: true
  *       401:
  *         description: Invalid or expired Google ID token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       403:
+ *         description: >
+ *           Account deactivated, OR the Terms of Service changed — the body includes
+ *           `needsAgreement: true` and `agreementVersion`. Re-accept via
+ *           `POST /auth/accept-agreement` with the same `idToken`.
  *         content:
  *           application/json:
  *             schema:
@@ -1014,5 +1038,151 @@ router.post("/link-google", authenticate, linkGoogleHandler);
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post("/set-password", authenticate, setPasswordHandler);
+
+// ─── GET /auth/agreement ──────────────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /auth/agreement:
+ *   get:
+ *     summary: Get the current Terms of Service (version + text)
+ *     tags: [Auth]
+ *     description: >
+ *       Public endpoint returning the current Terms of Service. The frontend shows
+ *       this on the registration form (with an "I accept" checkbox) and on the
+ *       re-accept prompt when a login is blocked with `needsAgreement: true`.
+ *
+ *       `version` is an opaque string. A user is up to date only if they have
+ *       accepted this exact version; bumping it forces everyone to re-accept.
+ *     responses:
+ *       200:
+ *         description: Current terms of service
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Current terms of service
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     version:
+ *                       type: string
+ *                       example: "1.0"
+ *                     effectiveDate:
+ *                       type: string
+ *                       example: "2026-06-17"
+ *                     text:
+ *                       type: string
+ *                       description: Full agreement body (markdown-friendly)
+ */
+router.get("/agreement", getAgreementHandler);
+
+// ─── POST /auth/accept-agreement ──────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /auth/accept-agreement:
+ *   post:
+ *     summary: Re-accept the current Terms of Service and complete login
+ *     tags: [Auth]
+ *     description: >
+ *       Used when `POST /auth/login` (or `POST /auth/google`) returned 403 with
+ *       `needsAgreement: true` (the Terms changed since the user last accepted).
+ *       The blocked user holds no token, so they re-prove identity — **either**
+ *       `username` + `password` (LOCAL accounts) **or** a fresh Google `idToken`
+ *       (Google accounts, which have no password). Records acceptance of the
+ *       current version with the request IP and returns a token pair — completing
+ *       login in one call.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             oneOf:
+ *               - type: object
+ *                 required:
+ *                   - username
+ *                   - password
+ *                 properties:
+ *                   username:
+ *                     type: string
+ *                     example: student_ali
+ *                   password:
+ *                     type: string
+ *                     example: password123
+ *               - type: object
+ *                 required:
+ *                   - idToken
+ *                 properties:
+ *                   idToken:
+ *                     type: string
+ *                     description: Google ID token from the frontend Google Sign-In flow
+ *                     example: eyJhbGciOiJSUzI1NiIsImtpZCI6...
+ *     responses:
+ *       200:
+ *         description: Terms accepted — user logged in (tokens returned)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Terms of service accepted
+ *                 data:
+ *                   $ref: '#/components/schemas/AuthResponse'
+ *       400:
+ *         description: Invalid credentials, or account uses Google Sign-In (no password)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Invalid or expired Google ID token (idToken variant)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       403:
+ *         description: Account deactivated, or (password variant) email not yet verified
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: No account is linked to the supplied Google sign-in (idToken variant)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       422:
+ *         description: Validation error (provide either username+password or idToken)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       429:
+ *         description: Rate limit exceeded
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       503:
+ *         description: Google OAuth not configured on this server (idToken variant)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.post("/accept-agreement", loginLimiter, acceptAgreementHandler);
 
 export default router;

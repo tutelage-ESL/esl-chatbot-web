@@ -13,6 +13,7 @@ import {
   setPasswordSchema,
   verifyEmailSchema,
   resendVerificationSchema,
+  acceptAgreementSchema,
 } from "./auth.schema.ts";
 import {
   login,
@@ -27,6 +28,8 @@ import {
   setPassword,
   verifyEmail,
   resendVerification,
+  getCurrentAgreement,
+  acceptAgreement,
 } from "./auth.service.ts";
 import { AppError } from "../../utils/AppError.ts";
 
@@ -39,14 +42,14 @@ export const loginHandler = asyncHandler(async (req: Request, res: Response) => 
 
 export const registerHandler = asyncHandler(async (req: Request, res: Response) => {
   const input = registerSchema.parse(req.body);
-  const result = await register(input);
+  const result = await register(input, req.ip);
 
   sendSuccess(res, result, "Registration successful", 201);
 });
 
 export const googleAuthHandler = asyncHandler(async (req: Request, res: Response) => {
   const input = googleAuthSchema.parse(req.body);
-  const result = await googleAuth(input);
+  const result = await googleAuth(input, req.ip);
 
   if (result.needsRegistration) {
     // 200 with needsRegistration: true — frontend should show username input
@@ -126,4 +129,17 @@ export const resendVerificationHandler = asyncHandler(async (req: Request, res: 
     "If that email is registered and not yet verified, a new verification code has been sent.",
     200,
   );
+});
+
+export const getAgreementHandler = asyncHandler(async (_req: Request, res: Response) => {
+  const agreement = getCurrentAgreement();
+
+  sendSuccess(res, agreement, "Current terms of service", 200);
+});
+
+export const acceptAgreementHandler = asyncHandler(async (req: Request, res: Response) => {
+  const input = acceptAgreementSchema.parse(req.body);
+  const result = await acceptAgreement(input, req.ip);
+
+  sendSuccess(res, result, "Terms of service accepted", 200);
 });

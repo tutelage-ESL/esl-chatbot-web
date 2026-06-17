@@ -166,6 +166,7 @@ describe("POST /api/v1/auth/register", () => {
       email: `newuser_${uid}@tutelage.test`,
       password: "password123",
       displayName: "New User",
+      acceptAgreement: true,
     };
 
     const res = await request(app).post("/api/v1/auth/register").send(body);
@@ -182,14 +183,17 @@ describe("POST /api/v1/auth/register", () => {
     createdUserIds.push(newId);
 
     // Verify the transaction created all four rows
-    const [profile, subscription, metrics] = await Promise.all([
+    const [profile, subscription, metrics, agreement] = await Promise.all([
       prisma.learnerProfile.findUnique({ where: { userId: newId } }),
       prisma.subscription.findUnique({ where: { userId: newId } }),
       prisma.userMetrics.findUnique({ where: { userId: newId } }),
+      prisma.userAgreement.findFirst({ where: { userId: newId } }),
     ]);
     expect(profile).not.toBeNull();
     expect(subscription?.status).toBe("INACTIVE");
     expect(metrics).not.toBeNull();
+    // Terms-of-Service acceptance is recorded at registration
+    expect(agreement).not.toBeNull();
   });
 
   it("409 — duplicate username", async () => {
@@ -198,6 +202,7 @@ describe("POST /api/v1/auth/register", () => {
       email: `dup_${uniqueId()}@tutelage.test`,
       password: "password123",
       displayName: "Dup",
+      acceptAgreement: true,
     });
 
     expect(res.status).toBe(409);
@@ -210,6 +215,7 @@ describe("POST /api/v1/auth/register", () => {
       email: "ali@tutelage.com", // seeded email
       password: "password123",
       displayName: "Dup Email",
+      acceptAgreement: true,
     });
 
     expect(res.status).toBe(409);
@@ -222,10 +228,30 @@ describe("POST /api/v1/auth/register", () => {
       email: "not-an-email",
       password: "short",
       displayName: "",
+      acceptAgreement: true,
     });
 
     expect(res.status).toBe(422);
     expect(res.body.errors).toBeDefined();
+  });
+
+  it("422 — agreement not accepted (acceptAgreement missing/false)", async () => {
+    const uid = uniqueId();
+    const base = {
+      username: `noagree_${uid}`,
+      email: `noagree_${uid}@tutelage.test`,
+      password: "password123",
+      displayName: "No Agreement",
+    };
+
+    const missing = await request(app).post("/api/v1/auth/register").send(base);
+    expect(missing.status).toBe(422);
+    expect(missing.body.errors?.acceptAgreement).toBeDefined();
+
+    const falseVal = await request(app)
+      .post("/api/v1/auth/register")
+      .send({ ...base, acceptAgreement: false });
+    expect(falseVal.status).toBe(422);
   });
 });
 
@@ -548,5 +574,105 @@ describe("POST /api/v1/auth/resend-verification", () => {
       .post("/api/v1/auth/resend-verification")
       .send({ email: `ghost_${uniqueId()}@tutelage.test` });
     expect([200, 503]).toContain(res.status);
+  });
+});
+
+// ─── GET /auth/agreement & POST /auth/accept-agreement ────────────────────────
+// The Terms-of-Service flow: register/seed records acceptance of the current
+// version; a verified user with NO matching acceptance is blocked on login with
+// `needsAgreement: true` and must re-accept via /accept-agreement.
+
+describe("Terms of Service agreement", () => {
+  /** Creates a verified, active, password-login user with NO agreement acceptance. */
+  async function makeUserWithoutAgreement(): Promise<{ id: string; username: string }> {
+    const uid = uniqueId();
+    const pw = await bcryptjs.hash("password123", 10);
+    const user = await prisma.user.create({
+      data: {
+        username: `noagr_${uid}`,
+        email: `noagr_${uid}@tutelage.test`,
+        displayName: "No Agreement",
+        authProvider: "LOCAL",
+        password: pw,
+        emailVerified: true,
+        emailVerifiedAt: new Date(),
+        subscription: { create: { plan: "FREE", status: "ACTIVE" } },
+      },
+    });
+    createdUserIds.push(user.id);
+    return { id: user.id, username: user.username };
+  }
+
+  it("GET /auth/agreement — returns the current version + non-empty text", async () => {
+    const res = await request(app).get("/api/v1/auth/agreement");
+
+    expect(res.status).toBe(200);
+    expect(typeof res.body.data.version).toBe("string");
+    expect(res.body.data.version.length).toBeGreaterThan(0);
+    expect(typeof res.body.data.text).toBe("string");
+    expect(res.body.data.text.length).toBeGreaterThan(0);
+  });
+
+  it("login — 403 needsAgreement when the user has not accepted the current version", async () => {
+    const user = await makeUserWithoutAgreement();
+    const res = await request(app)
+      .post("/api/v1/auth/login")
+      .send({ username: user.username, password: "password123" });
+
+    expect(res.status).toBe(403);
+    expect(res.body.needsAgreement).toBe(true);
+    expect(typeof res.body.agreementVersion).toBe("string");
+    // No tokens leaked on a blocked login
+    expect(res.body.data).toBeNull();
+  });
+
+  it("accept-agreement — records acceptance, returns tokens, and unblocks login", async () => {
+    const user = await makeUserWithoutAgreement();
+
+    const accept = await request(app)
+      .post("/api/v1/auth/accept-agreement")
+      .send({ username: user.username, password: "password123" });
+
+    expect(accept.status).toBe(200);
+    expect(typeof accept.body.data.accessToken).toBe("string");
+    expect(typeof accept.body.data.refreshToken).toBe("string");
+
+    const row = await prisma.userAgreement.findFirst({ where: { userId: user.id } });
+    expect(row).not.toBeNull();
+
+    // The same credentials now log in normally (no longer blocked)
+    const login = await request(app)
+      .post("/api/v1/auth/login")
+      .send({ username: user.username, password: "password123" });
+    expect(login.status).toBe(200);
+    expect(typeof login.body.data.accessToken).toBe("string");
+  });
+
+  it("accept-agreement — 400 on wrong password (credentials re-checked)", async () => {
+    const user = await makeUserWithoutAgreement();
+    const res = await request(app)
+      .post("/api/v1/auth/accept-agreement")
+      .send({ username: user.username, password: "wrong-password" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe("Invalid username or password");
+  });
+
+  it("accept-agreement — 422 on missing fields (neither credential variant)", async () => {
+    // username without password fails the password variant; no idToken fails the Google variant
+    const partial = await request(app).post("/api/v1/auth/accept-agreement").send({ username: "x" });
+    expect(partial.status).toBe(422);
+
+    const empty = await request(app).post("/api/v1/auth/accept-agreement").send({});
+    expect(empty.status).toBe(422);
+  });
+
+  it("accept-agreement — idToken variant passes validation, reaches Google verify (401/503)", async () => {
+    // A non-empty idToken satisfies the schema (no 422); the bogus token is then
+    // rejected by Google verification (401), or 503 if GOOGLE_CLIENT_ID is unset in CI.
+    const res = await request(app)
+      .post("/api/v1/auth/accept-agreement")
+      .send({ idToken: "not-a-real-google-token" });
+    expect([401, 503]).toContain(res.status);
   });
 });

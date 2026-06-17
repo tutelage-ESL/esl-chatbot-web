@@ -167,6 +167,7 @@ model User {
   refreshTokens       RefreshToken[]
   passwordResetTokens PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
+  agreements          UserAgreement[]
   notifications    Notification[]
   announcements    Announcement[]
   fibSubscriptions FibSubscription[]
@@ -519,6 +520,26 @@ model EmailVerificationToken {
 
   @@index([userId])
   @@map("email_verification_tokens")
+}
+
+// ─── User Agreements (Terms of Service acceptance) ──────
+// Audit trail of which Terms-of-Service version a user accepted, when, and from
+// which IP. One row per (user, version) — re-accepting a newer published version
+// adds another row, preserving full history. The current version lives in
+// src/modules/auth/agreement.content.ts; login requires a row matching it (else
+// the user is prompted to re-accept). See backend/TASK.md task 8.
+model UserAgreement {
+  id         String   @id @default(uuid())
+  userId     String
+  version    String // matches CURRENT_AGREEMENT.version at time of acceptance
+  ipAddress  String? // captured from req.ip (best-effort; null if unavailable)
+  acceptedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, version])
+  @@index([userId])
+  @@map("user_agreements")
 }
 
 // ─── Refresh Tokens ──────────────────────────────────────

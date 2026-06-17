@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import bcryptjs from "bcryptjs";
+import { CURRENT_AGREEMENT } from "../src/modules/auth/agreement.content.ts";
 
 const prisma = new PrismaClient();
 
@@ -236,6 +237,19 @@ async function main() {
     },
   });
   console.log("   ✅ 5 user metrics rows\n");
+
+  // ─── Terms of Service acceptance ────────────────────────────────────────────
+  // Every seed user has accepted the current agreement version so they can log in
+  // (login is blocked with needsAgreement until the current version is accepted).
+  console.log("📜 Recording terms-of-service acceptance...");
+  await prisma.userAgreement.createMany({
+    data: [admin.id, internalAdmin.id, tutor.id, student1.id, student2.id].map((userId) => ({
+      userId,
+      version: CURRENT_AGREEMENT.version,
+      ipAddress: "127.0.0.1",
+    })),
+  });
+  console.log("   ✅ 5 agreement acceptances\n");
 
   // ─── Sessions + Messages + Evaluations ─────────────────────────────────────
   console.log("💬 Creating sessions, messages & evaluations...");

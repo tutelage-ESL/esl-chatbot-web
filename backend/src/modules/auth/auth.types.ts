@@ -10,11 +10,13 @@ export interface RegisterInput {
   email: string;
   password: string;
   displayName: string;
+  acceptAgreement: true;
 }
 
 export interface GoogleAuthInput {
   idToken: string;
   username?: string;
+  acceptAgreement?: boolean;
 }
 
 export interface GoogleProfile {
@@ -92,4 +94,17 @@ export interface VerifyEmailInput {
 
 export interface ResendVerificationInput {
   email: string;
+}
+
+// Re-accept the current Terms after a login was blocked with needsAgreement.
+// Either re-validate password credentials (LOCAL) or a Google ID token (Google
+// accounts, which have no password). Exactly one variant is supplied.
+export type AcceptAgreementInput =
+  | { username: string; password: string; idToken?: undefined }
+  | { idToken: string; username?: undefined; password?: undefined };
+
+export interface AgreementContent {
+  version: string;
+  effectiveDate: string;
+  text: string;
 }

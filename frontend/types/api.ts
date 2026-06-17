@@ -608,6 +608,12 @@ export interface paths {
                         password: string;
                         /** @example Ali Hassan */
                         displayName: string;
+                        /**
+                         * @description Must be true. The user accepts the current Terms of Service (fetch the text + version from GET /auth/agreement). Acceptance is recorded with the version and the request IP.
+                         * @example true
+                         * @enum {boolean}
+                         */
+                        acceptAgreement: true;
                     };
                 };
             };
@@ -717,7 +723,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
-                /** @description Account deactivated, OR email not yet verified. Unverified accounts must complete `POST /auth/verify-email` before they can log in. */
+                /** @description Blocked login. One of: (a) account deactivated; (b) email not yet verified — complete `POST /auth/verify-email` first; (c) the Terms of Service have changed — the body includes `needsAgreement: true` and `agreementVersion`. Show the agreement (`GET /auth/agreement`) and call `POST /auth/accept-agreement` to continue. */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -826,6 +832,15 @@ export interface paths {
                 };
                 /** @description Invalid or expired Google ID token */
                 401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Account deactivated, OR the Terms of Service changed — the body includes `needsAgreement: true` and `agreementVersion`. Re-accept via `POST /auth/accept-agreement` with the same `idToken`. */
+                403: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -1567,6 +1582,182 @@ export interface paths {
                 };
                 /** @description Validation error */
                 422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/agreement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the current Terms of Service (version + text)
+         * @description Public endpoint returning the current Terms of Service. The frontend shows this on the registration form (with an "I accept" checkbox) and on the re-accept prompt when a login is blocked with `needsAgreement: true`.
+         *     `version` is an opaque string. A user is up to date only if they have accepted this exact version; bumping it forces everyone to re-accept.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Current terms of service */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @example true */
+                            success?: boolean;
+                            /** @example Current terms of service */
+                            message?: string;
+                            data?: {
+                                /** @example 1.0 */
+                                version?: string;
+                                /** @example 2026-06-17 */
+                                effectiveDate?: string;
+                                /** @description Full agreement body (markdown-friendly) */
+                                text?: string;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/accept-agreement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Re-accept the current Terms of Service and complete login
+         * @description Used when `POST /auth/login` (or `POST /auth/google`) returned 403 with `needsAgreement: true` (the Terms changed since the user last accepted). The blocked user holds no token, so they re-prove identity — **either** `username` + `password` (LOCAL accounts) **or** a fresh Google `idToken` (Google accounts, which have no password). Records acceptance of the current version with the request IP and returns a token pair — completing login in one call.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @example student_ali */
+                        username: string;
+                        /** @example password123 */
+                        password: string;
+                    } | {
+                        /**
+                         * @description Google ID token from the frontend Google Sign-In flow
+                         * @example eyJhbGciOiJSUzI1NiIsImtpZCI6...
+                         */
+                        idToken: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Terms accepted — user logged in (tokens returned) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @example true */
+                            success?: boolean;
+                            /** @example Terms of service accepted */
+                            message?: string;
+                            data?: components["schemas"]["AuthResponse"];
+                        };
+                    };
+                };
+                /** @description Invalid credentials, or account uses Google Sign-In (no password) */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Invalid or expired Google ID token (idToken variant) */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Account deactivated, or (password variant) email not yet verified */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description No account is linked to the supplied Google sign-in (idToken variant) */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Validation error (provide either username+password or idToken) */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Rate limit exceeded */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Google OAuth not configured on this server (idToken variant) */
+                503: {
                     headers: {
                         [name: string]: unknown;
                     };

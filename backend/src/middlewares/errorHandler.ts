@@ -23,6 +23,9 @@ export function errorHandler(
 
   if (err instanceof AppError) {
     res.status(err.statusCode).json({
+      // Extra flat fields (e.g. { needsAgreement: true }) are spread FIRST so the
+      // canonical envelope keys below always win — details can add, never clobber.
+      ...(err.details ?? {}),
       success: false,
       message: err.message,
       data: null,
