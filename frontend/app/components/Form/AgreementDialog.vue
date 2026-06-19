@@ -36,7 +36,7 @@ function renderText(raw: string): string {
     .replace(/^# (.+)$/gm, '<h1 class="text-lg font-bold mt-6 mb-2">$1</h1>')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\n\n/g, '</p><p class="mb-2">')
-    .replace(/\n/g, '<br>')
+    .replace(/\n/g, ' ')
     .replace(/^/, '<p class="mb-2">')
     .replace(/$/, '</p>')
 }
