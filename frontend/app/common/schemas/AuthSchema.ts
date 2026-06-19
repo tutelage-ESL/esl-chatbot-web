@@ -14,6 +14,7 @@ export const signUpSchema = zod.object({
     password: zod.string().min(8, 'Password must be at least 8 characters long'),
     confirmPassword: zod.string().min(8, 'Confirm Password must be at least 8 characters long'),
     displayName: zod.string().min(1, 'Display Name is required').max(100, 'Display name must be at most 100 characters'),
+    acceptAgreement: zod.literal(true, { message: 'You must accept the Terms of Service to create an account' }),
 }).refine((data: { password: string; confirmPassword: string }) => data.password === data.confirmPassword, {
     message: 'Passwords do not match',
     path: ['confirmPassword'],
@@ -56,6 +57,7 @@ export const googleUsernameSchema = zod.object({
         .min(3, 'Username must be at least 3 characters')
         .max(30, 'Username must be at most 30 characters')
         .regex(/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores'),
+    acceptAgreement: zod.literal(true, { message: 'You must accept the Terms of Service to create an account' }),
 })
 
 export type SignInSchema = zod.infer<typeof signInSchema>
@@ -66,3 +68,6 @@ export type ResetPasswordSchema = zod.infer<typeof resetPasswordSchema>
 export type SetPasswordSchema = zod.infer<typeof setPasswordSchema>
 export type GoogleUsernameSchema = zod.infer<typeof googleUsernameSchema>
 export type VerifyEmailSchema = zod.infer<typeof verifyEmailSchema>
+export type AcceptAgreementInput =
+    | { username: string; password: string; idToken?: undefined }
+    | { idToken: string; username?: undefined; password?: undefined }

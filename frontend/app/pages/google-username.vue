@@ -19,11 +19,13 @@ const router = useRouter()
 
 const formData = reactive<GoogleUsernameSchema>({
     username: '',
+    acceptAgreement: undefined as unknown as true,
 })
 
 const serverError = ref<string>('')
 const idToken = ref<string>('')
 const profile = ref<GoogleProfile>({})
+const showTerms = ref(false)
 
 onMounted(() => {
     const savedToken = sessionStorage.getItem('googleIdToken')
@@ -41,9 +43,9 @@ onMounted(() => {
 
 const handleSubmit = async () => {
     serverError.value = ''
-    const response = await authStore.googleAuth(idToken.value, formData.username)
+    const response = await authStore.googleAuth(idToken.value, formData.username, formData.acceptAgreement === true)
 
-    if (response.success && !response.data?.data?.needsRegistration) {
+    if (response.success) {
         sessionStorage.removeItem('googleIdToken')
         sessionStorage.removeItem('googleProfile')
         toast.success('Welcome!')
@@ -75,6 +77,30 @@ const handleSubmit = async () => {
                     required
                 />
 
+                <div class="flex flex-col gap-1">
+                    <div class="flex items-start gap-2.5">
+                        <UiCheckbox
+                            id="acceptAgreement"
+                            :checked="formData.acceptAgreement === true"
+                            class="mt-0.5 shrink-0"
+                            @update:checked="(v: boolean | 'indeterminate') => (formData.acceptAgreement = v === true ? true : (undefined as unknown as true))"
+                        />
+                        <label for="acceptAgreement" class="text-sm text-brand-ink leading-snug cursor-pointer select-none">
+                            I accept the
+                            <button
+                                type="button"
+                                class="font-medium text-brand-primary hover:underline"
+                                @click.prevent="showTerms = true"
+                            >
+                                Terms of Service
+                            </button>
+                        </label>
+                    </div>
+                    <p v-if="errors.acceptAgreement" class="text-xs text-red-500 pl-7">
+                        {{ errors.acceptAgreement }}
+                    </p>
+                </div>
+
                 <FormServerError :error="serverError" />
 
                 <AppButton
@@ -91,4 +117,10 @@ const handleSubmit = async () => {
             </template>
         </Form>
     </LayoutsAuthFormLayout>
+
+    <FormAgreementDialog
+        :open="showTerms"
+        mode="view"
+        @update:open="showTerms = $event"
+    />
 </template>

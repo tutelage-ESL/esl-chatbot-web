@@ -120,7 +120,7 @@ export const useHttp = async <T = any>(options: HttpOptions): Promise<HttpRespon
         const response: HttpResponse<T> = {
           success: false,
           message: data.error?.message || data.message || `Request failed: ${retryRes.status}`,
-          data: null,
+          data,
           status: retryRes.status,
         }
         showToastHandler(response.success, response.message, showToast)
@@ -148,7 +148,7 @@ export const useHttp = async <T = any>(options: HttpOptions): Promise<HttpRespon
       const response: HttpResponse<T> = {
         success: false,
         message: data.error?.message || data.message || `Request failed: ${res.status}`,
-        data: null,
+        data,
         status: res.status,
       }
       showToastHandler(response.success, response.message, showToast)

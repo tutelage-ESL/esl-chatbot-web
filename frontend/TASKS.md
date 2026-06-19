@@ -85,14 +85,24 @@ What was built — a hands-free live **CALL**, not a chat:
 
 ## Backend Notes for Frontend
 
-### Terms of Service / agreement signing — NEW, needs UI wiring (2026-06-17)
-Backend is done. Three touch points (all types are in `frontend/types/api.ts`):
+### Terms of Service / agreement signing ✅ DONE (2026-06-19)
 
-1. **Registration** — `POST /auth/register` now **requires** `acceptAgreement: true` in the body (returns 422 with `errors.acceptAgreement` if missing/false). Add an **"I accept the Terms of Service" checkbox** to `signup.vue` (and to `google-username.vue` for the Google new-account flow — `POST /auth/google` with a username now needs `acceptAgreement: true`, else 400). Add `acceptAgreement` to `signUpSchema` (must be `true`).
-2. **Show the terms** — `GET /auth/agreement` (public, no auth) returns `{ version, effectiveDate, text }`. Render `text` (markdown-friendly) in a dialog/sheet opened from the checkbox label, and on the re-accept prompt below.
-3. **Re-accept on login** — **both** `POST /auth/login` **and** `POST /auth/google` can now return **403 with `{ needsAgreement: true, agreementVersion }`** in the response body (alongside `message`) when the Terms changed since the user last accepted. Detect this in `signin.vue` / `stores/auth.ts` (similar to the existing unverified-email 403 redirect) and show a **re-accept modal** with the agreement text. On accept, call **`POST /auth/accept-agreement`** — for a password login send `{ username, password }` (the same credentials just typed); for a Google login send `{ idToken }` (the same Google credential). Either way it returns the normal `LoginResponse` (`{ user, accessToken, refreshToken }`), so persist tokens and proceed to `/dashboard` exactly like a successful login.
+**Files changed:**
+- `app/common/schemas/AuthSchema.ts` — added `acceptAgreement: z.literal(true)` to `signUpSchema` and `googleUsernameSchema`; added `AcceptAgreementInput` discriminated union type
+- `app/composables/useAgreement.ts` (NEW) — module-level cached composable for `GET /auth/agreement`
+- `app/components/Form/AgreementDialog.vue` (NEW) — shared dialog in `view` and `accept` modes; HTML-escaped before markdown render (XSS-safe)
+- `app/composables/useHttp.ts` — error paths now surface the parsed JSON body in `response.data` (was `null`); lets callers read `needsAgreement` / error details from 4xx responses
+- `stores/auth.ts` — new `acceptAgreement(creds)` action; `signUp` sends `acceptAgreement: true`; `googleAuth` accepts optional 3rd `acceptAgreement` param
+- `app/pages/signup.vue` — ToS checkbox with client-side Zod validation; "Terms of Service" link opens `AgreementDialog(view)`
+- `app/pages/google-username.vue` — same checkbox added to Google new-account username screen
+- `app/pages/signin.vue` — detects 403 `{ needsAgreement: true }` before the unverified-email 403; shows `AgreementDialog(accept)` for re-accept; cancel-while-in-flight race guarded with `reacceptCancelled` flag
+- `app/components/Form/GoogleButton.vue` — same 403 `needsAgreement` detection for Google login; re-accept modal with idToken re-use; cancel race guarded
 
-Note: the agreement **text is currently a placeholder** — the real legal copy lands later by the backend bumping the version; no frontend change needed when that happens (you always fetch the current text + version live).
+**How it works:**
+- Register with unchecked box → blocked client-side by Zod (no request sent)
+- "Terms of Service" link → opens dialog showing live terms from `GET /auth/agreement`
+- Login/Google after version bump → 403 `{ needsAgreement: true }` → re-accept modal → `POST /auth/accept-agreement` → tokens persisted → `/dashboard`
+- When backend bumps `CURRENT_AGREEMENT.version`: no frontend change needed; next login prompts re-accept automatically
 
 ### Internal (stealth) admin accounts — FYI only, nothing to wire (2026-06-12)
 The backend now supports hidden internal admin accounts (`isInternal` flag, never serialized in any API response — `types/api.ts` is unchanged). They are automatically excluded from `GET /users`, admin dashboard counts, class member lists / rosters / analytics, `memberCount`, and notifications. **No frontend changes needed** — just be aware that an internal account logged into the dashboard sees everything normally, while other users (including admins) never see it anywhere.

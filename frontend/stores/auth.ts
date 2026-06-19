@@ -6,6 +6,7 @@ import type {
   ForgotPasswordSchema,
   ResetPasswordSchema,
   VerifyEmailSchema,
+  AcceptAgreementInput,
 } from "~/common/schemas/AuthSchema";
 
 interface AuthState {
@@ -64,6 +65,7 @@ export const useAuthStore = defineStore("useAuthStore", {
           email: credentials.email,
           password: credentials.password,
           displayName: credentials.displayName,
+          acceptAgreement: true,
         },
         showToast: false,
       });
@@ -184,12 +186,34 @@ export const useAuthStore = defineStore("useAuthStore", {
       return response;
     },
 
-    async googleAuth(idToken: string, username?: string) {
+    async acceptAgreement(creds: AcceptAgreementInput) {
       this.isLoading = true;
       const response = await useHttp({
         method: "POST",
+        url: "/auth/accept-agreement",
+        body: creds,
+        showToast: false,
+      });
+      if (response.success && response.data?.data?.accessToken) {
+        await this._persistTokens(
+          response.data.data.accessToken,
+          response.data.data.refreshToken
+        );
+        this.setUserFromResponse(response.data.data.user);
+      }
+      this.isLoading = false;
+      return response;
+    },
+
+    async googleAuth(idToken: string, username?: string, acceptAgreement?: boolean) {
+      this.isLoading = true;
+      const body = username
+        ? { idToken, username, acceptAgreement }
+        : { idToken };
+      const response = await useHttp({
+        method: "POST",
         url: "/auth/google",
-        body: username ? { idToken, username } : { idToken },
+        body,
       });
 
       if (response.success && response.data?.data?.accessToken) {

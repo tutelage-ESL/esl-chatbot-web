@@ -15,6 +15,11 @@ const isSdkReady = ref(false)
 const hiddenContainer = ref<HTMLDivElement | null>(null)
 const wrapperWidth = ref(400)
 
+// Re-accept state: holds the idToken to reuse if the user sees a needsAgreement 403.
+const pendingIdToken = ref<string>('')
+const reacceptOpen = ref(false)
+let reacceptCancelled = false
+
 const loadGoogleSdk = () => new Promise<void>((resolve, reject) => {
     if ((window as any).google?.accounts?.id) {
         resolve()
@@ -40,6 +45,14 @@ const handleCredential = async (idToken: string) => {
     const response = await authStore.googleAuth(idToken)
 
     if (!response.success) {
+        // Existing-user path: Terms changed since last sign-in.
+        if (response.status === 403 && response.data?.needsAgreement) {
+            pendingIdToken.value = idToken
+            reacceptCancelled = false
+            reacceptOpen.value = true
+            isLoading.value = false
+            return
+        }
         toast.error(response.message || 'Google sign-in failed.')
         isLoading.value = false
         return
@@ -54,6 +67,29 @@ const handleCredential = async (idToken: string) => {
 
     toast.success('Welcome!')
     router.push('/dashboard')
+}
+
+const handleReaccept = async () => {
+    reacceptCancelled = false
+    const response = await authStore.acceptAgreement({ idToken: pendingIdToken.value })
+
+    if (reacceptCancelled) return
+
+    if (response.success) {
+        reacceptOpen.value = false
+        pendingIdToken.value = ''
+        router.push('/dashboard')
+        return
+    }
+
+    toast.error(response.message || 'Could not accept the Terms. Please try again.')
+}
+
+const handleReacceptClose = () => {
+    reacceptCancelled = true
+    reacceptOpen.value = false
+    pendingIdToken.value = ''
+    isLoading.value = false
 }
 
 onMounted(async () => {
@@ -136,4 +172,13 @@ onMounted(async () => {
             :class="{ 'pointer-events-none': isLoading || !isSdkReady }"
         />
     </div>
+
+    <!-- Re-accept modal: shown when backend returns 403 { needsAgreement: true } for existing Google users -->
+    <FormAgreementDialog
+        :open="reacceptOpen"
+        mode="accept"
+        :loading="authStore.isLoading"
+        @update:open="(v) => { if (!v) handleReacceptClose() }"
+        @accept="handleReaccept"
+    />
 </template>

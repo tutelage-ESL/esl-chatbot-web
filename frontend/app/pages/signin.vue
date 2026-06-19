@@ -17,6 +17,8 @@ const formData = reactive<SignInSchema>({
 })
 
 const serverError = ref<string>('')
+const reacceptOpen = ref(false)
+let reacceptCancelled = false
 
 const handleSubmit = async () => {
     serverError.value = ''
@@ -27,8 +29,14 @@ const handleSubmit = async () => {
         return
     }
 
-    // 403 = correct password but email not verified. Send them to the verify step
-    // (it will ask for their email there, then log them in on success).
+    // 403 with needsAgreement: Terms changed since last login — show re-accept modal.
+    if (response.status === 403 && response.data?.needsAgreement) {
+        reacceptCancelled = false
+        reacceptOpen.value = true
+        return
+    }
+
+    // 403 without needsAgreement: unverified email — send to verify step.
     if (response.status === 403 && /verify your email/i.test(response.message ?? '')) {
         toast.info('Please verify your email to continue.')
         if (formData.username.includes('@')) {
@@ -41,6 +49,29 @@ const handleSubmit = async () => {
     serverError.value = response.message || 'Invalid username or password'
 }
 
+const handleReaccept = async () => {
+    reacceptCancelled = false
+    const response = await authStore.acceptAgreement({
+        username: formData.username,
+        password: formData.password,
+    })
+
+    if (reacceptCancelled) return
+
+    if (response.success) {
+        reacceptOpen.value = false
+        router.push('/dashboard')
+        return
+    }
+
+    toast.error(response.message || 'Could not accept the Terms. Please try again.')
+}
+
+const handleReacceptClose = () => {
+    reacceptCancelled = true
+    reacceptOpen.value = false
+    serverError.value = 'You must accept the updated Terms of Service to continue.'
+}
 </script>
 
 <template>
@@ -98,4 +129,13 @@ const handleSubmit = async () => {
             <FormGoogleButton label="Continue with Google" />
         </template>
     </LayoutsAuthFormLayout>
+
+    <!-- Re-accept modal: shown when backend returns 403 { needsAgreement: true } -->
+    <FormAgreementDialog
+        :open="reacceptOpen"
+        mode="accept"
+        :loading="authStore.isLoading"
+        @update:open="(v) => { if (!v) handleReacceptClose() }"
+        @accept="handleReaccept"
+    />
 </template>

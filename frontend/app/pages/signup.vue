@@ -17,17 +17,17 @@ const formData = reactive<SignUpSchema>({
     displayName: '',
     password: '',
     confirmPassword: '',
+    acceptAgreement: undefined as unknown as true,
 })
 
 const serverError = ref<string>('')
+const showTerms = ref(false)
 
 const handleSubmit = async () => {
     serverError.value = ''
     const response = await authStore.signUp(formData)
 
     if (response.success) {
-        // Register does NOT log the user in — they must verify their email first.
-        // Carry the email to the verify step so it's pre-filled. No password stored.
         sessionStorage.setItem('pendingEmail', formData.email)
         toast.success('Account created! Check your email for a verification code.')
         router.push('/verify-email')
@@ -35,7 +35,6 @@ const handleSubmit = async () => {
         serverError.value = response.message || 'Registration failed. Please try again.'
     }
 }
-
 </script>
 
 <template>
@@ -58,7 +57,7 @@ const handleSubmit = async () => {
                         :error="errors.displayName"
                         required
                     />
-    
+
                     <FormInput
                         id="username"
                         label="Username"
@@ -100,7 +99,31 @@ const handleSubmit = async () => {
                     required
                 />
 
-                 <FormServerError :error="serverError" />
+                <div class="flex flex-col gap-1">
+                    <div class="flex items-start gap-2.5">
+                        <UiCheckbox
+                            id="acceptAgreement"
+                            :checked="formData.acceptAgreement === true"
+                            class="mt-0.5 shrink-0"
+                            @update:checked="(v: boolean | 'indeterminate') => (formData.acceptAgreement = v === true ? true : (undefined as unknown as true))"
+                        />
+                        <label for="acceptAgreement" class="text-sm text-brand-ink leading-snug cursor-pointer select-none">
+                            I accept the
+                            <button
+                                type="button"
+                                class="font-medium text-brand-primary hover:underline"
+                                @click.prevent="showTerms = true"
+                            >
+                                Terms of Service
+                            </button>
+                        </label>
+                    </div>
+                    <p v-if="errors.acceptAgreement" class="text-xs text-red-500 pl-7">
+                        {{ errors.acceptAgreement }}
+                    </p>
+                </div>
+
+                <FormServerError :error="serverError" />
 
                 <AppButton
                     type="submit"
@@ -113,13 +136,6 @@ const handleSubmit = async () => {
                 >
                     Create account
                 </AppButton>
-
-                <p class="text-xs text-brand-sub text-center leading-relaxed">
-                    By creating an account, you agree to our
-                    <NuxtLink to="/terms" class="font-medium text-brand-ink hover:text-brand-primary">Terms</NuxtLink>
-                    and
-                    <NuxtLink to="/privacy" class="font-medium text-brand-ink hover:text-brand-primary">Privacy Policy</NuxtLink>.
-                </p>
             </template>
         </Form>
 
@@ -127,4 +143,10 @@ const handleSubmit = async () => {
             <FormGoogleButton label="Sign up with Google" />
         </template>
     </LayoutsAuthFormLayout>
+
+    <FormAgreementDialog
+        :open="showTerms"
+        mode="view"
+        @update:open="showTerms = $event"
+    />
 </template>
