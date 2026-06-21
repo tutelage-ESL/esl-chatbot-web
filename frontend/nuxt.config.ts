@@ -22,7 +22,24 @@ export default defineNuxtConfig({
       tailwindcss()
     ]
   },
- shadcn: {
+
+  i18n: {
+    locales: [
+      { code: 'en', language: 'en', dir: 'ltr', name: 'English', file: 'en.json' },
+      { code: 'ku', language: 'ckb', dir: 'rtl', name: 'کوردی', file: 'ku.json' },
+    ],
+    defaultLocale: 'en',
+    strategy: 'no_prefix',
+    langDir: 'locales',
+    detectBrowserLanguage: false,
+    compilation: {
+      strictMessage: false,
+    },
+    vueI18n: 'i18n.config.ts',
+    restructureDir: 'i18n',
+  },
+
+  shadcn: {
     prefix: 'Ui',
     componentDir: [
       '@/components/ui',
@@ -32,5 +49,5 @@ export default defineNuxtConfig({
       },
     ],
   },
-  modules: ['@pinia/nuxt', '@nuxt/image', 'shadcn-nuxt', 'nuxt-marquee']
+  modules: ['@pinia/nuxt', '@nuxt/image', 'shadcn-nuxt', 'nuxt-marquee', '@nuxtjs/i18n']
 })
