@@ -68,15 +68,26 @@ Everything is currently on Aland's personal accounts. Must move before productio
 ---
 
 ## 5. Hosting & Deployment
-Do after account migration is complete.
+In progress (started 2026-07-02). Business owner's email is already available for account
+ownership — only the payment card was blocking, so Aland is fronting hosting cost on his
+personal card temporarily until the owner's card is ready. No change to the rest of the
+plan otherwise.
 
-- Choose host for backend (Render recommended: native Bun support, ~$7/mo web service + $7/mo Postgres or keep Neon)
-- Choose host for frontend (Vercel or Render static)
-- Register/configure domain
-- Set `CORS_ORIGIN` to the live frontend domain
-- Set `NODE_ENV=production` — activates rate limiting, FIB_WEBHOOK_URL guard, Redis TLS check
-- Run `bun run db:migrate` against the prod DB
-- Smoke-test all critical paths before announcing
+**Host decision — researched and confirmed 2026-07-02** (compared Render, Railway,
+Fly.io, Vercel on cost/reliability/fit for our Bun+WebSocket+cron workload; see
+`docs/handover/deployment-runbook.md` §1 for the writeup and sources):
+- **Backend → Render** (Starter, $7/mo). `render.yaml` blueprint is committed at the repo root.
+- **Frontend → Vercel** (Pro, $20/mo — Hobby forbids commercial use).
+
+Remaining steps:
+- [ ] Create Render account (owner's email, Aland's card) → deploy via `render.yaml` blueprint
+- [ ] Create Vercel account (owner's email, Aland's card) → import repo, root dir `frontend`
+- [ ] Register/configure domain, point DNS at both hosts
+- [ ] Re-create Google OAuth client with prod origins (frontend + Render API domain)
+- [ ] Populate all Render env vars (see blueprint's `sync: false` list) with rotated prod secrets
+- [ ] Set `CORS_ORIGIN` + `FRONTEND_URL` on Render once the Vercel domain is known
+- [ ] Run the migration-baseline procedure (§2 below) against the prod DB
+- [ ] Smoke-test all critical paths (§5 below) before announcing
 
 **Pre-deploy checklist:**
 - [ ] `bun run typecheck` passes
