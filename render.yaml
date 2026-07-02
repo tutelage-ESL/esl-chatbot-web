@@ -11,7 +11,10 @@ services:
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
-    plan: starter
+    # TEMP: free during initial setup/testing (no real users yet). Switch to `starter`
+    # before launch — Free spins down after 15 min idle, which drops Socket.io
+    # connections and breaks cron timing. Flip this line + redeploy when ready.
+    plan: free
     region: frankfurt
     healthCheckPath: /health
     autoDeploy: true
