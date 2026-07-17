@@ -226,10 +226,10 @@ Each module under `src/modules/[name]/` follows:
 - **Session limits:** soft limit shows a warning; hard limit (soft+10) blocks further messages. Daily session cap prevents runaway costs.
 - **FREE tier cost controls:** 20 msg/session soft limit, 20 msg/day hard cap across all sessions, 10-message LLM context window (vs 20 for GOLD/PREMIUM). Reduces FREE tier AI cost ~65% vs naive design.
 - **AI integration:** `src/modules/ai/ai.service.ts` exports `generateAIResponse()` — routing by plan and environment:
-  - Dev (all plans) → `gemini-flash-latest` alias (resolves to `gemini-3-flash-preview`) via `@google/genai`
-  - FREE → Gemini 2.5 Flash-Lite (`gemini-2.5-flash-lite`) via `@google/genai`
-  - GOLD → Gemini 2.5 Flash (`gemini-2.5-flash`) via `@google/genai`
-  - PREMIUM → GPT-5 mini (`gpt-5-mini`) via OpenAI SDK; **auto-falls back** to Gemini 2.5 Flash if OpenAI errors
+  - Dev (all plans) → `gemini-flash-latest` alias via `@google/genai`
+  - FREE → `gemini-flash-lite-latest` alias via `@google/genai` (pinned 2.5 IDs 404 for new API keys — always use the rolling aliases)
+  - GOLD → `gemini-flash-latest` alias via `@google/genai`
+  - PREMIUM → GPT-5 mini (`gpt-5-mini`) via OpenAI SDK; **auto-falls back** to `gemini-flash-latest` if OpenAI errors
   - No API key → heuristic placeholder response
   - Model strings are constants in each provider file — model upgrades are one-line changes
   - Shared system prompt: `src/modules/ai/providers/prompt.ts`
