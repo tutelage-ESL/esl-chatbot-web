@@ -102,6 +102,18 @@ const STATUS_TEXT: Record<string, string> = {
       </p>
     </td>
 
+    <!-- Detail button -->
+    <td class="px-2 py-3">
+      <AppButton
+        variant="secondary"
+        size="32"
+        radius="8"
+        aspect="square"
+        icon="InfoCircle"
+        :to="`/dashboard/users/${user.id}`"
+      />
+    </td>
+
     <!-- Actions -->
     <td class="px-4 py-3 text-right">
       <UiDropdownMenu>
@@ -109,10 +121,10 @@ const STATUS_TEXT: Record<string, string> = {
           <AppButton variant="secondary" size="32" radius="8" aspect="square" icon="More" />
         </UiDropdownMenuTrigger>
         <UiDropdownMenuContent align="end" class="w-52">
-          <NuxtLink :to="`/dashboard/users/${user.id}`">
+          <NuxtLink :to="`/dashboard/users/${user.id}/profile`">
             <UiDropdownMenuItem class="cursor-pointer gap-2.5">
-              <AppIconsax name="Profile" color="currentColor" :size="14" />
-              <span class="text-[14px]">View profile</span>
+              <AppIconsax name="Edit" color="currentColor" :size="14" />
+              <span class="text-[14px]">Edit profile</span>
             </UiDropdownMenuItem>
           </NuxtLink>
           <UiDropdownMenuSeparator />

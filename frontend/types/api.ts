@@ -6119,6 +6119,12 @@ export interface paths {
                     search?: string;
                     /** @description Filter by subscription status */
                     subscriptionStatus?: "ACTIVE" | "INACTIVE" | "CANCELLED" | "PAST_DUE";
+                    /** @description Filter by subscription plan */
+                    plan?: "FREE" | "GOLD" | "PREMIUM";
+                    /** @description Filter users created after this date (ISO 8601) */
+                    createdAfter?: string;
+                    /** @description Filter users created before this date (ISO 8601) */
+                    createdBefore?: string;
                 };
                 header?: never;
                 path?: never;
@@ -6274,6 +6280,9 @@ export interface paths {
                                     currentPeriodStart?: string | null;
                                     /** Format: date-time */
                                     currentPeriodEnd?: string | null;
+                                    /** @enum {string|null} */
+                                    paymentProvider?: "CASH" | "FIB" | "STRIPE" | null;
+                                    monthlyTtsUsage?: number;
                                 } | null;
                                 metrics?: {
                                     /** Format: uuid */
@@ -6290,6 +6299,11 @@ export interface paths {
                                     fluencySkill?: number;
                                     speakingSkill?: number;
                                 } | null;
+                                /** @enum {string} */
+                                authProvider?: "LOCAL" | "GOOGLE";
+                                emailVerified?: boolean;
+                                /** Format: date-time */
+                                emailVerifiedAt?: string | null;
                                 classUsers?: {
                                     /** Format: uuid */
                                     id?: string;
@@ -6303,6 +6317,129 @@ export interface paths {
                                         /** @enum {string} */
                                         classStatus?: "ACTIVE" | "INACTIVE";
                                     };
+                                }[];
+                                goals?: {
+                                    /** Format: uuid */
+                                    id?: string;
+                                    /** @enum {string} */
+                                    type?: "VOCABULARY" | "SPEAKING" | "GRAMMAR" | "CONVERSATION" | "STUDY_TIME";
+                                    description?: string;
+                                    target?: number;
+                                    /** @enum {string|null} */
+                                    difficulty?: "EASY" | "MEDIUM" | "HARD" | "EXPERT" | null;
+                                    /** @enum {string} */
+                                    status?: "ACTIVE" | "COMPLETED" | "PAUSED" | "CANCELLED";
+                                    progress?: number;
+                                    /** Format: date-time */
+                                    startDate?: string;
+                                    /** Format: date-time */
+                                    targetDate?: string | null;
+                                    /** Format: date-time */
+                                    completedDate?: string | null;
+                                    /** Format: date-time */
+                                    createdAt?: string;
+                                    assignedByTutor?: {
+                                        /** Format: uuid */
+                                        id?: string;
+                                        displayName?: string;
+                                    } | null;
+                                }[];
+                                vocabularies?: {
+                                    /** Format: uuid */
+                                    id?: string;
+                                    word?: string;
+                                    definition?: string;
+                                    partOfSpeech?: string | null;
+                                    masteryLevel?: number;
+                                    /** @enum {string} */
+                                    source?: "MANUAL" | "SESSION" | "ASSIGNED";
+                                    srsInterval?: number;
+                                    /** Format: date-time */
+                                    srsDue?: string | null;
+                                    reviewCount?: number;
+                                    correctCount?: number;
+                                    incorrectCount?: number;
+                                    /** Format: date-time */
+                                    lastPracticed?: string | null;
+                                    /** Format: date-time */
+                                    createdAt?: string;
+                                    assignedByTutor?: {
+                                        /** Format: uuid */
+                                        id?: string;
+                                        displayName?: string;
+                                    } | null;
+                                }[];
+                                sessions?: {
+                                    /** Format: uuid */
+                                    id?: string;
+                                    /** @enum {string} */
+                                    mode?: "TEXT" | "VOICE";
+                                    topic?: string | null;
+                                    /** Format: date-time */
+                                    startedAt?: string;
+                                    /** Format: date-time */
+                                    endedAt?: string | null;
+                                    durationSeconds?: number | null;
+                                    messageCount?: number;
+                                    evaluation?: {
+                                        avgOverallScore?: number;
+                                        avgGrammarScore?: number;
+                                        avgVocabularyScore?: number;
+                                        avgFluencyScore?: number;
+                                        detectedCefrLevel?: string;
+                                        strengths?: string[];
+                                        weaknesses?: string[];
+                                    } | null;
+                                }[];
+                                progress?: {
+                                    /** Format: date-time */
+                                    date?: string;
+                                    sessionsCount?: number;
+                                    studyMinutes?: number;
+                                    messagesCount?: number;
+                                    wordsTyped?: number;
+                                    vocabularyPracticed?: number;
+                                    goalsAdvanced?: number;
+                                }[];
+                                taskSubmissions?: {
+                                    /** Format: uuid */
+                                    id?: string;
+                                    content?: string | null;
+                                    feedback?: string | null;
+                                    /** Format: date-time */
+                                    feedbackAt?: string | null;
+                                    /** Format: date-time */
+                                    createdAt?: string;
+                                    task?: {
+                                        /** Format: uuid */
+                                        id?: string;
+                                        title?: string;
+                                        description?: string;
+                                        /** Format: date-time */
+                                        deadline?: string | null;
+                                        /** @enum {string} */
+                                        status?: "OPEN" | "CLOSED";
+                                        class?: {
+                                            /** Format: uuid */
+                                            id?: string;
+                                            className?: string;
+                                        };
+                                    };
+                                }[];
+                                fibSubscriptions?: {
+                                    /** Format: uuid */
+                                    id?: string;
+                                    /** @enum {string} */
+                                    plan?: "FREE" | "GOLD" | "PREMIUM";
+                                    intervalMonths?: number;
+                                    amountIQD?: number;
+                                    fibStatus?: string;
+                                    /** Format: date-time */
+                                    activatedAt?: string | null;
+                                    /** Format: date-time */
+                                    cancelledAt?: string | null;
+                                    /** Format: date-time */
+                                    createdAt?: string;
                                 }[];
                             };
                         };

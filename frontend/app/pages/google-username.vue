@@ -81,9 +81,9 @@ const handleSubmit = async () => {
                     <div class="flex items-start gap-2.5">
                         <UiCheckbox
                             id="acceptAgreement"
-                            :checked="formData.acceptAgreement === true"
+                            :model-value="formData.acceptAgreement === true"
                             class="mt-0.5 shrink-0"
-                            @update:checked="(v: boolean | 'indeterminate') => (formData.acceptAgreement = v === true ? true : (undefined as unknown as true))"
+                            @update:model-value="(v: boolean | 'indeterminate') => (formData.acceptAgreement = v === true ? true : (undefined as unknown as true))"
                         />
                         <label for="acceptAgreement" class="text-sm text-brand-ink leading-snug cursor-pointer select-none">
                             I accept the
@@ -120,7 +120,8 @@ const handleSubmit = async () => {
 
     <FormAgreementDialog
         :open="showTerms"
-        mode="view"
+        mode="accept"
         @update:open="showTerms = $event"
+        @accept="formData.acceptAgreement = true; showTerms = false"
     />
 </template>

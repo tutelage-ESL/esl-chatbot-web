@@ -190,13 +190,13 @@ const dailyGoal = computed(() => Math.round(weeklyGoalMinutes.value / 7))
     <!-- Top bar -->
     <div class="sticky top-0 z-10 flex items-center gap-3 px-6 py-4"
       style="background:var(--surface-page);border-bottom:1px solid var(--border-inner)">
-      <AppButton variant="secondary" size="36" radius="8" icon="ArrowLeft" text="Users"
-        @click="router.push('/dashboard/users')" />
+      <AppButton variant="secondary" size="36" radius="8" icon="ArrowLeft" text="Overview"
+        @click="router.push(`/dashboard/users/${userId}`)" />
       <div v-if="user" class="flex items-center gap-2 ml-2">
         <p class="text-[16px] font-semibold font-poppins" :style="`color:var(--text-heading)`">
           {{ user.displayName || user.username }}
         </p>
-        <span class="text-[14px] font-poppins" :style="`color:var(--text-subtle)`">/ Edit</span>
+        <span class="text-[14px] font-poppins" :style="`color:var(--text-subtle)`">/ Edit Profile</span>
       </div>
     </div>
 
