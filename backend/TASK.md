@@ -68,34 +68,80 @@ Everything is currently on Aland's personal accounts. Must move before productio
 ---
 
 ## 5. Hosting & Deployment
-In progress (started 2026-07-02). Business owner's email is already available for account
-ownership — only the payment card was blocking, so Aland is fronting hosting cost on his
-personal card temporarily until the owner's card is ready. No change to the rest of the
-plan otherwise.
+In progress (started 2026-07-02). **Backend is LIVE.** Business owner's email is the account
+owner; Aland is fronting hosting cost on his personal card until the owner's card is ready.
+
+**Identity for all new infra:** dedicated business Gmail `tutelage.it.team@gmail.com`
+(NOT Aland's personal), every credential in Bitwarden. `Alandkf` added as a second GitHub
+org owner after the 2026-07-02→07-10 account-suspension incident (single-point-of-failure fix).
 
 **Host decision — researched and confirmed 2026-07-02** (compared Render, Railway,
 Fly.io, Vercel on cost/reliability/fit for our Bun+WebSocket+cron workload; see
 `docs/handover/deployment-runbook.md` §1 for the writeup and sources):
-- **Backend → Render** (Starter, $7/mo). `render.yaml` blueprint is committed at the repo root.
+- **Backend → Render** (Starter, $7/mo target). `render.yaml` blueprint committed at the repo root.
 - **Frontend → Vercel** (Pro, $20/mo — Hobby forbids commercial use).
 
-Remaining steps:
-- [ ] Create Render account (owner's email, Aland's card) → deploy via `render.yaml` blueprint
-- [ ] Create Vercel account (owner's email, Aland's card) → import repo, root dir `frontend`
-- [ ] Register/configure domain, point DNS at both hosts
-- [ ] Re-create Google OAuth client with prod origins (frontend + Render API domain)
-- [ ] Populate all Render env vars (see blueprint's `sync: false` list) with rotated prod secrets
-- [ ] Set `CORS_ORIGIN` + `FRONTEND_URL` on Render once the Vercel domain is known
-- [ ] Run the migration-baseline procedure (§2 below) against the prod DB
+**Infra provisioned under the business email (all in Bitwarden):**
+- ✅ Render service `tutelage-api` — LIVE at `https://tutelage-api.onrender.com` (Frankfurt,
+  Docker `production` stage, deploys from `main` via `render.yaml`). On the **Free** instance
+  for now (deliberate — no traffic yet; flip to Starter before public launch).
+- ✅ Neon (`tutelage-prod` project + `test` branch for TEST_DATABASE_URL, Frankfurt, direct/unpooled URL)
+- ✅ Upstash Redis (`tutelage-prod`, Frankfurt, `rediss://` TLS)
+- ✅ Cloudflare R2 (bucket `tutelage-uploads`, public R2.dev URL, scoped token)
+- ✅ Prod DB migrations run (`prisma migrate deploy` — fresh Neon, no baseline dance needed)
+- ✅ Prod-only fixes shipped during first deploy: dropped Winston file transports (EACCES on
+  non-root container) + multi-origin comma-separated `CORS_ORIGIN`.
+
+**Frontend / domain:**
+- ✅ Rekar's Vercel deploy is LIVE at `https://ai.tutelage.krd`. DNS is managed directly at
+  **Namecheap** (Cloudflare turned out not to be involved — all records go in Namecheap's
+  Advanced DNS for `tutelage.krd`).
+
+**AI / service provider keys** (overlaps Task 4 rotation):
+- ✅ Gemini (`GEMINI_API_KEY`, free tier — see billing wrinkle in the AI-billing note)
+- ✅ Deepgram (`DEEPGRAM_API_KEY`, saved in backend env)
+- [ ] Azure Speech (`AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION`)
+- [ ] OpenAI (`OPENAI_API_KEY`, PREMIUM tier)
+- ✅ Resend — **fully DONE & smoke-tested E2E on prod (2026-07-17)**: domain `tutelage.krd`
+  verified (eu-west-1, DNS at Namecheap), `tutelage-prod` API key (Sending access, scoped
+  to the domain), `RESEND_API_KEY` + `EMAIL_FROM=Tutelage <noreply@tutelage.krd>` set on
+  Render. Verified live: register → OTP email delivered → verify-email → FREE ACTIVE + tokens.
+  Gotchas hit: `EMAIL_FROM` must be `Name <addr>` or bare `addr` (bare `<addr>` → Resend 422);
+  domain-scoped API keys break when the domain is deleted/re-added. Cleanup notes: test user
+  `aland_smoketest` exists in prod DB; local `.env` still has the old personal-account dev key
+  (rotate in Task 4).
+
+**Remaining steps:**
+- [ ] Google OAuth: a single client already exists under the business email (its ID is in
+      the backend env). No need for a separate prod client — just add all prod origins to its
+      Authorized JavaScript origins (`https://ai.tutelage.krd`, `https://tutelage-api.onrender.com`,
+      plus localhost:3001/8000 for testing) and ensure the SAME ID is in all 3 places
+      (frontend `.env`, Infisical, this OAuth client — the 3-places rule in root CLAUDE.md).
+- [ ] Finish DNS for `ai.tutelage.krd`; give Rekar the backend URL for `NUXT_PUBLIC_BASE_URL`
+      (mention Free-tier ~50s cold start during testing)
+- [ ] Set `CORS_ORIGIN` (comma-separated) + `FRONTEND_URL` on Render once the Vercel domain is final
+- [ ] Populate remaining Render env vars (blueprint's `sync: false` list) with rotated prod secrets
+- [ ] Private beta: Aland + owner + trusted testers exercise the app end-to-end
+- [ ] Flip Render Free → Starter before public launch
 - [ ] Smoke-test all critical paths (§5 below) before announcing
+
+**Small follow-ups found during the Resend rollout (2026-07-17):**
+- [ ] **Bug: auth emails swallow Resend errors** — the Resend SDK returns `{ data, error }`
+      and never throws, but the 4 send sites in `auth.service.ts` (verification, welcome,
+      forgot-password ×2) don't check `error`, so failed sends return 200 with zero trace.
+      Apply the same `if (error) throw` fix already used in `weekly-digest.job.ts` (Task 7).
+- [ ] Swagger (`/api-docs`) is publicly exposed on prod — decide whether to disable or
+      protect it before public launch.
+- [ ] `docs/services/hosting.md` says the health endpoint is `/api/v1/health` — it's `/health`.
+- [ ] Delete the `aland_smoketest` prod test user when no longer useful.
 
 **Pre-deploy checklist:**
 - [ ] `bun run typecheck` passes
 - [ ] `bun test` passes (auth + sessions minimum)
-- [ ] All Prisma migrations committed
+- ✅ All Prisma migrations committed
 - [ ] All prod secrets in Infisical `prod` env
 - [ ] `CORS_ORIGIN` set to live frontend domain
-- [ ] Health endpoint responding
+- ✅ Health endpoint responding (Render `tutelage-api` boots + serves `/api/v1/health`)
 
 ---
 
