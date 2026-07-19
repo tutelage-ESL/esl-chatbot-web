@@ -98,7 +98,14 @@ Fly.io, Vercel on cost/reliability/fit for our Bun+WebSocket+cron workload; see
   Advanced DNS for `tutelage.krd`).
 
 **AI / service provider keys** (overlaps Task 4 rotation):
-- ✅ Gemini (`GEMINI_API_KEY`, free tier — see billing wrinkle in the AI-billing note)
+- ⚠️ Gemini (`GEMINI_API_KEY`) — **running on Aland's personal-account key** (2026-07-17).
+  The business account (`tutelage.it.team@gmail.com`) is **denied Gemini API access
+  account-wide**: every key, even from a fresh AI Studio project, returns "Your project
+  has been denied access. Please contact support." (likely fallout from the July account
+  suspension; billing can't be added either — no Iraq option). Needs a Google support
+  ticket or the Payoneer/Wise billing route to fix; until then the personal key is the
+  working fallback. Migrate in Task 4. **AI chat verified working E2E on prod 2026-07-17**
+  (register → verify → session → message → Gemini reply + evaluation).
 - ✅ Deepgram (`DEEPGRAM_API_KEY`, saved in backend env)
 - [ ] Azure Speech (`AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION`)
 - [ ] OpenAI (`OPENAI_API_KEY`, PREMIUM tier)
@@ -126,10 +133,8 @@ Fly.io, Vercel on cost/reliability/fit for our Bun+WebSocket+cron workload; see
 - [ ] Smoke-test all critical paths (§5 below) before announcing
 
 **Small follow-ups found during the Resend rollout (2026-07-17):**
-- [ ] **Bug: auth emails swallow Resend errors** — the Resend SDK returns `{ data, error }`
-      and never throws, but the 4 send sites in `auth.service.ts` (verification, welcome,
-      forgot-password ×2) don't check `error`, so failed sends return 200 with zero trace.
-      Apply the same `if (error) throw` fix already used in `weekly-digest.job.ts` (Task 7).
+- ✅ **Bug: auth emails swallow Resend errors** — fixed (`ec787f9`): all 4 send sites in
+      `auth.service.ts` now check `{ error }` and throw, same pattern as `weekly-digest.job.ts`.
 - [ ] Swagger (`/api-docs`) is publicly exposed on prod — decide whether to disable or
       protect it before public launch.
 - [ ] `docs/services/hosting.md` says the health endpoint is `/api/v1/health` — it's `/health`.
@@ -224,6 +229,58 @@ Content task — coordinate with business owner for non-technical sections.
 > already implemented in `src/config/env.ts` (fails fast only when `FIB_CLIENT_ID` is set
 > without a webhook URL). The migration-baseline procedure is documented in
 > `docs/handover/deployment-runbook.md`.
+
+---
+
+## 11. AI Reply HTML Formatting ✅ DONE (2026-07-18)
+AI chat replies were plain prose in a JSON string. Now formatted with a small safe HTML tag
+set so the frontend can render bullets/paragraphs/emphasis via `v-html` instead of a wall of text.
+
+- ✅ `prompt.ts` — system prompt now instructs the model to format `reply` using only
+  `p, strong, em, ul, ol, li, br` (no markdown, no other tags/attributes); list guidance
+  (2+ items → `<ul>/<ol>`, don't force a list for one point)
+- ✅ `src/utils/aiReplyFormat.ts` (NEW) — `sanitizeAiReply()` allowlist-sanitizes the model's
+  raw JSON output (`sanitize-html`, new dep) to the same 7 tags before it's stored or returned —
+  the LLM's JSON has zero schema validation, and `reply` is now headed for `v-html` on the
+  frontend, so this is the stored-XSS guard. Wired at the single choke point in
+  `ai.service.ts` (`generateAIResponse` wraps the provider call and sanitizes on the way out) —
+  covers both text and voice messages with one change.
+- ✅ `stripHtmlForSpeech()` in the same file — voice mode feeds `aiResult.reply` straight into
+  TTS (`voice-messages.service.ts`); without stripping, Azure/Edge/OpenAI TTS would read the
+  tag names aloud. Block boundaries (`</p>`, `</li>`, `<br>`) become a space first so list items
+  don't run together into one sentence.
+- ✅ **Hardened after an 8-angle code review (2026-07-19)** — review found 10 issues, all fixed:
+  - **TTS entity bug**: sanitize-html entity-encodes text (`&` → `&amp;`), so TTS would have
+    spoken "Tom amp Jerry". `htmlToPlainText` now decodes entities; strip moved INSIDE
+    `generateTTS` so no future caller can make the tutor read tags aloud.
+  - **Word counts**: `aiWordCount` was splitting the HTML string (tags glued words together) —
+    both message services now use `countAiReplyWords()` (visible words only).
+  - **Evaluation fields**: prompt trains the model to emit tags, which bleeds into
+    feedback/corrections — `cleanEvaluation()` in `ai.service.ts` now strips every
+    model-authored evaluation text field to plain text (they render via `{{ }}` in the UI).
+  - **Empty/plain replies**: a reply that sanitizes to nothing gets a friendly fallback; a
+    plain-prose reply (heuristic placeholder, model regression) is auto-wrapped in `<p>`.
+  - **Single source of truth**: `AI_REPLY_ALLOWED_TAGS` exported and interpolated into the
+    prompt — the sanitizer allowlist and the prompt can never drift. Prompt also condensed
+    (~60 % fewer added tokens/call) + "warm, specific, honest" tone line.
+  - **OpenAI `max_tokens` 1500 → 2500** (matches Gemini): HTML inflates output; truncated JSON
+    = unparseable = full paid retry on Gemini. Unused headroom is free.
+  - **Swagger fixed** ("text reply" → sanitized-HTML description on all 3 message schemas) +
+    `bun run generate:types` run; dev test pages (ai-test/voice-test/socket-test html) now
+    render the reply as HTML.
+- ✅ **16 new unit tests** in `src/utils/__tests__/aiReplyFormat.test.ts` (DB-free — they run
+  even while `TEST_DATABASE_URL` auth is broken): XSS strip (script/onerror/javascript:),
+  entity decode for TTS, prose wrapping, word counts, tag-contract lock. All pass. Typecheck clean.
+- **Frontend note** in `frontend/TASKS.md` for Rekar covers all 4 render spots (MessageBubble,
+  voice-lab caption + transcript, AppText `htmlContent` reuse), legacy plain-text rows, and the
+  deploy-together warning.
+- **Follow-ups:**
+  - Re-run the DB-backed message/voice suites once `TEST_DATABASE_URL` is fixed (local `.env`
+    credential is stale/rotated — TCP reaches Neon fine, auth fails).
+  - Consider full Zod validation of the LLM's `AIResponse` payload (scores/CEFR enums are still
+    trusted as-is; the codebase already uses Zod everywhere else) — right-depth fix, deferred.
+  - Deploy backend + frontend together (or frontend first is harmless) — backend-first shows
+    literal tags in bubbles until Rekar's change lands.
 
 ---
 
