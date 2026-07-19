@@ -33,7 +33,10 @@ export async function callOpenAILLM(
     messages,
     response_format: { type: "json_object" },
     temperature: 0.7,
-    max_tokens: 1500,
+    // Matches Gemini's 2500 cap. The response is one JSON document — truncation
+    // makes it unparseable and triggers a full paid retry on Gemini, and HTML
+    // markup in the reply now adds output-token overhead. Unused headroom is free.
+    max_tokens: 2500,
   });
 
   const raw = completion.choices[0]?.message?.content;

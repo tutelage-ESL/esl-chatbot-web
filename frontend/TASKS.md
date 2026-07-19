@@ -85,6 +85,47 @@ What was built — a hands-free live **CALL**, not a chat:
 
 ## Backend Notes for Frontend
 
+### AI chat replies now contain lightweight HTML — needs `v-html` in 4 places (2026-07-18)
+
+The AI tutor's reply (ASSISTANT `Message.content` from `POST /sessions/:sessionId/messages`,
+the voice endpoints, and the Socket.io `message:response` payload) is no longer plain prose —
+the model now formats it with a **small fixed tag set**: `p, strong, em, ul, ol, li, br` only.
+No headings, links, images, classes, or any attributes. The Swagger descriptions +
+`types/api.ts` doc comments now say this too.
+
+**Why:** better-looking chat replies (bullet lists for multi-item tips, `<strong>` on
+corrections) instead of a wall of plain text.
+
+**Backend-side safety (already done, verified by unit tests):**
+- `reply` is allowlist-sanitized (`sanitize-html`, exactly those 7 tags, zero attributes) at
+  the single choke point in `ai.service.ts` before it's ever stored or returned — text,
+  voice, and socket paths all covered. `<script>`, `onerror=`, `javascript:` etc. are stripped.
+- Evaluation fields (`feedback`, `corrections[]`, `grammarErrors[]`, `newWords[]`) are
+  stripped to **plain text** server-side — keep rendering those with normal `{{ }}`, no change.
+- TTS strips tags + decodes entities internally, so voice audio is unaffected.
+- A plain-prose reply (e.g. the no-API-key placeholder) is auto-wrapped in `<p>` server-side.
+
+**Frontend work — all 4 spots that render the AI reply need the HTML treatment:**
+1. `Chat/MessageBubble.vue:97` — `{{ message.text }}` → `v-html` (AI branch only).
+2. Voice-lab live caption — `CallStage.vue` renders `{{ caption }}` (fed from
+   `useVoiceLab.ts` ← `assistantMessage.content`). Either `v-html` it or strip tags for the
+   caption (a one-line `.replace(/<[^>]+>/g, ' ')` is fine there).
+3. Voice-lab transcript log — `TurnRow.vue` renders `{{ turn.reply }}` → `v-html`.
+4. Reuse what exists: `AppText` already has an `htmlContent` prop with matching
+   `.html-content` styles in `main.css` — prefer that over a raw `v-html` div, and extend
+   `.html-content` CSS to style `ul/ol/li` margins inside bubbles if it doesn't yet.
+
+**Two gotchas:**
+- **Legacy messages:** rows stored before this change are plain text. Simple rule: if
+  `content` doesn't start with `<`, render it as plain text (or wrap in one `<p>`); otherwise
+  `v-html`. Applies to session history pages too.
+- **Only AI messages.** User messages stay `{{ }}` — never `v-html` user-authored content.
+  Optional defense-in-depth: DOMPurify client-side before the bind (backend already
+  sanitizes, so this is belt-and-braces).
+
+**Deploy note:** until this frontend change ships, AI bubbles will show literal
+`<p>...</p>` tags — deploy the frontend change together with (or right after) the backend.
+
 ### Terms of Service / agreement signing ✅ DONE (2026-06-19)
 
 **Files changed:**

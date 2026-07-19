@@ -3513,6 +3513,7 @@ export interface paths {
                                 role?: "USER" | "ASSISTANT";
                                 /** @enum {string} */
                                 type?: "TEXT" | "VOICE";
+                                /** @description For ASSISTANT rows this is sanitized lightweight HTML (p/strong/em/ul/ol/li/br only — render with v-html); USER rows are plain text. Rows stored before 2026-07 are plain text. */
                                 content?: string;
                                 wordCount?: number | null;
                                 audioUrl?: string | null;
@@ -3614,6 +3615,7 @@ export interface paths {
                                     role?: string;
                                     /** @enum {string} */
                                     type?: "TEXT" | "VOICE";
+                                    /** @description AI tutor's reply as sanitized lightweight HTML (only p/strong/em/ul/ol/li/br tags */
                                     content?: string;
                                     wordCount?: number;
                                     /** Format: date-time */
@@ -3772,7 +3774,7 @@ export interface paths {
                                     role?: string;
                                     /** @example VOICE */
                                     type?: string;
-                                    /** @description AI tutor's text reply */
+                                    /** @description AI tutor's reply as sanitized lightweight HTML (only p/strong/em/ul/ol/li/br tags */
                                     content?: string;
                                     wordCount?: number | null;
                                     /** @description R2 URL of the TTS MP3. Null if R2 or TTS not configured. */
