@@ -214,8 +214,19 @@ export async function generateTTS(text: string, plan: Plan): Promise<Buffer> {
 
   if (env.AZURE_SPEECH_KEY) return azureTTS(text);
 
-  // No TTS provider configured — voice message still processes (STT + LLM), just no AI audio
-  return Buffer.alloc(0);
+  // No paid TTS provider configured — fall back to Edge TTS (keyless, unofficial,
+  // no SLA) so the tutor isn't silent. Empty buffer only if that fails too.
+  try {
+    return await edgeTTS(text);
+  } catch (err) {
+    Sentry.withScope((scope) => {
+      scope.setLevel("warning");
+      scope.setTag("ai.provider", "edge-tts");
+      scope.setTag("ai.fallback", "silent");
+      Sentry.captureException(err);
+    });
+    return Buffer.alloc(0);
+  }
 }
 
 // STT routing:

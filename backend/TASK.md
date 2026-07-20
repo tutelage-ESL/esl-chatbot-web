@@ -119,17 +119,20 @@ Fly.io, Vercel on cost/reliability/fit for our Bun+WebSocket+cron workload; see
   (rotate in Task 4).
 
 **Remaining steps:**
-- [ ] Google OAuth: a single client already exists under the business email (its ID is in
-      the backend env). No need for a separate prod client — just add all prod origins to its
-      Authorized JavaScript origins (`https://ai.tutelage.krd`, `https://tutelage-api.onrender.com`,
-      plus localhost:3001/8000 for testing) and ensure the SAME ID is in all 3 places
-      (frontend `.env`, Infisical, this OAuth client — the 3-places rule in root CLAUDE.md).
-- [ ] Finish DNS for `ai.tutelage.krd`; give Rekar the backend URL for `NUXT_PUBLIC_BASE_URL`
-      (mention Free-tier ~50s cold start during testing)
-- [ ] Set `CORS_ORIGIN` (comma-separated) + `FRONTEND_URL` on Render once the Vercel domain is final
-- [ ] Populate remaining Render env vars (blueprint's `sync: false` list) with rotated prod secrets
-- [ ] Private beta: Aland + owner + trusted testers exercise the app end-to-end
-- [ ] Flip Render Free → Starter before public launch
+- ✅ Google OAuth — prod origins added to the single business-account client
+      (`ai.tutelage.krd`, `tutelage-api.onrender.com`, localhost) 2026-07-17; **verified
+      working live 2026-07-20** (Aland + friends registered real accounts on prod).
+- ✅ DNS for `ai.tutelage.krd` done; Rekar wired `NUXT_PUBLIC_BASE_URL` to Render.
+- ✅ `CORS_ORIGIN` (comma-separated) + `FRONTEND_URL` set on Render (2026-07-17).
+- [ ] Populate remaining Render env vars: `AZURE_SPEECH_KEY`/`REGION` + `OPENAI_API_KEY`
+      (PREMIUM tier only). **Mitigated 2026-07-20:** `generateTTS` now falls back to Edge TTS
+      (keyless) when no paid TTS key is set, so prod Voice Lab speaks instead of returning
+      silent audio. Azure key still wanted pre-launch (Edge endpoint is unofficial, no SLA;
+      Azure signup may hit the same Iraq-billing wall as Google — check free F0 tier).
+- 🔄 Private beta: **underway (2026-07-20)** — Aland + friends registered and are using prod.
+      Still to do: owner tries it; collect feedback.
+- [ ] Flip Render Free → Starter before public launch (~50s cold starts now hit real
+      beta users — consider flipping early)
 - [ ] Smoke-test all critical paths (§5 below) before announcing
 
 **Small follow-ups found during the Resend rollout (2026-07-17):**
@@ -137,8 +140,10 @@ Fly.io, Vercel on cost/reliability/fit for our Bun+WebSocket+cron workload; see
       `auth.service.ts` now check `{ error }` and throw, same pattern as `weekly-digest.job.ts`.
 - [ ] Swagger (`/api-docs`) is publicly exposed on prod — decide whether to disable or
       protect it before public launch.
-- [ ] `docs/services/hosting.md` says the health endpoint is `/api/v1/health` — it's `/health`.
-- [ ] Delete the `aland_smoketest` prod test user when no longer useful.
+- ✅ `docs/services/hosting.md` health-endpoint typo fixed (`/api/v1/health` → `/health`, 2026-07-20).
+- [ ] Delete the `aland_smoketest` prod test user (beta is live, no longer needed). Run in
+      the Neon SQL console: `DELETE FROM users WHERE username = 'aland_smoketest';`
+      (all user-owned relations cascade).
 
 **Pre-deploy checklist:**
 - [ ] `bun run typecheck` passes

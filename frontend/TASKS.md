@@ -85,7 +85,7 @@ What was built — a hands-free live **CALL**, not a chat:
 
 ## Backend Notes for Frontend
 
-### AI chat replies now contain lightweight HTML — needs `v-html` in 4 places (2026-07-18)
+### AI chat replies now contain lightweight HTML — needs `v-html` in 4 places ✅ DONE (2026-07-20, wired + pushed by Rekar; backend merged to main in PR #16)
 
 The AI tutor's reply (ASSISTANT `Message.content` from `POST /sessions/:sessionId/messages`,
 the voice endpoints, and the Socket.io `message:response` payload) is no longer plain prose —
