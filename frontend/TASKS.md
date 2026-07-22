@@ -8,6 +8,41 @@ When Aland adds a new backend API, he notes it here so Rekar knows what to wire 
 
 ---
 
+### ⚠️ Voice Lab — two bugs found in live prod testing (2026-07-23) — PENDING (Rekar)
+**File:** `app/composables/useVoiceLab.ts` (+ the call caption component under `components/Pages/Dashboard/Voice/`)
+**Confirmed backend-clean:** Aland read `backend/src/socket/voice.socket.ts` — the backend is half-duplex
+and correctly handles every turn (each `voice:start` builds fresh state; `voice:end` runs the
+STT→LLM→TTS pipeline and deletes the per-session state). Both issues are in the client call state machine.
+
+1. **Infinite listening on the 2nd turn — never gets a reply.** Turn 1 works (listen → AI replies →
+   plays). After the reply, the machine returns to `listening` but never auto-ends turn 2 — so the mic
+   stays open forever and `voice:end` is never emitted, so the backend never processes turn 2. Almost
+   certainly the **VAD / silence-detection (or the recorder stream) is not re-armed** when transitioning
+   `speaking → listening`. Verify turn 2 actually fires `voice:end` (watch the socket); re-initialise the
+   analyser/recorder on every re-entry to `listening`, not just on the first `voice:start`.
+
+2. **Raw HTML tags show in the live caption.** AI replies are now sanitized HTML (shipped in PR #16).
+   The text-chat bubbles render it via `v-html`, but the voice **call caption / transcript** prints the
+   raw string, so tags leak on screen. For a caption, prefer **stripping HTML to plain text** (a caption
+   shouldn't carry formatting) rather than `v-html`. The spoken audio is already correct — the backend
+   strips HTML before TTS.
+
+---
+
+### ⚠️ Dark mode is not working (2026-07-23) — PENDING (Rekar)
+**Reported by Aland during live prod testing** — switching to dark mode does not work.
+Not yet diagnosed on the frontend side; needs Rekar to reproduce and pin down.
+**Where to look:** the dashboard colour system is token-driven — all surface/border/text
+colours are CSS custom properties in `app/assets/css/main.css` (the single source of truth,
+per `frontend/CLAUDE.md`), with a light/dark pair per token. Likely suspects: the theme
+toggle isn't flipping the `dark` class / `data-theme` on the root (so the dark token values
+never apply), the toggle state isn't persisted, or some components use raw
+`bg-white`/`bg-zinc-*`/`text-zinc-*` utilities instead of the tokens (those won't respond to
+the theme switch — CLAUDE.md forbids them in dashboard components). Audit the theme-toggle
+wiring first, then grep dashboard components for hardcoded colour utilities that bypass the tokens.
+
+---
+
 ### 7. Voice Lab — connect to real Socket.io pipeline ✅ DONE
 **File:** `app/pages/dashboard/voice.vue`
 **Status:** Wired to the real `/chat` voice pipeline via a new `useVoiceLab.ts` composable
