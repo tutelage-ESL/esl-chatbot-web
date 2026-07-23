@@ -106,6 +106,30 @@ Fly.io, Vercel on cost/reliability/fit for our Bun+WebSocket+cron workload; see
   ticket or the Payoneer/Wise billing route to fix; until then the personal key is the
   working fallback. Migrate in Task 4. **AI chat verified working E2E on prod 2026-07-17**
   (register → verify → session → message → Gemini reply + evaluation).
+  - 🔴 **Gemini geo-block incident (2026-07-23):** prod LLM started 500ing with
+    `AI error: User location is not supported for the API use`. Root cause is **NOT** the
+    key or the Iraq account — a well-formed curl with the same personal key succeeds even
+    from Aland's machine in Iraq. It's Google's Gemini API geo-checking the **caller's IP**
+    (i.e. Render's egress), and **Render Free tier has no stable outbound IP** — a
+    spin-down/redeploy moved the service onto an IP Google rejects (datacenter/ambiguous
+    range). It "worked yesterday" only because the instance sat on an accepted IP.
+    Note: this is a *server-side* problem — users' own locations are irrelevant (Gemini
+    only ever sees Render's IP), so global users are not individually blocked.
+  - ✅ **Fix shipped (2026-07-23):** FREE/GOLD now fall back to OpenAI (`gpt-5-mini`) on
+    ANY Gemini failure (`ai.service.ts`), logged loudly via Winston warn + Sentry warning
+    (`ai.provider=gemini`, `ai.fallback=openai`) so Gemini outages stay visible, never
+    silently masked. Also fixed the OpenAI call for the reasoning model: `gpt-5-mini`
+    needs `max_completion_tokens` (not `max_tokens`) and rejects `temperature`
+    (`openai.llm.ts`) — the fallback 400'd on first real use until this landed.
+  - **Durable fixes for reliable Gemini (in order of effort):** (1) flip Render Free →
+    Starter — dedicated instance, no spin-down = stable IP that Google is more likely to
+    accept (cheap, try first); (2) **Vertex AI** — the region-pinned enterprise Gemini
+    endpoint has NO consumer geo-block, so it works from any server IP — but needs GCP
+    billing (the Iraq/Payoneer wall). **Rejected idea:** a second Gemini key from another
+    account (e.g. Rekar's) does NOT help — the block is per-IP, so both keys fail
+    identically from the same Render IP; a 2nd key only helps for quota/account-suspension,
+    which isn't the current problem, and coupling prod to a personal account is the wrong
+    direction while migrating onto business accounts.
 - ✅ Deepgram (`DEEPGRAM_API_KEY`, saved in backend env)
 - [ ] Azure Speech (`AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION`)
 - [ ] OpenAI (`OPENAI_API_KEY`, PREMIUM tier)
