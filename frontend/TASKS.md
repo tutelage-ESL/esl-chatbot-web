@@ -43,6 +43,47 @@ wiring first, then grep dashboard components for hardcoded colour utilities that
 
 ---
 
+### ⚠️ Tutors can't post announcements / tasks in a class (2026-07-23) — NEEDS BACKEND FIRST, then Rekar
+**Reported by Aland:** logged in as a TUTOR, could not post an announcement or create a task
+even "in their own class". As ADMIN everything worked.
+
+**Root cause (Aland diagnosed in backend):** two separate role layers —
+- `User.role` (global STUDENT/TUTOR/ADMIN) → what `useRole()` reads; lets you *create* classes + see tutor views.
+- `ClassUser.role` (per-class TUTOR/STUDENT) → what announcement/task **posting** is checked against
+  (`assertClassTutor` in `tasks.service.ts`, and the TUTOR check in `announcements.service.ts`).
+
+The backend auth is correct, BUT the **only** way to get `ClassUser.role = TUTOR` today is to be the
+class **creator** — joining by code always makes you a STUDENT, and there is **no endpoint to assign an
+existing user as a tutor of an existing class**. So a global-TUTOR who *joined* a class is a class-STUDENT
+there and is correctly 403'd when posting.
+
+**Blocked on backend (Aland):** new endpoint — `PATCH /classes/:id/members/:userId/role { role }`
+(admin, and maybe existing class-tutors; last-tutor + `isInternal` guards). Aland will add + `generate:types`.
+
+**Frontend work once the endpoint lands (Rekar):**
+1. In the class members tab (`ClassMembersTab.vue`), add an admin/tutor action to set a member's class role
+   (Make tutor / Make student) via the new endpoint — 3-dot `UiDropdownMenu`, not hover buttons.
+2. **Gate the announcement compose box + task create button on the per-class role (`myRole === 'TUTOR' || isAdmin`),
+   NOT on `useRole().isTutor`.** A global-TUTOR who is a STUDENT in this class must NOT see the compose/create UI
+   (showing it just produces a 403 on submit — likely today's symptom). Per `frontend/CLAUDE.md`: derive
+   class-membership roles from the members list / `myRole`, never from `useRole`.
+
+Note: the live site is **Rekar's fork**, so confirm the current gating in that build.
+
+---
+
+### ⚠️ Admin user role management UI — verify/port into the deployed build (2026-07-23) — Rekar
+Backend has had this all along: `PATCH /api/v1/admin/users/:id` with `{ role: "STUDENT"|"TUTOR"|"ADMIN" }`
+and/or `{ isActive }` (ADMIN-only, tested). This repo's frontend already exposes it at
+`/dashboard/users` + `/dashboard/users/[id]` (role/status toggles). **Action:** confirm the **deployed
+fork** actually surfaces the role dropdown (Aland couldn't change roles from the live UI). If missing, wire
+it to the existing endpoint. No new backend work for this one.
+
+Heads-up (Aland adding backend guards): the API will soon reject an admin **demoting/deactivating
+themselves** and **removing the last admin** (409). Surface those 409 messages inline, don't crash.
+
+---
+
 ### 7. Voice Lab — connect to real Socket.io pipeline ✅ DONE
 **File:** `app/pages/dashboard/voice.vue`
 **Status:** Wired to the real `/chat` voice pipeline via a new `useVoiceLab.ts` composable

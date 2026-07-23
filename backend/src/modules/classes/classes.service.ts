@@ -323,7 +323,7 @@ async function assertTutorOfClass(classId: string, userId: string, userRole: str
   });
   if (!membership) throw new AppError("Class not found", 404);
   if (membership.role !== "TUTOR") {
-    throw new AppError("Only tutors of this class can manage the class code", 403);
+    throw new AppError("Only tutors of this class can perform this action", 403);
   }
 }
 
@@ -850,6 +850,75 @@ export async function removeMember(
       where: { classId_userId: { classId, userId: targetUserId } },
     });
   });
+}
+
+// ── Set member role (assign / demote a class tutor) ───────
+
+export interface MemberRoleResult {
+  classId: string;
+  userId: string;
+  role: "STUDENT" | "TUTOR";
+  user: { id: string; displayName: string; avatarUrl: string | null };
+}
+
+/**
+ * Change an existing member's CLASS-membership role (TUTOR ⇄ STUDENT).
+ *
+ * This is the only way — besides creating a class — to make someone a class-tutor;
+ * joining by code always enters as STUDENT. It changes `ClassUser.role` only, never
+ * the user's global `User.role`.
+ *
+ * Authorization: an admin, or a TUTOR of the class (route also guards TUTOR/ADMIN).
+ *
+ * Guards:
+ *  - Target must be a member of the class (else 404).
+ *  - Internal (stealth) accounts are indistinguishable from nonexistent → 404.
+ *  - Demoting the last remaining tutor to STUDENT is refused (409) — a class must
+ *    always keep at least one tutor.
+ */
+export async function setMemberRole(
+  classId: string,
+  targetUserId: string,
+  newRole: "STUDENT" | "TUTOR",
+  actorUserId: string,
+  actorRole: string,
+): Promise<MemberRoleResult> {
+  await assertTutorOfClass(classId, actorUserId, actorRole);
+
+  // assertTutorOfClass short-circuits for admins without touching the class, so
+  // confirm the class exists to return a clean 404 for a bad id.
+  const cls = await prisma.class.findUnique({ where: { id: classId }, select: { id: true } });
+  if (!cls) throw new AppError("Class not found", 404);
+
+  const target = await prisma.classUser.findUnique({
+    where: { classId_userId: { classId, userId: targetUserId } },
+    select: { role: true, user: { select: { isInternal: true } } },
+  });
+  if (!target || target.user.isInternal) {
+    throw new AppError("Member not found in this class", 404);
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    // A class must never be left without a tutor.
+    if (target.role === "TUTOR" && newRole === "STUDENT") {
+      const tutorCount = await tx.classUser.count({ where: { classId, role: "TUTOR" } });
+      if (tutorCount <= 1) {
+        throw new AppError("Cannot demote the last tutor of a class", 409);
+      }
+    }
+    return tx.classUser.update({
+      where: { classId_userId: { classId, userId: targetUserId } },
+      data: { role: newRole },
+      select: {
+        classId: true,
+        userId: true,
+        role: true,
+        user: { select: { id: true, displayName: true, avatarUrl: true } },
+      },
+    });
+  });
+
+  return updated as MemberRoleResult;
 }
 
 // ── Class analytics (tutor / admin) ───────────────────────

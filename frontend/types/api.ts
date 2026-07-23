@@ -101,6 +101,18 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
+                /**
+                 * @description Blocked to prevent lockout — the admin tried to change their own role or
+                 *     deactivate their own account, or the change would remove the last active admin.
+                 */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
                 /** @description Validation error — at least one field required */
                 422: {
                     headers: {
@@ -3021,6 +3033,131 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/classes/{id}/members/{userId}/role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Set a member's class role (assign or demote a class tutor)
+         * @description Changes an existing member's **class-membership role** (`TUTOR` or `STUDENT`).
+         *     This is the only way — besides creating a class — to make someone a class-tutor;
+         *     joining by code always enters as a STUDENT. Only the per-class role changes; the
+         *     user's global account role (`User.role`) is untouched.
+         *
+         *     **Authorization:** a tutor of the class, or an admin. (A STUDENT-role account is
+         *     rejected at the route guard; a TUTOR-role account that is only a STUDENT member of
+         *     this class is rejected by the service with 403.)
+         *
+         *     **Guard:** the last tutor of a class cannot be demoted to STUDENT — promote another
+         *     member to tutor first.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Class ID */
+                    id: string;
+                    /** @description ID of the member whose role is being changed */
+                    userId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /**
+                         * @description New class-membership role for the member
+                         * @enum {string}
+                         */
+                        role: "STUDENT" | "TUTOR";
+                    };
+                };
+            };
+            responses: {
+                /** @description Member role updated */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: {
+                                /** Format: uuid */
+                                classId?: string;
+                                /** Format: uuid */
+                                userId?: string;
+                                /** @enum {string} */
+                                role?: "STUDENT" | "TUTOR";
+                                user?: {
+                                    /** Format: uuid */
+                                    id?: string;
+                                    displayName?: string;
+                                    avatarUrl?: string | null;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Caller is not a tutor of this class or an admin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Class not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Cannot demote the last tutor of a class */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/dashboard/overview": {
