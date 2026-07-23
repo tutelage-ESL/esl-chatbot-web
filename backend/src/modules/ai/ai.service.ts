@@ -1,6 +1,7 @@
 import { env } from "../../config/env.ts";
 import { AppError } from "../../utils/AppError.ts";
 import { Sentry } from "../../config/sentry.ts";
+import { logger } from "../../config/logger.ts";
 import { callGeminiLLM, DEV_FALLBACK_MODEL } from "./providers/gemini.llm.ts";
 import { callOpenAILLM } from "./providers/openai.llm.ts";
 import { edgeTTS } from "./providers/edge.tts.ts";
@@ -170,9 +171,29 @@ async function generateAIResponseRaw(
     }
   }
 
-  // Production FREE / GOLD → Gemini
+  // Production FREE / GOLD → Gemini primary, OpenAI as LAST-resort fallback.
+  // Gemini can fail hard from the server's datacenter IP ("User location is not
+  // supported") — a request-origin geo-block that no key change fixes. Rather than
+  // 500 the user, fall back to OpenAI when it's configured. The fallback is logged
+  // LOUDLY (Winston warn + Sentry warning) on purpose: silent fallback would mask
+  // Gemini outages. If you do NOT see a "[AI] Gemini failed" line for a message,
+  // Gemini served it directly.
   if (env.GEMINI_API_KEY) {
-    return callGeminiLLM(userMessage, conversationHistory, learner, plan, false);
+    try {
+      return await callGeminiLLM(userMessage, conversationHistory, learner, plan, false);
+    } catch (err) {
+      if (!env.OPENAI_API_KEY) throw err; // no fallback available — surface the real error
+      const reason = err instanceof Error ? err.message : String(err);
+      logger.warn(`[AI] Gemini failed for ${plan} tier — falling back to OpenAI. Reason: ${reason}`);
+      Sentry.withScope((scope) => {
+        scope.setLevel("warning");
+        scope.setTag("ai.provider", "gemini");
+        scope.setTag("ai.fallback", "openai");
+        scope.setTag("ai.tier", plan);
+        Sentry.captureException(err);
+      });
+      return await callOpenAILLM(userMessage, conversationHistory, learner);
+    }
   }
 
   return heuristicResponse(userMessage);
