@@ -120,15 +120,28 @@ keys off the per-class role (`myRole==='TUTOR' || isAdmin`), unchanged.
 
 ---
 
-### ⚠️ Admin user role management UI — verify/port into the deployed build (2026-07-23) — Rekar
-Backend has had this all along: `PATCH /api/v1/admin/users/:id` with `{ role: "STUDENT"|"TUTOR"|"ADMIN" }`
-and/or `{ isActive }` (ADMIN-only, tested). This repo's frontend already exposes it at
-`/dashboard/users` + `/dashboard/users/[id]` (role/status toggles). **Action:** confirm the **deployed
-fork** actually surfaces the role dropdown (Aland couldn't change roles from the live UI). If missing, wire
-it to the existing endpoint. No new backend work for this one.
+### ✅ Admin user role management UI — BUILT + verified on prod (2026-07-24, Aland via Claude) — commit `fd9282c`
+The 2026-07-23 note on this task was **wrong**: it assumed the frontend "already exposes role/status
+toggles". Only the **status** toggle existed. `useAdmin().patchUser` was never once called with
+`{ role }` — the role was static text in both the users list (`UserTableRow.vue`) and the admin edit
+page (`users/[id]/profile.vue`). The endpoint worked all along; there was simply no control to send it.
+**Lesson: when an admin capability "doesn't work on the live UI", check whether the frontend ever calls
+the endpoint before suspecting auth.** (Second time this pattern bit us — see the tutor-can't-post entry.)
 
-Heads-up (Aland adding backend guards): the API will soon reject an admin **demoting/deactivating
-themselves** and **removing the last admin** (409). Surface those 409 messages inline, don't crash.
+**Built:** `components/Pages/Dashboard/Users/ChangeRoleDialog.vue` — `UiDialog` with three selectable
+role cards (Student / Tutor / Admin), descriptions, a "Current" chip, and Save disabled when unchanged.
+Wired into (a) the users list row 3-dot menu (`@change-role`) and (b) a new "Account role" card on
+`users/[id]/profile.vue`, above "Account status".
+
+**Backend guards are live and mirrored in the UI** (they shipped in `0c680dd`, already on `origin/main`):
+self-change is disabled client-side with an explanation (only admins reach this screen, so "self" always
+means demoting out of ADMIN → 409), and promote-to-admin / demote-admin each show a warning notice. On a
+server rejection the dialog **stays open** and the backend's 409 message surfaces via the `useHttp` toast,
+so it's never a silent failure. On success the row updates in place — or refetches when a role filter is
+active, since the row may no longer match the filter.
+
+Backend untouched → no `generate:types` needed. Verified: `nuxi typecheck` clean + Aland tested the full
+flow on prod.
 
 ---
 
