@@ -48,22 +48,35 @@ One-command local stack for onboarding without Infisical or cloud accounts.
 
 ---
 
-## 4. Account Migration — All Services → Business IT Email
-Everything is currently on Aland's personal accounts. Must move before production launch.
+## 4. Account Migration — All Services → Business IT Email — 🟡 MOSTLY DONE
+Business identity is **`tutelage.it.team@gmail.com`** (dedicated business Gmail, not Aland's
+personal); every credential lives in Bitwarden. Prod infra was **provisioned fresh under the
+business account** rather than transferred, so most of this task completed as part of Task 5.
 
-**Services to migrate:**
-- Neon Postgres (current DB + test DB)
-- Infisical project `esl-chatbot` (ownership + billing)
-- Google OAuth client (`GOOGLE_CLIENT_ID` + frontend `NUXT_PUBLIC_GOOGLE_CLIENT_ID`) — re-create under business account, update Authorized JS origins for prod domain
-- Resend (`RESEND_API_KEY`, `EMAIL_FROM`) — move off `onboarding@resend.dev` to verified sending domain
-- Cloudflare R2 (`R2_*`, bucket `tutelage-uploads`)
-- Gemini API key (`GEMINI_API_KEY`)
-- OpenAI API key (`OPENAI_API_KEY`) — PREMIUM tier
-- Azure Speech (`AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION`)
-- Deepgram (`DEEPGRAM_API_KEY`)
-- Upstash Redis (`REDIS_URL`)
+**Migrated / provisioned under the business account:**
+- ✅ Neon Postgres — new `tutelage-prod` project + `test` branch (Frankfurt, direct/unpooled URL)
+- ✅ Upstash Redis (`REDIS_URL`) — `tutelage-prod`, Frankfurt, `rediss://` TLS
+- ✅ Cloudflare R2 (`R2_*`, bucket `tutelage-uploads`) — public R2.dev URL, scoped token
+- ✅ Resend (`RESEND_API_KEY`, `EMAIL_FROM`) — off `onboarding@resend.dev`; domain `tutelage.krd`
+      verified, sending as `Tutelage <noreply@tutelage.krd>`
+- ✅ Google OAuth (`GOOGLE_CLIENT_ID` / `NUXT_PUBLIC_GOOGLE_CLIENT_ID`) — single business-account
+      client, prod JS origins added, verified live with real user signups
+- ✅ Azure Speech + ✅ OpenAI + ✅ Deepgram — all on the business account (2026-07-23)
+- ✅ Render + GitHub org `tutelage-ESL` (`Alandkf` added as 2nd org owner after the July suspension
+      incident — single-point-of-failure fix)
 
-**After migration:** rotate every secret (old dev values were shared in chat and are compromised). Update Infisical `prod` env with all new values.
+**Still outstanding:**
+- 🔴 **Gemini (`GEMINI_API_KEY`) — still on Aland's PERSONAL key.** The business account is denied
+      Gemini API access account-wide, and billing can't be added (no Iraq option). This is the one
+      genuine handover blocker left. Needs a Google support ticket, or the Payoneer billing route,
+      or Vertex AI (needs GCP billing → same wall). Mitigated in code by the OpenAI fallback.
+- 🔴 **Vercel** — business signup is impossible for now (hard-requires SMS verification, Iraq +964
+      unsupported), so Rekar hosts the frontend on his **personal** Vercel account.
+- 🟡 **Infisical project `esl-chatbot`** — ownership/billing not yet moved.
+- 🟡 **Namecheap / `tutelage.krd` domain** — registered on Aland's personal Namecheap account.
+- [ ] **Rotate every secret** — old dev values were shared in chat and are compromised. Procedure in
+      `docs/handover/secret-rotation.md`.
+- [ ] Aland is **fronting hosting cost on his personal card** until the owner's card is ready.
 
 ---
 
@@ -131,8 +144,14 @@ Fly.io, Vercel on cost/reliability/fit for our Bun+WebSocket+cron workload; see
     which isn't the current problem, and coupling prod to a personal account is the wrong
     direction while migrating onto business accounts.
 - ✅ Deepgram (`DEEPGRAM_API_KEY`, saved in backend env)
-- [ ] Azure Speech (`AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION`)
-- [ ] OpenAI (`OPENAI_API_KEY`, PREMIUM tier)
+- ✅ Azure Speech (`AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION=germanywestcentral`) — **LIVE on prod
+  2026-07-23**, voice TTS+STT tested E2E from the frontend Voice Lab. Resource created on the
+  BUSINESS account (F0 free tier); the earlier "signup blocked" wall was a **WiFi-network block on
+  Microsoft signup**, not the email — creating it over mobile-data hotspot worked. ⚠️ GOTCHA: once
+  `AZURE_SPEECH_KEY` is set there is NO Edge-TTS fallback for FREE/GOLD (`ai.service.ts` ~L215), so a
+  wrong region string silently breaks voice — the short lowercase region code must be exact.
+- ✅ OpenAI (`OPENAI_API_KEY`, PREMIUM tier) — **LIVE on prod 2026-07-23**; business card added +
+  $5 credit. Also serves as the FREE/GOLD fallback when Gemini geo-blocks (see below).
 - ✅ Resend — **fully DONE & smoke-tested E2E on prod (2026-07-17)**: domain `tutelage.krd`
   verified (eu-west-1, DNS at Namecheap), `tutelage-prod` API key (Sending access, scoped
   to the domain), `RESEND_API_KEY` + `EMAIL_FROM=Tutelage <noreply@tutelage.krd>` set on
@@ -148,11 +167,10 @@ Fly.io, Vercel on cost/reliability/fit for our Bun+WebSocket+cron workload; see
       working live 2026-07-20** (Aland + friends registered real accounts on prod).
 - ✅ DNS for `ai.tutelage.krd` done; Rekar wired `NUXT_PUBLIC_BASE_URL` to Render.
 - ✅ `CORS_ORIGIN` (comma-separated) + `FRONTEND_URL` set on Render (2026-07-17).
-- [ ] Populate remaining Render env vars: `AZURE_SPEECH_KEY`/`REGION` + `OPENAI_API_KEY`
-      (PREMIUM tier only). **Mitigated 2026-07-20:** `generateTTS` now falls back to Edge TTS
-      (keyless) when no paid TTS key is set, so prod Voice Lab speaks instead of returning
-      silent audio. Azure key still wanted pre-launch (Edge endpoint is unofficial, no SLA;
-      Azure signup may hit the same Iraq-billing wall as Google — check free F0 tier).
+- ✅ Populate remaining Render env vars: `AZURE_SPEECH_KEY`/`REGION` + `OPENAI_API_KEY` — **DONE
+      2026-07-23**, voice fully working E2E on prod. (The 2026-07-20 keyless Edge-TTS fallback in
+      `generateTTS` is therefore no longer the prod path for FREE/GOLD; it remains as a safety net
+      only when no paid TTS key is set at all.)
 - 🔄 Private beta: **underway (2026-07-20)** — Aland + friends registered and are using prod.
       Still to do: owner tries it; collect feedback.
 - [ ] Flip Render Free → Starter before public launch (~50s cold starts now hit real
@@ -179,15 +197,26 @@ Fly.io, Vercel on cost/reliability/fit for our Bun+WebSocket+cron workload; see
 
 ---
 
-## 6. FIB Production Submission
-Unblocked once the app is hosted and has a public URL.
+## 6. FIB Production Submission — 🟢 NOW FULLY UNBLOCKED (as of 2026-07-23)
+**Every prerequisite is met — this is the top actionable item on the board.** Code has been 100%
+complete and sandbox-verified E2E since 2026-05-31 (real DRAFT → paid → ACTIVE transaction).
 
-- Code is 100% complete (webhook 202, fail-fast guard, reconcile job, docs)
-- Fill in business fields in `docs/payment/fib-preproduction-checklist.md` (business name, IBAN, contacts, logo 500×500 PNG)
-- Set `FIB_ENV=prod`, real `FIB_CLIENT_ID`/`FIB_CLIENT_SECRET`, `FIB_WEBHOOK_URL` in Infisical `prod`
-- Submit checklist to FIB — they issue live credentials
-- Smoke-test one real low-value subscription end-to-end
-- Note: FIB charges 1% commission per transaction — confirm pricing accounts for it
+Prerequisites, all now satisfied:
+- ✅ App hosted with a public URL — frontend `ai.tutelage.krd`, backend `api.ai.tutelage.krd`
+- ✅ Business owner has filled in his parts of FIB's Integration Request Form (document in hand)
+- ✅ Backend custom domain — was the last blocker; resolved 2026-07-23. Rekar had already attached
+      `api.ai.tutelage.krd` to the Render service (note: `api.ai.`, **not** `api.tutelage.krd`)
+
+Remaining steps to actually ship it:
+- [ ] Finish business fields in `docs/payment/fib-preproduction-checklist.md` (business name, IBAN,
+      contacts, logo 500×500 PNG)
+- [ ] Submit the checklist to FIB → they issue live credentials
+- [ ] On receipt, set `FIB_ENV=prod` + real `FIB_CLIENT_ID`/`FIB_CLIENT_SECRET` +
+      `FIB_WEBHOOK_URL=https://api.ai.tutelage.krd/api/v1/subscriptions/webhook/fib` on Render.
+      **No code change needed** — the base URL switches off `FIB_ENV`.
+- [ ] Smoke-test one real low-value subscription end-to-end
+- [ ] Confirm the IQD prices in `PLAN_AMOUNTS_IQD` (`subscriptions.service.ts`) with the owner —
+      they are still placeholders, and FIB charges **1% commission per transaction**
 
 ---
 
