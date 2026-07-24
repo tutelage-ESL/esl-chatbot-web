@@ -8,24 +8,27 @@ When Aland adds a new backend API, he notes it here so Rekar knows what to wire 
 
 ---
 
-### ⚠️ Voice Lab — two bugs found in live prod testing (2026-07-23) — PENDING (Rekar)
-**File:** `app/composables/useVoiceLab.ts` (+ the call caption component under `components/Pages/Dashboard/Voice/`)
-**Confirmed backend-clean:** Aland read `backend/src/socket/voice.socket.ts` — the backend is half-duplex
-and correctly handles every turn (each `voice:start` builds fresh state; `voice:end` runs the
-STT→LLM→TTS pipeline and deletes the per-session state). Both issues are in the client call state machine.
+### ✅ Voice Lab — two prod bugs FIXED (2026-07-24, Aland via Claude)
+**Files:** `app/composables/useVoiceChat.ts`, `app/composables/useVoiceLab.ts`, `app/lib/utils.ts`.
+Backend was confirmed clean (half-duplex, one turn per `voice:end`) — both were client-side.
 
-1. **Infinite listening on the 2nd turn — never gets a reply.** Turn 1 works (listen → AI replies →
-   plays). After the reply, the machine returns to `listening` but never auto-ends turn 2 — so the mic
-   stays open forever and `voice:end` is never emitted, so the backend never processes turn 2. Almost
-   certainly the **VAD / silence-detection (or the recorder stream) is not re-armed** when transitioning
-   `speaking → listening`. Verify turn 2 actually fires `voice:end` (watch the socket); re-initialise the
-   analyser/recorder on every re-entry to `listening`, not just on the first `voice:start`.
+1. **Infinite listening on the 2nd turn — FIXED.** Real cause was NOT the VAD/analyser (the mic meter
+   runs continuously and re-checks `phase==='listening'` every frame). It was the recorder gate:
+   `useVoiceChat.startRecording` bailed unless `voiceState === 'ready'`, but a completed turn ends at
+   `'idle'` (the `message:response` handler set it there). So turn 2's `startRecording` returned
+   immediately → recorder never started → `endTurn`'s `!== 'recording'` guard also bailed → stuck
+   `listening`, `voice:end` never emitted. **Fix:** (a) `startRecording` now gates on the stream +
+   "not already mid-turn" instead of an exact state (the stream stays open across turns); (b)
+   `message:response` now sets `voiceState` back to `'ready'` when the stream is still open (only
+   `'idle'` once released). Turn 2…N now record and end normally.
 
-2. **Raw HTML tags show in the live caption.** AI replies are now sanitized HTML (shipped in PR #16).
-   The text-chat bubbles render it via `v-html`, but the voice **call caption / transcript** prints the
-   raw string, so tags leak on screen. For a caption, prefer **stripping HTML to plain text** (a caption
-   shouldn't carry formatting) rather than `v-html`. The spoken audio is already correct — the backend
-   strips HTML before TTS.
+2. **Raw HTML tags in caption/transcript — FIXED.** AI replies are sanitized HTML; the caption
+   (`CallStage`) and transcript (`TurnRow`) are plain-text surfaces, so tags leaked on screen. Added a
+   shared SSR-safe `stripHtml()` in `lib/utils.ts` and strip the reply **once** at the source in
+   `useVoiceLab.handleResult` (`turn.reply`), so both surfaces render clean text. Spoken audio was
+   already fine (backend strips before TTS). Chat bubbles keep their `v-html` formatting — unchanged.
+
+Verified: `bunx nuxi typecheck` (no new errors) + full production `nuxt build`.
 
 ---
 
