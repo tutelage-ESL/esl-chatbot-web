@@ -94,7 +94,9 @@ onBeforeUnmount(stopAudio)
           ? 'bg-brand-ink text-white dark:bg-white dark:text-brand-ink rounded-br-sm'
           : 'bg-zinc-100 dark:bg-white/5 text-brand-ink dark:text-white rounded-bl-sm',
       ]">
-        {{ message.text }}
+        <span v-if="message.who === 'user'">{{ message.text }}</span>
+        <!-- v-html is safe here: AI responses come from our own backend, not user input -->
+        <div v-else v-html="message.text" class="ai-prose" />
       </div>
 
       <!-- Voice player — on any voice message that has audio (user recording or AI reply) -->
@@ -142,3 +144,32 @@ onBeforeUnmount(stopAudio)
     </div>
   </div>
 </template>
+
+<style scoped>
+.ai-prose :deep(p) {
+  margin-bottom: 0.5em;
+}
+.ai-prose :deep(p:last-child) {
+  margin-bottom: 0;
+}
+.ai-prose :deep(strong) {
+  font-weight: 600;
+}
+.ai-prose :deep(em) {
+  font-style: italic;
+}
+.ai-prose :deep(ul),
+.ai-prose :deep(ol) {
+  padding-left: 1.25em;
+  margin-bottom: 0.5em;
+}
+.ai-prose :deep(ul) {
+  list-style-type: disc;
+}
+.ai-prose :deep(ol) {
+  list-style-type: decimal;
+}
+.ai-prose :deep(li) {
+  margin-bottom: 0.25em;
+}
+</style>
