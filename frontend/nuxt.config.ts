@@ -6,6 +6,17 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   ssr: true,
   css: ['~/assets/css/main.css'],
+  app: {
+    head: {
+      script: [
+        {
+          // Apply the saved theme before first paint so dark-mode users
+          // don't get a flash of the light UI. Kept in sync by useTheme().
+          innerHTML: "try{if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark')}catch(e){}",
+        },
+      ],
+    },
+  },
   runtimeConfig: {
     BASE_URL: process.env.NUXT_PUBLIC_BASE_URL,
     public: {
