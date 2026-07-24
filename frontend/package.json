@@ -5,9 +5,9 @@
   "scripts": {
     "dev": "infisical run --env=dev -- nuxt dev",
     "dev:env": "nuxt dev",
-    "build": "infisical run --env=dev -- nuxt build",
-    "build:env": "nuxt build",
-    "generate": "infisical run --env=dev -- nuxt generate",
+    "build": "nuxt build",
+    "build:infisical": "infisical run --env=dev -- nuxt build",
+    "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare"
   },

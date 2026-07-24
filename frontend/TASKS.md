@@ -29,17 +29,95 @@ STT→LLM→TTS pipeline and deletes the per-session state). Both issues are in 
 
 ---
 
-### ⚠️ Dark mode is not working (2026-07-23) — PENDING (Rekar)
-**Reported by Aland during live prod testing** — switching to dark mode does not work.
-Not yet diagnosed on the frontend side; needs Rekar to reproduce and pin down.
-**Where to look:** the dashboard colour system is token-driven — all surface/border/text
-colours are CSS custom properties in `app/assets/css/main.css` (the single source of truth,
-per `frontend/CLAUDE.md`), with a light/dark pair per token. Likely suspects: the theme
-toggle isn't flipping the `dark` class / `data-theme` on the root (so the dark token values
-never apply), the toggle state isn't persisted, or some components use raw
-`bg-white`/`bg-zinc-*`/`text-zinc-*` utilities instead of the tokens (those won't respond to
-the theme switch — CLAUDE.md forbids them in dashboard components). Audit the theme-toggle
-wiring first, then grep dashboard components for hardcoded colour utilities that bypass the tokens.
+### ✅ Dark mode is not working — FIXED (2026-07-24, Aland via Claude)
+**Root cause (exactly the first suspect):** the theme picker in `LearnerSettingsModal.vue` saved
+`theme: 'dark'` to the backend learner profile, but **no code anywhere applied it to the DOM**.
+The CSS activates via a `.dark` class on `<html>` (`@custom-variant dark` in `main.css`) and nothing
+ever set that class — so saving "Dark" succeeded and changed nothing visually.
+
+**Fix:**
+- NEW `app/composables/useTheme.ts` — single owner of the `.dark` class on `<html>` +
+  `localStorage.theme` persistence. Exposes `applyTheme` / `syncFromProfile` (ignores non-light/dark
+  values, so staff accounts without a learner profile are a no-op).
+- `useProfile.ts` — `fetchProfile` and `updateLearnerProfile` now call `syncFromProfile`, so saving
+  the settings modal applies the theme instantly and the profile page load re-syncs it.
+- `Block/UserAvatar.vue` — its existing on-mount `/users/me` fetch also syncs theme → any dashboard
+  page applies your saved theme on any device.
+- `nuxt.config.ts` — inline head script applies `localStorage.theme` before first paint (no light flash).
+
+**Note for Rekar:** the admin edit page (`users/[id]/profile.vue`) goes through `useAdmin` and is
+deliberately NOT synced — an admin changing a student's theme must not flip the admin's own UI.
+
+---
+
+### ✅ FIXED (2026-07-24): Tutors can't post announcements/tasks — real cause was BACKEND, not the stale build
+**The earlier "just redeploy the frontend" conclusion was WRONG.** After deploying the current
+frontend, a TUTOR still couldn't post. Re-diagnosed properly:
+
+**Root cause (backend + data):** `GET /classes/:id` returns `members[]` filtered by
+`user.isInternal = false`, and the frontend derived the caller's class role by finding *itself* in
+that list (`members.find(me)?.role`). But `getClassById`'s own membership/404 check is NOT
+internal-filtered — so an account flagged `isInternal = true` can open its class (no 404) yet is
+absent from `members`, leaving `myClassRole` undefined → every tutor control hidden. Admins were
+unaffected because they gate on the global `isAdmin`, not membership. Aland's tutor test account is
+almost certainly `isInternal = true` in prod (created via raw SQL) — the only state that yields
+"page loads + 0 members + can't post" at once.
+
+**Backend fix (shipped):** `GET /classes/:id` (and create/update/archive) now return `myRole` — the
+caller's own class role from a direct membership lookup (no internal filter). The frontend already
+falls back to `cls.myRole`, so the tutor button now appears. Backend-only; no FE code change.
+Files: `classes.service.ts` (readClassDetail takes myRole; findMyClassRole helper),
+`classes.types.ts`, `classes.router.ts` (Swagger), regenerated `types/api.ts`, +2 regression tests
+(incl. the internal-tutor case). Deploy: merged to `main` → Render.
+
+**Also recommended (data):** if that test account was flagged internal by accident, unset it so it
+behaves as a normal tutor (shows in the roster, correct member counts):
+`UPDATE users SET "isInternal" = false WHERE username = '<tutor>';` (run in Neon).
+**Symptom (Aland, live prod):** as a class TUTOR (verified `class_users.role='TUTOR'` in Neon AND global
+`users.role='TUTOR'`), no compose/create button on announcements or tasks. As ADMIN it worked everywhere.
+
+**Confirmed root cause — it is a FRONTEND-VERSION issue, not backend, not auth:**
+1. Backend `GET /classes/:id` (`ClassDetail`) returns a `members[]` list but **no top-level `myRole`**.
+   (`myRole` only exists on `GET /classes/mine`.) This is intended; the detail page derives role from `members`.
+2. The **current** frontend handles this correctly: `classes/[id]/index.vue` computes
+   `myClassRole = members.find(me)?.role ?? cls.myRole`, then `isTutorOrAdmin = myClassRole==='TUTOR' || isAdmin`.
+   Rekar added that members-list fallback on **2026-06-06 (commit c1fbdf35)** — comment: "myRole isn't always
+   present on the getClass response."
+3. The **deployed** build predates c1fbdf35. It gates the tutor button on `cls.myRole==='TUTOR'` alone → that
+   field is always undefined on the detail endpoint → **tutors never see the button. Admins do**, because
+   admins are detected via global `isAdmin` (useRole), not `myRole`. Exact match for the symptom.
+
+**FIX: just deploy the up-to-date frontend** — the code is already correct on `main`. No frontend code change needed.
+
+**Optional backend shortcut (Aland's call, unblocks WITHOUT a frontend deploy):** add `myRole` to the
+`GET /classes/:id` response. Because the old build reads `cls.myRole`, sending it would make the button appear
+after a backend-only deploy. Also a sensible consistency fix (field is on `/mine` but not `/:id`). — status: proposed, not built.
+
+---
+
+### Class-tutor assignment endpoint — wire the UI when deployed (2026-07-23) — Rekar
+Separate from the stale-build bug above. Aland shipped `PATCH /classes/:id/members/:userId/role { role }`
+(admin or class-tutor; last-tutor + `isInternal` guards) — commit 0c680dd on `Aland-Branch`, not yet deployed.
+It's the proper way to make an existing member a class-tutor (joining by code always enters as STUDENT; before
+this, only the class creator was a tutor).
+
+**Frontend work once deployed (Rekar):**
+1. In `ClassMembersTab.vue`, add an admin/tutor action to set a member's class role (Make tutor / Make student)
+   via the new endpoint — 3-dot `UiDropdownMenu`, not hover buttons.
+2. Keep gating the compose/create UI on the **per-class role** (`myRole==='TUTOR' || isAdmin`), never on
+   `useRole().isTutor`. (Current code already does this — see the confirmed diagnosis above.)
+
+---
+
+### ⚠️ Admin user role management UI — verify/port into the deployed build (2026-07-23) — Rekar
+Backend has had this all along: `PATCH /api/v1/admin/users/:id` with `{ role: "STUDENT"|"TUTOR"|"ADMIN" }`
+and/or `{ isActive }` (ADMIN-only, tested). This repo's frontend already exposes it at
+`/dashboard/users` + `/dashboard/users/[id]` (role/status toggles). **Action:** confirm the **deployed
+fork** actually surfaces the role dropdown (Aland couldn't change roles from the live UI). If missing, wire
+it to the existing endpoint. No new backend work for this one.
+
+Heads-up (Aland adding backend guards): the API will soon reject an admin **demoting/deactivating
+themselves** and **removing the last admin** (409). Surface those 409 messages inline, don't crash.
 
 ---
 
