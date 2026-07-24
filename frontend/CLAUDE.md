@@ -338,7 +338,8 @@ components/Pages/Dashboard/
 ├─ Classes/
 │  ├─ ClassCard.vue          # Card for a single class in the list
 │  ├─ ClassForm.vue          # Shared create/edit class form
-│  ├─ ClassMembersTab.vue    # Members list with remove/leave actions
+│  ├─ ClassMembersTab.vue    # Members list; owns remove/leave + set-role state, maps rows
+│  ├─ ClassMemberRow.vue     # One member row: avatar/name/badge + 3-dot menu (Make tutor/student, Remove/Leave)
 │  ├─ ClassStudentsTab.vue   # Student progress list + detail sheet (sheet has "Assign word" → AssignVocabularyModal)
 │  ├─ AssignVocabularyModal.vue # Tutor/admin assigns a vocab word to a student (POST /vocabulary { assignedToUserId })
 │  ├─ ClassAnalyticsTab.vue  # Class-wide skill averages + grammar errors
@@ -396,7 +397,7 @@ Types are split by domain — never define them inline in a composable:
 | `useHttp` | [useHttp.ts](app/composables/useHttp.ts) | Single `useHttp(options)` function — **all API calls must go through this** |
 | `useRole` | [useRole.ts](app/composables/useRole.ts) | `isAdmin`, `isTutor`, `isStaff` — current user's **global account role**. Use for all role-gated UI (see [Roles & Permissions](#roles--permissions-read-before-gating-any-ui)) |
 | `useGlobalSearch` | [useGlobalSearch.ts](app/composables/useGlobalSearch.ts) | `search(q)` → `GET /search?q=` — role-aware global search (users/classes/vocab/goals/sessions). Backend scopes by role; powers the header command palette ([CommandPalette.vue](app/components/Layouts/Dashboard/CommandPalette.vue)) |
-| `useClasses` | [useClasses.ts](app/composables/useClasses.ts) | `listMyClasses` / `listAllClasses` (both accept `{ archived?: boolean }`), `getClass`, `joinClass`, `createClass`, `updateClass`, `refreshCode`, `updateCodeSettings`, `toggleBlock`, `archiveClass`, `getClassStudents`, `getClassStudentDetail`, `getClassAnalytics`, `removeMember`, `listAnnouncements`, `createAnnouncement` |
+| `useClasses` | [useClasses.ts](app/composables/useClasses.ts) | `listMyClasses` / `listAllClasses` (both accept `{ archived?: boolean }`), `getClass`, `joinClass`, `createClass`, `updateClass`, `refreshCode`, `updateCodeSettings`, `toggleBlock`, `archiveClass`, `getClassStudents`, `getClassStudentDetail`, `getClassAnalytics`, `removeMember`, `setMemberRole`, `listAnnouncements`, `createAnnouncement` |
 | `useAdmin` / `useAdminDashboard` | [useAdmin.ts](app/composables/useAdmin.ts) | Admin user/class management + admin dashboard data |
 | `useTutorDashboard` | [useTutorDashboard.ts](app/composables/useTutorDashboard.ts) | Tutor dashboard data |
 | `useDashboardOverview` | [useDashboardOverview.ts](app/composables/useDashboardOverview.ts) | Student overview page data |

@@ -98,17 +98,25 @@ after a backend-only deploy. Also a sensible consistency fix (field is on `/mine
 
 ---
 
-### Class-tutor assignment endpoint — wire the UI when deployed (2026-07-23) — Rekar
-Separate from the stale-build bug above. Aland shipped `PATCH /classes/:id/members/:userId/role { role }`
-(admin or class-tutor; last-tutor + `isInternal` guards) — commit 0c680dd on `Aland-Branch`, not yet deployed.
-It's the proper way to make an existing member a class-tutor (joining by code always enters as STUDENT; before
-this, only the class creator was a tutor).
+### ✅ Class-tutor assignment UI — DONE (2026-07-24, Aland via Claude)
+Wires `PATCH /classes/:id/members/:userId/role { role }` (deployed) into the class Members tab, so an
+admin or class-tutor can promote/demote members without raw SQL (joining by code always enters as STUDENT).
 
-**Frontend work once deployed (Rekar):**
-1. In `ClassMembersTab.vue`, add an admin/tutor action to set a member's class role (Make tutor / Make student)
-   via the new endpoint — 3-dot `UiDropdownMenu`, not hover buttons.
-2. Keep gating the compose/create UI on the **per-class role** (`myRole==='TUTOR' || isAdmin`), never on
-   `useRole().isTutor`. (Current code already does this — see the confirmed diagnosis above.)
+**What was built:**
+- `useClasses.ts` — new `setMemberRole(classId, userId, role)`.
+- NEW `ClassMemberRow.vue` — one member row (avatar/name/role badge) with a **3-dot `UiDropdownMenu`**
+  (replaces the old hover-opacity buttons, per the design rules). Items are correctly gated:
+  - Make tutor (student rows) / Make student (tutor rows) — shown to any class-tutor or admin, never on
+    your own row; "Make student" is hidden for the **last tutor** (a class must keep one).
+  - Remove from class — tutors/admins can remove students; only an admin can remove another tutor (never
+    the last). Leave class — your own row.
+- `ClassMembersTab.vue` — owns the state + API calls, maps rows, emits `roleChanged`; surfaces backend
+  409s inline via toast ("Cannot demote/remove the last tutor").
+- `classes/[id]/index.vue` — passes `is-admin` (both role props respect the archived read-only rule) and
+  applies role changes to local `cls.members`.
+
+Verified: `nuxi typecheck` (no new errors) + production `nuxt build`. The compose/create gating still
+keys off the per-class role (`myRole==='TUTOR' || isAdmin`), unchanged.
 
 ---
 
