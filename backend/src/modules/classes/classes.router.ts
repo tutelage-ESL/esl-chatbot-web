@@ -308,6 +308,13 @@ router.get("/mine", authenticate, listMyClassesHandler);
  *       rotated to a new value before being returned. This means tutors
  *       can simply open the class to get a fresh code — no manual click
  *       required. Student callers do NOT trigger a rotation.
+ *
+ *       The response includes `myRole` — the caller's own class-membership
+ *       role (`TUTOR`, `STUDENT`, or `null` for an admin who isn't a member).
+ *       It is derived from a direct membership lookup, so it is correct even
+ *       when the caller is excluded from the `members` array (internal
+ *       accounts). Clients should gate tutor-only UI on `myRole`, not by
+ *       searching `members` for themselves.
  *     tags: [Classes]
  *     security:
  *       - bearerAuth: []
@@ -318,7 +325,7 @@ router.get("/mine", authenticate, listMyClassesHandler);
  *         schema: { type: string, format: uuid }
  *     responses:
  *       200:
- *         description: Class detail with enrolled members
+ *         description: Class detail with enrolled members and the caller's own `myRole`
  *       400: { description: Invalid UUID, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  *       404: { description: Class not found or caller not a member, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }

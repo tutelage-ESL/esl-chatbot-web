@@ -50,11 +50,29 @@ deliberately NOT synced — an admin changing a student's theme must not flip th
 
 ---
 
-### ✅ RESOLVED (2026-07-24): Tutors can't post announcements/tasks — was a stale deployed build; fixed by deploying the current frontend
-**Resolution:** Rekar's fork (`r3k4r/esl-chatbot-web`, the hosted repo) was merged into this repo
-(merge commit 14a61b8) and the up-to-date frontend was pushed back to his `main`, triggering a
-redeploy. The deployed build now includes the c1fbdf35 members-list role fallback. Original
-diagnosis kept below for reference.
+### ✅ FIXED (2026-07-24): Tutors can't post announcements/tasks — real cause was BACKEND, not the stale build
+**The earlier "just redeploy the frontend" conclusion was WRONG.** After deploying the current
+frontend, a TUTOR still couldn't post. Re-diagnosed properly:
+
+**Root cause (backend + data):** `GET /classes/:id` returns `members[]` filtered by
+`user.isInternal = false`, and the frontend derived the caller's class role by finding *itself* in
+that list (`members.find(me)?.role`). But `getClassById`'s own membership/404 check is NOT
+internal-filtered — so an account flagged `isInternal = true` can open its class (no 404) yet is
+absent from `members`, leaving `myClassRole` undefined → every tutor control hidden. Admins were
+unaffected because they gate on the global `isAdmin`, not membership. Aland's tutor test account is
+almost certainly `isInternal = true` in prod (created via raw SQL) — the only state that yields
+"page loads + 0 members + can't post" at once.
+
+**Backend fix (shipped):** `GET /classes/:id` (and create/update/archive) now return `myRole` — the
+caller's own class role from a direct membership lookup (no internal filter). The frontend already
+falls back to `cls.myRole`, so the tutor button now appears. Backend-only; no FE code change.
+Files: `classes.service.ts` (readClassDetail takes myRole; findMyClassRole helper),
+`classes.types.ts`, `classes.router.ts` (Swagger), regenerated `types/api.ts`, +2 regression tests
+(incl. the internal-tutor case). Deploy: merged to `main` → Render.
+
+**Also recommended (data):** if that test account was flagged internal by accident, unset it so it
+behaves as a normal tutor (shows in the roster, correct member counts):
+`UPDATE users SET "isInternal" = false WHERE username = '<tutor>';` (run in Neon).
 **Symptom (Aland, live prod):** as a class TUTOR (verified `class_users.role='TUTOR'` in Neon AND global
 `users.role='TUTOR'`), no compose/create button on announcements or tasks. As ADMIN it worked everywhere.
 

@@ -229,6 +229,39 @@ describe("GET /api/v1/classes/:id — detail", () => {
     expect(res.status).toBe(200);
   });
 
+  it("myRole — returns the caller's own class role (TUTOR / STUDENT / null)", async () => {
+    const tutor = await createTutor();
+    const student = await createStudent();
+    const admin = await createAdmin();
+    const cls = await makeClass(tutor.id);
+    await addMember(cls.id, student.id, "STUDENT");
+
+    const asTutor = await request(app).get(`/api/v1/classes/${cls.id}`).set(auth(tutor.token));
+    expect(asTutor.body.data.myRole).toBe("TUTOR");
+
+    const asStudent = await request(app).get(`/api/v1/classes/${cls.id}`).set(auth(student.token));
+    expect(asStudent.body.data.myRole).toBe("STUDENT");
+
+    // An admin who is not a member of the class has no class role.
+    const asAdmin = await request(app).get(`/api/v1/classes/${cls.id}`).set(auth(admin.token));
+    expect(asAdmin.body.data.myRole).toBeNull();
+  });
+
+  it("myRole — an internal tutor is hidden from members[] but still gets myRole=TUTOR", async () => {
+    // Regression: an internal/stealth account is excluded from the members list,
+    // so clients cannot find themselves there. myRole must still be returned so
+    // the account can see its own tutor controls (otherwise it can't post).
+    const internalTutor = track(await createTestUser({ role: "TUTOR", isInternal: true }));
+    const cls = await makeClass(internalTutor.id);
+
+    const res = await request(app).get(`/api/v1/classes/${cls.id}`).set(auth(internalTutor.token));
+    expect(res.status).toBe(200);
+    // Hidden from the members list…
+    expect(res.body.data.members.some((m: { user: { id: string } }) => m.user.id === internalTutor.id)).toBe(false);
+    // …but their own role is still reported.
+    expect(res.body.data.myRole).toBe("TUTOR");
+  });
+
   it("404 — a non-member cannot read the class (existence not revealed)", async () => {
     const tutor = await createTutor();
     const outsider = await createStudent();

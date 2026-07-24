@@ -2152,6 +2152,13 @@ export interface paths {
          *     rotated to a new value before being returned. This means tutors
          *     can simply open the class to get a fresh code — no manual click
          *     required. Student callers do NOT trigger a rotation.
+         *
+         *     The response includes `myRole` — the caller's own class-membership
+         *     role (`TUTOR`, `STUDENT`, or `null` for an admin who isn't a member).
+         *     It is derived from a direct membership lookup, so it is correct even
+         *     when the caller is excluded from the `members` array (internal
+         *     accounts). Clients should gate tutor-only UI on `myRole`, not by
+         *     searching `members` for themselves.
          */
         get: {
             parameters: {
@@ -2164,7 +2171,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Class detail with enrolled members */
+                /** @description Class detail with enrolled members and the caller's own `myRole` */
                 200: {
                     headers: {
                         [name: string]: unknown;

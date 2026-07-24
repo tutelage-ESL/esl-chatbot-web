@@ -128,11 +128,38 @@ export async function getClasses(
   return { classes, total };
 }
 
+type MyClassRole = "STUDENT" | "TUTOR" | null;
+
+/**
+ * Look up a user's own class-membership role via a direct membership query.
+ * Deliberately does NOT apply the `isInternal` filter — a user must always be
+ * able to determine their own role in a class, even if they are hidden from
+ * the members list. Returns null when the user is not a member.
+ */
+async function findMyClassRole(
+  classId: string,
+  userId: string,
+): Promise<MyClassRole> {
+  const membership = await prisma.classUser.findUnique({
+    where: { classId_userId: { classId, userId } },
+    select: { role: true },
+  });
+  return membership?.role ?? null;
+}
+
 /**
  * Internal: read class detail with members. No authorization, no refresh.
  * Used by `getClassById` and `createClass` (which has just minted the row).
+ *
+ * `myRole` is the caller's own membership role. It is passed in (rather than
+ * derived from `members`) because the caller may be filtered out of the
+ * members list — an internal/stealth account is invisible there but must still
+ * see its own tutor controls. Defaults to null (e.g. admin, non-member).
  */
-async function readClassDetail(id: string): Promise<ClassDetail> {
+async function readClassDetail(
+  id: string,
+  myRole: MyClassRole = null,
+): Promise<ClassDetail> {
   const cls = await prisma.class.findUnique({
     where: { id },
     select: {
@@ -174,6 +201,7 @@ async function readClassDetail(id: string): Promise<ClassDetail> {
   return {
     ...cls,
     members: cls.users as ClassMember[],
+    myRole,
   };
 }
 
@@ -214,7 +242,9 @@ export async function getClassById(
     await refreshIfExpired(id);
   }
 
-  return readClassDetail(id);
+  // Return the caller's own role so clients can gate tutor-only UI without
+  // finding themselves in `members` (which may exclude internal accounts).
+  return readClassDetail(id, membership?.role ?? null);
 }
 
 // ── Create / update class ──────────────────────────────────
@@ -244,7 +274,7 @@ export async function updateClass(
       throw err;
     });
 
-  return readClassDetail(classId);
+  return readClassDetail(classId, await findMyClassRole(classId, actorUserId));
 }
 
 export interface CreateClassInput {
@@ -297,7 +327,8 @@ export async function createClass(
         });
         return created.id;
       });
-      return await readClassDetail(cls);
+      // The creator was just added as a TUTOR member above.
+      return await readClassDetail(cls, "TUTOR");
     } catch (err) {
       // P2002 = unique constraint violation; only retry on classCode collision.
       const e = err as { code?: string; meta?: { target?: string[] } };
@@ -369,7 +400,7 @@ export async function setClassArchived(
       throw err;
     });
 
-  return readClassDetail(classId);
+  return readClassDetail(classId, await findMyClassRole(classId, actorUserId));
 }
 
 // ── Code management ────────────────────────────────────────
