@@ -234,6 +234,8 @@ describe("POST /api/v1/sessions/:sessionId/messages — send", () => {
 
     expect(res.status).toBe(429);
     expect(res.body.message).toMatch(/session message limit/i);
+    // Waiting does not lift a per-session cap, so no Retry-After.
+    expect(res.headers["retry-after"]).toBeUndefined();
   });
 
   it("429 — FREE daily message cap (20/day across sessions) fires below the session cap", async () => {
@@ -249,6 +251,9 @@ describe("POST /api/v1/sessions/:sessionId/messages — send", () => {
 
     expect(res.status).toBe(429);
     expect(res.body.message).toMatch(/daily message limit/i);
+    // Lifts at local midnight: header and body both say when.
+    expect(Number(res.headers["retry-after"])).toBeGreaterThan(0);
+    expect(res.body.retryAfter).toBe(Number(res.headers["retry-after"]));
   });
 
   it("context window — FREE plan truncates AI history to 10 messages", async () => {

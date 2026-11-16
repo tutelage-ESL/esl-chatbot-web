@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
 import bcryptjs from "bcryptjs";
+import jwt from "jsonwebtoken";
 import { createHash } from "crypto";
 import {
   app,
@@ -79,6 +80,11 @@ describe("POST /api/v1/auth/login", () => {
     expect(res.body.message).toBe("Login successful");
     expect(typeof res.body.data.accessToken).toBe("string");
     expect(typeof res.body.data.refreshToken).toBe("string");
+    // Expiries are reported and match the tokens' own `exp` claims.
+    for (const kind of ["access", "refresh"] as const) {
+      const { exp } = jwt.decode(res.body.data[`${kind}Token`]) as { exp: number };
+      expect(new Date(res.body.data[`${kind}TokenExpiresAt`]).getTime()).toBe(exp * 1000);
+    }
     expect(res.body.data.user.username).toBe("student_ali");
     expect(res.body.data.user.subscription).toEqual({ plan: "PREMIUM", status: "ACTIVE" });
     // Password must never leak
@@ -313,6 +319,45 @@ describe("POST /api/v1/auth/refresh", () => {
 
     expect(res.status).toBe(200);
     expect(typeof res.body.data.accessToken).toBe("string");
+    const { exp } = jwt.decode(res.body.data.accessToken) as { exp: number };
+    expect(new Date(res.body.data.accessTokenExpiresAt).getTime()).toBe(exp * 1000);
+  });
+
+  it("200 — a fresh refresh token is not rotated", async () => {
+    const { refreshToken } = await login(SEED.admin);
+    const res = await request(app).post("/api/v1/auth/refresh").send({ refreshToken });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.refreshToken).toBeUndefined();
+    expect(res.body.data.refreshTokenExpiresAt).toBeUndefined();
+  });
+
+  it("200 — past half its lifetime the refresh token is rotated, old one kept for a short grace", async () => {
+    const { refreshToken: oldToken } = await login(SEED.tutor);
+    // Simulate an aged token: 5 minutes left of its lifetime.
+    await prisma.refreshToken.update({
+      where: { tokenHash: hashOtp(oldToken) },
+      data: { expiresAt: new Date(Date.now() + 5 * 60 * 1000) },
+    });
+
+    const res = await request(app).post("/api/v1/auth/refresh").send({ refreshToken: oldToken });
+    expect(res.status).toBe(200);
+    const { refreshToken: newToken, refreshTokenExpiresAt } = res.body.data;
+    expect(typeof newToken).toBe("string");
+    expect(newToken).not.toBe(oldToken);
+
+    // New token is stored with the expiry the client was told about.
+    const stored = await prisma.refreshToken.findUnique({ where: { tokenHash: hashOtp(newToken) } });
+    expect(stored?.expiresAt.toISOString()).toBe(refreshTokenExpiresAt);
+
+    // Old token now dies within the 60s grace window (but still works right now,
+    // so a second tab refreshing at the same moment is not signed out).
+    const old = await prisma.refreshToken.findUnique({ where: { tokenHash: hashOtp(oldToken) } });
+    expect(old!.expiresAt.getTime()).toBeLessThanOrEqual(Date.now() + 60_000);
+    expect((await request(app).post("/api/v1/auth/refresh").send({ refreshToken: oldToken })).status).toBe(200);
+
+    // And the rotated token refreshes normally.
+    expect((await request(app).post("/api/v1/auth/refresh").send({ refreshToken: newToken })).status).toBe(200);
   });
 
   it("401 — malformed refresh token", async () => {

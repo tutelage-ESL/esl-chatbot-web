@@ -2,6 +2,7 @@ import type { Prisma, SessionMode } from "@prisma/client";
 import { prisma } from "../../config/database.ts";
 import { deleteCache, cacheKeys } from "../../config/cache.ts";
 import { AppError } from "../../utils/AppError.ts";
+import { secondsUntilNextDay } from "../../utils/retryAfter.ts";
 import { createNotification } from "../notifications/notifications.service.ts";
 import { upsertSessionVocabulary } from "../vocabulary/vocabulary.service.ts";
 import type { NewVocabularyWord } from "../ai/ai.types.ts";
@@ -100,6 +101,7 @@ export async function createSession(
     throw new AppError(
       `Daily session limit reached (${maxSessions}). Upgrade your plan for more sessions.`,
       429,
+      { retryAfter: secondsUntilNextDay() },
     );
   }
 

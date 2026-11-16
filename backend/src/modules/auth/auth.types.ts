@@ -48,10 +48,24 @@ export interface AuthUser {
   } | null;
 }
 
-export interface LoginResponse {
-  user: AuthUser;
+/** Both tokens plus when each expires (ISO-8601), so clients can refresh ahead of time. */
+export interface TokenPair {
   accessToken: string;
   refreshToken: string;
+  accessTokenExpiresAt: string;
+  refreshTokenExpiresAt: string;
+}
+
+/** POST /auth/refresh — the refresh-token fields are present only when it was rotated. */
+export interface RefreshResult {
+  accessToken: string;
+  accessTokenExpiresAt: string;
+  refreshToken?: string;
+  refreshTokenExpiresAt?: string;
+}
+
+export interface LoginResponse extends TokenPair {
+  user: AuthUser;
 }
 
 // Returned when a Google user doesn't exist yet and needs to choose a username
@@ -60,11 +74,9 @@ export interface GoogleNeedsRegistration {
   profile: GoogleProfile;
 }
 
-export interface GoogleLoginResponse {
+export interface GoogleLoginResponse extends TokenPair {
   needsRegistration: false;
   user: AuthUser;
-  accessToken: string;
-  refreshToken: string;
 }
 
 export type GoogleAuthResponse = GoogleNeedsRegistration | GoogleLoginResponse;

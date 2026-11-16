@@ -1,6 +1,7 @@
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import type { Request, Response } from "express";
 import { env } from "../config/env.ts";
+import { waitText } from "../utils/retryAfter.ts";
 
 // Active in production only. In development and test, all limiters are no-ops.
 // If you ever scale to multiple server processes, replace the default in-memory
@@ -13,11 +14,19 @@ const skip = () => env.NODE_ENV !== "production";
 const userOrIpKey = (req: Request) =>
   (req as any).user?.id ?? ipKeyGenerator(req.ip ?? "anonymous");
 
-const jsonHandler = (_req: Request, res: Response) => {
+/**
+ * 429 handler for one limiter: says what was limited and how long to wait, via the
+ * `Retry-After` header (seconds), a `retryAfter` body field, and the message text.
+ */
+const limited = (what: string) => (req: Request, res: Response) => {
+  const resetTime = (req as Request & { rateLimit?: { resetTime?: Date } }).rateLimit?.resetTime;
+  const retryAfter = Math.max(1, Math.ceil(((resetTime?.getTime() ?? Date.now() + 60_000) - Date.now()) / 1000));
+  res.set("Retry-After", String(retryAfter));
   res.status(429).json({
     success: false,
-    message: "Too many requests. Please wait and try again.",
+    message: `${what} Please try again in ${waitText(retryAfter)}.`,
     data: null,
+    retryAfter,
   });
 };
 
@@ -29,7 +38,7 @@ export const loginLimiter = rateLimit({
   standardHeaders: "draft-7",
   legacyHeaders: false,
   skip,
-  handler: jsonHandler,
+  handler: limited("Too many sign-in attempts."),
 });
 
 export const registerLimiter = rateLimit({
@@ -38,7 +47,7 @@ export const registerLimiter = rateLimit({
   standardHeaders: "draft-7",
   legacyHeaders: false,
   skip,
-  handler: jsonHandler,
+  handler: limited("Too many sign-up attempts."),
 });
 
 export const googleAuthLimiter = rateLimit({
@@ -47,7 +56,7 @@ export const googleAuthLimiter = rateLimit({
   standardHeaders: "draft-7",
   legacyHeaders: false,
   skip,
-  handler: jsonHandler,
+  handler: limited("Too many Google sign-in attempts."),
 });
 
 export const forgotPasswordLimiter = rateLimit({
@@ -56,7 +65,7 @@ export const forgotPasswordLimiter = rateLimit({
   standardHeaders: "draft-7",
   legacyHeaders: false,
   skip,
-  handler: jsonHandler,
+  handler: limited("Too many password reset requests."),
 });
 
 export const resetPasswordLimiter = rateLimit({
@@ -65,7 +74,7 @@ export const resetPasswordLimiter = rateLimit({
   standardHeaders: "draft-7",
   legacyHeaders: false,
   skip,
-  handler: jsonHandler,
+  handler: limited("Too many password reset attempts."),
 });
 
 export const verifyEmailLimiter = rateLimit({
@@ -74,7 +83,7 @@ export const verifyEmailLimiter = rateLimit({
   standardHeaders: "draft-7",
   legacyHeaders: false,
   skip,
-  handler: jsonHandler,
+  handler: limited("Too many verification attempts."),
 });
 
 export const resendVerificationLimiter = rateLimit({
@@ -83,7 +92,7 @@ export const resendVerificationLimiter = rateLimit({
   standardHeaders: "draft-7",
   legacyHeaders: false,
   skip,
-  handler: jsonHandler,
+  handler: limited("Too many verification code requests."),
 });
 
 export const refreshTokenLimiter = rateLimit({
@@ -92,7 +101,7 @@ export const refreshTokenLimiter = rateLimit({
   standardHeaders: "draft-7",
   legacyHeaders: false,
   skip,
-  handler: jsonHandler,
+  handler: limited("Too many session refreshes."),
 });
 
 // ── AI endpoints — per-user (must be applied after authenticate middleware) ────
@@ -105,7 +114,7 @@ export const createSessionLimiter = rateLimit({
   legacyHeaders: false,
   skip,
   keyGenerator: userOrIpKey,
-  handler: jsonHandler,
+  handler: limited("You're starting sessions too quickly."),
 });
 
 export const sendMessageLimiter = rateLimit({
@@ -115,7 +124,7 @@ export const sendMessageLimiter = rateLimit({
   legacyHeaders: false,
   skip,
   keyGenerator: userOrIpKey,
-  handler: jsonHandler,
+  handler: limited("You're sending messages too quickly."),
 });
 
 export const sendVoiceMessageLimiter = rateLimit({
@@ -125,7 +134,7 @@ export const sendVoiceMessageLimiter = rateLimit({
   legacyHeaders: false,
   skip,
   keyGenerator: userOrIpKey,
-  handler: jsonHandler,
+  handler: limited("You're sending voice messages too quickly."),
 });
 
 // ── User profile endpoints ─────────────────────────────────────────────────────
@@ -137,7 +146,7 @@ export const avatarUploadLimiter = rateLimit({
   legacyHeaders: false,
   skip,
   keyGenerator: userOrIpKey,
-  handler: jsonHandler,
+  handler: limited("Too many photo uploads."),
 });
 
 // ── Search — per-user (fans out to 5 DB queries per request) ──────────────────
@@ -151,7 +160,7 @@ export const searchLimiter = rateLimit({
   legacyHeaders: false,
   skip,
   keyGenerator: userOrIpKey,
-  handler: jsonHandler,
+  handler: limited("Too many searches."),
 });
 
 // ── Global fallback — last-resort DDoS protection ─────────────────────────────
@@ -162,5 +171,5 @@ export const globalLimiter = rateLimit({
   standardHeaders: "draft-7",
   legacyHeaders: false,
   skip,
-  handler: jsonHandler,
+  handler: limited("Too many requests."),
 });

@@ -130,10 +130,16 @@ if (env.NODE_ENV !== "production") {
  *       properties:
  *         accessToken:
  *           type: string
- *           description: JWT access token — expires in 15 minutes. Send as Bearer token in Authorization header.
+ *           description: JWT access token — expires in 20 minutes (JWT_ACCESS_EXPIRES). Send as Bearer token in Authorization header.
  *         refreshToken:
  *           type: string
- *           description: JWT refresh token — expires in 7 days. Store securely (httpOnly cookie or secure storage).
+ *           description: JWT refresh token — expires in 1 hour (JWT_REFRESH_EXPIRES) and is rotated by POST /auth/refresh once half its lifetime is used. Store securely (httpOnly cookie or secure storage).
+ *         accessTokenExpiresAt:
+ *           type: string
+ *           format: date-time
+ *         refreshTokenExpiresAt:
+ *           type: string
+ *           format: date-time
  *     AuthResponse:
  *       type: object
  *       properties:
@@ -143,6 +149,12 @@ if (env.NODE_ENV !== "production") {
  *           type: string
  *         refreshToken:
  *           type: string
+ *         accessTokenExpiresAt:
+ *           type: string
+ *           format: date-time
+ *         refreshTokenExpiresAt:
+ *           type: string
+ *           format: date-time
  */
 
 // ─── POST /auth/register ──────────────────────────────────────────────────────
@@ -259,8 +271,8 @@ router.post("/register", registerLimiter, registerHandler);
  *     summary: Login with username and password
  *     tags: [Auth]
  *     description: >
- *       Standard email/password login. Returns an access token (15m) and a refresh
- *       token (7d). If the account was created with Google Sign-In (no password),
+ *       Standard email/password login. Returns an access token (20m) and a refresh
+ *       token (1h), each with its expiry. If the account was created with Google Sign-In (no password),
  *       a 400 is returned with a clear message directing the user to Google login.
  *     requestBody:
  *       required: true
@@ -405,6 +417,12 @@ router.post("/login", loginLimiter, loginHandler);
  *                           type: string
  *                         refreshToken:
  *                           type: string
+ *                         accessTokenExpiresAt:
+ *                           type: string
+ *                           format: date-time
+ *                         refreshTokenExpiresAt:
+ *                           type: string
+ *                           format: date-time
  *                     - description: New user — username required
  *                       type: object
  *                       properties:
@@ -522,6 +540,11 @@ router.get("/me", authenticate, meHandler);
  * /auth/refresh:
  *   post:
  *     summary: Obtain a new access token using a valid refresh token
+ *     description: |
+ *       Always returns a new access token. Once the refresh token has used half its
+ *       lifetime it is rotated: the response also carries `refreshToken` +
+ *       `refreshTokenExpiresAt`, and the old refresh token stops working after a
+ *       60-second grace period (so concurrent tabs don't sign each other out).
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -551,13 +574,24 @@ router.get("/me", authenticate, meHandler);
  *                   example: Access token refreshed
  *                 data:
  *                   type: object
+ *                   required: [accessToken, accessTokenExpiresAt]
  *                   properties:
  *                     accessToken:
  *                       type: string
+ *                     accessTokenExpiresAt:
+ *                       type: string
+ *                       format: date-time
+ *                     refreshToken:
+ *                       type: string
+ *                       description: Present only when the refresh token was rotated
+ *                     refreshTokenExpiresAt:
+ *                       type: string
+ *                       format: date-time
+ *                       description: Present only when the refresh token was rotated
  *       401:
  *         description: Invalid or expired refresh token
  *       429:
- *         description: Rate limit exceeded (30 requests per 15 minutes per IP)
+ *         description: Rate limit exceeded (30 requests per 15 minutes per IP). `Retry-After` header holds the wait in seconds.
  *         content:
  *           application/json:
  *             schema:

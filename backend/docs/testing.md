@@ -88,3 +88,11 @@ re-seeds the test DB). Day-to-day, `bun run test` reuses the existing seeded tes
   subscription assign (GOLD duration / FREE permanent / 422 guards) + cancel
   (→ FREE ACTIVE) + dashboard, all ADMIN-guarded; `GET /users/me/subscription` +
   FIB auth guards. **239 pass total — all phases complete.**
+- 🟡 Phase 7 — Tasks/Search (`tasks` / `search` `.router.test.ts`, added 2026-11-16):
+  task create/list/get/update/close/delete authz matrix (tutor/admin vs student vs
+  non-member 404), archived-class 409, TASK_ASSIGNED/TASK_SUBMITTED notifications
+  (internal accounts excluded), one-submission-per-student + closed-task 409s,
+  feedback scoping; global search role scoping (users ADMIN-only, no internal
+  accounts, classes by membership, archived excluded, own vocab/goals/sessions only),
+  2–100 char `q` validation. Type-checked but **not yet run** — needs
+  `TEST_DATABASE_URL`; mark ✅ with the new total once `bun run test` passes.

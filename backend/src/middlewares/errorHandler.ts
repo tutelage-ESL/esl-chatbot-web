@@ -22,6 +22,9 @@ export function errorHandler(
   }
 
   if (err instanceof AppError) {
+    // A 429 that knows when it lifts (e.g. daily plan caps) advertises it the standard way.
+    const retryAfter = err.details?.retryAfter;
+    if (typeof retryAfter === "number") res.set("Retry-After", String(retryAfter));
     res.status(err.statusCode).json({
       // Extra flat fields (e.g. { needsAgreement: true }) are spread FIRST so the
       // canonical envelope keys below always win — details can add, never clobber.

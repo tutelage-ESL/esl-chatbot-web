@@ -23,12 +23,16 @@ import type {
   ResendVerificationInput,
   AcceptAgreementInput,
   AgreementContent,
+  TokenPair,
+  RefreshResult,
 } from "./auth.types.ts";
 import { resend } from "../../config/resend.ts";
 import { getCache, setCache, deleteCache, cacheKeys, cacheTTL } from "../../config/cache.ts";
 import { CURRENT_AGREEMENT } from "./agreement.content.ts";
 
-const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+// A rotated-out refresh token stays valid this long, so two tabs refreshing at the
+// same moment with the old token both succeed instead of one being signed out.
+const ROTATION_GRACE_MS = 60 * 1000;
 const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const INVALID_CREDENTIALS_MSG = "Invalid username or password";
 const INVALID_VERIFICATION_MSG = "Invalid or expired verification code";
@@ -51,11 +55,28 @@ function signRefreshToken(userId: string): string {
   } as jwt.SignOptions);
 }
 
+/** Expiry of a token we just signed, read from its own `exp` claim so the value we
+ *  report (and store) can never drift from what jwt.verify enforces. */
+function expiryOf(token: string): Date {
+  const { exp } = jwt.decode(token) as { exp: number };
+  return new Date(exp * 1000);
+}
+
+/** Signs a refresh token for the user and stores its hash. */
+async function persistRefreshToken(userId: string): Promise<{ refreshToken: string; refreshTokenExpiresAt: Date }> {
+  const refreshToken = signRefreshToken(userId);
+  const refreshTokenExpiresAt = expiryOf(refreshToken);
+  await prisma.refreshToken.create({
+    data: { userId, tokenHash: hashToken(refreshToken), expiresAt: refreshTokenExpiresAt },
+  });
+  return { refreshToken, refreshTokenExpiresAt };
+}
+
 /** Signs an access+refresh pair and persists the refresh hash. No DB read — the
  *  caller supplies the identity fields it already holds. */
 async function persistTokenPair(
   user: { id: string; username: string; email: string; role: Role },
-): Promise<{ accessToken: string; refreshToken: string }> {
+): Promise<TokenPair> {
   const payload: JwtPayload = {
     sub: user.id,
     username: user.username,
@@ -63,21 +84,18 @@ async function persistTokenPair(
     role: user.role,
   };
   const accessToken = signAccessToken(payload);
-  const refreshToken = signRefreshToken(user.id);
+  const { refreshToken, refreshTokenExpiresAt } = await persistRefreshToken(user.id);
 
-  await prisma.refreshToken.create({
-    data: {
-      userId: user.id,
-      tokenHash: hashToken(refreshToken),
-      expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
-    },
-  });
-
-  return { accessToken, refreshToken };
+  return {
+    accessToken,
+    refreshToken,
+    accessTokenExpiresAt: expiryOf(accessToken).toISOString(),
+    refreshTokenExpiresAt: refreshTokenExpiresAt.toISOString(),
+  };
 }
 
 /** Convenience wrapper for callers that only have a userId (fetches identity first). */
-async function issueTokenPair(userId: string): Promise<{ accessToken: string; refreshToken: string }> {
+async function issueTokenPair(userId: string): Promise<TokenPair> {
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
   return persistTokenPair(user);
 }
@@ -240,8 +258,7 @@ export async function login(input: LoginInput): Promise<LoginResponse> {
     );
   }
 
-  const { accessToken, refreshToken } = await persistTokenPair(user);
-  return { user: toAuthUser(user), accessToken, refreshToken };
+  return { user: toAuthUser(user), ...(await persistTokenPair(user)) };
 }
 
 /**
@@ -258,8 +275,7 @@ export async function acceptAgreement(
       ? await verifyGoogleCredentials(input.idToken)
       : await verifyLoginCredentials(input.username, input.password);
   await recordAgreementAcceptance(user.id, ipAddress);
-  const { accessToken, refreshToken } = await persistTokenPair(user);
-  return { user: toAuthUser(user), accessToken, refreshToken };
+  return { user: toAuthUser(user), ...(await persistTokenPair(user)) };
 }
 
 /**
@@ -455,9 +471,10 @@ export async function googleAuth(
       return newUser;
     });
 
-    const { accessToken, refreshToken } = await issueTokenPair(created.id);
+    const tokens = await issueTokenPair(created.id);
 
     return {
+      ...tokens,
       needsRegistration: false,
       user: {
         id: created.id,
@@ -470,8 +487,6 @@ export async function googleAuth(
         emailVerified: created.emailVerified,
         subscription: { plan: "FREE", status: "ACTIVE" },
       },
-      accessToken,
-      refreshToken,
     };
   }
 
@@ -491,9 +506,10 @@ export async function googleAuth(
     );
   }
 
-  const { accessToken, refreshToken } = await issueTokenPair(user.id);
+  const tokens = await issueTokenPair(user.id);
 
   return {
+    ...tokens,
     needsRegistration: false,
     user: {
       id: user.id,
@@ -508,17 +524,23 @@ export async function googleAuth(
         ? { plan: user.subscription.plan, status: user.subscription.status }
         : null,
     },
-    accessToken,
-    refreshToken,
   };
 }
 
 // ─── Token refresh & logout ───────────────────────────────────────────────────
 
-export async function refreshAccessToken(refreshToken: string): Promise<{ accessToken: string }> {
+/**
+ * Issues a new access token. Once the refresh token has used half its lifetime it
+ * is rotated too: a new one is returned and the old one dies after a short grace
+ * period. A client that keeps refreshing its access token (every ~20 min while the
+ * app is open) therefore stays signed in indefinitely; one that is away longer than
+ * the refresh lifetime (1h by default) has to sign in again.
+ */
+export async function refreshAccessToken(refreshToken: string): Promise<RefreshResult> {
   // Verify signature first
+  let claims: { iat: number; exp: number };
   try {
-    jwt.verify(refreshToken, env.JWT_REFRESH_SECRET);
+    claims = jwt.verify(refreshToken, env.JWT_REFRESH_SECRET) as { iat: number; exp: number };
   } catch {
     throw new AppError("Invalid or expired refresh token", 401);
   }
@@ -546,7 +568,25 @@ export async function refreshAccessToken(refreshToken: string): Promise<{ access
     role: stored.user.role,
   };
 
-  return { accessToken: signAccessToken(jwtPayload) };
+  const accessToken = signAccessToken(jwtPayload);
+  const result: RefreshResult = {
+    accessToken,
+    accessTokenExpiresAt: expiryOf(accessToken).toISOString(),
+  };
+
+  const lifetimeMs = (claims.exp - claims.iat) * 1000;
+  const remainingMs = stored.expiresAt.getTime() - Date.now();
+  if (remainingMs <= lifetimeMs / 2) {
+    const rotated = await persistRefreshToken(stored.user.id);
+    const graceEnd = new Date(Date.now() + ROTATION_GRACE_MS);
+    if (stored.expiresAt > graceEnd) {
+      await prisma.refreshToken.update({ where: { id: stored.id }, data: { expiresAt: graceEnd } });
+    }
+    result.refreshToken = rotated.refreshToken;
+    result.refreshTokenExpiresAt = rotated.refreshTokenExpiresAt.toISOString();
+  }
+
+  return result;
 }
 
 // ─── Current user (GET /auth/me) ──────────────────────────────────────────────
@@ -942,13 +982,8 @@ export async function verifyEmail(input: VerifyEmailInput): Promise<LoginRespons
   await deleteCache(cacheKeys.authUser(user.id));
 
   const verifiedUser = await getMe(user.id);
-  const { accessToken, refreshToken } = await issueTokenPair(user.id);
 
-  return {
-    user: verifiedUser,
-    accessToken,
-    refreshToken,
-  };
+  return { user: verifiedUser, ...(await issueTokenPair(user.id)) };
 }
 
 /**

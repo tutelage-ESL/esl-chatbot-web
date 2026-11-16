@@ -17,7 +17,8 @@ app.set("trust proxy", 1);
 
 // Security
 app.use(helmet());
-app.use(cors({ origin: corsOrigins, credentials: true }));
+// exposedHeaders: browsers hide every other response header from cross-origin JS.
+app.use(cors({ origin: corsOrigins, credentials: true, exposedHeaders: ["Retry-After"] }));
 app.use(globalLimiter);
 
 // Body parsing

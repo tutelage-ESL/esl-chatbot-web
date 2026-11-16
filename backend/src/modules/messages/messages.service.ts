@@ -1,5 +1,6 @@
 import { prisma } from "../../config/database.ts";
 import { AppError } from "../../utils/AppError.ts";
+import { secondsUntilNextDay } from "../../utils/retryAfter.ts";
 import {
   FREE_MAX_MESSAGES_PER_SESSION,
   GOLD_MAX_MESSAGES_PER_SESSION,
@@ -79,6 +80,7 @@ export async function sendMessage(
       throw new AppError(
         `Daily message limit reached (${FREE_MAX_MESSAGES_PER_DAY}). Upgrade to GOLD for more messages.`,
         429,
+        { retryAfter: secondsUntilNextDay() },
       );
     }
   }

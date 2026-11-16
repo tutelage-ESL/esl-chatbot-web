@@ -174,6 +174,8 @@ describe("POST /api/v1/sessions — create", () => {
       .send({ mode: "TEXT" });
     expect(blocked.status).toBe(429);
     expect(blocked.body.message).toMatch(/daily session limit/i);
+    expect(Number(blocked.headers["retry-after"])).toBeGreaterThan(0);
+    expect(Number(blocked.headers["retry-after"])).toBeLessThanOrEqual(24 * 60 * 60);
   });
 
   it("201 + lazy downgrade — expired PREMIUM becomes FREE ACTIVE on session create", async () => {
