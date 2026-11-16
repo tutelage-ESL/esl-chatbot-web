@@ -1,9 +1,0 @@
-{
-  "development": {
-    "username": "root",
-    "password": "12123Redyar",
-    "database": "esl-chatbot",
-    "host": "127.0.0.1",
-    "dialect": "mysql"
-  }
-}

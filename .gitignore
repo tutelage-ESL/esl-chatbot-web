@@ -1,7 +1,7 @@
 
 /node_modules
-
-/frontend
-/frontend
-/frontend
 /backend/data
+backend/data/progress.json
+
+# Root .env for docker-compose secret interpolation (never commit)
+/.env
