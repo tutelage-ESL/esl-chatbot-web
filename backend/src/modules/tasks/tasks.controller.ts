@@ -67,7 +67,8 @@ export const deleteTaskHandler = asyncHandler(async (req: Request, res: Response
 export const createSubmissionHandler = asyncHandler(async (req: Request, res: Response) => {
   if (!req.user) throw new AppError("Authentication required", 401);
   const { params, body } = createSubmissionSchema.parse({ params: req.params, body: req.body });
-  const submission = await createSubmission(params.id, req.user.id, req.user.role, body);
+  const files = Array.isArray(req.files) ? req.files : [];
+  const submission = await createSubmission(params.id, req.user.id, req.user.role, body, files);
   sendSuccess(res, submission, "Submission created", 201);
 });
 

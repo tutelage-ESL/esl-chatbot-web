@@ -362,6 +362,20 @@ Includes: classes (with full code-lifecycle fields populated) with enrolled user
 - ✅ `GET /users/me` — own full profile (displayName, phoneNumber, avatarUrl, authProvider, learnerProfile with all settings, subscription plan/status)
 - ✅ `PATCH /users/me` — update own basic profile: `displayName`, `phoneNumber`, `avatarUrl`
 - ✅ `PATCH /users/me/learner-profile` — update learner settings: currentLevel/targetLevel (CEFR A1–C2), learningPurpose, topicsOfInterest, aiPersonality (FRIENDLY/FORMAL/CASUAL/ENCOURAGING/STRICT/PATIENT), voiceSpeed, autoSpeak, uiLanguage, theme (light/dark), weeklyGoalMinutes, timezone
+- ✅ **Task comments + files** (`tasks.comments.router.ts`, services `tasks.comments.service.ts` / `tasks.attachments.service.ts`). Tables `task_comments`, `task_attachments` (`commentId` null = file on the task itself) and `tasks.commentsEnabled`.
+  - `GET /tasks/:id/comments`: every class member and admins read every comment, oldest first. Each author carries `classRole` (TUTOR/STUDENT/ADMIN).
+  - `POST /tasks/:id/comments` (multipart `content` + `files`): any member. Students only while `commentsEnabled`; tutors and admins always. 409 in an archived class.
+  - `PATCH /tasks/:id/comments/:commentId` (multipart `content`, `files`, comma-separated `removeAttachmentIds`): the **author only**, even tutors cannot edit a student's words. Students cannot edit while comments are off.
+  - `DELETE /tasks/:id/comments/:commentId`: the author, a tutor of the class, or an admin.
+  - `POST` / `DELETE /tasks/:id/attachments[/:attachmentId]`: tutor of the class or admin only, up to 10 files per task. Students attach files through comments.
+  - `PATCH /tasks/:id { commentsEnabled }` is the on/off switch.
+  - `POST /tasks/:id/submissions` (multipart `content`, `fileUrl`, `files`): a student hands in text, a link and/or up to 5 files (Google Classroom style). Hand-in files are `task_attachments` rows with `submissionId` set: **private** to that student and the class's tutors/admins, never in the task's `attachments` list.
+  - `GET /tasks/:id/attachments/:attachmentId/download`: a 5-minute presigned R2 link with `Content-Disposition: attachment` (public `fileUrl`s open inline, and `<a download>` is ignored across origins). Task/comment files: any member; hand-in files: owner or tutor/admin, 404 for others.
+  - **Files** go to R2 under `tasks/<taskId>/` (local `uploads/tasks` in dev without R2) through `storage.ts`:
+    - Max 5 files per request, 15 MB each, whitelist in `TASK_FILE_EXT`: PDF, Office files, text, images, audio and video (no HTML or SVG).
+    - The stored extension always comes from the MIME type, never from the uploaded name.
+    - Stored files are deleted when their comment, attachment or task is deleted.
+    - Not cleaned up yet: files of a deleted *class* (rows cascade, R2 objects stay).
 
 ### Phase 4 — Conversation Sessions & Messages
 - ✅ `POST /sessions` — start a new conversation session (requires active subscription, daily caps: FREE=3, PREMIUM=50)

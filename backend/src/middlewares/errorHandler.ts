@@ -16,7 +16,9 @@ export function errorHandler(
     const message =
       err.code === "LIMIT_FILE_SIZE"
         ? "File too large. Please check the size limit for this upload."
-        : "File upload error";
+        : err.code === "LIMIT_FILE_COUNT" || err.code === "LIMIT_UNEXPECTED_FILE"
+          ? "Too many files. Attach up to 5 at a time."
+          : "File upload error";
     res.status(status).json({ success: false, message, data: null });
     return;
   }

@@ -1,6 +1,6 @@
 import multer from "multer";
 import { AppError } from "../utils/AppError.ts";
-import { IMAGE_MIMES } from "../config/storage.ts";
+import { IMAGE_MIMES, TASK_FILE_EXT } from "../config/storage.ts";
 
 // Memory storage — for avatar image uploads sent to R2 or local disk.
 // Keeps the buffer in req.file.buffer; callers route it to storage.ts.
@@ -12,6 +12,23 @@ export const avatarUpload = multer({
       cb(null, true);
     } else {
       cb(new AppError("Only image files are allowed (jpeg, png, webp, gif)", 400));
+    }
+  },
+});
+
+// Memory storage — task attachments (tutor files + comment files), sent to R2.
+// Up to 5 files of 15 MB per request, field name "files".
+export const MAX_TASK_FILES = 5;
+export const taskFilesUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024, files: MAX_TASK_FILES },
+  fileFilter: (_req, file, cb) => {
+    // Busboy decodes multipart file names as latin1; browsers send UTF-8.
+    file.originalname = Buffer.from(file.originalname, "latin1").toString("utf8");
+    if (file.mimetype in TASK_FILE_EXT) {
+      cb(null, true);
+    } else {
+      cb(new AppError(`"${file.originalname}" can't be attached. Use a PDF, Word, PowerPoint, Excel, text, image, audio or video file.`, 400));
     }
   },
 });

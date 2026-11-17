@@ -35,6 +35,7 @@ if (env.NODE_ENV !== "production") {
   app.use("/api-docs", (_req: Request, res: Response, next: NextFunction) => { res.removeHeader("Content-Security-Policy"); next(); }, swaggerUi.serve, swaggerUi.setup(swaggerSpec));
   // Serve locally-uploaded avatars (fallback when R2 is not configured in dev)
   app.use("/uploads/avatars", express.static("uploads/avatars"));
+  app.use("/uploads/tasks", express.static("uploads/tasks"));
 }
 
 // Routes

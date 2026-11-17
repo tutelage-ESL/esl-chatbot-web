@@ -10,6 +10,9 @@ import {
   listSubmissionsHandler,
   updateFeedbackHandler,
 } from "./tasks.controller.ts";
+import { mountTaskCommentRoutes } from "./tasks.comments.router.ts";
+import { taskFilesUpload, MAX_TASK_FILES } from "../../middlewares/upload.ts";
+import { taskUploadLimiter } from "../../middlewares/rateLimits.ts";
 
 // ── Mounted at /classes/:id/tasks ─────────────────────────
 export const classTasksRouter = Router({ mergeParams: true });
@@ -143,6 +146,10 @@ export const tasksRouter = Router();
  *         feedback: { type: string, nullable: true }
  *         feedbackAt: { type: string, format: date-time, nullable: true }
  *         student: { $ref: '#/components/schemas/TaskAuthor' }
+ *         attachments:
+ *           type: array
+ *           description: Files handed in with the work (private to the student and tutors)
+ *           items: { $ref: '#/components/schemas/TaskAttachmentItem' }
  *         createdAt: { type: string, format: date-time }
  *         updatedAt: { type: string, format: date-time }
  *     TaskItem:
@@ -160,6 +167,12 @@ export const tasksRouter = Router();
  *         closedAt: { type: string, format: date-time, nullable: true }
  *         createdBy: { $ref: '#/components/schemas/TaskAuthor' }
  *         submissionCount: { type: integer }
+ *         commentsEnabled: { type: boolean, description: "Off = students can no longer comment; existing comments stay visible" }
+ *         commentCount: { type: integer }
+ *         attachments:
+ *           type: array
+ *           description: Files the tutor attached to the task itself (comment files are not included)
+ *           items: { $ref: '#/components/schemas/TaskAttachmentItem' }
  *         mySubmission:
  *           nullable: true
  *           allOf:
@@ -219,6 +232,7 @@ export const tasksRouter = Router();
  *               description: { type: string, minLength: 1, maxLength: 5000 }
  *               deadline: { type: string, format: date-time, nullable: true }
  *               closed: { type: boolean }
+ *               commentsEnabled: { type: boolean, description: "Turn the class comments on this task on or off" }
  *     responses:
  *       200:
  *         description: Updated task
@@ -267,7 +281,9 @@ tasksRouter.delete("/:id", authenticate, deleteTaskHandler);
  *   post:
  *     summary: Submit a task (Student only)
  *     description: |
- *       A student who is a class member submits text content or a file URL (or both).
+ *       A student who is a class member hands in text, a link and/or up to 5 files
+ *       (multipart; JSON without files still works). At least one of the three is required.
+ *       Hand-in files are visible only to that student and the class's tutors/admins.
  *       One submission per student per task — 409 if already submitted.
  *       Closed tasks reject with 409.
  *       Fires a `TASK_SUBMITTED` notification to every tutor in the class.
@@ -283,17 +299,14 @@ tasksRouter.delete("/:id", authenticate, deleteTaskHandler);
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
- *             type: object
- *             properties:
- *               content:
- *                 type: string
- *                 minLength: 1
- *                 maxLength: 10000
- *               fileUrl:
- *                 type: string
- *                 format: uri
+ *             allOf:
+ *               - $ref: '#/components/schemas/TaskFilesUpload'
+ *               - type: object
+ *                 properties:
+ *                   content: { type: string, maxLength: 10000 }
+ *                   fileUrl: { type: string, format: uri, description: A link to the work (e.g. a Google Doc) }
  *     responses:
  *       201:
  *         description: Submission created
@@ -349,7 +362,7 @@ tasksRouter.delete("/:id", authenticate, deleteTaskHandler);
  *       403: { description: Caller is a student, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  *       404: { description: Task not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  */
-tasksRouter.post("/:id/submissions", authenticate, createSubmissionHandler);
+tasksRouter.post("/:id/submissions", authenticate, taskUploadLimiter, taskFilesUpload.array("files", MAX_TASK_FILES), createSubmissionHandler);
 tasksRouter.get("/:id/submissions", authenticate, listSubmissionsHandler);
 
 /**
@@ -398,3 +411,6 @@ tasksRouter.get("/:id/submissions", authenticate, listSubmissionsHandler);
  *       422: { description: Validation error, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  */
 tasksRouter.patch("/:id/submissions/:submissionId/feedback", authenticate, updateFeedbackHandler);
+
+// Comments + files: /tasks/:id/comments, /tasks/:id/attachments (docs in tasks.comments.router.ts)
+mountTaskCommentRoutes(tasksRouter);

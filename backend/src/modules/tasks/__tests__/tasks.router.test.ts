@@ -376,3 +376,159 @@ describe("submissions review — list + feedback", () => {
     expect(res.status).toBe(422);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// Comments (multipart). Text-only here so no file reaches R2; the file filter
+// rejects a disallowed type before anything is stored.
+describe("Task comments", () => {
+  const post = (taskId: string, token: string, content: string) =>
+    request(app).post(`/api/v1/tasks/${taskId}/comments`).set(auth(token)).field("content", content);
+
+  it("201 — a student posts; the whole class (and admin) can read it with the author's class role", async () => {
+    const { tutor, student, cls } = await scenario();
+    const classmate = await createStudent();
+    await addMember(cls.id, classmate.id, "STUDENT");
+    const task = await makeTask(cls.id, tutor.id);
+
+    const res = await post(task.id, student.token, "  Is it 150 words?  ");
+    expect(res.status).toBe(201);
+    expect(res.body.data).toMatchObject({ content: "Is it 150 words?", editedAt: null, attachments: [] });
+    expect(res.body.data.author).toMatchObject({ id: student.id, classRole: "STUDENT" });
+
+    await post(task.id, tutor.token, "Yes.");
+    const admin = await createAdmin();
+    for (const reader of [classmate, admin]) {
+      const list = await request(app).get(`/api/v1/tasks/${task.id}/comments`).set(auth(reader.token));
+      expect(list.status).toBe(200);
+      expect(list.body.data.map((c: { content: string }) => c.content)).toEqual(["Is it 150 words?", "Yes."]);
+      expect(list.body.data[1].author.classRole).toBe("TUTOR");
+    }
+
+    const detail = await request(app).get(`/api/v1/tasks/${task.id}`).set(auth(student.token));
+    expect(detail.body.data).toMatchObject({ commentsEnabled: true, commentCount: 2, attachments: [] });
+  });
+
+  it("404 — an outsider can neither read nor post", async () => {
+    const { tutor, outsider, cls } = await scenario();
+    const task = await makeTask(cls.id, tutor.id);
+    expect((await request(app).get(`/api/v1/tasks/${task.id}/comments`).set(auth(outsider.token))).status).toBe(404);
+    expect((await post(task.id, outsider.token, "hi")).status).toBe(404);
+  });
+
+  it("422 — a comment with no text and no files", async () => {
+    const { tutor, student, cls } = await scenario();
+    const task = await makeTask(cls.id, tutor.id);
+    expect((await post(task.id, student.token, "   ")).status).toBe(422);
+  });
+
+  it("400 — a disallowed file type is rejected before it is stored", async () => {
+    const { tutor, student, cls } = await scenario();
+    const task = await makeTask(cls.id, tutor.id);
+    const res = await request(app)
+      .post(`/api/v1/tasks/${task.id}/comments`)
+      .set(auth(student.token))
+      .attach("files", Buffer.from("<script>alert(1)</script>"), { filename: "x.html", contentType: "text/html" });
+    expect(res.status).toBe(400);
+    expect(await prisma.taskComment.count({ where: { taskId: task.id } })).toBe(0);
+  });
+
+  it("comments off: students are blocked (403), the tutor can still post, everyone still reads", async () => {
+    const { tutor, student, cls } = await scenario();
+    const task = await makeTask(cls.id, tutor.id);
+    const own = await post(task.id, student.token, "before");
+
+    const off = await request(app).patch(`/api/v1/tasks/${task.id}`).set(auth(tutor.token)).send({ commentsEnabled: false });
+    expect(off.status).toBe(200);
+    expect(off.body.data.commentsEnabled).toBe(false);
+    expect((await request(app).patch(`/api/v1/tasks/${task.id}`).set(auth(student.token)).send({ commentsEnabled: true })).status).toBe(403);
+
+    expect((await post(task.id, student.token, "after")).status).toBe(403);
+    const edit = await request(app).patch(`/api/v1/tasks/${task.id}/comments/${own.body.data.id}`).set(auth(student.token)).field("content", "x");
+    expect(edit.status).toBe(403);
+    expect((await post(task.id, tutor.token, "tutor note")).status).toBe(201);
+    const list = await request(app).get(`/api/v1/tasks/${task.id}/comments`).set(auth(student.token));
+    expect(list.body.data).toHaveLength(2);
+  });
+
+  it("edit — only the author; the tutor cannot edit a student's words", async () => {
+    const { tutor, student, cls } = await scenario();
+    const task = await makeTask(cls.id, tutor.id);
+    const c = await post(task.id, student.token, "frist");
+    const url = `/api/v1/tasks/${task.id}/comments/${c.body.data.id}`;
+
+    expect((await request(app).patch(url).set(auth(tutor.token)).field("content", "hacked")).status).toBe(403);
+    const ok = await request(app).patch(url).set(auth(student.token)).field("content", "first");
+    expect(ok.status).toBe(200);
+    expect(ok.body.data.content).toBe("first");
+    expect(ok.body.data.editedAt).not.toBeNull();
+    // Clearing the text of a text-only comment would leave it empty
+    expect((await request(app).patch(url).set(auth(student.token)).field("content", "")).status).toBe(422);
+  });
+
+  it("delete — the author or a tutor, never a classmate", async () => {
+    const { tutor, student, cls } = await scenario();
+    const classmate = await createStudent();
+    await addMember(cls.id, classmate.id, "STUDENT");
+    const task = await makeTask(cls.id, tutor.id);
+    const a = await post(task.id, student.token, "mine");
+    const b = await post(task.id, student.token, "moderated");
+    const del = (id: string, token: string) => request(app).delete(`/api/v1/tasks/${task.id}/comments/${id}`).set(auth(token));
+
+    expect((await del(a.body.data.id, classmate.token)).status).toBe(403);
+    expect((await del(a.body.data.id, student.token)).status).toBe(200);
+    expect((await del(b.body.data.id, tutor.token)).status).toBe(200);
+    expect(await prisma.taskComment.count({ where: { taskId: task.id } })).toBe(0);
+  });
+
+  it("409 — no new comments in an archived class", async () => {
+    const tutor = await createTutor();
+    const cls = await makeClass(tutor.id, { archived: true });
+    const task = await makeTask(cls.id, tutor.id);
+    expect((await post(task.id, tutor.token, "hi")).status).toBe(409);
+  });
+
+  it("task files — students cannot attach to the task itself (403)", async () => {
+    const { tutor, student, cls } = await scenario();
+    const task = await makeTask(cls.id, tutor.id);
+    const res = await request(app)
+      .post(`/api/v1/tasks/${task.id}/attachments`)
+      .set(auth(student.token))
+      .attach("files", Buffer.from("hello"), { filename: "notes.txt", contentType: "text/plain" });
+    expect(res.status).toBe(403);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Hand-in files are private: the student who handed in and the tutors only.
+// Rows are inserted directly so nothing reaches R2.
+describe("Submission files", () => {
+  it("never show up in the task's own files, and only the owner or a tutor gets a download link", async () => {
+    const { tutor, student, cls } = await scenario();
+    const classmate = await createStudent();
+    await addMember(cls.id, classmate.id, "STUDENT");
+    const task = await makeTask(cls.id, tutor.id);
+    const sub = await prisma.taskSubmission.create({ data: { taskId: task.id, studentId: student.id, content: "Mine" }, select: { id: true } });
+    const file = await prisma.taskAttachment.create({
+      data: { taskId: task.id, submissionId: sub.id, uploadedById: student.id, fileName: "essay.pdf", fileUrl: "https://files.example.test/essay.pdf", mimeType: "application/pdf", size: 10 },
+      select: { id: true },
+    });
+
+    const seen = await request(app).get(`/api/v1/tasks/${task.id}`).set(auth(classmate.token));
+    expect(seen.body.data.attachments).toEqual([]);
+
+    const link = (token: string) => request(app).get(`/api/v1/tasks/${task.id}/attachments/${file.id}/download`).set(auth(token));
+    expect((await link(classmate.token)).status).toBe(404);
+    expect((await link(student.token)).status).toBe(200);
+    expect((await link(tutor.token)).status).toBe(200);
+
+    const subs = await request(app).get(`/api/v1/tasks/${task.id}/submissions`).set(auth(tutor.token));
+    expect(subs.body.data[0].attachments.map((a: { fileName: string }) => a.fileName)).toEqual(["essay.pdf"]);
+  });
+
+  it("422 — handing in nothing", async () => {
+    const { tutor, student, cls } = await scenario();
+    const task = await makeTask(cls.id, tutor.id);
+    const res = await request(app).post(`/api/v1/tasks/${task.id}/submissions`).set(auth(student.token)).field("content", "  ");
+    expect(res.status).toBe(422);
+  });
+});

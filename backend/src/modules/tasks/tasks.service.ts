@@ -2,7 +2,22 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "../../config/database.ts";
 import { AppError } from "../../utils/AppError.ts";
 import { createNotification } from "../notifications/notifications.service.ts";
-import type { TaskItem, TaskSubmissionItem } from "./tasks.types.ts";
+import { deleteStoredFile } from "../../config/storage.ts";
+import { removeTaskFiles, storeTaskFiles, type UploadedFile } from "./tasks.files.ts";
+import type { ClassActorRole, TaskItem, TaskSubmissionItem } from "./tasks.types.ts";
+
+export const ATTACHMENT_SELECT = {
+  id: true,
+  taskId: true,
+  commentId: true,
+  submissionId: true,
+  uploadedById: true,
+  fileName: true,
+  fileUrl: true,
+  mimeType: true,
+  size: true,
+  createdAt: true,
+} as const;
 
 const TASK_SELECT = {
   id: true,
@@ -13,10 +28,13 @@ const TASK_SELECT = {
   deadline: true,
   status: true,
   closedAt: true,
+  commentsEnabled: true,
   createdAt: true,
   updatedAt: true,
   createdBy: { select: { id: true, displayName: true, avatarUrl: true } },
-  _count: { select: { submissions: true } },
+  // Only the task's own files: comment files belong to comments, hand-in files are private.
+  attachments: { where: { commentId: null, submissionId: null }, select: ATTACHMENT_SELECT, orderBy: { createdAt: "asc" } },
+  _count: { select: { submissions: true, comments: true } },
 } as const;
 
 const SUBMISSION_SELECT = {
@@ -30,6 +48,7 @@ const SUBMISSION_SELECT = {
   createdAt: true,
   updatedAt: true,
   student: { select: { id: true, displayName: true, avatarUrl: true } },
+  attachments: { select: ATTACHMENT_SELECT, orderBy: { createdAt: "asc" } },
 } as const;
 
 // ── Membership helpers ────────────────────────────────────
@@ -45,6 +64,36 @@ async function assertClassMember(classId: string, userId: string, role: string) 
     select: { id: true },
   });
   if (!membership) throw new AppError("Class not found", 404);
+}
+
+/**
+ * The caller's role in the task's class, or 404 when they are not a member
+ * (existence stays hidden). ADMIN is never a membership role, so admins get "ADMIN".
+ */
+export async function getTaskAccess(taskId: string, userId: string, role: string) {
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    select: { id: true, classId: true, commentsEnabled: true, class: { select: { archived: true } } },
+  });
+  if (!task) throw new AppError("Task not found", 404);
+  let classRole: ClassActorRole = "ADMIN";
+  if (role !== "ADMIN") {
+    const membership = await prisma.classUser.findUnique({
+      where: { classId_userId: { classId: task.classId, userId } },
+      select: { role: true },
+    });
+    if (!membership) throw new AppError("Task not found", 404);
+    classRole = membership.role;
+  }
+  return {
+    taskId: task.id,
+    classId: task.classId,
+    commentsEnabled: task.commentsEnabled,
+    archived: task.class.archived,
+    classRole,
+    /** Tutor of this class, or an admin */
+    canManage: classRole !== "STUDENT",
+  };
 }
 
 async function assertClassTutor(classId: string, userId: string, role: string) {
@@ -84,6 +133,9 @@ function shapeTask(raw: RawTask): TaskItem {
     closedAt: raw.closedAt,
     createdBy: raw.createdBy,
     submissionCount: raw._count.submissions,
+    commentsEnabled: raw.commentsEnabled,
+    commentCount: raw._count.comments,
+    attachments: raw.attachments,
     createdAt: raw.createdAt,
     updatedAt: raw.updatedAt,
   };
@@ -198,7 +250,7 @@ export async function updateTask(
   taskId: string,
   actorId: string,
   actorRole: string,
-  data: { title?: string; description?: string; deadline?: string | null; closed?: boolean },
+  data: { title?: string; description?: string; deadline?: string | null; closed?: boolean; commentsEnabled?: boolean },
 ): Promise<TaskItem> {
   const { classId } = await getTaskOrThrow(taskId);
   await assertClassTutor(classId, actorId, actorRole);
@@ -207,6 +259,7 @@ export async function updateTask(
   if (data.title !== undefined) update.title = data.title;
   if (data.description !== undefined) update.description = data.description;
   if ("deadline" in data) update.deadline = data.deadline ? new Date(data.deadline) : null;
+  if (data.commentsEnabled !== undefined) update.commentsEnabled = data.commentsEnabled;
   if (data.closed === true) {
     update.status = "CLOSED";
     update.closedAt = new Date();
@@ -230,7 +283,10 @@ export async function deleteTask(
 ): Promise<void> {
   const { classId } = await getTaskOrThrow(taskId);
   await assertClassTutor(classId, actorId, actorRole);
+  // Rows cascade with the task; the stored files have to be removed by hand.
+  const files = await prisma.taskAttachment.findMany({ where: { taskId }, select: { fileUrl: true } });
   await prisma.task.delete({ where: { id: taskId } });
+  await Promise.all(files.map((f) => deleteStoredFile(f.fileUrl)));
 }
 
 // ── Submissions ───────────────────────────────────────────
@@ -240,8 +296,13 @@ export async function createSubmission(
   actorId: string,
   actorRole: string,
   data: { content?: string; fileUrl?: string },
+  files: UploadedFile[] = [],
 ): Promise<TaskSubmissionItem> {
   if (actorRole !== "STUDENT") throw new AppError("Only students can submit tasks", 403);
+  const content = data.content?.trim() || undefined;
+  if (!content && !data.fileUrl && !files.length) {
+    throw new AppError("Write your answer, add a link or attach a file", 422);
+  }
 
   const task = await prisma.task.findUnique({
     where: { id: taskId },
@@ -258,10 +319,23 @@ export async function createSubmission(
   });
   if (existing) throw new AppError("You have already submitted this task", 409);
 
-  const submission = await prisma.taskSubmission.create({
-    data: { taskId, studentId: actorId, content: data.content, fileUrl: data.fileUrl },
-    select: SUBMISSION_SELECT,
-  });
+  const stored = await storeTaskFiles(taskId, files);
+  let submission;
+  try {
+    submission = await prisma.taskSubmission.create({
+      data: {
+        taskId,
+        studentId: actorId,
+        content,
+        fileUrl: data.fileUrl,
+        attachments: { create: stored.map((s) => ({ ...s, taskId, uploadedById: actorId })) },
+      },
+      select: SUBMISSION_SELECT,
+    });
+  } catch (err) {
+    await removeTaskFiles(stored.map((s) => s.fileUrl));
+    throw err;
+  }
 
   // Notify tutor(s) of the class (internal stealth accounts excluded)
   const tutors = await prisma.classUser.findMany({
