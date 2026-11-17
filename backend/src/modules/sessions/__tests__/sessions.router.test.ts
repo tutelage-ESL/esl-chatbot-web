@@ -561,3 +561,70 @@ describe("GET /api/v1/sessions/stats", () => {
     expect(wrong.status).toBe(401);
   });
 });
+
+describe("PATCH / DELETE /api/v1/sessions/:id — rename, pin, delete", () => {
+  it("200 — renames and pins; pinned chats are listed first", async () => {
+    const user = track(await createTestUser());
+    const older = await makeSession(user.id);
+    await makeSession(user.id);
+    const res = await request(app)
+      .patch(`/api/v1/sessions/${older.id}`)
+      .set("Authorization", `Bearer ${user.token}`)
+      .send({ title: "Ordering Coffee", isPinned: true });
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ title: "Ordering Coffee", isPinned: true });
+
+    const list = await request(app).get("/api/v1/sessions").set("Authorization", `Bearer ${user.token}`);
+    expect(list.body.data[0].id).toBe(older.id);
+  });
+
+  it("422 — empty body or blank title", async () => {
+    const user = track(await createTestUser());
+    const s = await makeSession(user.id);
+    for (const body of [{}, { title: "   " }]) {
+      const res = await request(app)
+        .patch(`/api/v1/sessions/${s.id}`)
+        .set("Authorization", `Bearer ${user.token}`)
+        .send(body);
+      expect(res.status).toBe(422);
+    }
+  });
+
+  it("404 — another user cannot rename or delete this chat", async () => {
+    const owner = track(await createTestUser());
+    const other = track(await createTestUser());
+    const s = await makeSession(owner.id);
+    const patch = await request(app)
+      .patch(`/api/v1/sessions/${s.id}`)
+      .set("Authorization", `Bearer ${other.token}`)
+      .send({ isPinned: true });
+    expect(patch.status).toBe(404);
+    const del = await request(app).delete(`/api/v1/sessions/${s.id}`).set("Authorization", `Bearer ${other.token}`);
+    expect(del.status).toBe(404);
+  });
+
+  it("deleting hides the chat but it still counts toward the FREE daily cap", async () => {
+    const user = track(await createTestUser({ plan: "FREE", status: "ACTIVE" }));
+    const ids: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const ok = await request(app)
+        .post("/api/v1/sessions")
+        .set("Authorization", `Bearer ${user.token}`)
+        .send({ mode: "TEXT" });
+      ids.push(ok.body.data.id);
+    }
+    const del = await request(app).delete(`/api/v1/sessions/${ids[0]}`).set("Authorization", `Bearer ${user.token}`);
+    expect(del.status).toBe(200);
+
+    const list = await request(app).get("/api/v1/sessions").set("Authorization", `Bearer ${user.token}`);
+    expect(list.body.data.map((s: { id: string }) => s.id)).not.toContain(ids[0]);
+    const detail = await request(app).get(`/api/v1/sessions/${ids[0]}`).set("Authorization", `Bearer ${user.token}`);
+    expect(detail.status).toBe(404);
+
+    const blocked = await request(app)
+      .post("/api/v1/sessions")
+      .set("Authorization", `Bearer ${user.token}`)
+      .send({ mode: "TEXT" });
+    expect(blocked.status).toBe(429);
+  });
+});

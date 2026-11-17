@@ -56,10 +56,10 @@ export function initChatHandlers(namespace: Namespace): void {
 
       const session = await prisma.conversationSession.findUnique({
         where: { id: sessionId },
-        select: { userId: true, endedAt: true },
+        select: { userId: true, endedAt: true, deletedAt: true },
       });
 
-      if (!session || session.userId !== userId) {
+      if (!session || session.userId !== userId || session.deletedAt) {
         socket.emit("session:error", { message: "Session not found" });
         return;
       }

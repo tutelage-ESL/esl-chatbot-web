@@ -8,7 +8,9 @@ import {
   getSessionParamSchema,
   listSessionsQuerySchema,
   sessionStatsQuerySchema,
+  updateSessionSchema,
 } from "./sessions.schema.ts";
+import { updateSession, deleteSession } from "./sessions.manage.service.ts";
 import {
   createSession,
   listSessions,
@@ -52,7 +54,22 @@ export const endSessionHandler = asyncHandler(async (req: Request, res: Response
   sendSuccess(res, session, "Session ended");
 });
 
-export const getSessionStatsHandler = asyncHandler(async (req: Request, res: Response) => {
+export const updateSessionHandler = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.user) throw new AppError("Authentication required", 401);
+  const { id } = getSessionParamSchema.parse(req.params);
+  const body = updateSessionSchema.parse(req.body);
+  const session = await updateSession(id, req.user.id, body);
+  sendSuccess(res, session, "Session updated");
+});
+
+export const deleteSessionHandler = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.user) throw new AppError("Authentication required", 401);
+  const { id } = getSessionParamSchema.parse(req.params);
+  await deleteSession(id, req.user.id);
+  sendSuccess(res, null, "Session deleted");
+});
+
+export const getSessionStatsHandler =asyncHandler(async (req: Request, res: Response) => {
   if (!req.user) throw new AppError("Authentication required", 401);
   const query = sessionStatsQuerySchema.parse(req.query);
   const targetUserId = query.userId ?? req.user.id;

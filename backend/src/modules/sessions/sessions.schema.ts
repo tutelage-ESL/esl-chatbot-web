@@ -5,6 +5,13 @@ export const createSessionSchema = z.object({
   topic: z.string().trim().max(200).optional().nullable(),
 });
 
+export const updateSessionSchema = z
+  .object({
+    title: z.string().trim().min(1, "Give it a name").max(60, "At most 60 characters").optional(),
+    isPinned: z.boolean().optional(),
+  })
+  .refine((body) => body.title !== undefined || body.isPinned !== undefined, "Send a title or isPinned.");
+
 export const getSessionParamSchema = z.object({
   id: z.string().uuid("Invalid session ID"),
 });
@@ -37,5 +44,6 @@ export const sessionStatsQuerySchema = z.object({
 });
 
 export type CreateSessionBody = z.infer<typeof createSessionSchema>;
+export type UpdateSessionBody = z.infer<typeof updateSessionSchema>;
 export type ListSessionsQuery = z.infer<typeof listSessionsQuerySchema>;
 export type SessionStatsQuery = z.infer<typeof sessionStatsQuerySchema>;

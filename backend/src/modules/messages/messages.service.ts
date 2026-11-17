@@ -11,7 +11,7 @@ import {
   DEFAULT_LLM_CONTEXT_MESSAGES,
 } from "../sessions/sessions.service.ts";
 import { generateAIResponse } from "../ai/ai.service.ts";
-import { countAiReplyWords } from "../../utils/aiReplyFormat.ts";
+import { countAiReplyWords, cleanAiTitle } from "../../utils/aiReplyFormat.ts";
 import type { SendMessageResult } from "./messages.types.ts";
 import type { MessageType, Plan } from "@prisma/client";
 
@@ -32,10 +32,12 @@ export async function sendMessage(
       endedAt: true,
       messageCount: true,
       mode: true,
+      title: true,
+      deletedAt: true,
     },
   });
 
-  if (!session || session.userId !== userId) {
+  if (!session || session.userId !== userId || session.deletedAt) {
     throw new AppError("Session not found", 404);
   }
 
@@ -192,7 +194,8 @@ export async function sendMessage(
     const totalMessages = await tx.message.count({ where: { sessionId } });
     await tx.conversationSession.update({
       where: { id: sessionId },
-      data: { messageCount: totalMessages },
+      // The first reply names the chat; a name the learner gave it is never overwritten.
+      data: { messageCount: totalMessages, ...(session.title ? {} : { title: cleanAiTitle(aiResult.title) }) },
     });
 
     return {
@@ -215,10 +218,10 @@ export async function listMessages(
 ) {
   const session = await prisma.conversationSession.findUnique({
     where: { id: sessionId },
-    select: { userId: true },
+    select: { userId: true, deletedAt: true },
   });
 
-  if (!session || session.userId !== userId) {
+  if (!session || session.userId !== userId || session.deletedAt) {
     throw new AppError("Session not found", 404);
   }
 

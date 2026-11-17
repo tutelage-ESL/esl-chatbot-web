@@ -11,7 +11,7 @@ import {
 } from "../sessions/sessions.service.ts";
 import { generateAIResponse, generateTTS, transcribeAudio } from "../ai/ai.service.ts";
 import { uploadToR2, deleteFromR2, audioExtFromMime } from "../../lib/r2-upload.ts";
-import { countAiReplyWords } from "../../utils/aiReplyFormat.ts";
+import { countAiReplyWords, cleanAiTitle } from "../../utils/aiReplyFormat.ts";
 import type { VoiceMessageResult } from "./messages.types.ts";
 import type { Plan } from "@prisma/client";
 
@@ -41,10 +41,10 @@ export async function sendVoiceMessage(
   // ── 1. Verify session ──────────────────────────────────────────────────────
   const session = await prisma.conversationSession.findUnique({
     where: { id: sessionId },
-    select: { id: true, userId: true, endedAt: true, messageCount: true },
+    select: { id: true, userId: true, endedAt: true, messageCount: true, title: true, deletedAt: true },
   });
 
-  if (!session || session.userId !== userId) {
+  if (!session || session.userId !== userId || session.deletedAt) {
     throw new AppError("Session not found", 404);
   }
   if (session.endedAt) {
@@ -245,7 +245,8 @@ export async function sendVoiceMessage(
       const totalMessages = await tx.message.count({ where: { sessionId } });
       await tx.conversationSession.update({
         where: { id: sessionId },
-        data: { messageCount: totalMessages },
+        // The first reply names the chat; a name the learner gave it is never overwritten.
+        data: { messageCount: totalMessages, ...(session.title ? {} : { title: cleanAiTitle(aiResult.title) }) },
       });
 
       return {

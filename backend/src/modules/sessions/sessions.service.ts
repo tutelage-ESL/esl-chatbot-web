@@ -123,6 +123,8 @@ const SESSION_LIST_SELECT = {
   id: true,
   mode: true,
   topic: true,
+  title: true,
+  isPinned: true,
   summary: true,
   startedAt: true,
   endedAt: true,
@@ -138,7 +140,8 @@ export async function listSessions(
   mode?: SessionMode,
   active?: boolean,
 ): Promise<{ sessions: SessionListItem[]; total: number }> {
-  const where: Prisma.ConversationSessionWhereInput = { userId };
+  // A deleted chat is hidden here only: limits and tutor/admin stats still count it.
+  const where: Prisma.ConversationSessionWhereInput = { userId, deletedAt: null };
   if (mode) where.mode = mode;
   if (active === true) where.endedAt = null;
   if (active === false) where.endedAt = { not: null };
@@ -149,7 +152,7 @@ export async function listSessions(
     prisma.conversationSession.findMany({
       where,
       select: SESSION_LIST_SELECT,
-      orderBy: { startedAt: "desc" },
+      orderBy: [{ isPinned: "desc" }, { startedAt: "desc" }],
       skip,
       take: limit,
     }),
@@ -172,6 +175,9 @@ export async function getSessionById(
       userId: true,
       mode: true,
       topic: true,
+      title: true,
+      isPinned: true,
+      deletedAt: true,
       summary: true,
       aiContextSnapshot: true,
       startedAt: true,
@@ -227,11 +233,12 @@ export async function getSessionById(
     },
   });
 
-  if (!session || session.userId !== userId) {
+  if (!session || session.userId !== userId || session.deletedAt) {
     throw new AppError("Session not found", 404);
   }
 
-  return session;
+  const { deletedAt: _deletedAt, ...detail } = session;
+  return detail;
 }
 
 // ── End session ───────────────────────────────────────────

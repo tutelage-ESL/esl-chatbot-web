@@ -368,6 +368,9 @@ Includes: classes (with full code-lifecycle fields populated) with enrolled user
 - ✅ `GET /sessions` — list user's sessions (paginated, filterable by mode/active status)
 - ✅ `GET /sessions/:id` — session detail with all messages and evaluations
 - ✅ `POST /sessions/:id/end` — end session, compute averages, generate SessionEvaluation
+- ✅ `PATCH /sessions/:id` — rename (`title` 1-60) and/or pin (`isPinned`) your own chat. `GET /sessions` lists pinned first. Logic in `sessions.manage.service.ts`.
+- ✅ `DELETE /sessions/:id` — **soft delete** (`deletedAt`): the chat disappears from the learner's list, detail, search and messages (404), but the row stays so it still counts toward the daily session/message caps and tutor/admin stats. Never hard-delete: that would let FREE users reset their daily cap.
+- ✅ Chat titles: the tutor prompt returns a `title` (2-4 words) with every reply; it is saved only while `ConversationSession.title` is null (first reply), so a learner's rename is never overwritten. No extra AI call.
 - ✅ `POST /sessions/:sessionId/messages` — send message → AI responds → MessageEvaluation generated (grammar, vocabulary, fluency, corrections). Per-session limits: FREE=20+10, GOLD=100+10, PREMIUM=150+10. FREE also has 20 msg/day hard cap and 10-message context window.
 - ✅ `GET /sessions/:sessionId/messages` — paginated message list with evaluations
 - ✅ MessageEvaluation table: per-message grammar/vocabulary/fluency scores, corrections, CEFR detection

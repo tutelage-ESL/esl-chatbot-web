@@ -70,10 +70,10 @@ export async function globalSearch(
       take: PER_TYPE_LIMIT,
     }),
 
-    // Own conversation sessions (by topic; nullable topics simply won't match).
+    // Own conversation sessions, by their name or topic. Deleted chats stay hidden.
     prisma.conversationSession.findMany({
-      where: { userId: actorId, topic: like(q) },
-      select: { id: true, topic: true, startedAt: true },
+      where: { userId: actorId, deletedAt: null, OR: [{ title: like(q) }, { topic: like(q) }] },
+      select: { id: true, topic: true, title: true, startedAt: true },
       orderBy: { startedAt: "desc" },
       take: PER_TYPE_LIMIT,
     }),

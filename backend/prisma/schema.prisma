@@ -318,6 +318,13 @@ model ConversationSession {
   userId            String
   mode              SessionMode @default(TEXT)
   topic             String?
+  /// Short name the AI gives the chat on its first reply; the learner can rename it.
+  title             String?
+  /// Kept at the top of the learner's chat list.
+  isPinned          Boolean     @default(false)
+  /// Hidden from the learner's own list ("delete"). Still counts toward daily
+  /// limits and stays in tutor/admin stats, so deleting can't reset a quota.
+  deletedAt         DateTime?
   summary           String?
   aiContextSnapshot Json?
   startedAt         DateTime    @default(now())

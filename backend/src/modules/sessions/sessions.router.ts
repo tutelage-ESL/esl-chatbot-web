@@ -5,6 +5,8 @@ import {
   getSessionHandler,
   endSessionHandler,
   getSessionStatsHandler,
+  updateSessionHandler,
+  deleteSessionHandler,
 } from "./sessions.controller.ts";
 import { authenticate } from "../../middlewares/authenticate.ts";
 import { createSessionLimiter } from "../../middlewares/rateLimits.ts";
@@ -25,6 +27,8 @@ const router = Router();
  *         id: { type: string, format: uuid }
  *         mode: { type: string, enum: [TEXT, VOICE] }
  *         topic: { type: string, nullable: true }
+ *         title: { type: string, nullable: true, description: "AI-given name, renamable. Null until the first reply." }
+ *         isPinned: { type: boolean }
  *         summary: { type: string, nullable: true }
  *         startedAt: { type: string, format: date-time }
  *         endedAt: { type: string, format: date-time, nullable: true }
@@ -341,5 +345,74 @@ router.get("/:id", authenticate, getSessionHandler);
  *       409: { description: Session already ended, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  */
 router.post("/:id/end", authenticate, endSessionHandler);
+
+// ─────────────────────────────────────────────────────────
+// RENAME / PIN / DELETE
+// ─────────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /sessions/{id}:
+ *   patch:
+ *     summary: Rename or pin one of your own chats
+ *     description: Send any of `{ title (1-60), isPinned }`. Pinned chats are listed first.
+ *     tags: [Sessions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title: { type: string, minLength: 1, maxLength: 60 }
+ *               isPinned: { type: boolean }
+ *     responses:
+ *       200:
+ *         description: Session updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 message: { type: string }
+ *                 data: { $ref: '#/components/schemas/SessionListItem' }
+ *       422: { description: Validation error, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       404: { description: Session not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *   delete:
+ *     summary: Delete one of your own chats
+ *     description: |
+ *       Hides the chat from your list for good. It still counts toward the daily
+ *       session and message limits, and stays in tutor/admin stats.
+ *     tags: [Sessions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Session deleted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 message: { type: string }
+ *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       404: { description: Session not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ */
+router.patch("/:id", authenticate, updateSessionHandler);
+router.delete("/:id", authenticate, deleteSessionHandler);
 
 export default router;

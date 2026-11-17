@@ -99,6 +99,7 @@ router.get("/", authenticate, searchLimiter, globalSearchHandler);
  *       properties:
  *         id: { type: string, format: uuid }
  *         topic: { type: string, nullable: true }
+ *         title: { type: string, nullable: true }
  *         startedAt: { type: string, format: date-time }
  *     SearchResults:
  *       type: object

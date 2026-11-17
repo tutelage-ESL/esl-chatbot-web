@@ -4,6 +4,9 @@ export interface SessionListItem {
   id: string;
   mode: SessionMode;
   topic: string | null;
+  /** AI-given name, renamable by the learner. Null until the first reply. */
+  title: string | null;
+  isPinned: boolean;
   summary: string | null;
   startedAt: Date;
   endedAt: Date | null;

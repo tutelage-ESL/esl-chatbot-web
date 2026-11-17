@@ -34,6 +34,8 @@ export interface MessageEvaluationResult {
 export interface AIResponse {
   reply: string;
   evaluation: MessageEvaluationResult;
+  /** 2-4 word name for the conversation; saved only while the session has none. */
+  title?: string;
 }
 
 export interface ConversationMessage {

@@ -58,6 +58,14 @@ export function htmlToPlainText(html: string): string {
     .trim();
 }
 
+// The model's suggested chat name → a short plain-text title, or null when it
+// sent nothing usable (the chat list then falls back to a default name).
+export function cleanAiTitle(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const title = htmlToPlainText(raw).replace(/^["'\s]+|["'.\s]+$/g, "").slice(0, 60).trim();
+  return title || null;
+}
+
 // Word count on the visible words of a (possibly HTML) reply — tags and
 // entities never count as words.
 export function countAiReplyWords(reply: string): number {

@@ -238,7 +238,8 @@ async function buildActivityHeatmap(userId: string): Promise<DashboardActivityHe
       orderBy: { date: "asc" },
     }),
     prisma.conversationSession.findMany({
-      where: { userId },
+      // Deleted chats leave this linked list; the activity counts above still include them.
+      where: { userId, deletedAt: null },
       select: {
         id: true,
         mode: true,
