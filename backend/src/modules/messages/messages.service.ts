@@ -96,6 +96,7 @@ export async function sendMessage(
       targetLevel: true,
       learningPurpose: true,
       aiPersonality: true,
+      uiLanguage: true,
     },
   });
 

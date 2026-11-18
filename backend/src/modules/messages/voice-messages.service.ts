@@ -125,6 +125,7 @@ export async function sendVoiceMessage(
         targetLevel: true,
         learningPurpose: true,
         aiPersonality: true,
+        uiLanguage: true,
       },
     });
 

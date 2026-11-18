@@ -48,6 +48,8 @@ export interface LearnerContext {
   targetLevel: string | null;
   learningPurpose: string | null;
   aiPersonality: string | null;
+  /** "ku" = the student uses the app in Kurdish; the tutor then explains in Sorani too. */
+  uiLanguage?: string | null;
 }
 
 export interface PronunciationIssue {
