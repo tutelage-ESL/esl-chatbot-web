@@ -18,63 +18,100 @@ router.use(authenticate, authorize("TUTOR", "ADMIN"));
  * @swagger
  * /tutor/dashboard:
  *   get:
- *     summary: Tutor dashboard overview stats — Tutor or Admin only
+ *     summary: Tutor home dashboard
  *     description: |
- *       Returns an aggregated snapshot of the tutor's classes and student activity:
- *       - Total and active classes the tutor teaches
- *       - Total students across all classes, plus daily/weekly active counts
- *       - Average skill scores (grammar, vocabulary, fluency, speaking) across all students
- *       - Total sessions started today by the tutor's students
- *       - 8 most recent student sessions with scores
+ *       What needs the tutor next across their (non-archived) classes: hand-ins to review
+ *       (oldest first), deadlines in the next 7 days, students with no AI practice for 7+ days,
+ *       per-class health and the most common mistakes. Skill averages cover only students who
+ *       have practised. "Active" = sent the AI tutor a message in the last 7 days.
  *     tags: [Tutor]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Tutor dashboard stats
+ *         description: Dashboard data
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
- *                 success: { type: boolean, example: true }
- *                 message: { type: string }
+ *                 success: { type: boolean }
  *                 data:
  *                   type: object
  *                   properties:
+ *                     totals:
+ *                       type: object
+ *                       properties:
+ *                         classes: { type: integer }
+ *                         students: { type: integer }
+ *                         activeThisWeek: { type: integer }
+ *                         toReview: { type: integer }
+ *                         missing: { type: integer }
+ *                     needsYou:
+ *                       type: object
+ *                       properties:
+ *                         toReview:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               submissionId: { type: string, format: uuid }
+ *                               taskId: { type: string, format: uuid }
+ *                               classId: { type: string, format: uuid }
+ *                               taskTitle: { type: string }
+ *                               className: { type: string }
+ *                               studentName: { type: string }
+ *                               handedInAt: { type: string, format: date-time }
+ *                         dueSoon:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               taskId: { type: string, format: uuid }
+ *                               classId: { type: string, format: uuid }
+ *                               title: { type: string }
+ *                               className: { type: string }
+ *                               deadline: { type: string, format: date-time }
+ *                               handedIn: { type: integer }
+ *                               students: { type: integer }
+ *                         inactive:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               userId: { type: string, format: uuid }
+ *                               classId: { type: string, format: uuid }
+ *                               displayName: { type: string }
+ *                               avatarUrl: { type: string, nullable: true }
+ *                               className: { type: string }
+ *                               lastPracticeAt: { type: string, format: date-time, nullable: true }
+ *                         inactiveCount: { type: integer }
  *                     classes:
- *                       type: object
- *                       properties:
- *                         total: { type: integer, example: 3 }
- *                         active: { type: integer, example: 2 }
- *                     students:
- *                       type: object
- *                       properties:
- *                         total: { type: integer, example: 24 }
- *                         activeToday: { type: integer, example: 6 }
- *                         activeThisWeek: { type: integer, example: 18 }
- *                     skills:
- *                       type: object
- *                       properties:
- *                         avgGrammar: { type: integer, example: 72 }
- *                         avgVocabulary: { type: integer, example: 68 }
- *                         avgFluency: { type: integer, example: 65 }
- *                         avgSpeaking: { type: integer, example: 58 }
- *                     sessionsToday: { type: integer, example: 8 }
- *                     recentActivity:
  *                       type: array
  *                       items:
  *                         type: object
  *                         properties:
- *                           userId: { type: string, format: uuid }
- *                           displayName: { type: string }
- *                           avatarUrl: { type: string, format: uri, nullable: true }
- *                           sessionMode: { type: string, enum: [TEXT, VOICE] }
- *                           startedAt: { type: string, format: date-time }
- *                           avgOverallScore: { type: integer, nullable: true }
- *                           className: { type: string }
+ *                           id: { type: string, format: uuid }
+ *                           name: { type: string }
+ *                           students: { type: integer }
+ *                           activeThisWeek: { type: integer }
+ *                           handInRate: { type: integer, nullable: true, description: "% handed in over tasks past their deadline" }
+ *                           missing: { type: integer }
+ *                           toReview: { type: integer }
+ *                           avgSkill: { type: integer, nullable: true }
+ *                     skills:
+ *                       type: object
+ *                       properties:
+ *                         grammar: { type: number }
+ *                         vocabulary: { type: number }
+ *                         fluency: { type: number }
+ *                         speaking: { type: number }
+ *                         practisingStudents: { type: integer }
+ *                     commonMistakes:
+ *                       type: array
+ *                       items: { $ref: '#/components/schemas/StudentMistake' }
  *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
- *       403: { description: Not a tutor or admin, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       403: { description: Caller is not a tutor or admin, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  */
 router.get("/dashboard", getTutorDashboardHandler);
 

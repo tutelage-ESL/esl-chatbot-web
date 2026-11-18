@@ -13,6 +13,7 @@ import {
 import { generateAIResponse } from "../ai/ai.service.ts";
 import { countAiReplyWords, cleanAiTitle } from "../../utils/aiReplyFormat.ts";
 import type { SendMessageResult } from "./messages.types.ts";
+import { recordPracticeInBackground } from "../metrics/practice.service.ts";
 import type { MessageType, Plan } from "@prisma/client";
 
 // ── Send message (user → AI → evaluate → store) ──────────
@@ -205,6 +206,8 @@ export async function sendMessage(
     };
   });
 
+  // Study time, streak, today's progress and skill scores follow every message, not "End session".
+  recordPracticeInBackground(userId, sessionId, wordCount);
   return result;
 }
 

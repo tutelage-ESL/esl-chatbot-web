@@ -1,4 +1,32 @@
 import type { ClassStatus } from "@prisma/client";
+import type { SkillSnapshot } from "../metrics/skills.service.ts";
+
+/** How a student is doing with this class's tasks. */
+export interface TaskRecord {
+  total: number;
+  /** Includes late and reviewed hand-ins */
+  handedIn: number;
+  late: number;
+  /** Past the deadline and not handed in */
+  missing: number;
+  reviewed: number;
+}
+
+export interface StudentTaskItem {
+  id: string;
+  title: string;
+  deadline: Date | null;
+  taskStatus: "OPEN" | "CLOSED";
+  state: "ASSIGNED" | "MISSING" | "CLOSED" | "HANDED_IN" | "LATE" | "REVIEWED";
+  handedInAt: Date | null;
+}
+
+export interface StudentMistake {
+  /** The grammar rule (or the error itself when the AI gave no rule) */
+  rule: string;
+  count: number;
+  example: { said: string; better: string } | null;
+}
 
 /** Tutor/admin view of a student in a class — includes progress snapshot. */
 export interface ClassStudentSummary {
@@ -14,6 +42,12 @@ export interface ClassStudentSummary {
   totalStudyTimeMinutes: number;
   grammarSkill: number;
   vocabularySkill: number;
+  fluencySkill: number;
+  /** 0 until the student has spoken in a voice chat */
+  speakingSkill: number;
+  /** Last message to the AI tutor; null = never practised (skills mean nothing yet) */
+  lastPracticeAt: Date | null;
+  tasks: TaskRecord;
   vocabTotal: number;
   vocabDueToday: number;
 }
@@ -47,6 +81,20 @@ export interface ClassStudentDetail {
   } | null;
   vocabTotal: number;
   vocabDueToday: number;
+  /** Fresh averages of the latest scored messages, with how many messages they rest on */
+  skills: SkillSnapshot;
+  practice: {
+    lastPracticeAt: Date | null;
+    /** Chats with at least one message */
+    chats: number;
+    totalStudyTimeMinutes: number;
+    currentStreak: number;
+    longestStreak: number;
+  };
+  tasks: StudentTaskItem[];
+  taskSummary: TaskRecord;
+  /** Most frequent grammar mistakes in the last 30 days */
+  mistakes: StudentMistake[];
 }
 
 export interface ClassListItem {
@@ -129,7 +177,10 @@ export interface ClassAnalytics {
   classId: string;
   className: string;
   studentCount: number;
-  averageSkills: { grammar: number; vocabulary: number; fluency: number };
+  /** Averages over students who have practised (0 = nobody yet) */
+  averageSkills: { grammar: number; vocabulary: number; fluency: number; speaking: number };
+  /** Students with at least one scored message */
+  practisingStudents: number;
   mostCommonGrammarErrors: GrammarErrorEntry[];
   vocabularyCoverage: number;
 }

@@ -927,3 +927,59 @@ describe("Internal user stealth (isInternal)", () => {
     expect(mine.body.data.some((c: { id: string }) => c.id === cls.id)).toBe(true);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// Student progress: skills are the plain average of the latest scored messages
+// (no more "starts at 0" moving average), plus the task record and mistakes.
+describe("GET /api/v1/classes/:id/students/:userId — progress", () => {
+  async function scoredMessage(userId: string, sessionId: string, s: { g: number; v: number; f: number; p?: number }, rule?: string) {
+    const msg = await prisma.message.create({ data: { userId, sessionId, role: "USER", content: "I go to school yesterday" }, select: { id: true } });
+    await prisma.messageEvaluation.create({
+      data: {
+        messageId: msg.id, grammarScore: s.g, vocabularyScore: s.v, fluencyScore: s.f, pronunciationScore: s.p ?? null,
+        grammarErrors: rule ? [{ error: "I go", correction: "I went", rule }] : [],
+        vocabularyLevel: "A2", overallScore: 70, detectedCefrLevel: "A2", corrections: [], feedback: "ok",
+      },
+    });
+  }
+
+  it("averages the scored messages, reports speaking, tasks and top mistakes", async () => {
+    const tutor = await createTutor();
+    const student = await createStudent();
+    const cls = await makeClass(tutor.id);
+    await addMember(cls.id, student.id, "STUDENT");
+    const session = await prisma.conversationSession.create({ data: { userId: student.id, messageCount: 2 }, select: { id: true } });
+    await scoredMessage(student.id, session.id, { g: 80, v: 70, f: 60 }, "Past simple");
+    await scoredMessage(student.id, session.id, { g: 60, v: 90, f: 80, p: 75 }, "Past simple");
+
+    const past = new Date(Date.now() - 86_400_000);
+    const missed = await prisma.task.create({ data: { classId: cls.id, createdById: tutor.id, title: "Missed", description: "d", deadline: past }, select: { id: true } });
+    const done = await prisma.task.create({ data: { classId: cls.id, createdById: tutor.id, title: "Done", description: "d" }, select: { id: true } });
+    await prisma.taskSubmission.create({ data: { taskId: done.id, studentId: student.id, content: "x", feedback: "Good" } });
+
+    const res = await request(app).get(`/api/v1/classes/${cls.id}/students/${student.id}`).set(auth(tutor.token));
+    expect(res.status).toBe(200);
+    // First-ever practice shows the real average, not 15% of it
+    expect(res.body.data.skills).toMatchObject({ grammar: 70, vocabulary: 80, fluency: 70, speaking: 75, basedOnMessages: 2, basedOnSpoken: 1 });
+    expect(res.body.data.practice.chats).toBe(1);
+    expect(res.body.data.practice.lastPracticeAt).not.toBeNull();
+    expect(res.body.data.taskSummary).toMatchObject({ total: 2, handedIn: 1, missing: 1, reviewed: 1 });
+    const states = Object.fromEntries(res.body.data.tasks.map((t: { id: string; state: string }) => [t.id, t.state]));
+    expect(states).toEqual({ [missed.id]: "MISSING", [done.id]: "REVIEWED" });
+    expect(res.body.data.mistakes[0]).toMatchObject({ rule: "Past simple", count: 2, example: { said: "I go", better: "I went" } });
+
+    const list = await request(app).get(`/api/v1/classes/${cls.id}/students`).set(auth(tutor.token));
+    expect(list.body.data[0].tasks).toMatchObject({ total: 2, handedIn: 1, missing: 1 });
+    expect(list.body.data[0].lastPracticeAt).not.toBeNull();
+  });
+
+  it("403 — a student can't see a classmate's progress", async () => {
+    const tutor = await createTutor();
+    const a = await createStudent();
+    const b = await createStudent();
+    const cls = await makeClass(tutor.id);
+    await addMember(cls.id, a.id, "STUDENT");
+    await addMember(cls.id, b.id, "STUDENT");
+    expect((await request(app).get(`/api/v1/classes/${cls.id}/students/${b.id}`).set(auth(a.token))).status).toBe(403);
+  });
+});

@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { getAdminDashboardStats } from "./admin.dashboard.service.ts";
 import { asyncHandler } from "../../utils/asyncHandler.ts";
 import { sendSuccess } from "../../utils/apiResponse.ts";
 import {
@@ -12,7 +13,6 @@ import {
   updateUser,
   assignSubscription,
   cancelSubscription,
-  getAdminDashboardStats,
   adminUpdateProfile,
   adminUploadAvatar,
   adminUpdateLearnerProfile,

@@ -257,11 +257,25 @@ describe("GET /api/v1/admin/dashboard", () => {
     const admin = await createAdmin();
     const res = await request(app).get("/api/v1/admin/dashboard").set(auth(admin.token));
     expect(res.status).toBe(200);
-    expect(typeof res.body.data.users.total).toBe("number");
-    expect(res.body.data.users.byRole).toBeDefined();
-    expect(res.body.data.subscriptions).toBeDefined();
-    expect(res.body.data.activeUsers).toBeDefined();
-    expect(typeof res.body.data.totalSessionsToday).toBe("number");
+    const d = res.body.data;
+    expect(typeof d.users.total).toBe("number");
+    expect(d.users).toHaveProperty("newThisWeek");
+    expect(d.activity).toHaveProperty("activeThisWeek");
+    expect(d.funnel).toHaveProperty("paying");
+    expect(d.plans).toHaveProperty("expiredNotDowngraded");
+    expect(d.revenue).toHaveProperty("fibThisMonthIQD");
+    expect(Array.isArray(d.expiringSoon)).toBe(true);
+    expect(d.aiUsage).toHaveProperty("FREE");
+    expect(d.attention).toHaveProperty("unverifiedOver24h");
+  });
+
+  it("200 — an expired paid plan doesn't count as paying", async () => {
+    const admin = await createAdmin();
+    const before = (await request(app).get("/api/v1/admin/dashboard").set(auth(admin.token))).body.data;
+    track(await createTestUser({ plan: "GOLD", status: "ACTIVE", currentPeriodEnd: new Date(Date.now() - 86_400_000) }));
+    const after = (await request(app).get("/api/v1/admin/dashboard").set(auth(admin.token))).body.data;
+    expect(after.plans.GOLD).toBe(before.plans.GOLD);
+    expect(after.plans.expiredNotDowngraded).toBe(before.plans.expiredNotDowngraded + 1);
   });
 
   it("403 — a non-admin is blocked", async () => {
@@ -335,15 +349,15 @@ describe("Internal user stealth (isInternal)", () => {
 
     const after = await request(app).get("/api/v1/admin/dashboard").set(auth(admin.token));
     expect(after.status).toBe(200);
-    expect(after.body.data.users.byRole.ADMIN).toBe(before.body.data.users.byRole.ADMIN);
+    expect(after.body.data.users.admins).toBe(before.body.data.users.admins);
     expect(after.body.data.users.total).toBe(before.body.data.users.total);
-    expect(after.body.data.subscriptions.FREE).toBe(before.body.data.subscriptions.FREE);
+    expect(after.body.data.plans.FREE).toBe(before.body.data.plans.FREE);
   });
 
   it("the internal admin keeps full access to the dashboard", async () => {
     const internal = await createInternalAdmin();
     const res = await request(app).get("/api/v1/admin/dashboard").set(auth(internal.token));
     expect(res.status).toBe(200);
-    expect(res.body.data.users.byRole).toBeDefined();
+    expect(res.body.data.users).toHaveProperty("admins");
   });
 });

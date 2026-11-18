@@ -1,6 +1,8 @@
 import type { ClassStatus, Prisma, Role } from "@prisma/client";
 import { prisma } from "../../config/database.ts";
 import { AppError } from "../../utils/AppError.ts";
+import { computeSkills } from "../metrics/skills.service.ts";
+import { chatCountFor, lastPracticeFor, taskRecordsFor, tasksForStudent, topMistakesFor } from "./classes.progress.ts";
 import {
   generateClassCode,
   computeExpiryFromInterval,
@@ -680,6 +682,8 @@ export async function getClassStudents(
               totalStudyTimeMinutes: true,
               grammarSkill: true,
               vocabularySkill: true,
+              fluencySkill: true,
+              speakingSkill: true,
             },
           },
         },
@@ -693,7 +697,7 @@ export async function getClassStudents(
   const studentIds = members.map((m) => m.user.id);
   const now = new Date();
 
-  const [vocabTotals, vocabDueCounts] = await Promise.all([
+  const [vocabTotals, vocabDueCounts, taskRecords, lastPractice] = await Promise.all([
     prisma.vocabulary.groupBy({
       by: ["userId"],
       where: { userId: { in: studentIds } },
@@ -706,6 +710,8 @@ export async function getClassStudents(
       orderBy: { userId: "asc" },
       _count: { _all: true },
     }),
+    taskRecordsFor(classId, studentIds),
+    lastPracticeFor(studentIds),
   ]);
 
   const vocabTotalMap = new Map(
@@ -728,6 +734,10 @@ export async function getClassStudents(
     totalStudyTimeMinutes: m.user.metrics?.totalStudyTimeMinutes ?? 0,
     grammarSkill: m.user.metrics?.grammarSkill ?? 0,
     vocabularySkill: m.user.metrics?.vocabularySkill ?? 0,
+    fluencySkill: m.user.metrics?.fluencySkill ?? 0,
+    speakingSkill: m.user.metrics?.speakingSkill ?? 0,
+    lastPracticeAt: lastPractice.get(m.user.id) ?? null,
+    tasks: taskRecords.get(m.user.id)!,
     vocabTotal: vocabTotalMap.get(m.user.id) ?? 0,
     vocabDueToday: vocabDueMap.get(m.user.id) ?? 0,
   }));
@@ -806,9 +816,14 @@ export async function getClassStudentDetail(
   // Internal (stealth) accounts are indistinguishable from nonexistent students
   if (!user || user.isInternal) throw new AppError("Student not found in this class", 404);
 
-  const vocabDueToday = await prisma.vocabulary.count({
-    where: { userId: studentId, srsDue: { lte: new Date() } },
-  });
+  const [vocabDueToday, skills, lastPractice, chats, tasks, mistakes] = await Promise.all([
+    prisma.vocabulary.count({ where: { userId: studentId, srsDue: { lte: new Date() } } }),
+    computeSkills(studentId),
+    lastPracticeFor([studentId]),
+    chatCountFor(studentId),
+    tasksForStudent(classId, studentId),
+    topMistakesFor(studentId),
+  ]);
 
   return {
     userId: user.id,
@@ -820,6 +835,17 @@ export async function getClassStudentDetail(
     metrics: user.metrics,
     vocabTotal: user._count.vocabularies,
     vocabDueToday,
+    skills,
+    practice: {
+      lastPracticeAt: lastPractice.get(studentId) ?? null,
+      chats,
+      totalStudyTimeMinutes: user.metrics?.totalStudyTimeMinutes ?? 0,
+      currentStreak: user.metrics?.currentStreak ?? 0,
+      longestStreak: user.metrics?.longestStreak ?? 0,
+    },
+    tasks: tasks.items,
+    taskSummary: tasks.summary,
+    mistakes,
   };
 }
 
@@ -977,7 +1003,8 @@ export async function getClassAnalytics(
       classId,
       className: cls.className,
       studentCount: 0,
-      averageSkills: { grammar: 0, vocabulary: 0, fluency: 0 },
+      averageSkills: { grammar: 0, vocabulary: 0, fluency: 0, speaking: 0 },
+      practisingStudents: 0,
       mostCommonGrammarErrors: [],
       vocabularyCoverage: 0,
     };
@@ -988,10 +1015,16 @@ export async function getClassAnalytics(
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const [metricsAgg, recentEvaluations, vocabGroups] = await Promise.all([
+  const [metricsAgg, speakingAgg, recentEvaluations, vocabGroups] = await Promise.all([
+    // 0 means "no scored messages yet", so those students are left out of the averages
     prisma.userMetrics.aggregate({
-      where: { userId: { in: studentIds } },
+      where: { userId: { in: studentIds }, grammarSkill: { gt: 0 } },
       _avg: { grammarSkill: true, vocabularySkill: true, fluencySkill: true },
+      _count: { _all: true },
+    }),
+    prisma.userMetrics.aggregate({
+      where: { userId: { in: studentIds }, speakingSkill: { gt: 0 } },
+      _avg: { speakingSkill: true },
     }),
     prisma.messageEvaluation.findMany({
       where: {
@@ -1039,7 +1072,9 @@ export async function getClassAnalytics(
       grammar: Math.round((metricsAgg._avg.grammarSkill ?? 0) * 10) / 10,
       vocabulary: Math.round((metricsAgg._avg.vocabularySkill ?? 0) * 10) / 10,
       fluency: Math.round((metricsAgg._avg.fluencySkill ?? 0) * 10) / 10,
+      speaking: Math.round((speakingAgg._avg.speakingSkill ?? 0) * 10) / 10,
     },
+    practisingStudents: metricsAgg._count._all,
     mostCommonGrammarErrors: topErrors,
     vocabularyCoverage: avgVocabCoverage,
   };

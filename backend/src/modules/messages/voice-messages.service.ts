@@ -13,6 +13,7 @@ import { generateAIResponse, generateTTS, transcribeAudio } from "../ai/ai.servi
 import { uploadToR2, deleteFromR2, audioExtFromMime } from "../../lib/r2-upload.ts";
 import { countAiReplyWords, cleanAiTitle } from "../../utils/aiReplyFormat.ts";
 import type { VoiceMessageResult } from "./messages.types.ts";
+import { recordPracticeInBackground } from "../metrics/practice.service.ts";
 import type { Plan } from "@prisma/client";
 
 // ── Send voice message (audio upload → STT → LLM → TTS → store) ──────────────
@@ -256,6 +257,8 @@ export async function sendVoiceMessage(
       };
     });
 
+    // Study time, streak, today's progress and skills (incl. speaking) follow every message.
+    recordPracticeInBackground(userId, sessionId, wordCount);
     const audioBase64 = ttsBuffer.length > 0 ? ttsBuffer.toString("base64") : null;
 
     return {

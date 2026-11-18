@@ -24,14 +24,14 @@ function safeRun(name: string, fn: () => Promise<void>): () => void {
 }
 
 export function startCronJobs(): void {
-  // 00:00 UTC — reset streaks for users who didn't study today
-  jobs.push(new Cron("0 0 * * *", { timezone: "UTC" }, safeRun("streak-reset", runStreakResetJob)));
+  // Hourly — reset streaks of learners who missed a whole day of their own calendar
+  jobs.push(new Cron("5 * * * *", { timezone: "UTC" }, safeRun("streak-reset", runStreakResetJob)));
 
   // 01:00 UTC — enforce subscription expiry (proactive, mirrors lazy-downgrade at session start)
   jobs.push(new Cron("0 1 * * *", { timezone: "UTC" }, safeRun("subscription-expiry", runSubscriptionExpiryJob)));
 
-  // 02:00 UTC — close sessions open longer than 24 hours (zombie/abandoned sessions)
-  jobs.push(new Cron("0 2 * * *", { timezone: "UTC" }, safeRun("stale-session-cleanup", runStaleSessionCleanupJob)));
+  // Hourly — close chats idle for 24h and write their summary (most learners never press End)
+  jobs.push(new Cron("20 * * * *", { timezone: "UTC" }, safeRun("stale-session-cleanup", runStaleSessionCleanupJob)));
 
   // Every 15 min — reconcile pending FIB subscriptions against FIB API (safety net for missed webhooks)
   jobs.push(new Cron("*/15 * * * *", { timezone: "UTC" }, safeRun("fib-reconcile", runFibReconcileJob)));
@@ -44,7 +44,7 @@ export function startCronJobs(): void {
   // email the same cohort repeatedly (see renewal-reminder.job.ts).
   jobs.push(new Cron("0 9 * * *", { timezone: "UTC" }, safeRun("renewal-reminder", runRenewalReminderJob)));
 
-  logger.info("[cron] 6 jobs scheduled (streak-reset@00:00, subscription-expiry@01:00, stale-session-cleanup@02:00, fib-reconcile@*/15min, weekly-digest@hourly/local-Sun08:00, renewal-reminder@09:00 UTC)");
+  logger.info("[cron] 6 jobs scheduled (streak-reset@hourly:05, subscription-expiry@01:00, idle-chat-close@hourly:20, fib-reconcile@*/15min, weekly-digest@hourly/local-Sun08:00, renewal-reminder@09:00 UTC)");
 }
 
 export function stopCronJobs(): void {

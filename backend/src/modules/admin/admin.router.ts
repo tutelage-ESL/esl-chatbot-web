@@ -128,20 +128,18 @@ router.use(authenticate, authorize("ADMIN"));
  * @swagger
  * /admin/dashboard:
  *   get:
- *     summary: Platform-wide admin dashboard stats — Admin only
+ *     summary: Admin home dashboard (Admin only)
  *     description: |
- *       Returns a single aggregated snapshot of platform health:
- *       - Total users by role (STUDENT/TUTOR/ADMIN)
- *       - Active subscriptions by plan (FREE/GOLD/PREMIUM)
- *       - Daily active users (had a session today) and weekly active users (last 7 days)
- *       - Total sessions started today
- *       - Active paid subscriptions grouped by payment provider (CASH/FIB/STRIPE)
+ *       Growth (rolling 7 days vs the 7 before), the student funnel, plans (paid ones only
+ *       while their period hasn't ended), FIB revenue from subscriptions activated this
+ *       month, subscriptions ending in the next 7 days, AI messages by plan, and things that
+ *       need attention. Internal accounts never count.
  *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Dashboard stats
+ *         description: Dashboard data
  *         content:
  *           application/json:
  *             schema:
@@ -155,30 +153,63 @@ router.use(authenticate, authorize("ADMIN"));
  *                       type: object
  *                       properties:
  *                         total: { type: integer }
- *                         byRole:
- *                           type: object
- *                           properties:
- *                             STUDENT: { type: integer }
- *                             TUTOR: { type: integer }
- *                             ADMIN: { type: integer }
- *                     subscriptions:
+ *                         students: { type: integer }
+ *                         tutors: { type: integer }
+ *                         admins: { type: integer }
+ *                         newThisWeek: { type: integer }
+ *                         newLastWeek: { type: integer }
+ *                     activity:
+ *                       type: object
+ *                       properties:
+ *                         active24h: { type: integer }
+ *                         activeThisWeek: { type: integer }
+ *                         activeLastWeek: { type: integer }
+ *                         messagesThisWeek: { type: integer }
+ *                         messagesLastWeek: { type: integer }
+ *                     funnel:
+ *                       type: object
+ *                       properties:
+ *                         signedUp: { type: integer }
+ *                         verified: { type: integer }
+ *                         practised: { type: integer }
+ *                         paying: { type: integer }
+ *                     plans:
  *                       type: object
  *                       properties:
  *                         FREE: { type: integer }
  *                         GOLD: { type: integer }
  *                         PREMIUM: { type: integer }
- *                     activeUsers:
+ *                         expiredNotDowngraded: { type: integer }
+ *                     revenue:
  *                       type: object
  *                       properties:
- *                         daily: { type: integer, description: Users with a session today }
- *                         weekly: { type: integer, description: Users with a session in the last 7 days }
- *                     totalSessionsToday: { type: integer }
- *                     revenueByProvider:
+ *                         fibThisMonthIQD: { type: integer }
+ *                         fibThisMonthCount: { type: integer }
+ *                         fibLastMonthIQD: { type: integer }
+ *                         payingByProvider: { type: object, additionalProperties: { type: integer } }
+ *                     expiringSoon:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           userId: { type: string, format: uuid }
+ *                           name: { type: string }
+ *                           plan: { type: string, enum: [FREE, GOLD, PREMIUM] }
+ *                           endsAt: { type: string, format: date-time }
+ *                           cancelling: { type: boolean }
+ *                     aiUsage:
  *                       type: object
- *                       description: Count of active paid subscriptions per payment provider
- *                       additionalProperties: { type: integer }
+ *                       properties:
+ *                         FREE: { type: integer }
+ *                         GOLD: { type: integer }
+ *                         PREMIUM: { type: integer }
+ *                     attention:
+ *                       type: object
+ *                       properties:
+ *                         unverifiedOver24h: { type: integer }
+ *                         fibPaymentsStuck: { type: integer }
  *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
- *       403: { description: Not an admin, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       403: { description: Caller is not an admin, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  */
 router.get("/dashboard", getDashboardHandler);
 

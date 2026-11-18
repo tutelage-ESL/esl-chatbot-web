@@ -3,7 +3,7 @@ import { prisma } from "../../config/database.ts";
 import { deleteCache, cacheKeys } from "../../config/cache.ts";
 import { AppError } from "../../utils/AppError.ts";
 import { secondsUntilNextDay } from "../../utils/retryAfter.ts";
-import { createNotification } from "../notifications/notifications.service.ts";
+import { learnerDay, timezoneOf } from "../../utils/learnerDay.ts";
 import { upsertSessionVocabulary } from "../vocabulary/vocabulary.service.ts";
 import type { NewVocabularyWord } from "../ai/ai.types.ts";
 import type {
@@ -249,6 +249,29 @@ export async function endSession(
 ): Promise<SessionDetail> {
   const session = await prisma.conversationSession.findUnique({
     where: { id: sessionId },
+    select: { userId: true, endedAt: true },
+  });
+  if (!session || session.userId !== userId) {
+    throw new AppError("Session not found", 404);
+  }
+  if (session.endedAt) {
+    throw new AppError("Session is already ended", 409);
+  }
+  await finalizeSession(sessionId);
+  return getSessionById(sessionId, userId);
+}
+
+/**
+ * Closes a chat and writes its summary. Used by "End session" and by the hourly job that
+ * closes chats idle for 24 hours (most learners never press End).
+ *
+ * Practice itself (study time, streak, today's progress, skills) is already recorded per
+ * message by metrics/practice.service.ts, so this only adds what needs the whole chat:
+ * the session evaluation, the new words the AI found, and the day's skill snapshot.
+ */
+export async function finalizeSession(sessionId: string): Promise<void> {
+  const session = await prisma.conversationSession.findUnique({
+    where: { id: sessionId },
     select: {
       id: true,
       userId: true,
@@ -256,7 +279,9 @@ export async function endSession(
       endedAt: true,
       messages: {
         where: { role: "USER" },
+        orderBy: { createdAt: "asc" },
         select: {
+          createdAt: true,
           wordCount: true,
           evaluation: {
             select: {
@@ -272,57 +297,35 @@ export async function endSession(
       },
     },
   });
+  if (!session || session.endedAt) return;
+  const userId = session.userId;
 
-  if (!session || session.userId !== userId) {
-    throw new AppError("Session not found", 404);
-  }
-
-  if (session.endedAt) {
-    throw new AppError("Session is already ended", 409);
-  }
-
-  const endedAt = new Date();
-  const rawDurationSeconds = Math.round(
-    (endedAt.getTime() - session.startedAt.getTime()) / 1000,
+  // Time actually spent chatting (start to last message), not how long the tab stayed open.
+  const lastAt = session.messages.at(-1)?.createdAt ?? session.startedAt;
+  const durationSeconds = Math.min(
+    Math.max(0, Math.round((lastAt.getTime() - session.startedAt.getTime()) / 1000)),
+    4 * 60 * 60,
   );
-  // Cap at 4 hours — a tab left open for days should not inflate practice time
-  const durationSeconds = Math.min(rawDurationSeconds, 4 * 60 * 60);
+  const totalMessages = await prisma.message.count({ where: { sessionId } });
 
-  // Compute averages from message evaluations
+  // Only the call that actually closes the chat goes on (button and job can race).
+  const closed = await prisma.conversationSession.updateMany({
+    where: { id: sessionId, endedAt: null },
+    data: { endedAt: new Date(), durationSeconds, messageCount: totalMessages },
+  });
+  if (!closed.count) return;
+
   const evaluatedMessages = session.messages.filter((m) => m.evaluation);
-
-  const totalMessages = await prisma.message.count({
-    where: { sessionId },
-  });
-
-  await prisma.conversationSession.update({
-    where: { id: sessionId },
-    data: {
-      endedAt,
-      durationSeconds,
-      messageCount: totalMessages,
-    },
-  });
-
-  // Generate a session evaluation summary from individual message evaluations
   const totalUserMessages = evaluatedMessages.length;
   const totalUserWords = session.messages.reduce((sum, m) => sum + (m.wordCount ?? 0), 0);
-  const studyMinutes = Math.max(1, Math.round(durationSeconds / 60));
 
-  if (evaluatedMessages.length > 0) {
-    const avgGrammar =
-      evaluatedMessages.reduce((s, m) => s + (m.evaluation?.grammarScore ?? 0), 0) /
-      totalUserMessages;
-    const avgVocab =
-      evaluatedMessages.reduce((s, m) => s + (m.evaluation?.vocabularyScore ?? 0), 0) /
-      totalUserMessages;
-    const avgFluency =
-      evaluatedMessages.reduce((s, m) => s + (m.evaluation?.fluencyScore ?? 0), 0) /
-      totalUserMessages;
-    const avgOverall =
-      evaluatedMessages.reduce((s, m) => s + (m.evaluation?.overallScore ?? 0), 0) /
-      totalUserMessages;
-
+  if (totalUserMessages > 0) {
+    const mean = (pick: (e: NonNullable<(typeof evaluatedMessages)[number]["evaluation"]>) => number) =>
+      evaluatedMessages.reduce((s, m) => s + pick(m.evaluation!), 0) / totalUserMessages;
+    const avgGrammar = mean((e) => e.grammarScore);
+    const avgVocab = mean((e) => e.vocabularyScore);
+    const avgFluency = mean((e) => e.fluencyScore);
+    const avgOverall = mean((e) => e.overallScore);
     const cefrLevel = scoreTocefrLevel(avgOverall);
 
     const scores = { grammar: avgGrammar, vocabulary: avgVocab, fluency: avgFluency };
@@ -333,16 +336,12 @@ export async function endSession(
       else if (score < 50) weaknesses.push(`${skill} needs improvement`);
     }
 
-    const pronouncedMessages = evaluatedMessages.filter(
-      (m) => m.evaluation?.pronunciationScore != null,
-    );
-    const avgPronunciation =
-      pronouncedMessages.length > 0
-        ? pronouncedMessages.reduce((s, m) => s + (m.evaluation?.pronunciationScore ?? 0), 0) /
-          pronouncedMessages.length
-        : null;
+    const pronounced = evaluatedMessages.filter((m) => m.evaluation?.pronunciationScore != null);
+    const avgPronunciation = pronounced.length
+      ? pronounced.reduce((s, m) => s + (m.evaluation?.pronunciationScore ?? 0), 0) / pronounced.length
+      : null;
 
-    // Collect new vocabulary from all message evaluations, upsert to vocabulary table
+    // New vocabulary the AI found in this chat goes to the learner's word list
     const rawVocab = evaluatedMessages.flatMap(
       (m) => ((m.evaluation?.newWords ?? []) as unknown as NewVocabularyWord[]),
     );
@@ -360,147 +359,23 @@ export async function endSession(
         detectedCefrLevel: cefrLevel,
         strengths,
         weaknesses,
-        recommendations: weaknesses.map(
-          (w) => `Focus on improving ${w.replace(" needs improvement", "")}`,
-        ),
+        recommendations: weaknesses.map((w) => `Focus on improving ${w.replace(" needs improvement", "")}`),
         newVocabulary: sessionVocabulary as unknown as object[],
         totalUserMessages,
         totalUserWords,
       },
     });
 
-    // Update progress and metrics after session ends
-    await updateProgressAndMetrics(
-      userId,
-      studyMinutes,
-      totalUserMessages,
-      totalUserWords,
-      cefrLevel,
-      avgGrammar,
-      avgVocab,
-      avgFluency,
-    );
-  } else {
-    // Session with no evaluated messages still counts toward progress
-    await updateProgressAndMetrics(userId, studyMinutes, 0, totalUserWords, null, 0, 0, 0);
+    // The day this chat happened (learner's calendar) keeps a snapshot of its skill level
+    const day = learnerDay(await timezoneOf(userId), lastAt);
+    await prisma.progress.updateMany({
+      where: { userId, date: day },
+      data: { skillSnapshot: { grammar: Math.round(avgGrammar), vocabulary: Math.round(avgVocab), fluency: Math.round(avgFluency) } },
+    });
   }
 
-  // Streak, study time, recent sessions, and due vocab can all change — bust the dashboard cache
+  // Recent sessions and their scores show on the dashboard
   void deleteCache(cacheKeys.dashboard(userId));
-
-  return getSessionById(sessionId, userId);
-}
-
-// ── Progress + metrics upsert ─────────────────────────────────
-
-async function updateProgressAndMetrics(
-  userId: string,
-  studyMinutes: number,
-  messagesCount: number,
-  wordsTyped: number,
-  cefrLevel: string | null,
-  avgGrammar: number,
-  avgVocab: number,
-  avgFluency: number,
-): Promise<void> {
-  // Use the user's timezone so progress rows land on the correct local calendar day
-  const learnerProfile = await prisma.learnerProfile.findUnique({
-    where: { userId },
-    select: { timezone: true },
-  });
-  let timezone = learnerProfile?.timezone ?? 'UTC';
-  // Guard against invalid IANA strings stored in the DB — toLocaleDateString would throw RangeError
-  try { new Intl.DateTimeFormat(undefined, { timeZone: timezone }); } catch { timezone = 'UTC'; }
-
-  // 'en-CA' always returns YYYY-MM-DD, then Date.UTC pins it to UTC midnight
-  const dateStr = new Date().toLocaleDateString('en-CA', { timeZone: timezone });
-  const [yearStr, monthStr, dayStr] = dateStr.split('-');
-  const today = new Date(Date.UTC(Number(yearStr), Number(monthStr) - 1, Number(dayStr)));
-
-  const skillSnapshot =
-    avgGrammar > 0 || avgVocab > 0 || avgFluency > 0
-      ? { grammar: Math.round(avgGrammar), vocabulary: Math.round(avgVocab), fluency: Math.round(avgFluency) }
-      : undefined;
-
-  // Upsert today's progress row
-  await prisma.progress.upsert({
-    where: { userId_date: { userId, date: today } },
-    create: {
-      userId,
-      date: today,
-      sessionsCount: 1,
-      studyMinutes,
-      messagesCount,
-      wordsTyped,
-      ...(skillSnapshot && { skillSnapshot }),
-    },
-    update: {
-      sessionsCount: { increment: 1 },
-      studyMinutes: { increment: studyMinutes },
-      messagesCount: { increment: messagesCount },
-      wordsTyped: { increment: wordsTyped },
-      ...(skillSnapshot && { skillSnapshot }),
-    },
-  });
-
-  // Update lifetime metrics
-  const existingMetrics = await prisma.userMetrics.findUnique({
-    where: { userId },
-    select: {
-      currentStreak: true,
-      longestStreak: true,
-      lastStudyDate: true,
-      grammarSkill: true,
-      vocabularySkill: true,
-      fluencySkill: true,
-    },
-  });
-
-  if (!existingMetrics) return;
-
-  // Streak calculation
-  const lastStudy = existingMetrics.lastStudyDate;
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const studiedYesterday = lastStudy && lastStudy >= yesterday && lastStudy < today;
-  const studiedToday = lastStudy && lastStudy >= today;
-  const newStreak = studiedToday
-    ? existingMetrics.currentStreak
-    : studiedYesterday
-      ? existingMetrics.currentStreak + 1
-      : 1;
-  const longestStreak = Math.max(existingMetrics.longestStreak, newStreak);
-
-  // Exponential moving average for skills (85% old + 15% new session)
-  const ema = (old: number, newVal: number) =>
-    newVal > 0 ? Math.round((old * 0.85 + newVal * 0.15) * 10) / 10 : old;
-
-  await prisma.userMetrics.update({
-    where: { userId },
-    data: {
-      totalStudyTimeMinutes: { increment: studyMinutes },
-      totalWordsTyped: { increment: wordsTyped },
-      currentStreak: newStreak,
-      longestStreak,
-      lastStudyDate: today,
-      ...(cefrLevel && { estimatedLevel: cefrLevel }),
-      ...(avgGrammar > 0 && { grammarSkill: ema(existingMetrics.grammarSkill, avgGrammar) }),
-      ...(avgVocab > 0 && { vocabularySkill: ema(existingMetrics.vocabularySkill, avgVocab) }),
-      ...(avgFluency > 0 && { fluencySkill: ema(existingMetrics.fluencySkill, avgFluency) }),
-    },
-  });
-
-  // Fire streak milestone notifications (7-day and 30-day)
-  const prevStreak = existingMetrics.currentStreak;
-  for (const milestone of [7, 30]) {
-    if (prevStreak < milestone && newStreak >= milestone) {
-      await createNotification(
-        userId,
-        "STREAK_MILESTONE",
-        `Amazing! You've reached a ${milestone}-day study streak!`,
-      ).catch(() => {});
-    }
-  }
 }
 
 // ── Session stats ─────────────────────────────────────────

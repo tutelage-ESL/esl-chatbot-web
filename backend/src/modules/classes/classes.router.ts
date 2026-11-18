@@ -601,6 +601,51 @@ router.patch("/:id/archive", authenticate, authorize("TUTOR", "ADMIN"), setArchi
 // ─────────────────────────────────────────────────────────
 /**
  * @swagger
+ * components:
+ *   schemas:
+ *     TaskRecord:
+ *       type: object
+ *       properties:
+ *         total: { type: integer }
+ *         handedIn: { type: integer, description: Includes late and reviewed hand-ins }
+ *         late: { type: integer }
+ *         missing: { type: integer, description: Past the deadline and not handed in }
+ *         reviewed: { type: integer }
+ *     SkillSnapshot:
+ *       type: object
+ *       description: Averages of the student's latest 40 scored chat messages (typed or spoken); speaking = Azure pronunciation on spoken ones
+ *       properties:
+ *         grammar: { type: number, nullable: true }
+ *         vocabulary: { type: number, nullable: true }
+ *         fluency: { type: number, nullable: true }
+ *         speaking: { type: number, nullable: true, description: null until the student has spoken in a voice chat }
+ *         basedOnMessages: { type: integer }
+ *         basedOnSpoken: { type: integer }
+ *         level: { type: string, nullable: true, description: Most common CEFR level the AI gave their latest messages }
+ *     StudentTaskItem:
+ *       type: object
+ *       properties:
+ *         id: { type: string, format: uuid }
+ *         title: { type: string }
+ *         deadline: { type: string, format: date-time, nullable: true }
+ *         taskStatus: { type: string, enum: [OPEN, CLOSED] }
+ *         state: { type: string, enum: [ASSIGNED, MISSING, CLOSED, HANDED_IN, LATE, REVIEWED] }
+ *         handedInAt: { type: string, format: date-time, nullable: true }
+ *     StudentMistake:
+ *       type: object
+ *       properties:
+ *         rule: { type: string }
+ *         count: { type: integer }
+ *         example:
+ *           type: object
+ *           nullable: true
+ *           properties:
+ *             said: { type: string }
+ *             better: { type: string }
+ */
+
+/**
+ * @swagger
  * /classes/{id}/students:
  *   get:
  *     summary: List students in a class with progress data (Tutor in class or Admin)
@@ -644,8 +689,12 @@ router.patch("/:id/archive", authenticate, authorize("TUTOR", "ADMIN"), setArchi
  *                       currentStreak: { type: integer }
  *                       estimatedLevel: { type: string, nullable: true, description: AI-estimated CEFR level from session evaluations }
  *                       totalStudyTimeMinutes: { type: integer }
- *                       grammarSkill: { type: number, description: 0–100 skill score }
- *                       vocabularySkill: { type: number, description: 0–100 skill score }
+ *                       grammarSkill: { type: number, description: "0–100, average of the latest 40 scored chat messages (0 = none yet)" }
+ *                       vocabularySkill: { type: number, description: 0–100 }
+ *                       fluencySkill: { type: number, description: 0–100 }
+ *                       speakingSkill: { type: number, description: "0–100 pronunciation; 0 = no voice practice yet" }
+ *                       lastPracticeAt: { type: string, format: date-time, nullable: true, description: Last message to the AI tutor; null = never practised }
+ *                       tasks: { $ref: '#/components/schemas/TaskRecord' }
  *                       vocabTotal: { type: integer, description: Total vocabulary cards saved }
  *                       vocabDueToday: { type: integer, description: SRS cards due for review today }
  *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
@@ -697,6 +746,8 @@ router.patch("/:id/archive", authenticate, authorize("TUTOR", "ADMIN"), setArchi
  *                         grammar: { type: number, description: 0–100 }
  *                         vocabulary: { type: number, description: 0–100 }
  *                         fluency: { type: number, description: 0–100 }
+ *                         speaking: { type: number, description: 0–100 }
+ *                     practisingStudents: { type: integer, description: "Students with at least one scored message; averages cover only them" }
  *                     mostCommonGrammarErrors:
  *                       type: array
  *                       items:
@@ -762,6 +813,23 @@ router.get("/:id/students", authenticate, listClassStudentsHandler);
  *                     metrics: { type: object, nullable: true, description: Aggregated skill metrics }
  *                     vocabTotal: { type: integer }
  *                     vocabDueToday: { type: integer }
+ *                     skills: { $ref: '#/components/schemas/SkillSnapshot' }
+ *                     practice:
+ *                       type: object
+ *                       properties:
+ *                         lastPracticeAt: { type: string, format: date-time, nullable: true }
+ *                         chats: { type: integer, description: Chats with at least one message }
+ *                         totalStudyTimeMinutes: { type: integer }
+ *                         currentStreak: { type: integer }
+ *                         longestStreak: { type: integer }
+ *                     tasks:
+ *                       type: array
+ *                       items: { $ref: '#/components/schemas/StudentTaskItem' }
+ *                     taskSummary: { $ref: '#/components/schemas/TaskRecord' }
+ *                     mistakes:
+ *                       type: array
+ *                       description: Most frequent grammar mistakes in the last 30 days
+ *                       items: { $ref: '#/components/schemas/StudentMistake' }
  *       400: { description: Target user is not a student, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  *       403: { description: Caller is a student, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }

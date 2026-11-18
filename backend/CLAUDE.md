@@ -362,6 +362,8 @@ Includes: classes (with full code-lifecycle fields populated) with enrolled user
 - ✅ `GET /users/me` — own full profile (displayName, phoneNumber, avatarUrl, authProvider, learnerProfile with all settings, subscription plan/status)
 - ✅ `PATCH /users/me` — update own basic profile: `displayName`, `phoneNumber`, `avatarUrl`
 - ✅ `PATCH /users/me/learner-profile` — update learner settings: currentLevel/targetLevel (CEFR A1–C2), learningPurpose, topicsOfInterest, aiPersonality (FRIENDLY/FORMAL/CASUAL/ENCOURAGING/STRICT/PATIENT), voiceSpeed, autoSpeak, uiLanguage, theme (light/dark), weeklyGoalMinutes, timezone
+- ✅ **Skill scores** (`metrics/skills.service.ts`): grammar / vocabulary / fluency = plain average of the learner's latest 40 scored chat messages (typed or spoken); speaking = average Azure pronunciation score of the latest 40 spoken ones. Recomputed after every scored message (`refreshStoredSkillsInBackground` in `sendMessage` / `sendVoiceMessage`) and stored on `UserMetrics`. Replaced the old 85/15 moving average that started everyone at 0 and only moved on "End session". `bun scripts/recompute-skills.ts` backfills stored values. A 0 skill = no data yet; class analytics average only students who practised (`practisingStudents`).
+- ✅ **Class student progress** (`classes.progress.ts`): `GET /classes/:id/students` adds `fluencySkill`, `speakingSkill`, `lastPracticeAt` (last message to the AI) and `tasks` (handed in / late / missing / reviewed in this class). `GET /classes/:id/students/:userId` adds `skills` (fresh snapshot + how many messages it rests on), `practice`, `tasks` (per-task state), `taskSummary` and `mistakes` (top 5 grammar rules in 30 days with one real example).
 - ✅ **Task comments + files** (`tasks.comments.router.ts`, services `tasks.comments.service.ts` / `tasks.attachments.service.ts`). Tables `task_comments`, `task_attachments` (`commentId` null = file on the task itself) and `tasks.commentsEnabled`.
   - `GET /tasks/:id/comments`: every class member and admins read every comment, oldest first. Each author carries `classRole` (TUTOR/STUDENT/ADMIN).
   - `POST /tasks/:id/comments` (multipart `content` + `files`): any member. Students only while `commentsEnabled`; tutors and admins always. 409 in an archived class.
@@ -426,11 +428,13 @@ Includes: classes (with full code-lifecycle fields populated) with enrolled user
 ### Phase 7 — Metrics & Dashboard
 - ✅ `GET /metrics/me` — own lifetime metrics (streak, study time, skill scores). Auto-creates a zeroed metrics row via upsert if none exists — never returns 404
 - ✅ `GET /metrics/:userId` — tutor/admin view of a student's metrics (tutor must share a class)
-- ✅ UserMetrics auto-updated at session end: totalStudyTimeMinutes, totalWordsTyped, currentStreak, longestStreak, lastStudyDate, estimatedLevel, skill EMA (grammarSkill, vocabularySkill, fluencySkill)
-- ✅ Streak calculation: consecutive-day check against lastStudyDate; streak resets if user skips a day
-- ✅ Skill scores use EMA (85% old + 15% new session) to smooth out single-session spikes
-- ✅ speakingSkill updated from pronunciationScore (voice sessions only — currently placeholder)
-- Admin dashboard: platform-wide analytics (remaining)
+- ✅ **Practice is recorded per message, not at session end** (most learners never press End). `metrics/practice.service.ts` `recordPractice` runs after every text/voice message: today's Progress row (sessionsCount +1 on a session's first message, studyMinutes, messagesCount, wordsTyped), the streak, milestone notifications (7/30/100 days), `refreshStoredSkills`, and a dashboard cache bust. Active minutes = the gap since the previous user message in that session if ≤ 5 min, else 1.
+- ✅ **Learner days, not UTC days.** `utils/learnerDay.ts`: a day is UTC midnight of the learner's local date (`learnerProfile.timezone`, default UTC), matching Prisma `@db.Date`. Streak, Progress rows, "today", "this week" (Monday start) and the streak-reset job all use it. Never use `new Date().setHours(0)` for a learner's day.
+- ✅ **Skills** (`metrics/skills.service.ts`): plain averages over the last 40 scored messages; speaking = pronunciation scores; `level` = most common detectedCefrLevel (stored as estimatedLevel). Null/0 means no data.
+- ✅ **`finalizeSession`** (sessions.service) is shared by End session and the idle-chat job: duration = start → last message (cap 4 h), SessionEvaluation, session vocabulary, skillSnapshot on the learner day of the last message. Guarded by `updateMany where endedAt null`.
+- ✅ **Jobs** (`jobs/index.ts`): streak reset hourly at :05 (per learner time zone: resets when lastStudyDate is before their yesterday); idle-chat close hourly at :20 (sessions with no message for 24 h are finalized).
+- ✅ **Dashboards:** `GET /dashboard/overview` (learner: today, week, skills, vocab, open tasks, goals, 12-week activity, recent chats; cached, busted on practice), `GET /tutor/dashboard` (needs-you lists, class health, skills of practising students, common mistakes; archived classes excluded), `GET /admin/dashboard` (`admin.dashboard.service.ts`: this week vs the 7 days before, funnel, paid plans counted only while unexpired, FIB revenue this vs last month, expiring soon, attention).
+- **Backfill scripts** (run once per environment after deploying this): `bun scripts/recompute-skills.ts` and `bun scripts/rebuild-practice.ts` (rebuild skills, Progress rows and metrics totals/streaks from messages; safe to re-run).
 
 ### FIB Billing — the rules that are easy to get wrong
 
