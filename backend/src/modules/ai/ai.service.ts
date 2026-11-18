@@ -10,7 +10,7 @@ import { openaiTTS } from "./providers/openai.tts.ts";
 import { deepgramSTT } from "./providers/deepgram.stt.ts";
 import { azureSTT } from "./providers/azure.stt.ts";
 import { sanitizeAiReply, htmlToPlainText } from "../../utils/aiReplyFormat.ts";
-import type { AIResponse, ConversationMessage, LearnerContext, MessageEvaluationResult, STTResult } from "./ai.types.ts";
+import type { AIResponse, ConversationMessage, LearnerContext, MessageEvaluationResult, ReplyOptions, STTResult } from "./ai.types.ts";
 import type { Plan } from "@prisma/client";
 
 const isDev = env.NODE_ENV === "development";
@@ -78,8 +78,15 @@ export async function generateAIResponse(
   conversationHistory: ConversationMessage[],
   learner: LearnerContext | null,
   plan: Plan,
+  opts: ReplyOptions = {},
 ): Promise<AIResponse> {
-  const result = await generateAIResponseRaw(userMessage, conversationHistory, learner, plan);
+  const result = await generateAIResponseRaw(userMessage, conversationHistory, learner, plan, opts).catch((err) => {
+    // Every fallback was busy too: say so in words, not the internal sentinel.
+    if (err instanceof Error && err.message === "AI_CAPACITY_OVERLOAD") {
+      throw new AppError("The AI tutor is busy right now. Please try again in a moment.", 503);
+    }
+    throw err;
+  });
   // The LLM's JSON is unvalidated — sanitize once here so every caller gets it
   // for free (see sanitizeAiReply for the rationale). The evaluation's text
   // fields are rendered with escaped interpolation (coach pane, vocab deck), so
@@ -126,6 +133,7 @@ async function generateAIResponseRaw(
   conversationHistory: ConversationMessage[],
   learner: LearnerContext | null,
   plan: Plan,
+  opts: ReplyOptions,
 ): Promise<AIResponse> {
   // No API keys at all — return heuristic placeholder
   if (!env.GEMINI_API_KEY && !env.OPENAI_API_KEY) {
@@ -136,12 +144,15 @@ async function generateAIResponseRaw(
   // If that preview model is overloaded, automatically retry with the stable DEV_FALLBACK_MODEL.
   if (isDev) {
     if (!env.GEMINI_API_KEY) return heuristicResponse(userMessage);
+    // Dev call turns go straight to Lite: Flash on the free key is overloaded most of
+    // the time, which made every local test call wait 10s+ before the fallback.
+    if (opts.spoken) return callGeminiLLM(userMessage, conversationHistory, learner, plan, false, DEV_FALLBACK_MODEL, opts);
     try {
-      return await callGeminiLLM(userMessage, conversationHistory, learner, plan, true);
+      return await callGeminiLLM(userMessage, conversationHistory, learner, plan, true, undefined, opts);
     } catch (err) {
       if (err instanceof Error && err.message === "AI_CAPACITY_OVERLOAD") {
         console.warn(`[AI] gemini-flash-latest overloaded — retrying with ${DEV_FALLBACK_MODEL}`);
-        return callGeminiLLM(userMessage, conversationHistory, learner, plan, false, DEV_FALLBACK_MODEL);
+        return callGeminiLLM(userMessage, conversationHistory, learner, plan, false, DEV_FALLBACK_MODEL, opts);
       }
       throw err;
     }
@@ -151,7 +162,7 @@ async function generateAIResponseRaw(
   if (plan === "PREMIUM") {
     if (env.OPENAI_API_KEY) {
       try {
-        return await callOpenAILLM(userMessage, conversationHistory, learner);
+        return await callOpenAILLM(userMessage, conversationHistory, learner, opts);
       } catch (err) {
         // Auto-fallback: OpenAI failed — transparently switch to Gemini 2.5 Flash.
         // Reported as a warning (not error) because the user still gets a response.
@@ -162,12 +173,12 @@ async function generateAIResponseRaw(
           Sentry.captureException(err);
         });
         if (env.GEMINI_API_KEY) {
-          return callGeminiLLM(userMessage, conversationHistory, learner, plan, false);
+          return callGeminiLLM(userMessage, conversationHistory, learner, plan, false, undefined, opts);
         }
       }
     } else if (env.GEMINI_API_KEY) {
       // No OpenAI key in prod — use Gemini as PREMIUM fallback
-      return callGeminiLLM(userMessage, conversationHistory, learner, plan, false);
+      return callGeminiLLM(userMessage, conversationHistory, learner, plan, false, undefined, opts);
     }
   }
 
@@ -180,8 +191,14 @@ async function generateAIResponseRaw(
   // Gemini served it directly.
   if (env.GEMINI_API_KEY) {
     try {
-      return await callGeminiLLM(userMessage, conversationHistory, learner, plan, false);
+      return await callGeminiLLM(userMessage, conversationHistory, learner, plan, false, undefined, opts);
     } catch (err) {
+      // A call can't wait for OpenAI's slower reply: an overloaded Flash drops to Lite first.
+      if (opts.spoken && plan !== "FREE" && err instanceof Error && err.message === "AI_CAPACITY_OVERLOAD") {
+        try {
+          return await callGeminiLLM(userMessage, conversationHistory, learner, plan, false, DEV_FALLBACK_MODEL, opts);
+        } catch { /* fall through to OpenAI below */ }
+      }
       if (!env.OPENAI_API_KEY) throw err; // no fallback available — surface the real error
       const reason = err instanceof Error ? err.message : String(err);
       logger.warn(`[AI] Gemini failed for ${plan} tier — falling back to OpenAI. Reason: ${reason}`);
@@ -192,7 +209,7 @@ async function generateAIResponseRaw(
         scope.setTag("ai.tier", plan);
         Sentry.captureException(err);
       });
-      return await callOpenAILLM(userMessage, conversationHistory, learner);
+      return await callOpenAILLM(userMessage, conversationHistory, learner, opts);
     }
   }
 
@@ -212,8 +229,10 @@ export async function generateTTS(text: string, plan: Plan): Promise<Buffer> {
     try {
       return await edgeTTS(text);
     } catch (err) {
-      // Edge TTS is dev-only and can fail (unofficial endpoint) — non-fatal in dev
-      console.warn("[TTS] Edge TTS failed in dev, returning empty buffer:", err instanceof Error ? err.message : err);
+      // Edge TTS is unofficial and breaks when Microsoft changes its token (it did in
+      // 2026-11, fixed by msedge-tts 2.1.1). Use Azure if configured, else stay silent.
+      console.warn("[TTS] Edge TTS failed in dev:", err instanceof Error ? err.message : err);
+      if (env.AZURE_SPEECH_KEY) return azureTTS(text).catch(() => Buffer.alloc(0));
       return Buffer.alloc(0);
     }
   }

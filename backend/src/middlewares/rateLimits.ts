@@ -137,6 +137,18 @@ export const sendVoiceMessageLimiter = rateLimit({
   handler: limited("You're sending voice messages too quickly."),
 });
 
+// A live call saves a turn each time someone stops talking; quick back-and-forth runs
+// well past the typed-message limit.
+export const liveTurnLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  skip,
+  keyGenerator: userOrIpKey,
+  handler: limited("You're talking faster than we can save. Please slow down a little."),
+});
+
 // ── User profile endpoints ─────────────────────────────────────────────────────
 
 export const avatarUploadLimiter = rateLimit({

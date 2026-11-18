@@ -1,7 +1,7 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { env } from "../../../config/env.ts";
 import { buildSystemPrompt } from "./prompt.ts";
-import type { AIResponse, ConversationMessage, LearnerContext } from "../ai.types.ts";
+import type { AIResponse, ConversationMessage, LearnerContext, ReplyOptions } from "../ai.types.ts";
 import type { Plan } from "@prisma/client";
 
 // All tiers use Google's rolling aliases, not pinned IDs: pinned 2.5 models returned
@@ -19,6 +19,11 @@ const GEMINI_MODEL_BY_PLAN: Record<Plan, string> = {
 const DEV_MODEL = "gemini-flash-latest";
 export const DEV_FALLBACK_MODEL = "gemini-flash-lite-latest";
 
+// Free-tier Lite answers a call turn in 1.7-9s (measured 2026-11); an overloaded Flash can
+// hang for minutes. Flash gets a short limit because Lite is behind it; Lite is the last try.
+const SPOKEN_TIMEOUT_MS = { flash: 8_000, lite: 15_000 };
+const TEXT_TIMEOUT_MS = 30_000;
+
 export async function callGeminiLLM(
   userMessage: string,
   conversationHistory: ConversationMessage[],
@@ -26,6 +31,7 @@ export async function callGeminiLLM(
   plan: Plan,
   isDev = false,
   modelOverride?: string,
+  opts: ReplyOptions = {},
 ): Promise<AIResponse> {
   if (!env.GEMINI_API_KEY) {
     throw new Error("GEMINI_API_KEY is not configured");
@@ -49,15 +55,27 @@ export async function callGeminiLLM(
       model,
       contents,
       config: {
-        systemInstruction: buildSystemPrompt(learner),
+        systemInstruction: buildSystemPrompt(learner, opts),
+        // Calls wait on this reply, so think as little as the model allows (measured: Lite
+        // 2.2s -> 1.5s). Gemini 3 Flash rejects MINIMAL, so it gets LOW.
+        ...(opts.spoken
+          ? { thinkingConfig: { thinkingLevel: model.includes("lite") ? ThinkingLevel.MINIMAL : ThinkingLevel.LOW } }
+          : {}),
         responseMimeType: "application/json",
         temperature: 0.7,
         maxOutputTokens: 2500,
+        // An overloaded Flash can hang for minutes (measured 2026-11); give up and fall back.
+        abortSignal: AbortSignal.timeout(
+          opts.spoken ? SPOKEN_TIMEOUT_MS[model.includes("lite") ? "lite" : "flash"] : TEXT_TIMEOUT_MS,
+        ),
       },
     });
   } catch (err) {
     // Extract a clean message from the Gemini SDK error (it embeds raw JSON in the message)
     const raw = err instanceof Error ? err.message : String(err);
+    if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError" || raw.toLowerCase().includes("abort"))) {
+      throw new Error("AI_CAPACITY_OVERLOAD");
+    }
     const isQuota = raw.includes("RESOURCE_EXHAUSTED") || raw.includes("quota") || raw.includes("429");
     if (isQuota) {
       throw new Error("AI quota exceeded — please try again in a few minutes.");

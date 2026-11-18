@@ -76,3 +76,20 @@ export interface SessionStatsData {
   averageDurationSeconds: number;
   dailyStats: SessionDayStat[];
 }
+
+/** Why a new conversation can't start right now (null = it can). */
+export type SessionBlockReason = "INACTIVE" | "SESSION_LIMIT" | "MESSAGE_LIMIT";
+
+export interface SessionUsageData {
+  plan: "FREE" | "GOLD" | "PREMIUM";
+  active: boolean;
+  sessionsToday: number;
+  sessionsPerDay: number;
+  messagesToday: number;
+  /** Only FREE has a daily message cap; null = no cap. */
+  messagesPerDay: number | null;
+  canStart: boolean;
+  reason: SessionBlockReason | null;
+  /** Seconds until the daily counters reset (local midnight on the server). */
+  resetsInSeconds: number;
+}

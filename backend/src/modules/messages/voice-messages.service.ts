@@ -110,11 +110,13 @@ export async function sendVoiceMessage(
   }
 
   // ── 3b. Upload recording (transcript is valid — safe to persist now) ───────
-  const recordingUrl = await uploadToR2(recordingKey, audioBuffer, mimeType).catch((err) => {
-    console.error("[R2] Recording upload failed:", err instanceof Error ? err.message : err);
-    return null;
-  });
-  if (recordingUrl) uploadedKeys.push(recordingKey);
+  // Not awaited here: it runs while the AI writes its reply.
+  const recordingUpload = uploadToR2(recordingKey, audioBuffer, mimeType)
+    .then((url) => { uploadedKeys.push(recordingKey); return url; })
+    .catch((err) => {
+      console.error("[R2] Recording upload failed:", err instanceof Error ? err.message : err);
+      return null;
+    });
 
   try {
     // ── 4. LLM — AI response + evaluation ───────────────────────────────────
@@ -165,6 +167,8 @@ export async function sendVoiceMessage(
     const pronunciation = sttResult.pronunciation ?? null;
     const pronScore = pronunciation ? pronunciation.overallScore : null;
     const pronIssues = pronunciation?.issues.length ? pronunciation.issues : null;
+
+    const recordingUrl = await recordingUpload;
 
     // ── 6. Persist in a single transaction ──────────────────────────────────
     const result = await prisma.$transaction(async (tx) => {
@@ -269,6 +273,7 @@ export async function sendVoiceMessage(
     };
   } catch (err) {
     // Delete any R2 objects uploaded before the failure so the bucket stays clean
+    await recordingUpload;
     await Promise.allSettled(uploadedKeys.map((k) => deleteFromR2(k).catch(() => {})));
     throw err;
   }

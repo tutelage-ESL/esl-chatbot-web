@@ -35,8 +35,9 @@ export async function deepgramSTT(audioBuffer: Buffer, mimeType: string): Promis
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const alternative = (response as any)?.results?.channels?.[0]?.alternatives?.[0];
 
+  // Silence or noise only: an empty transcript, which the caller reports as "no speech" (422).
   if (!alternative?.transcript) {
-    throw new Error("Deepgram returned empty transcript");
+    return { transcript: "", confidence: 0, words: [] };
   }
 
   return {

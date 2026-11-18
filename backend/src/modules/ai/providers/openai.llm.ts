@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { env } from "../../../config/env.ts";
 import { buildSystemPrompt } from "./prompt.ts";
-import type { AIResponse, ConversationMessage, LearnerContext } from "../ai.types.ts";
+import type { AIResponse, ConversationMessage, LearnerContext, ReplyOptions } from "../ai.types.ts";
 
 // PREMIUM tier only — GPT-5 mini
 // To upgrade to full GPT-5: change model string here (same OPENAI_API_KEY)
@@ -11,6 +11,7 @@ export async function callOpenAILLM(
   userMessage: string,
   conversationHistory: ConversationMessage[],
   learner: LearnerContext | null,
+  opts: ReplyOptions = {},
 ): Promise<AIResponse> {
   if (!env.OPENAI_API_KEY) {
     throw new Error("OPENAI_API_KEY is not configured");
@@ -19,7 +20,7 @@ export async function callOpenAILLM(
   const client = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-    { role: "system", content: buildSystemPrompt(learner) },
+    { role: "system", content: buildSystemPrompt(learner, opts) },
     ...conversationHistory.map((m) => ({
       role: (m.role === "USER" ? "user" : "assistant") as "user" | "assistant",
       content: m.content,

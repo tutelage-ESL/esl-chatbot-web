@@ -37,7 +37,12 @@ const envSchema = z.object({
   OPENAI_API_KEY: z.string().optional(),   // PREMIUM tier LLM (GPT-5 mini) + TTS (TTS-1-HD)
   GEMINI_API_KEY: z.string().optional(),   // Dev + FREE + GOLD tier LLM (Gemini)
   AZURE_SPEECH_KEY: z.string().optional(), // FREE + GOLD TTS (Neural) + GOLD + PREMIUM STT + Pronunciation
-  AZURE_SPEECH_REGION: z.string().optional(),
+  // Azure wants the region id ("uaenorth"); a display name ("UAE North") made every Azure
+  // speech call fail with "Unable to contact server", so normalize whatever is stored.
+  AZURE_SPEECH_REGION: z
+    .string()
+    .optional()
+    .transform((v) => v?.toLowerCase().replace(/[^a-z0-9]/g, "") || undefined),
   DEEPGRAM_API_KEY: z.string().optional(), // Dev + FREE STT (Nova-3, $200 signup credit)
 
   // Cloudflare R2 — optional; audio/avatar uploads fall back to local disk in dev or throw in prod

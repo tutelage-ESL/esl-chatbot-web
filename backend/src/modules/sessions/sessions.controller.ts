@@ -11,6 +11,7 @@ import {
   updateSessionSchema,
 } from "./sessions.schema.ts";
 import { updateSession, deleteSession } from "./sessions.manage.service.ts";
+import { getSessionUsage } from "./sessions.usage.service.ts";
 import {
   createSession,
   listSessions,
@@ -75,4 +76,9 @@ export const getSessionStatsHandler =asyncHandler(async (req: Request, res: Resp
   const targetUserId = query.userId ?? req.user.id;
   const stats = await getSessionStats(targetUserId, query.days, req.user.id, req.user.role);
   sendSuccess(res, stats, "Session stats retrieved");
+});
+
+export const getSessionUsageHandler = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.user) throw new AppError("Authentication required", 401);
+  sendSuccess(res, await getSessionUsage(req.user.id), "Usage retrieved");
 });

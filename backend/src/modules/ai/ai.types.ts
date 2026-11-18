@@ -43,6 +43,11 @@ export interface ConversationMessage {
   content: string;
 }
 
+/** spoken = a live call turn: short spoken reply, quick model settings. */
+export interface ReplyOptions {
+  spoken?: boolean;
+}
+
 export interface LearnerContext {
   currentLevel: string | null;
   targetLevel: string | null;

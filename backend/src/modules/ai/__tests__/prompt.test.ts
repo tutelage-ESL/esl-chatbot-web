@@ -36,3 +36,20 @@ describe("buildSystemPrompt level rules", () => {
     expect(buildSystemPrompt(learner("A1", "ku"))).toContain("Native language: Kurdish (Sorani)\n");
   });
 });
+
+describe("buildSystemPrompt call mode", () => {
+  it("asks for a short English spoken reply with no layout or Kurdish line", () => {
+    const p = buildSystemPrompt(learner("A1", "ku"), { spoken: true });
+    expect(p).toContain("LIVE VOICE CALL");
+    expect(p).toContain("English only");
+    expect(p).not.toContain("Kurdish Sorani (Arabic script)");
+    expect(p).not.toContain("<ul> or <ol>");
+    expect(p).toContain("The student is a BEGINNER");
+  });
+
+  it("keeps the text rules for typed chat", () => {
+    const p = buildSystemPrompt(learner("A1", "ku"));
+    expect(p).not.toContain("LIVE VOICE CALL");
+    expect(p).toContain("Kurdish Sorani (Arabic script)");
+  });
+});

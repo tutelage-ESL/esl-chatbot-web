@@ -13,6 +13,8 @@ import type { STTResult, PronunciationIssue } from "../ai.types.ts";
 function getAudioFormat(mimeType: string): sdk.AudioStreamFormat {
   const base = (mimeType.split(";")[0] ?? mimeType).trim();
   switch (base) {
+    case "audio/pcm": // raw 16 kHz 16-bit mono, as the Voice Lab live call records it
+      return sdk.AudioStreamFormat.getWaveFormatPCM(16000, 16, 1);
     case "audio/webm":
       return sdk.AudioStreamFormat.getWaveFormat(16000, 16, 1, sdk.AudioFormatTag.WEBM_OPUS);
     case "audio/ogg":

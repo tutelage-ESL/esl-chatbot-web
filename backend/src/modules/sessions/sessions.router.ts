@@ -5,6 +5,7 @@ import {
   getSessionHandler,
   endSessionHandler,
   getSessionStatsHandler,
+  getSessionUsageHandler,
   updateSessionHandler,
   deleteSessionHandler,
 } from "./sessions.controller.ts";
@@ -191,6 +192,45 @@ const router = Router();
  *       422: { description: Invalid query params, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  */
 router.get("/stats", authenticate, getSessionStatsHandler);
+
+/**
+ * @swagger
+ * /sessions/usage:
+ *   get:
+ *     summary: Today's plan usage — can the caller start a conversation right now?
+ *     description: |
+ *       Same rules as `POST /sessions` and sending a message: an ACTIVE subscription,
+ *       the daily session cap (all modes), and FREE's daily message cap. Pages use it
+ *       to show a locked state up front instead of failing mid-conversation.
+ *     tags: [Sessions]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Usage
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 message: { type: string }
+ *                 data:
+ *                   type: object
+ *                   required: [plan, active, sessionsToday, sessionsPerDay, messagesToday, messagesPerDay, canStart, reason, resetsInSeconds]
+ *                   properties:
+ *                     plan: { type: string, enum: [FREE, GOLD, PREMIUM] }
+ *                     active: { type: boolean, description: Subscription status is ACTIVE }
+ *                     sessionsToday: { type: integer }
+ *                     sessionsPerDay: { type: integer }
+ *                     messagesToday: { type: integer }
+ *                     messagesPerDay: { type: integer, nullable: true, description: FREE only; null = no daily cap }
+ *                     canStart: { type: boolean }
+ *                     reason: { type: string, nullable: true, enum: [INACTIVE, SESSION_LIMIT, MESSAGE_LIMIT] }
+ *                     resetsInSeconds: { type: integer, description: Seconds until the daily counters reset }
+ *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ */
+router.get("/usage", authenticate, getSessionUsageHandler);
 
 router.get("/", authenticate, listSessionsHandler);
 

@@ -1,7 +1,6 @@
 import type { Namespace } from "socket.io";
 import { z } from "zod/v4";
-import { DeepgramClient } from "@deepgram/sdk";
-import { env } from "../config/env.ts";
+import { openLiveTranscript, type LiveTranscript } from "../modules/ai/providers/deepgram.live.ts";
 import { sendVoiceMessage } from "../modules/messages/voice-messages.service.ts";
 import { AppError } from "../utils/AppError.ts";
 import { prisma } from "../config/database.ts";
@@ -15,10 +14,8 @@ import type { AuthSocket } from "./index.ts";
 import type { Plan } from "@prisma/client";
 
 interface VoiceState {
-  // V1Socket from Deepgram SDK — null when key absent, unsupported mime, or after close
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  conn: any | null;
-  connReady: boolean; // true once the Deepgram WebSocket handshake completes
+  // Live captions — null when the key is absent or the format is unsupported
+  conn: LiveTranscript | null;
   chunks: Buffer[];   // full recording buffer — sent to sendVoiceMessage on voice:end
   mimeType: string;
 }
@@ -68,9 +65,8 @@ function softLimitWarning(
   return null;
 }
 
-function closeConn(conn: any): void {
-  try { conn.sendCloseStream({}); } catch { /* ignore */ }
-  try { conn.close(); }            catch { /* ignore */ }
+function closeConn(conn: LiveTranscript): void {
+  conn.close();
 }
 
 export function initVoiceHandlers(namespace: Namespace): void {
@@ -91,74 +87,41 @@ export function initVoiceHandlers(namespace: Namespace): void {
       }
       const { sessionId, mimeType } = parsed.data;
 
+      // Buffer before any await: the browser's first chunk (~250ms in) carries the WebM
+      // header, and losing it to a slow lookup made the whole recording undecodable.
+      const prev = map.get(sessionId);
+      if (prev?.conn) closeConn(prev.conn);
+      const state: VoiceState = { conn: null, chunks: [], mimeType };
+      map.set(sessionId, state);
+      const drop = () => { if (map.get(sessionId) === state) map.delete(sessionId); };
+
       const session = await prisma.conversationSession.findUnique({
         where:  { id: sessionId },
         select: { userId: true, endedAt: true, deletedAt: true },
       });
       if (!session || session.userId !== userId || session.deletedAt) {
+        drop();
         socket.emit("voice:error", { sessionId, code: "SESSION_NOT_FOUND", message: "Session not found" });
         return;
       }
       if (session.endedAt) {
+        drop();
         socket.emit("voice:error", { sessionId, code: "SESSION_ENDED", message: "Session has ended" });
         return;
       }
 
-      // Tear down any stale recording for this session before starting fresh
-      const prev = map.get(sessionId);
-      if (prev?.conn) closeConn(prev.conn);
-
-      const state: VoiceState = { conn: null, connReady: false, chunks: [], mimeType };
-      map.set(sessionId, state);
-
-      // Open Deepgram live connection for partial transcript display (UX only).
-      // If the key is absent or the format is unsupported, recording still works —
-      // partial transcripts just won't appear.
+      // Live captions (UX only). Without a key or for an unsupported format, recording
+      // still works; the learner just doesn't see their words appear.
       const encoding = mimeToEncoding(mimeType);
-      if (env.DEEPGRAM_API_KEY && encoding) {
-        try {
-          const client = new DeepgramClient({ apiKey: env.DEEPGRAM_API_KEY });
-          // connect() is async — it opens the WebSocket to Deepgram
-          const conn = await client.listen.v1.connect({
-            model:           "nova-3" as any,
-            language:        "en"    as any,
-            interim_results: "true"  as any, // fires partial results on every word group
-            smart_format:    "true"  as any,
-            punctuate:       "true"  as any,
-            encoding:        encoding as any,
-            sample_rate:     48000   as any,
-            Authorization:   "",
-          });
-
-          conn.on("open", () => {
-            state.connReady = true;
-            // Flush any chunks that arrived before the WebSocket handshake completed
-            for (const chunk of state.chunks) {
-              try { conn.sendMedia(chunk); } catch { /* non-fatal */ }
-            }
-          });
-
-          conn.on("message", (result: any) => {
-            const text: string = result?.channel?.alternatives?.[0]?.transcript ?? "";
-            if (!text) return;
-            socket.emit("voice:partial_transcript", {
-              sessionId,
-              text,
-              isFinal: !!result.is_final,
-            });
-          });
-
-          conn.on("error", (err: unknown) => {
-            // Non-fatal: live preview stops but the recording buffer is intact
-            console.error("[VoiceSocket] Deepgram live error:", err);
-            state.conn = null;
-          });
-
-          state.conn = conn;
-        } catch (err) {
-          // Failed to open live connection — continue without partial transcripts
-          console.error("[VoiceSocket] Failed to open Deepgram live connection:", err);
-        }
+      if (encoding) {
+        // Deepgram sends each finished sentence once; keep them so the caption grows.
+        let finished = "";
+        state.conn = openLiveTranscript(encoding, (text, isFinal) => {
+          const shown = `${finished} ${text}`.trim();
+          if (isFinal) finished = shown;
+          socket.emit("voice:partial_transcript", { sessionId, text: shown, isFinal });
+        });
+        for (const chunk of state.chunks) state.conn?.send(chunk); // what arrived during the lookup
       }
 
       socket.emit("voice:started", { sessionId });
@@ -178,10 +141,8 @@ export function initVoiceHandlers(namespace: Namespace): void {
       const chunk = Buffer.from(b64, "base64");
       state.chunks.push(chunk);
 
-      // Only forward after handshake — pre-handshake chunks are flushed in the open handler
-      if (state.conn && state.connReady) {
-        try { state.conn.sendMedia(chunk); } catch { /* non-fatal */ }
-      }
+      // Chunks sent before the handshake completes are queued inside the live connection
+      state.conn?.send(chunk);
     });
 
     // ── voice:end ─────────────────────────────────────────────
@@ -217,6 +178,8 @@ export function initVoiceHandlers(namespace: Namespace): void {
 
       try {
         const result = await sendVoiceMessage(userId, sessionId, audioBuffer, state.mimeType);
+        // The audio goes out once, in voice:tts below, not also inside message:response.
+        const { audioBase64, ...saved } = result;
 
         const [subscription, userMessageCount] = await Promise.all([
           prisma.subscription.findUnique({ where: { userId }, select: { plan: true } }),
@@ -235,15 +198,15 @@ export function initVoiceHandlers(namespace: Namespace): void {
         socket.emit("message:response", {
           sessionId,
           clientMsgId,
-          ...result,
+          ...saved,
           softLimitWarning: softLimitWarning(userMessageCount, plan),
         });
 
-        if (result.audioBase64) {
+        if (audioBase64) {
           socket.emit("voice:tts", {
             sessionId,
             clientMsgId,
-            audioBase64: result.audioBase64,
+            audioBase64,
             mimeType:    "audio/mpeg",
           });
         }
