@@ -171,7 +171,7 @@ Each module under `src/modules/[name]/` follows:
 | Plan | FREE, GOLD, PREMIUM |
 | SubStatus | ACTIVE, INACTIVE, CANCELLED, PAST_DUE |
 | VocabSource | MANUAL, SESSION, ASSIGNED — MANUAL=user added, SESSION=AI-detected, ASSIGNED=given by a tutor/admin (see Vocabulary.assignedByTutorId) |
-| NotificationType | STREAK_MILESTONE, GOAL_COMPLETED, GOAL_ASSIGNED, VOCABULARY_ASSIGNED, CLASS_ANNOUNCEMENT, TASK_ASSIGNED, TASK_SUBMITTED |
+| NotificationType | STREAK_MILESTONE, GOAL_COMPLETED, GOAL_ASSIGNED, VOCABULARY_ASSIGNED, CLASS_ANNOUNCEMENT, TASK_ASSIGNED, TASK_SUBMITTED, ANNOUNCEMENT_COMMENT |
 | TaskStatus | OPEN, CLOSED — used on Task.status; OPEN = accepting submissions, CLOSED = no more submissions |
 
 ### Models
@@ -480,7 +480,7 @@ Check them off (✅) as they are built.
 ### Classes
 - ✅ `PATCH /classes/:id` — tutor or admin updates class name, category, or status (ACTIVE/INACTIVE). Simple PATCH with all fields optional. Authorization: tutor of the class or admin.
 - ✅ `GET /classes/:id/analytics` — class-wide aggregated analytics for tutors: average skill scores (grammar/vocab/fluency) across all students, most common grammar weaknesses (from MessageEvaluation.grammarErrors), vocabulary coverage. Tutor + admin only.
-- ✅ `GET /classes/:id/announcements` + `POST /classes/:id/announcements` — tutor broadcasts a text update or homework note to the class. Simple model: `{ classId, authorId, content, createdAt }`. Students see the list on the class page. No replies needed at first. POST fires `CLASS_ANNOUNCEMENT` notification to all student members.
+- ✅ **Announcements** (`modules/announcements`, rules in `announcements.access.ts`): `GET/POST /classes/:id/announcements` (POST takes JSON or multipart with up to 5 `files`, 10 per announcement; fires `CLASS_ANNOUNCEMENT` to all student members), `PATCH/DELETE /:announcementId`, `POST /:announcementId/attachments`, `DELETE /:announcementId/attachments/:attachmentId`, `GET .../download` (5-min signed link), and text-only comments `GET/POST /:announcementId/comments`, `PATCH/DELETE /:announcementId/comments/:commentId`. Who: post + `commentsEnabled` on/off = tutor of the class or admin; edit text / delete / files = the author or an admin; comment = any member, students only while `commentsEnabled` (default true); edit a comment = its author; delete a comment = author, class tutor or admin; non-members get 404; nothing new in an archived class (409). A new comment notifies the announcement author + earlier commenters (`ANNOUNCEMENT_COMMENT`, data `{ classId, announcementId }`), never the commenter. Files are stored like task files under `announcements/{id}/` (`storeTaskFiles(..., "announcements")`). The list returns `attachments` and `commentCount`; comments load per announcement.
 
 ### Sessions & Conversation
 - ✅ `GET /sessions/stats` — session history summary for charts: sessions per day over last N days, average session duration. Filterable by `?days=30` (max 90). Own stats only (students); tutor/admin can add `?userId=`.
@@ -494,4 +494,4 @@ Check them off (✅) as they are built.
 
 ### Admin & Notifications
 - ✅ `GET /admin/dashboard` — platform-wide stats for the admin panel: total users by role, active subscriptions by plan (FREE/GOLD/PREMIUM counts), daily/weekly active users (users with a session in last 1/7 days), total sessions today, revenue by payment method (CASH/FIB/STRIPE). Single aggregated query, no pagination needed.
-- ✅ `GET /users/me/notifications` + `PATCH /users/me/notifications/read-all` + `PATCH /users/me/notifications/:id/read` — in-app notification feed. All 7 types implemented: `STREAK_MILESTONE`, `GOAL_COMPLETED`, `GOAL_ASSIGNED`, `VOCABULARY_ASSIGNED`, `CLASS_ANNOUNCEMENT`, `TASK_ASSIGNED`, `TASK_SUBMITTED`. Filter by `?read=false`. Notification model has a `data Json?` field carrying routing metadata (`{ classId, taskId, goalId, vocabularyId }`) — used by the frontend to deep-link to the relevant page+tab.
+- ✅ `GET /users/me/notifications` + `PATCH /users/me/notifications/read-all` + `PATCH /users/me/notifications/:id/read` — in-app notification feed. All 8 types implemented: `STREAK_MILESTONE`, `GOAL_COMPLETED`, `GOAL_ASSIGNED`, `VOCABULARY_ASSIGNED`, `CLASS_ANNOUNCEMENT`, `TASK_ASSIGNED`, `TASK_SUBMITTED`, `ANNOUNCEMENT_COMMENT`. Filter by `?read=false`. Notification model has a `data Json?` field carrying routing metadata (`{ classId, taskId, goalId, vocabularyId }`) — used by the frontend to deep-link to the relevant page+tab.

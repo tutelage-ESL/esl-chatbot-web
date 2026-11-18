@@ -109,6 +109,7 @@ enum NotificationType {
   CLASS_ANNOUNCEMENT
   TASK_ASSIGNED
   TASK_SUBMITTED
+  ANNOUNCEMENT_COMMENT
 }
 
 enum TaskStatus {
@@ -175,6 +176,8 @@ model User {
   taskSubmissions  TaskSubmission[]  @relation("TaskSubmitter")
   taskComments     TaskComment[]     @relation("TaskCommentAuthor")
   taskAttachments  TaskAttachment[]  @relation("TaskAttachmentUploader")
+  announcementComments    AnnouncementComment[]    @relation("AnnouncementCommentAuthor")
+  announcementAttachments AnnouncementAttachment[] @relation("AnnouncementAttachmentUploader")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -576,17 +579,59 @@ model RefreshToken {
 // ─── Announcements ───────────────────────────────────────
 
 model Announcement {
-  id       String @id @default(uuid())
-  classId  String
-  authorId String
-  content  String
+  id              String    @id @default(uuid())
+  classId         String
+  authorId        String
+  content         String
+  // Tutors switch comments off per announcement; on by default
+  commentsEnabled Boolean   @default(true)
+  editedAt        DateTime?
 
-  class  Class @relation(fields: [classId], references: [id], onDelete: Cascade)
-  author User  @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  class       Class                    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  author      User                     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments    AnnouncementComment[]
+  attachments AnnouncementAttachment[]
 
   createdAt DateTime @default(now())
 
   @@map("announcements")
+}
+
+// Text-only class comments under an announcement
+model AnnouncementComment {
+  id             String    @id @default(uuid())
+  announcementId String
+  authorId       String
+  content        String
+  editedAt       DateTime?
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  author       User         @relation("AnnouncementCommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([announcementId, createdAt])
+  @@map("announcement_comments")
+}
+
+// A file the author attached to an announcement (stored like task files)
+model AnnouncementAttachment {
+  id             String @id @default(uuid())
+  announcementId String
+  uploadedById   String
+  fileName       String
+  fileUrl        String
+  mimeType       String
+  size           Int
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  uploadedBy   User         @relation("AnnouncementAttachmentUploader", fields: [uploadedById], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([announcementId])
+  @@map("announcement_attachments")
 }
 
 // ─── Notifications ───────────────────────────────────────

@@ -11,12 +11,16 @@ function cleanFileName(name: string): string {
 }
 
 /** Uploads every file; if one fails, the ones already stored are removed again. */
-export async function storeTaskFiles(taskId: string, files: UploadedFile[]): Promise<StoredFile[]> {
+export async function storeTaskFiles(
+  ownerId: string,
+  files: UploadedFile[],
+  folder: "tasks" | "announcements" = "tasks",
+): Promise<StoredFile[]> {
   const stored: StoredFile[] = [];
   try {
     for (const f of files) {
       const fileName = cleanFileName(f.originalname);
-      const fileUrl = await uploadTaskFile(f.buffer, taskId, f.mimetype, fileName);
+      const fileUrl = await uploadTaskFile(f.buffer, ownerId, f.mimetype, fileName, folder);
       stored.push({ fileName, fileUrl, mimeType: f.mimetype, size: f.size });
     }
     return stored;

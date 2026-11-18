@@ -32,9 +32,11 @@ const router = Router();
  *       - `CLASS_ANNOUNCEMENT` — new announcement in one of your classes
  *       - `TASK_ASSIGNED` — a new task was posted in one of your classes
  *       - `TASK_SUBMITTED` — a student submitted a task (tutor-facing)
+ *       - `ANNOUNCEMENT_COMMENT` — someone commented on an announcement you posted or commented on
  *
  *       The `data` field carries routing metadata when present (may be null for older notifications):
- *       - `classId` — for CLASS_ANNOUNCEMENT, TASK_ASSIGNED, TASK_SUBMITTED
+ *       - `classId` — for CLASS_ANNOUNCEMENT, TASK_ASSIGNED, TASK_SUBMITTED, ANNOUNCEMENT_COMMENT
+ *       - `announcementId` — for ANNOUNCEMENT_COMMENT
  *       - `taskId` — for TASK_ASSIGNED, TASK_SUBMITTED
  *       - `goalId` — for GOAL_ASSIGNED, GOAL_COMPLETED
  *       - `vocabularyId` — for VOCABULARY_ASSIGNED
@@ -69,7 +71,7 @@ const router = Router();
  *                       id: { type: string, format: uuid }
  *                       type:
  *                         type: string
- *                         enum: [STREAK_MILESTONE, GOAL_COMPLETED, GOAL_ASSIGNED, VOCABULARY_ASSIGNED, CLASS_ANNOUNCEMENT, TASK_ASSIGNED, TASK_SUBMITTED]
+ *                         enum: [STREAK_MILESTONE, GOAL_COMPLETED, GOAL_ASSIGNED, VOCABULARY_ASSIGNED, CLASS_ANNOUNCEMENT, TASK_ASSIGNED, TASK_SUBMITTED, ANNOUNCEMENT_COMMENT]
  *                       message: { type: string }
  *                       read: { type: boolean }
  *                       data:
@@ -147,7 +149,7 @@ router.patch("/me/notifications/read-all", authenticate, markAllReadHandler);
  *                     id: { type: string, format: uuid }
  *                     type:
  *                       type: string
- *                       enum: [STREAK_MILESTONE, GOAL_COMPLETED, GOAL_ASSIGNED, VOCABULARY_ASSIGNED, CLASS_ANNOUNCEMENT, TASK_ASSIGNED, TASK_SUBMITTED]
+ *                       enum: [STREAK_MILESTONE, GOAL_COMPLETED, GOAL_ASSIGNED, VOCABULARY_ASSIGNED, CLASS_ANNOUNCEMENT, TASK_ASSIGNED, TASK_SUBMITTED, ANNOUNCEMENT_COMMENT]
  *                     message: { type: string }
  *                     read: { type: boolean, example: true }
  *                     data:

@@ -125,10 +125,11 @@ export async function signedDownloadUrl(fileUrl: string, fileName: string): Prom
 
 export async function uploadTaskFile(
   buffer: Buffer,
-  taskId: string,
+  ownerId: string,
   mimeType: string,
   fileName: string,
+  folder: "tasks" | "announcements" = "tasks",
 ): Promise<string> {
   const ext = TASK_FILE_EXT[mimeType] ?? ".bin";
-  return storeFile(`tasks/${taskId}/${randomUUID()}${ext}`, buffer, mimeType, fileName);
+  return storeFile(`${folder}/${ownerId}/${randomUUID()}${ext}`, buffer, mimeType, fileName);
 }
