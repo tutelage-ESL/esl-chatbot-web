@@ -162,6 +162,7 @@ model User {
   messages       Message[]
   vocabularies   Vocabulary[]
   assignedVocabularies Vocabulary[]     @relation("VocabAssigner")
+  vocabularyLists      VocabularyList[] @relation("VocabListCreator")
   goals          Goal[]
   assignedGoals  Goal[]                @relation("GoalAssigner")
   progress       Progress[]
@@ -210,6 +211,7 @@ model Class {
   users         ClassUser[]
   announcements Announcement[]
   tasks         Task[]
+  vocabularyLists VocabularyList[]
   createdBy User?       @relation("ClassCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
@@ -447,12 +449,35 @@ model Vocabulary {
 
   user            User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   assignedByTutor User? @relation("VocabAssigner", fields: [assignedByTutorId], references: [id], onDelete: SetNull)
+  // Set when the word came from a class word list (tutor/admin assigned it to the class).
+  listId String?
+  list   VocabularyList? @relation(fields: [listId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([userId, word])
+  @@index([listId])
   @@map("vocabularies")
+}
+
+// A named set of words a tutor/admin assigned to students of a class (e.g. "Unit 3 verbs").
+// Each student gets their own Vocabulary rows (source ASSIGNED, listId set), so progress
+// stays per student; the list is what the class Vocabulary tab and the student's grouping show.
+model VocabularyList {
+  id          String  @id @default(uuid())
+  classId     String
+  title       String
+  createdById String?
+
+  class     Class        @relation(fields: [classId], references: [id], onDelete: Cascade)
+  createdBy User?        @relation("VocabListCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  words     Vocabulary[]
+
+  createdAt DateTime @default(now())
+
+  @@index([classId])
+  @@map("vocabulary_lists")
 }
 
 // ─── Goals ───────────────────────────────────────────────

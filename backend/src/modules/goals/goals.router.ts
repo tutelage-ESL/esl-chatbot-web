@@ -235,7 +235,9 @@ router.get("/:id", authenticate, getGoalHandler);
  *       401:
  *         $ref: '#/components/responses/Unauthorized'
  *       403:
- *         $ref: '#/components/responses/Forbidden'
+ *         description: "No access, or a student editing (not just progress/status) a goal a teacher or admin gave them"
+ *       409:
+ *         description: The goal is completed; only an admin can change it
  *       404:
  *         $ref: '#/components/responses/NotFound'
  *       422:
@@ -248,7 +250,7 @@ router.patch("/:id", authenticate, updateGoalHandler);
  * /goals/{id}:
  *   delete:
  *     summary: Delete a goal
- *     description: Students can delete their own goals. Tutors can delete goals they assigned. Admins can delete any goal.
+ *     description: Students can delete goals they set themselves (not ones a teacher or admin gave them). Tutors can delete goals they assigned. Admins can delete any goal.
  *     tags: [Goals]
  *     security:
  *       - bearerAuth: []

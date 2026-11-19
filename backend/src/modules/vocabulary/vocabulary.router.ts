@@ -10,6 +10,9 @@ import {
   reviewVocabularyHandler,
 } from "./vocabulary.controller.ts";
 import { authenticate } from "../../middlewares/authenticate.ts";
+import { authorize } from "../../middlewares/authorize.ts";
+import { enrichWordsHandler } from "./vocabulary.lists.controller.ts";
+import { sendMessageLimiter } from "../../middlewares/rateLimits.ts";
 
 const router = Router();
 
@@ -231,6 +234,51 @@ router.get("/due", authenticate, getDueCardsHandler);
  *         $ref: '#/components/responses/ValidationError'
  */
 router.post("/", authenticate, addVocabularyHandler);
+
+/**
+ * @swagger
+ * /vocabulary/enrich:
+ *   post:
+ *     summary: AI writes meaning, example and part of speech for words (tutor/admin)
+ *     description: |
+ *       For the teacher to check before assigning a word list. Written for Kurdish
+ *       learners at A1–B1. A field the AI skipped comes back empty for the teacher to fill.
+ *     tags: [Vocabulary]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [words]
+ *             properties:
+ *               words: { type: array, minItems: 1, maxItems: 30, items: { type: string, maxLength: 100 } }
+ *     responses:
+ *       200:
+ *         description: One card per word, in the same order
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 message: { type: string }
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     required: [word, definition, example, partOfSpeech]
+ *                     properties:
+ *                       word: { type: string }
+ *                       definition: { type: string }
+ *                       example: { type: string }
+ *                       partOfSpeech: { type: string }
+ *       403: { description: Students can't use this, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       503: { description: AI busy or not configured, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ */
+router.post("/enrich", authenticate, authorize("TUTOR", "ADMIN"), sendMessageLimiter, enrichWordsHandler);
 
 /**
  * @swagger

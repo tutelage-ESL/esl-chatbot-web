@@ -146,6 +146,12 @@ function assertCanAccess(goal: GoalItem, callerId: string, callerRole: Role): vo
   throw new AppError("Access denied", 403);
 }
 
+/** Given by a teacher or admin (not set by the student themselves). */
+const isAssigned = (goal: GoalItem) => !!goal.assignedByTutorId && goal.assignedByTutorId !== goal.userId;
+
+// What a student may still change on a goal someone else gave them: working on it, not its terms.
+const STUDENT_ASSIGNED_FIELDS = new Set(["progress", "status"]);
+
 export async function getGoalById(
   goalId: string,
   callerId: string,
@@ -164,6 +170,14 @@ export async function updateGoal(
 ): Promise<GoalItem> {
   const goal = await findGoalOrThrow(goalId);
   assertCanAccess(goal, callerId, callerRole);
+
+  // A finished goal is a record; only an admin can still change it.
+  if (goal.status === "COMPLETED" && callerRole !== "ADMIN") {
+    throw new AppError("A completed goal can't be changed", 409);
+  }
+  if (callerRole === "STUDENT" && isAssigned(goal) && Object.keys(input).some((k) => !STUDENT_ASSIGNED_FIELDS.has(k))) {
+    throw new AppError("Goals from your teacher can't be edited. You can still update your progress.", 403);
+  }
 
   const data: Prisma.GoalUpdateInput = { ...input };
 
@@ -208,6 +222,9 @@ export async function deleteGoal(
 ): Promise<void> {
   const goal = await findGoalOrThrow(goalId);
   assertCanAccess(goal, callerId, callerRole);
+  if (callerRole === "STUDENT" && isAssigned(goal)) {
+    throw new AppError("Goals from your teacher can't be deleted.", 403);
+  }
   await prisma.goal.delete({ where: { id: goalId } });
   await deleteCache(cacheKeys.dashboard(goal.userId));
 }

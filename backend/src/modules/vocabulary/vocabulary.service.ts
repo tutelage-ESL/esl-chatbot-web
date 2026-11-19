@@ -35,6 +35,8 @@ const VOCAB_SELECT = {
   assignedByTutor: {
     select: { id: true, displayName: true, role: true },
   },
+  listId: true,
+  list: { select: { id: true, title: true } },
   createdAt: true,
   updatedAt: true,
 } as const;
@@ -164,6 +166,7 @@ export async function listVocabulary(
   if (query.due === "true") where.srsDue = { lte: new Date() };
   if (query.due === "false") where.srsDue = { gt: new Date() };
   if (query.source) where.source = query.source;
+  if (query.listId) where.listId = query.listId;
   if (query.category) where.category = { contains: query.category, mode: "insensitive" };
   if (query.search) {
     where.OR = [
@@ -204,7 +207,8 @@ export async function getDueCards(userId: string): Promise<VocabularyItem[]> {
 /**
  * Add a word to a vocabulary list.
  *
- * Self-add (no `assignedToUserId`): the caller adds to their own list as `MANUAL`.
+ * Self-add (no `assignedToUserId`): staff only. Students don't add words themselves:
+ * their words come from their teacher (ASSIGNED) or the AI tutor (SESSION).
  *
  * Assign (`assignedToUserId` set, caller is TUTOR/ADMIN): the word is added to the
  * target student's list as `ASSIGNED` with `assignedByTutorId` set to the caller, and
@@ -221,6 +225,10 @@ export async function addVocabulary(
   // Resolve target user and source/assignment metadata
   const userId = input.assignedToUserId ?? callerId;
   const source = input.assignedToUserId ? "ASSIGNED" as const : "MANUAL" as const;
+
+  if (!input.assignedToUserId && callerRole === "STUDENT") {
+    throw new AppError("Words are added by your teacher or the AI tutor.", 403);
+  }
 
   if (input.assignedToUserId) {
     // Students cannot assign vocabulary to others
@@ -320,9 +328,13 @@ export async function updateVocabulary(
 
 // ── Delete ────────────────────────────────────────────────────
 
-export async function deleteVocabulary(id: string, userId: string): Promise<void> {
-  const existing = await prisma.vocabulary.findUnique({ where: { id }, select: { userId: true } });
+export async function deleteVocabulary(id: string, userId: string, callerRole: Role): Promise<void> {
+  const existing = await prisma.vocabulary.findUnique({ where: { id }, select: { userId: true, source: true } });
   if (!existing || existing.userId !== userId) throw new AppError("Vocabulary item not found", 404);
+  // A teacher's assignment stays until the teacher changes it; AI-picked words can go.
+  if (callerRole === "STUDENT" && existing.source === "ASSIGNED") {
+    throw new AppError("Words from your teacher can't be removed.", 403);
+  }
   await prisma.vocabulary.delete({ where: { id } });
   await deleteCache(cacheKeys.dashboard(userId));
 }

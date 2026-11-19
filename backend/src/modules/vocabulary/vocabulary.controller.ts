@@ -59,7 +59,7 @@ export const updateVocabularyHandler = asyncHandler(async (req: Request, res: Re
 
 export const deleteVocabularyHandler = asyncHandler(async (req: Request, res: Response) => {
   const { id } = vocabIdParamSchema.parse(req.params);
-  await deleteVocabulary(id, req.user!.id);
+  await deleteVocabulary(id, req.user!.id, req.user!.role);
   sendSuccess(res, null, "Vocabulary item deleted successfully");
 });
 

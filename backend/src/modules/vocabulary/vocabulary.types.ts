@@ -20,6 +20,9 @@ export interface VocabularyItem {
   source: VocabSource;
   assignedByTutorId: string | null;
   assignedByTutor: VocabAssigner | null;
+  /** The class word list this word came from (assigned to a class), else null. */
+  listId: string | null;
+  list: { id: string; title: string } | null;
   srsInterval: number;
   srsDue: Date;
   srsEase: number;
@@ -57,4 +60,28 @@ export interface ReviewResult {
   correctCount: number;
   incorrectCount: number;
   lastPracticed: Date;
+}
+
+/** A word list assigned to a class (GET /classes/:classId/vocabulary-lists). */
+export interface ClassWordList {
+  id: string;
+  title: string;
+  createdAt: Date;
+  createdBy: { id: string; displayName: string } | null;
+  words: { word: string; definition: string; example: string | null; partOfSpeech: string | null }[];
+  studentCount: number;
+  /** Share of the students' copies reviewed at least once / mastered (level 5). */
+  practisedPct: number;
+  masteredPct: number;
+}
+
+export interface ClassWordListCreated {
+  id: string;
+  title: string;
+  createdAt: Date;
+  wordCount: number;
+  studentCount: number;
+  /** Words actually added (students who already had a word keep their own copy). */
+  added: number;
+  skipped: number;
 }
