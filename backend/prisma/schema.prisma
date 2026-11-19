@@ -67,6 +67,17 @@ enum GoalDifficulty {
   EXPERT
 }
 
+/// The tutor's accent when it speaks (TTS + live calls) and the English it writes.
+enum TutorAccent {
+  US
+  GB
+}
+
+enum VoiceGender {
+  FEMALE
+  MALE
+}
+
 enum AiPersonality {
   FRIENDLY
   FORMAL
@@ -254,6 +265,12 @@ model LearnerProfile {
   timezone           String   @default("UTC")
   emailDigestEnabled Boolean  @default(true)
   digestLastSentAt   DateTime?
+  /// The AI tutor's long-term memory: short facts it chose to keep about the student (string[]).
+  /// The model adds and removes them itself (modules/ai/memory.service.ts).
+  aiMemory           Json?
+  /// The tutor's voice: American or British, female or male (modules/ai/voices.ts).
+  tutorAccent        TutorAccent @default(US)
+  tutorVoice         VoiceGender @default(FEMALE)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

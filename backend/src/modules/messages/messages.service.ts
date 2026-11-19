@@ -7,10 +7,9 @@ import {
   PREMIUM_MAX_MESSAGES_PER_SESSION,
   FREE_MAX_MESSAGES_PER_DAY,
   SOFT_LIMIT_BUFFER,
-  FREE_LLM_CONTEXT_MESSAGES,
-  DEFAULT_LLM_CONTEXT_MESSAGES,
 } from "../sessions/sessions.service.ts";
 import { generateAIResponse } from "../ai/ai.service.ts";
+import { loadLearnerMemory, saveLearnerMemory, withMemory } from "../ai/memory.service.ts";
 import { countAiReplyWords, cleanAiTitle } from "../../utils/aiReplyFormat.ts";
 import type { SendMessageResult } from "./messages.types.ts";
 import { recordPracticeInBackground } from "../metrics/practice.service.ts";
@@ -88,33 +87,34 @@ export async function sendMessage(
     }
   }
 
-  // Get learner profile for AI context
-  const learnerProfile = await prisma.learnerProfile.findUnique({
-    where: { userId },
-    select: {
-      currentLevel: true,
-      targetLevel: true,
-      learningPurpose: true,
-      aiPersonality: true,
-      uiLanguage: true,
-    },
-  });
+  // Get learner profile + what the tutor remembers for AI context
+  const [learnerProfile, memory] = await Promise.all([
+    prisma.learnerProfile.findUnique({
+      where: { userId },
+      select: {
+        currentLevel: true,
+        targetLevel: true,
+        learningPurpose: true,
+        aiPersonality: true,
+        uiLanguage: true,
+        tutorAccent: true,
+      },
+    }),
+    loadLearnerMemory(userId),
+  ]);
 
-  // Get recent conversation history — FREE tier gets shorter context to reduce token cost
-  const contextLimit = plan === "FREE" ? FREE_LLM_CONTEXT_MESSAGES : DEFAULT_LLM_CONTEXT_MESSAGES;
+  // The whole chat goes to the AI, so it never forgets inside a chat (chats are capped by the plan's message limit).
   const recentMessages = await prisma.message.findMany({
     where: { sessionId },
     select: { role: true, content: true },
-    orderBy: { createdAt: "desc" },
-    take: contextLimit,
+    orderBy: { createdAt: "asc" },
   });
-  recentMessages.reverse();
 
   // Call AI for response + evaluation (real OpenAI or heuristic fallback)
   const aiResult = await generateAIResponse(
     content,
     recentMessages,
-    learnerProfile,
+    withMemory(learnerProfile, memory),
     plan,
   );
 
@@ -197,7 +197,10 @@ export async function sendMessage(
     await tx.conversationSession.update({
       where: { id: sessionId },
       // The first reply names the chat; a name the learner gave it is never overwritten.
-      data: { messageCount: totalMessages, ...(session.title ? {} : { title: cleanAiTitle(aiResult.title) }) },
+      data: {
+        messageCount: totalMessages,
+        ...(session.title ? {} : { title: cleanAiTitle(aiResult.title) }),
+      },
     });
 
     return {
@@ -207,6 +210,7 @@ export async function sendMessage(
     };
   });
 
+  await saveLearnerMemory(userId, aiResult.memory);
   // Study time, streak, today's progress and skill scores follow every message, not "End session".
   recordPracticeInBackground(userId, sessionId, wordCount);
   return result;

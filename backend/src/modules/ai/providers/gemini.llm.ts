@@ -22,7 +22,9 @@ export const DEV_FALLBACK_MODEL = "gemini-flash-lite-latest";
 // Free-tier Lite answers a call turn in 1.7-9s (measured 2026-11); an overloaded Flash can
 // hang for minutes. Flash gets a short limit because Lite is behind it; Lite is the last try.
 const SPOKEN_TIMEOUT_MS = { flash: 8_000, lite: 15_000 };
-const TEXT_TIMEOUT_MS = 30_000;
+// Typed chat: a healthy Flash answers in a few seconds; on the free key it hangs (measured 2026-11-19: 40s
+// with no answer), so it gets 12s before Lite takes over. Lite answers in 2-6s and is the last try.
+const TEXT_TIMEOUT_MS = { flash: 12_000, lite: 30_000 };
 
 export async function callGeminiLLM(
   userMessage: string,
@@ -56,17 +58,15 @@ export async function callGeminiLLM(
       contents,
       config: {
         systemInstruction: buildSystemPrompt(learner, opts),
-        // Calls wait on this reply, so think as little as the model allows (measured: Lite
+        // A chat reply needs little reasoning, so think as little as the model allows (measured: Lite
         // 2.2s -> 1.5s). Gemini 3 Flash rejects MINIMAL, so it gets LOW.
-        ...(opts.spoken
-          ? { thinkingConfig: { thinkingLevel: model.includes("lite") ? ThinkingLevel.MINIMAL : ThinkingLevel.LOW } }
-          : {}),
+        thinkingConfig: { thinkingLevel: model.includes("lite") ? ThinkingLevel.MINIMAL : ThinkingLevel.LOW },
         responseMimeType: "application/json",
         temperature: 0.7,
         maxOutputTokens: 2500,
         // An overloaded Flash can hang for minutes (measured 2026-11); give up and fall back.
         abortSignal: AbortSignal.timeout(
-          opts.spoken ? SPOKEN_TIMEOUT_MS[model.includes("lite") ? "lite" : "flash"] : TEXT_TIMEOUT_MS,
+          (opts.spoken ? SPOKEN_TIMEOUT_MS : TEXT_TIMEOUT_MS)[model.includes("lite") ? "lite" : "flash"],
         ),
       },
     });

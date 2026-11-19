@@ -12,6 +12,7 @@ import { azureSTT } from "./providers/azure.stt.ts";
 import { sanitizeAiReply, htmlToPlainText } from "../../utils/aiReplyFormat.ts";
 import type { AIResponse, ConversationMessage, LearnerContext, MessageEvaluationResult, ReplyOptions, STTResult } from "./ai.types.ts";
 import type { Plan } from "@prisma/client";
+import { DEFAULT_TUTOR_VOICE, microsoftVoice, OPENAI_VOICE, type TutorVoiceChoice } from "./voices.ts";
 
 const isDev = env.NODE_ENV === "development";
 
@@ -140,22 +141,14 @@ async function generateAIResponseRaw(
     return heuristicResponse(userMessage);
   }
 
-  // Development: all plans use Gemini free tier (gemini-flash-latest / gemini-3-flash-preview).
-  // If that preview model is overloaded, automatically retry with the stable DEV_FALLBACK_MODEL.
+  // Development: all plans use the Gemini free tier.
+
   if (isDev) {
     if (!env.GEMINI_API_KEY) return heuristicResponse(userMessage);
-    // Dev call turns go straight to Lite: Flash on the free key is overloaded most of
-    // the time, which made every local test call wait 10s+ before the fallback.
-    if (opts.spoken) return callGeminiLLM(userMessage, conversationHistory, learner, plan, false, DEV_FALLBACK_MODEL, opts);
-    try {
-      return await callGeminiLLM(userMessage, conversationHistory, learner, plan, true, undefined, opts);
-    } catch (err) {
-      if (err instanceof Error && err.message === "AI_CAPACITY_OVERLOAD") {
-        console.warn(`[AI] gemini-flash-latest overloaded — retrying with ${DEV_FALLBACK_MODEL}`);
-        return callGeminiLLM(userMessage, conversationHistory, learner, plan, false, DEV_FALLBACK_MODEL, opts);
-      }
-      throw err;
-    }
+    // Dev goes straight to Lite: Flash on the free key hangs or is overloaded nearly every
+    // time (measured 2026-11-19), so trying it first only added 12s+ to every reply.
+    // shortcut: dev never exercises Flash; switch back to DEV_MODEL first once the key is paid.
+    return callGeminiLLM(userMessage, conversationHistory, learner, plan, false, DEV_FALLBACK_MODEL, opts);
   }
 
   // Production PREMIUM: GPT-5 mini with automatic Gemini fallback on error
@@ -193,8 +186,8 @@ async function generateAIResponseRaw(
     try {
       return await callGeminiLLM(userMessage, conversationHistory, learner, plan, false, undefined, opts);
     } catch (err) {
-      // A call can't wait for OpenAI's slower reply: an overloaded Flash drops to Lite first.
-      if (opts.spoken && plan !== "FREE" && err instanceof Error && err.message === "AI_CAPACITY_OVERLOAD") {
+      // An overloaded Flash drops to Lite first (a few seconds) rather than waiting on OpenAI's slower reply.
+      if (plan !== "FREE" && err instanceof Error && err.message === "AI_CAPACITY_OVERLOAD") {
         try {
           return await callGeminiLLM(userMessage, conversationHistory, learner, plan, false, DEV_FALLBACK_MODEL, opts);
         } catch { /* fall through to OpenAI below */ }
@@ -221,25 +214,27 @@ async function generateAIResponseRaw(
 //   FREE + GOLD prod  → Azure Neural TTS (AZURE_SPEECH_KEY, same key as STT)
 //   PREMIUM prod      → OpenAI TTS-1-HD (OPENAI_API_KEY, same key as LLM); fallback to Azure
 //   No TTS key        → returns empty Buffer (voice message still works, just no playback audio)
-export async function generateTTS(text: string, plan: Plan): Promise<Buffer> {
+export async function generateTTS(text: string, plan: Plan, voice: TutorVoiceChoice = DEFAULT_TUTOR_VOICE): Promise<Buffer> {
+  const msVoice = microsoftVoice(voice);
   // Replies are stored as HTML — always strip to plain text here (not at call
   // sites) so no future caller can accidentally make the tutor read tags aloud.
   text = htmlToPlainText(text);
   if (isDev) {
     try {
-      return await edgeTTS(text);
+      return await edgeTTS(text, msVoice);
     } catch (err) {
       // Edge TTS is unofficial and breaks when Microsoft changes its token (it did in
       // 2026-11, fixed by msedge-tts 2.1.1). Use Azure if configured, else stay silent.
       console.warn("[TTS] Edge TTS failed in dev:", err instanceof Error ? err.message : err);
-      if (env.AZURE_SPEECH_KEY) return azureTTS(text).catch(() => Buffer.alloc(0));
+      if (env.AZURE_SPEECH_KEY) return azureTTS(text, msVoice).catch(() => Buffer.alloc(0));
       return Buffer.alloc(0);
     }
   }
 
-  if (plan === "PREMIUM" && env.OPENAI_API_KEY) {
+  // OpenAI has no British voices: a British accent uses the Microsoft voice on every plan.
+  if (plan === "PREMIUM" && voice.accent === "US" && env.OPENAI_API_KEY) {
     try {
-      return await openaiTTS(text);
+      return await openaiTTS(text, OPENAI_VOICE[voice.gender]);
     } catch (err) {
       Sentry.withScope((scope) => {
         scope.setLevel("warning");
@@ -247,17 +242,17 @@ export async function generateTTS(text: string, plan: Plan): Promise<Buffer> {
         scope.setTag("ai.fallback", "azure-tts");
         Sentry.captureException(err);
       });
-      if (env.AZURE_SPEECH_KEY) return azureTTS(text);
+      if (env.AZURE_SPEECH_KEY) return azureTTS(text, msVoice);
       throw err;
     }
   }
 
-  if (env.AZURE_SPEECH_KEY) return azureTTS(text);
+  if (env.AZURE_SPEECH_KEY) return azureTTS(text, msVoice);
 
   // No paid TTS provider configured — fall back to Edge TTS (keyless, unofficial,
   // no SLA) so the tutor isn't silent. Empty buffer only if that fails too.
   try {
-    return await edgeTTS(text);
+    return await edgeTTS(text, msVoice);
   } catch (err) {
     Sentry.withScope((scope) => {
       scope.setLevel("warning");
@@ -280,13 +275,14 @@ export async function transcribeAudio(
   audioBuffer: Buffer,
   mimeType: string,
   plan: Plan,
+  language: "en-US" | "en-GB" = "en-US",
 ): Promise<STTResult> {
   const baseMime = (mimeType.split(";")[0] ?? mimeType).trim();
   const mp4 = baseMime === "audio/mp4"; // Safari — Azure SDK v1.50 has no AAC format tag
 
   // GOLD + PREMIUM → Azure with pronunciation (unless MP4, which Azure can't decode)
   if (!isDev && (plan === "GOLD" || plan === "PREMIUM") && env.AZURE_SPEECH_KEY && !mp4) {
-    return azureSTT(audioBuffer, mimeType, plan as "GOLD" | "PREMIUM");
+    return azureSTT(audioBuffer, mimeType, plan as "GOLD" | "PREMIUM", language);
   }
 
   // Dev + FREE (+ GOLD/PREMIUM MP4 fallback) → Deepgram
@@ -296,7 +292,7 @@ export async function transcribeAudio(
 
   // Last resort: Azure even for Dev/FREE if Deepgram not set
   if (env.AZURE_SPEECH_KEY && !mp4) {
-    return azureSTT(audioBuffer, mimeType, "GOLD");
+    return azureSTT(audioBuffer, mimeType, "GOLD", language);
   }
 
   throw new AppError("Speech-to-text service not configured. Add DEEPGRAM_API_KEY to Infisical.", 503);

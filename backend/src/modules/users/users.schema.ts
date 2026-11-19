@@ -49,6 +49,8 @@ export const updateLearnerProfileSchema = z.object({
   weeklyGoalMinutes: z.number().int().min(5).max(840).optional(),
   timezone: z.string().max(60).optional(),
   emailDigestEnabled: z.boolean().optional(),
+  tutorAccent: z.enum(["US", "GB"]).optional(),
+  tutorVoice: z.enum(["FEMALE", "MALE"]).optional(),
 });
 
 export type UpdateLearnerProfileInput = z.infer<typeof updateLearnerProfileSchema>;

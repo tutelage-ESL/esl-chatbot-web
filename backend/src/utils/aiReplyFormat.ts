@@ -3,7 +3,18 @@ import sanitizeHtml from "sanitize-html";
 // Single source of truth for the AI reply tag allowlist — interpolated into the
 // system prompt (providers/prompt.ts) and enforced by the sanitizer below, so
 // the two can never drift. Frontend styling (.html-content) must cover this set.
-export const AI_REPLY_ALLOWED_TAGS = ["p", "strong", "em", "ul", "ol", "li", "br"];
+export const AI_REPLY_ALLOWED_TAGS = ["p", "strong", "em", "ul", "ol", "li", "br", "a"];
+
+// <a> survives only as an https link to Tutelage's own site; any other link keeps its
+// text and loses the tag, so a reply can never send a student somewhere else.
+export function isTutelageUrl(href: string | undefined): boolean {
+  try {
+    const url = new URL(href ?? "");
+    return url.protocol === "https:" && (url.hostname === "tutelage.krd" || url.hostname.endsWith(".tutelage.krd"));
+  } catch {
+    return false;
+  }
+}
 
 // Shown instead of a reply that sanitizes down to nothing (e.g. the model
 // returned only disallowed tags) — never store a blank assistant message.
@@ -29,10 +40,20 @@ function decodeEntities(text: string): string {
 // a plain-prose reply (model regression, heuristic fallback) is wrapped in <p>
 // so it renders correctly under v-html instead of collapsing onto one line.
 export function sanitizeAiReply(reply: string): string {
-  const sanitized = sanitizeHtml(reply, {
-    allowedTags: AI_REPLY_ALLOWED_TAGS,
-    allowedAttributes: {},
-  }).trim();
+  // Two passes: renaming a tag to a disallowed one in a single pass mangles the next closing
+  // tag (sanitize-html), so pass 1 turns non-Tutelage links into <span> and pass 2 unwraps them.
+  const links = { allowedAttributes: { a: ["href", "target", "rel"] }, allowedSchemes: ["https"] };
+  const marked = sanitizeHtml(reply, {
+    ...links,
+    allowedTags: [...AI_REPLY_ALLOWED_TAGS, "span"],
+    transformTags: {
+      a: (_tag, attribs): sanitizeHtml.Tag =>
+        isTutelageUrl(attribs.href)
+          ? { tagName: "a", attribs: { href: attribs.href!, target: "_blank", rel: "noopener noreferrer" } }
+          : { tagName: "span", attribs: {} },
+    },
+  });
+  const sanitized = sanitizeHtml(marked, { ...links, allowedTags: AI_REPLY_ALLOWED_TAGS }).trim();
 
   if (!sanitized) return EMPTY_REPLY_FALLBACK;
 

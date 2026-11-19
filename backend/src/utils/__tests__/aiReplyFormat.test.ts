@@ -26,6 +26,19 @@ describe("sanitizeAiReply", () => {
     expect(out).toBe("click<p>hi</p>");
   });
 
+  it("keeps a Tutelage link and opens it in a new tab", () => {
+    expect(sanitizeAiReply('<p>See <a href="https://www.tutelage.krd/about-us" onclick="x()">tutelage.krd</a></p>')).toBe(
+      '<p>See <a href="https://www.tutelage.krd/about-us" target="_blank" rel="noopener noreferrer">tutelage.krd</a></p>',
+    );
+    expect(sanitizeAiReply('<p><a href="https://tutelage.krd">site</a></p>')).toContain('href="https://tutelage.krd"');
+  });
+
+  it("turns any other link into its plain text", () => {
+    for (const href of ["https://evil.com", "http://www.tutelage.krd", "https://tutelage.krd.evil.com", "https://eviltutelage.krd", "/relative", ""]) {
+      expect(sanitizeAiReply(`<p><a href="${href}">go</a></p>`)).toBe("<p>go</p>");
+    }
+  });
+
   it("strips img/iframe/style entirely", () => {
     expect(sanitizeAiReply('<p>ok</p><img src=x onerror=alert(2)><iframe src="x"></iframe>')).toBe("<p>ok</p>");
   });
@@ -90,7 +103,7 @@ describe("countAiReplyWords", () => {
 });
 
 describe("AI_REPLY_ALLOWED_TAGS", () => {
-  it("is the 7-tag contract shared with the prompt", () => {
-    expect(AI_REPLY_ALLOWED_TAGS.sort()).toEqual(["br", "em", "li", "ol", "p", "strong", "ul"]);
+  it("is the 8-tag contract shared with the prompt", () => {
+    expect([...AI_REPLY_ALLOWED_TAGS].sort()).toEqual(["a", "br", "em", "li", "ol", "p", "strong", "ul"]);
   });
 });

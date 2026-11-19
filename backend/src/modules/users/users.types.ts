@@ -1,4 +1,4 @@
-import type { Role, Plan, SubStatus, ClassStatus, AuthProvider, AiPersonality, GoalType, GoalStatus, GoalDifficulty, VocabSource, SessionMode, PaymentProvider } from "@prisma/client";
+import type { Role, Plan, SubStatus, ClassStatus, AuthProvider, AiPersonality, TutorAccent, VoiceGender, GoalType, GoalStatus, GoalDifficulty, VocabSource, SessionMode, PaymentProvider } from "@prisma/client";
 
 export interface UserListItem {
   id: string;
@@ -36,6 +36,8 @@ export interface UserDetail extends UserListItem {
     aiPersonality: AiPersonality | null;
     voiceSpeed: number;
     autoSpeak: boolean;
+    tutorAccent: TutorAccent;
+    tutorVoice: VoiceGender;
   } | null;
   subscription: {
     id: string;
@@ -221,5 +223,7 @@ export interface MyProfile {
     weeklyGoalMinutes: number;
     timezone: string;
     emailDigestEnabled: boolean;
+    tutorAccent: TutorAccent;
+    tutorVoice: VoiceGender;
   } | null;
 }

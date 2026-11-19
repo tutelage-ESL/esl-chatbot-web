@@ -2,12 +2,10 @@ import * as sdk from "microsoft-cognitiveservices-speech-sdk";
 import { env } from "../../../config/env.ts";
 
 // FREE + GOLD production TTS — Azure Neural TTS
-// Voice: en-US-JennyNeural (warm, conversational — best for general ESL)
+// Voice: from voices.ts (the student's accent + gender); default en-US-JennyNeural
 // Same AZURE_SPEECH_KEY as STT — no extra key or resource needed
 // Free tier: 500k chars/month. Paid: $16/1M chars.
-const VOICE = "en-US-JennyNeural";
-
-export async function azureTTS(text: string): Promise<Buffer> {
+export async function azureTTS(text: string, voice = "en-US-JennyNeural"): Promise<Buffer> {
   if (!env.AZURE_SPEECH_KEY || !env.AZURE_SPEECH_REGION) {
     throw new Error("AZURE_SPEECH_KEY or AZURE_SPEECH_REGION not configured");
   }
@@ -16,7 +14,7 @@ export async function azureTTS(text: string): Promise<Buffer> {
     env.AZURE_SPEECH_KEY,
     env.AZURE_SPEECH_REGION,
   );
-  speechConfig.speechSynthesisVoiceName = VOICE;
+  speechConfig.speechSynthesisVoiceName = voice;
   speechConfig.speechSynthesisOutputFormat =
     sdk.SpeechSynthesisOutputFormat.Audio24Khz48KBitRateMonoMp3;
 

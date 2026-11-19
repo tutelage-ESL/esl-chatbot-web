@@ -6,10 +6,10 @@ import {
   PREMIUM_MAX_MESSAGES_PER_SESSION,
   FREE_MAX_MESSAGES_PER_DAY,
   SOFT_LIMIT_BUFFER,
-  FREE_LLM_CONTEXT_MESSAGES,
-  DEFAULT_LLM_CONTEXT_MESSAGES,
 } from "../sessions/sessions.service.ts";
 import { generateAIResponse, generateTTS, transcribeAudio } from "../ai/ai.service.ts";
+import { loadLearnerMemory, saveLearnerMemory, withMemory } from "../ai/memory.service.ts";
+import { speechLanguage, tutorVoiceOf } from "../ai/voices.ts";
 import { uploadToR2, deleteFromR2, audioExtFromMime } from "../../lib/r2-upload.ts";
 import { countAiReplyWords, cleanAiTitle } from "../../utils/aiReplyFormat.ts";
 import type { VoiceMessageResult } from "./messages.types.ts";
@@ -101,8 +101,22 @@ export async function sendVoiceMessage(
   // Track successfully uploaded keys so they can be deleted if a later step fails
   const uploadedKeys: string[] = [];
 
+  // The student's level, tutor voice and accent (the accent also sets the pronunciation reference).
+  const learnerProfile = await prisma.learnerProfile.findUnique({
+    where: { userId },
+    select: {
+      currentLevel: true,
+      targetLevel: true,
+      learningPurpose: true,
+      aiPersonality: true,
+      uiLanguage: true,
+      tutorAccent: true,
+      tutorVoice: true,
+    },
+  });
+
   // ── 3. STT — transcribe first so an empty transcript never orphans an R2 file
-  const sttResult = await transcribeAudio(audioBuffer, mimeType, plan);
+  const sttResult = await transcribeAudio(audioBuffer, mimeType, plan, speechLanguage(tutorVoiceOf(learnerProfile).accent));
   const transcript = sttResult.transcript.trim();
 
   if (!transcript) {
@@ -120,32 +134,21 @@ export async function sendVoiceMessage(
 
   try {
     // ── 4. LLM — AI response + evaluation ───────────────────────────────────
-    const learnerProfile = await prisma.learnerProfile.findUnique({
-      where: { userId },
-      select: {
-        currentLevel: true,
-        targetLevel: true,
-        learningPurpose: true,
-        aiPersonality: true,
-        uiLanguage: true,
-      },
-    });
-
-    const contextLimit = plan === "FREE" ? FREE_LLM_CONTEXT_MESSAGES : DEFAULT_LLM_CONTEXT_MESSAGES;
+    // The whole chat, so the tutor never forgets inside it (chats are capped by the plan's message limit).
     const recentMessages = await prisma.message.findMany({
       where: { sessionId },
       select: { role: true, content: true },
-      orderBy: { createdAt: "desc" },
-      take: contextLimit,
+      orderBy: { createdAt: "asc" },
     });
-    recentMessages.reverse();
 
-    const aiResult = await generateAIResponse(transcript, recentMessages, learnerProfile, plan);
+    // Spoken rules: the transcript has no real punctuation to correct, and the reply is read aloud.
+    const memory = await loadLearnerMemory(userId);
+    const aiResult = await generateAIResponse(transcript, recentMessages, withMemory(learnerProfile, memory), plan, { spoken: true });
 
     // ── 5. TTS — synthesize AI reply ─────────────────────────────────────────
     let ttsBuffer: Buffer;
     try {
-      ttsBuffer = await generateTTS(aiResult.reply, plan); // generateTTS strips HTML internally
+      ttsBuffer = await generateTTS(aiResult.reply, plan, tutorVoiceOf(learnerProfile)); // generateTTS strips HTML internally
     } catch (err) {
       console.error("[TTS] Failed, continuing without audio:", err instanceof Error ? err.message : err);
       ttsBuffer = Buffer.alloc(0);
@@ -252,7 +255,10 @@ export async function sendVoiceMessage(
       await tx.conversationSession.update({
         where: { id: sessionId },
         // The first reply names the chat; a name the learner gave it is never overwritten.
-        data: { messageCount: totalMessages, ...(session.title ? {} : { title: cleanAiTitle(aiResult.title) }) },
+        data: {
+          messageCount: totalMessages,
+          ...(session.title ? {} : { title: cleanAiTitle(aiResult.title) }),
+        },
       });
 
       return {

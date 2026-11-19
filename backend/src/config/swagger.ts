@@ -71,6 +71,8 @@ const options: swaggerJsdoc.Options = {
             weeklyGoalMinutes: { type: "integer", minimum: 5, maximum: 840, example: 60 },
             timezone: { type: "string", example: "Asia/Baghdad" },
             emailDigestEnabled: { type: "boolean", example: true },
+            tutorAccent: { type: "string", enum: ["US", "GB"], example: "US" },
+            tutorVoice: { type: "string", enum: ["FEMALE", "MALE"], example: "FEMALE" },
           },
         },
         MyProfile: {

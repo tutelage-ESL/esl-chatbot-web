@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { buildSystemPrompt } from "../providers/prompt.ts";
+import { buildLiveInstruction, buildSystemPrompt } from "../providers/prompt.ts";
 
 const learner = (currentLevel: string | null, uiLanguage = "en") => ({
   currentLevel,
@@ -47,9 +47,52 @@ describe("buildSystemPrompt call mode", () => {
     expect(p).toContain("The student is a BEGINNER");
   });
 
+  it("writes Kurdish only when the student used it", () => {
+    const p = buildSystemPrompt(learner("A1", "ku"));
+    expect(p).toContain("Only when the student's message uses Kurdish");
+    expect(p).toContain("no Kurdish at all");
+    expect(p).not.toContain("For a beginner, or whenever");
+  });
+
   it("keeps the text rules for typed chat", () => {
     const p = buildSystemPrompt(learner("A1", "ku"));
     expect(p).not.toContain("LIVE VOICE CALL");
     expect(p).toContain("Kurdish Sorani (Arabic script)");
+  });
+});
+
+describe("buildSystemPrompt conversation first", () => {
+  it("keeps talking, corrects at most one thing and never punctuation", () => {
+    for (const p of [buildSystemPrompt(learner("A1")), buildSystemPrompt(learner("B2")), buildSystemPrompt(null)]) {
+      expect(p).toContain("conversation partner first");
+      expect(p).toContain("at most ONE small tip");
+      expect(p).toContain("NEVER correct or mention punctuation");
+      expect(p).toContain("Punctuation, capital letters and small typos are NOT errors");
+    }
+  });
+});
+
+describe("buildSystemPrompt sentence starters", () => {
+  it("gives starters every reply at A1, only when stuck at A2, never from B1", () => {
+    expect(buildSystemPrompt(learner("A1"))).toContain("plus a sentence starter or two choices");
+    const a2 = buildSystemPrompt(learner("A2"));
+    expect(a2).toContain("ONLY when the student");
+    expect(a2).not.toContain("plus a sentence starter");
+    const b1 = buildSystemPrompt(learner("B1"));
+    expect(b1).toContain('No "Say: ..." lines or sentence starters by default');
+    expect(b1).toContain("Only when they seem stuck");
+  });
+});
+
+describe("Tutelage identity", () => {
+  it("knows it is Tutelage AI and links only the Tutelage site", () => {
+    for (const p of [buildSystemPrompt(learner("B1")), buildSystemPrompt(learner("A1"), { spoken: true })]) {
+      expect(p).toContain("You are Tutelage AI");
+      expect(p).toContain("founded in 2022 in Sulaimani");
+      expect(p).toContain('<a href="https://www.tutelage.krd">tutelage.krd</a>');
+    }
+    const live = buildLiveInstruction(learner("B1"), "Ali");
+    expect(live).toContain("founded in 2022 in Sulaimani");
+    expect(live).toContain("tutelage dot K R D");
   });
 });

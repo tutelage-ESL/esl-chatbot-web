@@ -36,6 +36,8 @@ export interface AIResponse {
   evaluation: MessageEvaluationResult;
   /** 2-4 word name for the conversation; saved only while the session has none. */
   title?: string;
+  /** The complete new long-term memory list (memory.service.ts); null = keep it unchanged. */
+  memory?: string[] | null;
 }
 
 export interface ConversationMessage {
@@ -43,7 +45,7 @@ export interface ConversationMessage {
   content: string;
 }
 
-/** spoken = a live call turn: short spoken reply, quick model settings. */
+/** spoken = the student spoke (voice message or call): short reply read aloud, quick model settings. */
 export interface ReplyOptions {
   spoken?: boolean;
 }
@@ -55,6 +57,16 @@ export interface LearnerContext {
   aiPersonality: string | null;
   /** "ku" = the student uses the app in Kurdish; the tutor then explains in Sorani too. */
   uiLanguage?: string | null;
+  /** What the tutor remembers about the student (memory.service.ts). */
+  memory?: LearnerMemory | null;
+  /** "GB" = British English (spelling, words, and accent on calls); otherwise American. */
+  tutorAccent?: string | null;
+}
+
+export interface LearnerMemory {
+  name: string | null;
+  /** Important facts the tutor chose to keep about the student, across all chats. */
+  facts: string[];
 }
 
 export interface PronunciationIssue {

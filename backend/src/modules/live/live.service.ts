@@ -6,6 +6,8 @@ import { AppError } from "../../utils/AppError.ts";
 import { cleanAiTitle, sanitizeAiReply } from "../../utils/aiReplyFormat.ts";
 import { buildLiveInstruction } from "../ai/providers/prompt.ts";
 import { generateAIResponse } from "../ai/ai.service.ts";
+import { loadLearnerMemory, saveLearnerMemory, withMemory } from "../ai/memory.service.ts";
+import { liveSpeechConfig, speechLanguage, tutorVoiceOf } from "../ai/voices.ts";
 import { azureSTT } from "../ai/providers/azure.stt.ts";
 import { uploadToR2 } from "../../lib/r2-upload.ts";
 import { recordPracticeInBackground } from "../metrics/practice.service.ts";
@@ -16,7 +18,6 @@ import {
   GOLD_MAX_MESSAGES_PER_SESSION,
   PREMIUM_MAX_MESSAGES_PER_SESSION,
   SOFT_LIMIT_BUFFER,
-  FREE_LLM_CONTEXT_MESSAGES,
 } from "../sessions/sessions.service.ts";
 import { getSessionUsage } from "../sessions/sessions.usage.service.ts";
 import type { LiveCallStart, LiveTurnSaved } from "./live.types.ts";
@@ -57,11 +58,14 @@ export async function startLiveCall(userId: string): Promise<LiveCallStart> {
       : new AppError("You've reached today's limit. Please come back tomorrow or upgrade.", 429);
   }
 
-  const [user, learner] = await Promise.all([
-    prisma.user.findUnique({ where: { id: userId }, select: { displayName: true } }),
+  const [memory, learner] = await Promise.all([
+    loadLearnerMemory(userId),
     prisma.learnerProfile.findUnique({
       where: { userId },
-      select: { currentLevel: true, targetLevel: true, learningPurpose: true, aiPersonality: true, uiLanguage: true },
+      select: {
+        currentLevel: true, targetLevel: true, learningPurpose: true, aiPersonality: true, uiLanguage: true,
+        tutorAccent: true, tutorVoice: true,
+      },
     }),
   ]);
 
@@ -78,7 +82,8 @@ export async function startLiveCall(userId: string): Promise<LiveCallStart> {
         model,
         config: {
           responseModalities: [Modality.AUDIO],
-          systemInstruction: buildLiveInstruction(learner, user?.displayName.split(" ")[0] ?? null),
+          speechConfig: liveSpeechConfig(model, tutorVoiceOf(learner)),
+          systemInstruction: buildLiveInstruction(withMemory(learner, memory), memory.name),
           inputAudioTranscription: {},
           outputAudioTranscription: {},
           // Calls past the 15-minute audio context limit keep going on a sliding window.
@@ -140,26 +145,27 @@ export async function saveLiveTurn(
 
   // Scores from the text evaluator in spoken mode (it ignores transcription slips).
   // shortcut: it also writes a reply we throw away; a scores-only prompt would be cheaper.
-  const [learner, history] = await Promise.all([
+  const [learner, history, memory] = await Promise.all([
     prisma.learnerProfile.findUnique({
       where: { userId },
-      select: { currentLevel: true, targetLevel: true, learningPurpose: true, aiPersonality: true, uiLanguage: true },
+      select: { currentLevel: true, targetLevel: true, learningPurpose: true, aiPersonality: true, uiLanguage: true, tutorAccent: true },
     }),
     prisma.message.findMany({
-      where: { sessionId }, select: { role: true, content: true }, orderBy: { createdAt: "desc" }, take: FREE_LLM_CONTEXT_MESSAGES,
+      where: { sessionId }, select: { role: true, content: true }, orderBy: { createdAt: "asc" },
     }),
+    loadLearnerMemory(userId),
   ]);
   // Scores, the recording upload and (Gold+) Azure pronunciation run side by side.
   const userMsgId = crypto.randomUUID();
   const pcm = audioBase64 ? Buffer.from(audioBase64, "base64") : null;
   const [scored, audioUrl, pron] = await Promise.all([
-    generateAIResponse(user, history.reverse(), learner, plan, { spoken: true }).catch((err) => {
+    generateAIResponse(user, history, withMemory(learner, memory), plan, { spoken: true }).catch((err) => {
       console.warn("[live] scoring skipped:", err instanceof Error ? err.message : err);
       return null;
     }),
     pcm ? uploadToR2(`audio/recordings/${sessionId}/${userMsgId}.wav`, pcmToWav(pcm), "audio/wav").catch(() => null) : null,
     pcm && plan !== "FREE" && env.AZURE_SPEECH_KEY
-      ? azureSTT(pcm, "audio/pcm", plan as "GOLD" | "PREMIUM").then((r) => r.pronunciation ?? null).catch(() => null)
+      ? azureSTT(pcm, "audio/pcm", plan as "GOLD" | "PREMIUM", speechLanguage(tutorVoiceOf(learner).accent)).then((r) => r.pronunciation ?? null).catch(() => null)
       : null,
   ]);
   const ev = scored?.evaluation ?? null;
@@ -202,9 +208,13 @@ export async function saveLiveTurn(
     }
     const total = await tx.message.count({ where: { sessionId } });
     const title = session.title ? null : cleanAiTitle(scored?.title);
-    await tx.conversationSession.update({ where: { id: sessionId }, data: { messageCount: total, ...(title ? { title } : {}) } });
+    await tx.conversationSession.update({
+      where: { id: sessionId },
+      data: { messageCount: total, ...(title ? { title } : {}) },
+    });
   });
 
+  await saveLearnerMemory(userId, scored?.memory);
   recordPracticeInBackground(userId, sessionId, wordCount);
 
   return {

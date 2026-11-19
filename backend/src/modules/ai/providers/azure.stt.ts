@@ -31,6 +31,8 @@ export async function azureSTT(
   audioBuffer: Buffer,
   mimeType: string,
   plan: "GOLD" | "PREMIUM",
+  // en-GB for a student learning British English, so their pronunciation is scored against it.
+  language: "en-US" | "en-GB" = "en-US",
 ): Promise<STTResult> {
   if (!env.AZURE_SPEECH_KEY || !env.AZURE_SPEECH_REGION) {
     throw new Error("AZURE_SPEECH_KEY or AZURE_SPEECH_REGION not configured");
@@ -40,7 +42,7 @@ export async function azureSTT(
     env.AZURE_SPEECH_KEY,
     env.AZURE_SPEECH_REGION,
   );
-  speechConfig.speechRecognitionLanguage = "en-US";
+  speechConfig.speechRecognitionLanguage = language;
 
   const pushStream = sdk.AudioInputStream.createPushStream(getAudioFormat(mimeType));
   // Copy Buffer into a clean ArrayBuffer (Azure SDK write() requires ArrayBuffer, not Buffer)

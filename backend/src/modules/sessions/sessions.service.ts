@@ -26,8 +26,6 @@ const PREMIUM_MAX_MESSAGES_PER_SESSION = 150;
 const FREE_MAX_MESSAGES_PER_DAY = 20;       // hard daily cap across all sessions
 
 const SOFT_LIMIT_BUFFER = 10;               // extra messages allowed after soft limit before hard cutoff
-const FREE_LLM_CONTEXT_MESSAGES = 10;       // last N messages sent as context to LLM
-const DEFAULT_LLM_CONTEXT_MESSAGES = 20;    // GOLD + PREMIUM context window
 
 export {
   FREE_MAX_SESSIONS_PER_DAY,
@@ -38,8 +36,6 @@ export {
   PREMIUM_MAX_MESSAGES_PER_SESSION,
   FREE_MAX_MESSAGES_PER_DAY,
   SOFT_LIMIT_BUFFER,
-  FREE_LLM_CONTEXT_MESSAGES,
-  DEFAULT_LLM_CONTEXT_MESSAGES,
 };
 
 // ── Create session ────────────────────────────────────────

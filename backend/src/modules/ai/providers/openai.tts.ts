@@ -7,10 +7,9 @@ import { env } from "../../../config/env.ts";
 // Speed: 0.95 (slightly slower than default — measurably better ESL comprehension, not unnatural)
 // Cost: $30/1M chars. No free tier.
 const MODEL = "tts-1-hd";
-const VOICE = "nova" as const;
 const SPEED = 0.95;
 
-export async function openaiTTS(text: string): Promise<Buffer> {
+export async function openaiTTS(text: string, voice: "nova" | "onyx" = "nova"): Promise<Buffer> {
   if (!env.OPENAI_API_KEY) {
     throw new Error("OPENAI_API_KEY not configured");
   }
@@ -19,7 +18,7 @@ export async function openaiTTS(text: string): Promise<Buffer> {
 
   const response = await client.audio.speech.create({
     model: MODEL,
-    voice: VOICE,
+    voice,
     input: text,
     response_format: "mp3",
     speed: SPEED,

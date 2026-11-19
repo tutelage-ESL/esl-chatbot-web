@@ -93,6 +93,8 @@ export async function getUserById(id: string): Promise<UserDetail> {
           aiPersonality: true,
           voiceSpeed: true,
           autoSpeak: true,
+          tutorAccent: true,
+          tutorVoice: true,
         },
       },
       subscription: {
@@ -289,6 +291,8 @@ export async function getMyProfile(userId: string): Promise<MyProfile> {
           weeklyGoalMinutes: true,
           timezone: true,
           emailDigestEnabled: true,
+          tutorAccent: true,
+          tutorVoice: true,
         },
       },
     },
@@ -491,6 +495,8 @@ export async function updateMyLearnerProfile(
       weeklyGoalMinutes: true,
       timezone: true,
       emailDigestEnabled: true,
+      tutorAccent: true,
+      tutorVoice: true,
     },
   });
 

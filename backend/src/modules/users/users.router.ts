@@ -323,6 +323,14 @@ router.patch("/me", authenticate, updateMe);
  *                 maximum: 2.0
  *               autoSpeak:
  *                 type: boolean
+ *               tutorAccent:
+ *                 type: string
+ *                 enum: [US, GB]
+ *                 description: The tutor's accent (spoken replies, live calls, spelling). Default US.
+ *               tutorVoice:
+ *                 type: string
+ *                 enum: [FEMALE, MALE]
+ *                 description: The tutor's voice. Default FEMALE.
  *               uiLanguage:
  *                 type: string
  *                 example: en
