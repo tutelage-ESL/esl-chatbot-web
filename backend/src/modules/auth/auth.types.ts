@@ -42,6 +42,8 @@ export interface AuthUser {
   avatarUrl: string | null;
   isActive: boolean;
   emailVerified: boolean;
+  /** When the dashboard guide was finished or skipped (ISO); null = not yet, show it. */
+  guideSeenAt: string | null;
   subscription: {
     plan: Plan;
     status: SubStatus;

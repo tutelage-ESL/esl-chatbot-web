@@ -17,6 +17,7 @@ import {
   updateMyLearnerProfile,
   updateUserAvatar,
   getDashboard,
+  markGuideSeen,
 } from "./users.service.ts";
 import { AppError } from "../../utils/AppError.ts";
 
@@ -75,6 +76,10 @@ export const updateMe = asyncHandler(async (req: Request, res: Response) => {
   const input = updateMyProfileSchema.parse(req.body);
   const profile = await updateMyProfile(req.user!.id, input);
   sendSuccess(res, profile, "Profile updated successfully");
+});
+
+export const markGuideSeenHandler = asyncHandler(async (req: Request, res: Response) => {
+  sendSuccess(res, await markGuideSeen(req.user!.id), "Guide marked as seen");
 });
 
 export const updateLearnerProfile = asyncHandler(async (req: Request, res: Response) => {

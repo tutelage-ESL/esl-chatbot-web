@@ -160,6 +160,8 @@ model User {
   // verified on link (Google has already verified the email).
   emailVerified   Boolean   @default(false)
   emailVerifiedAt DateTime?
+  /// When the user finished or skipped the dashboard guide; null = show it on their next visit.
+  guideSeenAt     DateTime?
 
   // One-to-one
   learnerProfile LearnerProfile?

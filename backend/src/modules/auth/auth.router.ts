@@ -111,6 +111,11 @@ if (env.NODE_ENV !== "production") {
  *             True once the user has verified their email via OTP, or linked a
  *             Google account (Google emails are pre-verified). Verifying activates
  *             the FREE subscription.
+ *         guideSeenAt:
+ *           type: string
+ *           format: date-time
+ *           nullable: true
+ *           description: When the dashboard guide was finished or skipped; null shows it on the next dashboard visit.
  *         subscription:
  *           type: object
  *           nullable: true

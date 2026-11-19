@@ -258,6 +258,17 @@ export async function getUserById(id: string): Promise<UserDetail> {
 
 // ─── Self-profile ──────────────────────────────────────────────────────────────
 
+/** The dashboard guide was finished or skipped: it no longer starts by itself (any device). */
+export async function markGuideSeen(userId: string): Promise<{ guideSeenAt: string }> {
+  const { guideSeenAt } = await prisma.user.update({
+    where: { id: userId },
+    data: { guideSeenAt: new Date() },
+    select: { guideSeenAt: true },
+  });
+  await deleteCache(cacheKeys.authUser(userId)); // GET /auth/me carries guideSeenAt
+  return { guideSeenAt: guideSeenAt!.toISOString() };
+}
+
 export async function getMyProfile(userId: string): Promise<MyProfile> {
   const user = await prisma.user.findUnique({
     where: { id: userId },

@@ -177,6 +177,7 @@ type CredentialUser = {
   avatarUrl: string | null;
   isActive: boolean;
   emailVerified: boolean;
+  guideSeenAt: Date | null;
   password: string | null;
   subscription: { plan: Plan; status: SubStatus } | null;
 };
@@ -238,6 +239,7 @@ function toAuthUser(user: CredentialUser): AuthUser {
     avatarUrl: user.avatarUrl,
     isActive: user.isActive,
     emailVerified: user.emailVerified,
+    guideSeenAt: user.guideSeenAt?.toISOString() ?? null,
     subscription: user.subscription
       ? { plan: user.subscription.plan, status: user.subscription.status }
       : null,
@@ -370,6 +372,7 @@ export async function register(input: RegisterInput, ipAddress?: string | null):
     avatarUrl: newUser.avatarUrl,
     isActive: newUser.isActive,
     emailVerified: newUser.emailVerified,
+    guideSeenAt: null,
     // We know exactly what was just created
     subscription: { plan: "FREE", status: "INACTIVE" },
   };
@@ -485,6 +488,7 @@ export async function googleAuth(
         avatarUrl: created.avatarUrl,
         isActive: created.isActive,
         emailVerified: created.emailVerified,
+        guideSeenAt: null,
         subscription: { plan: "FREE", status: "ACTIVE" },
       },
     };
@@ -520,6 +524,7 @@ export async function googleAuth(
       avatarUrl: user.avatarUrl,
       isActive: user.isActive,
       emailVerified: user.emailVerified,
+      guideSeenAt: user.guideSeenAt?.toISOString() ?? null,
       subscription: user.subscription
         ? { plan: user.subscription.plan, status: user.subscription.status }
         : null,
@@ -618,6 +623,7 @@ export async function getMe(userId: string): Promise<AuthUser> {
     avatarUrl: user.avatarUrl,
     isActive: user.isActive,
     emailVerified: user.emailVerified,
+    guideSeenAt: user.guideSeenAt?.toISOString() ?? null,
     subscription: user.subscription
       ? { plan: user.subscription.plan, status: user.subscription.status }
       : null,
@@ -809,6 +815,7 @@ export async function linkGoogle(userId: string, input: LinkGoogleInput): Promis
     avatarUrl: updated.avatarUrl,
     isActive: updated.isActive,
     emailVerified: updated.emailVerified,
+    guideSeenAt: updated.guideSeenAt?.toISOString() ?? null,
     subscription: updated.subscription
       ? { plan: updated.subscription.plan, status: updated.subscription.status }
       : null,

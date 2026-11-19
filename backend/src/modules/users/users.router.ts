@@ -7,6 +7,7 @@ import {
   getMySubscriptionHandler,
   updateMe,
   updateLearnerProfile,
+  markGuideSeenHandler,
   uploadAvatarHandler,
 } from "./users.controller.ts";
 import { authenticate } from "../../middlewares/authenticate.ts";
@@ -365,6 +366,37 @@ router.patch("/me", authenticate, updateMe);
  *         $ref: '#/components/responses/ValidationError'
  */
 router.patch("/me/learner-profile", authenticate, updateLearnerProfile);
+
+/**
+ * @swagger
+ * /users/me/guide-seen:
+ *   post:
+ *     tags: [Users]
+ *     summary: Mark the dashboard guide as finished or skipped
+ *     description: >
+ *       The guide (product tour) starts by itself on the dashboard while the user's
+ *       guideSeenAt is null. Called when it is finished or skipped; it can still be
+ *       replayed from the account menu. Any role.
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Saved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 message: { type: string }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     guideSeenAt: { type: string, format: date-time }
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ */
+router.post("/me/guide-seen", authenticate, markGuideSeenHandler);
 
 // ─── Admin-only routes ────────────────────────────────────────────────────────
 
