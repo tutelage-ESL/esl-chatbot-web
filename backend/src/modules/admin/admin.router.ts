@@ -208,6 +208,116 @@ router.use(authenticate, authorize("ADMIN"));
  *                       properties:
  *                         unverifiedOver24h: { type: integer }
  *                         fibPaymentsStuck: { type: integer }
+ *                     people:
+ *                       type: object
+ *                       properties:
+ *                         newest:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               id: { type: string, format: uuid }
+ *                               name: { type: string }
+ *                               username: { type: string }
+ *                               role: { type: string, enum: [STUDENT, TUTOR, ADMIN] }
+ *                               verified: { type: boolean }
+ *                               plan: { type: string, enum: [FREE, GOLD, PREMIUM] }
+ *                               joinedAt: { type: string, format: date-time }
+ *                         mostActive:
+ *                           type: array
+ *                           description: Students with the most practice minutes in the last 7 days
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               id: { type: string, format: uuid }
+ *                               name: { type: string }
+ *                               minutes: { type: integer }
+ *                               messages: { type: integer }
+ *                               plan: { type: string, enum: [FREE, GOLD, PREMIUM] }
+ *                         goneQuiet:
+ *                           type: array
+ *                           description: Students who practised before but not in the last 7 days, most recently quiet first
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               id: { type: string, format: uuid }
+ *                               name: { type: string }
+ *                               lastPracticeAt: { type: string, format: date-time }
+ *                               plan: { type: string, enum: [FREE, GOLD, PREMIUM] }
+ *                         goneQuietCount: { type: integer }
+ *                     classes:
+ *                       type: array
+ *                       description: Every class that isn't archived, biggest first (same numbers as the tutor dashboard)
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id: { type: string, format: uuid }
+ *                           name: { type: string }
+ *                           students: { type: integer }
+ *                           activeThisWeek: { type: integer }
+ *                           handInRate: { type: integer, nullable: true }
+ *                           missing: { type: integer }
+ *                           toReview: { type: integer }
+ *                           avgSkill: { type: integer, nullable: true }
+ *                           teacher:
+ *                             type: object
+ *                             nullable: true
+ *                             properties:
+ *                               id: { type: string, format: uuid }
+ *                               name: { type: string }
+ *                     trend:
+ *                       type: array
+ *                       description: The last 30 UTC days, oldest first
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           date: { type: string, example: "2026-11-21" }
+ *                           signUps: { type: integer }
+ *                           activeLearners: { type: integer }
+ *                           messages: { type: integer }
+ *                     learning:
+ *                       type: object
+ *                       properties:
+ *                         skills:
+ *                           type: object
+ *                           properties:
+ *                             grammar: { type: number }
+ *                             vocabulary: { type: number }
+ *                             fluency: { type: number }
+ *                             speaking: { type: number }
+ *                             practisingStudents: { type: integer }
+ *                         levels:
+ *                           type: object
+ *                           description: Students by the level the AI hears; NONE = not measured yet
+ *                           additionalProperties: { type: integer }
+ *                         commonMistakes:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               rule: { type: string }
+ *                               count: { type: integer }
+ *                               example:
+ *                                 type: object
+ *                                 nullable: true
+ *                                 properties:
+ *                                   said: { type: string }
+ *                                   better: { type: string }
+ *                         modes:
+ *                           type: object
+ *                           properties:
+ *                             chat: { type: integer }
+ *                             voice: { type: integer }
+ *                             voiceMinutes: { type: integer }
+ *                         heavyUsers:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               id: { type: string, format: uuid }
+ *                               name: { type: string }
+ *                               messages: { type: integer }
+ *                               plan: { type: string, enum: [FREE, GOLD, PREMIUM] }
  *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  *       403: { description: Caller is not an admin, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  */

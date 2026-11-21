@@ -102,9 +102,10 @@ export async function topMistakesFor(userIds: string | string[], limit = 5): Pro
     for (const e of errors) {
       const rule = (e.rule ?? e.error ?? "").trim();
       if (!rule) continue;
-      const hit = tally.get(rule);
+      const key = rule.toLowerCase(); // the AI writes the same rule in different cases
+      const hit = tally.get(key);
       if (hit) hit.count++;
-      else tally.set(rule, { rule, count: 1, example: e.error && e.correction ? { said: e.error, better: e.correction } : null });
+      else tally.set(key, { rule, count: 1, example: e.error && e.correction ? { said: e.error, better: e.correction } : null });
     }
   }
   return [...tally.values()].sort((a, b) => b.count - a.count).slice(0, limit);

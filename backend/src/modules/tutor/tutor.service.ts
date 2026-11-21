@@ -51,8 +51,12 @@ export async function getTutorDashboardStats(tutorId: string): Promise<TutorDash
     where: { userId: tutorId, role: "TUTOR", class: { archived: false } },
     select: { class: { select: { id: true, className: true } } },
   });
-  if (!memberships.length) return EMPTY;
-  const classes = memberships.map((m) => m.class);
+  return statsForClasses(memberships.map((m) => m.class));
+}
+
+/** The tutor dashboard's numbers for any set of classes (a tutor's own, or every class for the admin dashboard). */
+export async function statsForClasses(classes: { id: string; className: string }[]): Promise<TutorDashboardData> {
+  if (!classes.length) return EMPTY;
   const classIds = classes.map((c) => c.id);
   const className = new Map(classes.map((c) => [c.id, c.className]));
 

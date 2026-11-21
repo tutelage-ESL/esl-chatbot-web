@@ -1,6 +1,7 @@
 import type { Plan } from "@prisma/client";
 import { prisma } from "../../config/database.ts";
 import type { AdminDashboardData } from "./admin.types.ts";
+import { classesSection, learningSection, peopleSection, trendSection } from "./admin.insights.ts";
 
 // Admin home dashboard: growth, the learner funnel, money, AI usage (the main running
 // cost) and anything that needs fixing. Internal (stealth) accounts never count.
@@ -81,6 +82,11 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardData> {
   const aiUsage: Record<Plan, number> = { FREE: 0, GOLD: 0, PREMIUM: 0 };
   for (const u of usage) aiUsage[planOf.get(u.userId) ?? "FREE"] += (u._count as { _all: number })._all;
 
+  const weekUsage = usage.map((u) => ({ userId: u.userId, count: (u._count as { _all: number })._all }));
+  const [people, classes, trend, learning] = await Promise.all([
+    peopleSection(now), classesSection(), trendSection(now), learningSection(now, weekUsage),
+  ]);
+
   const role = new Map(byRole.map((r) => [r.role, (r._count as { _all: number })._all]));
   const paid = new Map(paidByPlan.map((p) => [p.plan, (p._count as { _all: number })._all]));
   const students = role.get("STUDENT") ?? 0;
@@ -125,5 +131,9 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardData> {
     })),
     aiUsage,
     attention: { unverifiedOver24h: unverifiedStuck, fibPaymentsStuck: fibStuck },
+    people,
+    classes,
+    trend,
+    learning,
   };
 }
