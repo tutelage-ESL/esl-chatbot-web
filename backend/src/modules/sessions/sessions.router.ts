@@ -10,6 +10,7 @@ import {
   deleteSessionHandler,
 } from "./sessions.controller.ts";
 import { authenticate } from "../../middlewares/authenticate.ts";
+import { authorize } from "../../middlewares/authorize.ts";
 import { createSessionLimiter } from "../../middlewares/rateLimits.ts";
 
 const router = Router();
@@ -283,7 +284,7 @@ router.get("/", authenticate, listSessionsHandler);
  *       403: { description: No active subscription, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  *       429: { description: Daily session limit reached, or rate limit exceeded (20 per hour per user), content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  */
-router.post("/", authenticate, createSessionLimiter, createSessionHandler);
+router.post("/", authenticate, authorize("STUDENT"), createSessionLimiter, createSessionHandler);
 
 // ─────────────────────────────────────────────────────────
 // GET SESSION DETAIL

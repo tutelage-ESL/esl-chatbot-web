@@ -10,7 +10,7 @@ export const createGoalSchema = z
     assignedToUserId: z.string().uuid("Invalid user ID").optional(),
     type: z.enum(GOAL_TYPES),
     description: z.string().min(1).max(500),
-    target: z.number().int().min(1),
+    target: z.number().int().min(1).max(10_000, "Target can be at most 10,000"),
     difficulty: z.enum(GOAL_DIFFICULTIES).optional(),
     targetDate: z.string().datetime({ offset: true }).optional(),
     actionPlan: z.string().max(1000).optional(),
@@ -21,7 +21,7 @@ export type CreateGoalInput = z.infer<typeof createGoalSchema>;
 export const updateGoalSchema = z
   .object({
     description: z.string().min(1).max(500).optional(),
-    target: z.number().int().min(1).optional(),
+    target: z.number().int().min(1).max(10_000, "Target can be at most 10,000").optional(),
     difficulty: z.enum(GOAL_DIFFICULTIES).nullable().optional(),
     status: z.enum(GOAL_STATUSES).optional(),
     progress: z.number().min(0).max(100).optional(),

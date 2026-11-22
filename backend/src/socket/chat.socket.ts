@@ -95,6 +95,12 @@ export function initChatHandlers(namespace: Namespace): void {
 
       const { sessionId, content, clientMsgId } = parsed.data;
 
+      // The AI tutor is for learners only — same rule as POST /sessions/:id/messages.
+      if (socket.data.user.role !== "STUDENT") {
+        socket.emit("message:error", { clientMsgId, code: "FORBIDDEN", message: "Only students can chat with the AI tutor" });
+        return;
+      }
+
       const lockKey = `${userId}:${sessionId}`;
       if (inProgress.has(lockKey)) {
         socket.emit("message:error", {

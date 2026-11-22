@@ -14,6 +14,8 @@ import {
   verifyEmailSchema,
   resendVerificationSchema,
   acceptAgreementSchema,
+  usernameAvailableSchema,
+  changePasswordSchema,
 } from "./auth.schema.ts";
 import {
   login,
@@ -28,6 +30,8 @@ import {
   setPassword,
   verifyEmail,
   resendVerification,
+  isUsernameAvailable,
+  changePassword,
   getCurrentAgreement,
   acceptAgreement,
 } from "./auth.service.ts";
@@ -142,4 +146,16 @@ export const acceptAgreementHandler = asyncHandler(async (req: Request, res: Res
   const result = await acceptAgreement(input, req.ip);
 
   sendSuccess(res, result, "Terms of service accepted", 200);
+});
+
+export const usernameAvailableHandler = asyncHandler(async (req: Request, res: Response) => {
+  const { username } = usernameAvailableSchema.parse(req.query);
+  const available = await isUsernameAvailable(username);
+  sendSuccess(res, { available }, available ? "Username is available" : "Username is already taken", 200);
+});
+
+export const changePasswordHandler = asyncHandler(async (req: Request, res: Response) => {
+  const input = changePasswordSchema.parse(req.body);
+  await changePassword(req.user!.id, input);
+  sendSuccess(res, null, "Password changed", 200);
 });

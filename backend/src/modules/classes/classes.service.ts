@@ -405,6 +405,20 @@ export async function setClassArchived(
   return readClassDetail(classId, await findMyClassRole(classId, actorUserId));
 }
 
+/**
+ * Permanently delete a class. Tutors of the class and admins only. Members,
+ * announcements, tasks (+ submissions) and word lists cascade with it; words
+ * already given to students stay in their vocabulary (their list link is nulled).
+ */
+export async function deleteClass(classId: string, actorUserId: string, actorRole: string): Promise<void> {
+  await assertTutorOfClass(classId, actorUserId, actorRole);
+
+  await prisma.class.delete({ where: { id: classId } }).catch((err: { code?: string }) => {
+    if (err.code === "P2025") throw new AppError("Class not found", 404);
+    throw err;
+  });
+}
+
 // ── Code management ────────────────────────────────────────
 
 function toCodeInfo(c: {
@@ -594,7 +608,7 @@ export async function joinClassByCode(
     throw new AppError("This class is archived and not accepting new members", 409);
   }
   if (cls.classStatus !== "ACTIVE") {
-    throw new AppError("This class is not currently active", 409);
+    throw new AppError("This class isn't accepting new students right now. Ask your tutor.", 409);
   }
   if (cls.classCodeBlocked) {
     throw new AppError("This class code is blocked. Ask the tutor for access.", 403);
@@ -1043,20 +1057,23 @@ export async function getClassAnalytics(
   ]);
 
   // Tally grammar error rules/descriptions across all evaluations
-  const errorCounts = new Map<string, number>();
+  // Grouped case-insensitively (the AI writes "Past Simple Tense" and "past simple tense");
+  // the first spelling seen is the one shown.
+  const errorCounts = new Map<string, { error: string; count: number }>();
   for (const ev of recentEvaluations) {
     const errors = ev.grammarErrors as Array<{ error?: string; rule?: string }>;
     if (Array.isArray(errors)) {
       for (const e of errors) {
-        const key = e.rule ?? e.error ?? "Unknown";
-        errorCounts.set(key, (errorCounts.get(key) ?? 0) + 1);
+        const label = (e.rule ?? e.error ?? "Unknown").trim() || "Unknown";
+        const hit = errorCounts.get(label.toLowerCase());
+        if (hit) hit.count++;
+        else errorCounts.set(label.toLowerCase(), { error: label, count: 1 });
       }
     }
   }
-  const topErrors = Array.from(errorCounts.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([error, count]) => ({ error, count }));
+  const topErrors = Array.from(errorCounts.values())
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
 
   const totalVocab = vocabGroups.reduce(
     (sum, v) => sum + (v._count as { _all: number })._all,

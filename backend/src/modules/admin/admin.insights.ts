@@ -59,7 +59,7 @@ export async function peopleSection(now: Date): Promise<AdminPeople> {
   return {
     newest: newest.map((u) => ({
       id: u.id, name: nameOf(u), username: u.username, role: u.role,
-      verified: u.emailVerified || u.subscription?.status === "ACTIVE",
+      verified: u.emailVerified,
       plan: u.subscription?.plan ?? "FREE", joinedAt: u.createdAt,
     })),
     mostActive: top.map((t) => ({ id: t.userId, name: studentName.get(t.userId) ?? "Student", minutes: t.minutes, messages: t.messages, plan: plans.get(t.userId) ?? "FREE" })),

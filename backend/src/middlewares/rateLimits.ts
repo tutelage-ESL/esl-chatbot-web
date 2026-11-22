@@ -50,6 +50,15 @@ export const registerLimiter = rateLimit({
   handler: limited("Too many sign-up attempts."),
 });
 
+export const usernameCheckLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  skip,
+  handler: limited("Too many username checks."),
+});
+
 export const googleAuthLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,

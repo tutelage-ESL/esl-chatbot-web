@@ -25,7 +25,7 @@ export type GetUsersQuery = z.infer<typeof getUsersQuerySchema>;
 // ─── Self-profile update ───────────────────────────────────────────────────────
 
 export const updateMyProfileSchema = z.object({
-  displayName: z.string().min(1).max(100).optional(),
+  displayName: z.string().trim().min(1).max(100).optional(),
   phoneNumber: z.string().max(20).nullable().optional(),
 });
 

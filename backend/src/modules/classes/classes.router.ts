@@ -8,6 +8,7 @@ import {
   updateCodeSettingsHandler,
   setBlockedHandler,
   setArchivedHandler,
+  deleteClassHandler,
   joinByCodeHandler,
   listMyClassesHandler,
   listClassStudentsHandler,
@@ -595,6 +596,43 @@ router.patch("/:id/code/block", authenticate, authorize("TUTOR", "ADMIN"), setBl
  *       404: { description: Class not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  */
 router.patch("/:id/archive", authenticate, authorize("TUTOR", "ADMIN"), setArchivedHandler);
+
+// ─────────────────────────────────────────────────────────
+// DELETE (tutor in class / admin)
+// ─────────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /classes/{id}:
+ *   delete:
+ *     summary: Permanently delete a class (Tutor in class or Admin)
+ *     description: |
+ *       Removes the class with its members, announcements, tasks, submissions and
+ *       word lists. Words already given to students stay in their vocabulary.
+ *       This cannot be undone — use archive for a reversible option.
+ *     tags: [Classes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Class deleted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 message: { type: string, example: Class deleted }
+ *                 data: { nullable: true, example: null }
+ *       401: { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       403: { description: Not a tutor of this class, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       404: { description: Class not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ */
+router.delete("/:id", authenticate, authorize("TUTOR", "ADMIN"), deleteClassHandler);
 
 // ─────────────────────────────────────────────────────────
 // STUDENT LIST (tutor in class / admin)

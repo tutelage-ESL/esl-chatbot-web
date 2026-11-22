@@ -153,18 +153,19 @@ export async function assignSubscription(
 export async function cancelSubscription(userId: string): Promise<void> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, isInternal: true, subscription: { select: { id: true } } },
+    select: { id: true, isInternal: true, emailVerified: true, subscription: { select: { id: true } } },
   });
   if (!user || user.isInternal) throw new AppError("User not found", 404);
   if (!user.subscription) throw new AppError("User has no subscription to cancel", 404);
 
-  // Downgrade to FREE ACTIVE — user retains AI access at FREE limits.
+  // Downgrade to FREE — ACTIVE (AI at FREE limits) only once the user has verified;
+  // an unverified account goes back to INACTIVE, exactly like a fresh sign-up.
   // To block all access, use PATCH /admin/users/:id with isActive=false instead.
   await prisma.subscription.update({
     where: { userId },
     data: {
       plan: "FREE",
-      status: "ACTIVE",
+      status: user.emailVerified ? "ACTIVE" : "INACTIVE",
       currentPeriodEnd: null,
       currentPeriodStart: null,
       paymentProvider: null,

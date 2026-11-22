@@ -281,7 +281,7 @@ export async function addVocabulary(
     createNotification(
       userId,
       "VOCABULARY_ASSIGNED",
-      `Your tutor assigned you a new word: "${input.word.toLowerCase()}"`,
+      `Your teacher gave you a new word: "${input.word.toLowerCase()}"`,
       { vocabularyId: item.id },
     ).catch(() => {});
   }

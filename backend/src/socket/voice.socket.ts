@@ -157,6 +157,12 @@ export function initVoiceHandlers(namespace: Namespace): void {
       }
       const { sessionId } = parsed.data;
 
+      // The AI tutor is for learners only — same rule as the HTTP voice-message route.
+      if (socket.data.user.role !== "STUDENT") {
+        socket.emit("voice:error", { sessionId, code: "FORBIDDEN", message: "Only students can talk to the AI tutor" });
+        return;
+      }
+
       const state = map.get(sessionId);
       if (!state) {
         socket.emit("voice:error", { sessionId, code: "NO_AUDIO", message: "No audio data received" });

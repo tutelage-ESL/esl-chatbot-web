@@ -19,6 +19,7 @@ import dashboardRouter from "../../modules/dashboard/dashboard.router.ts";
 import tutorRouter from "../../modules/tutor/tutor.router.ts";
 import searchRouter from "../../modules/search/search.router.ts";
 import { classTasksRouter, tasksRouter } from "../../modules/tasks/tasks.router.ts";
+import publicRouter from "../../modules/public/public.router.ts";
 import devRouter from "./dev.router.ts";
 import { env } from "../../config/env.ts";
 
@@ -29,6 +30,7 @@ if (env.NODE_ENV !== "production") {
   router.use("/dev", devRouter);
 }
 
+router.use("/public", publicRouter);
 router.use("/auth", authRouter);
 router.use("/ai", aiRouter);
 router.use("/users", usersRouter);

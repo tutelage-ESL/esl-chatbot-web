@@ -438,7 +438,7 @@ router.patch("/users/:id", patchUser);
  *   delete:
  *     summary: Cancel a user's subscription — Admin only
  *     description: >
- *       Downgrades the user to FREE ACTIVE. They retain AI access at FREE tier limits.
+ *       Downgrades the user to FREE — ACTIVE (AI at FREE limits) if their email is verified, otherwise INACTIVE until they verify.
  *       To block all access, use PATCH /admin/users/:id with isActive=false instead.
  *     tags: [Admin]
  *     security:

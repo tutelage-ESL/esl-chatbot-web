@@ -5,6 +5,7 @@ import { AppError } from "../../utils/AppError.ts";
 import { secondsUntilNextDay } from "../../utils/retryAfter.ts";
 import { learnerDay, timezoneOf } from "../../utils/learnerDay.ts";
 import { upsertSessionVocabulary } from "../vocabulary/vocabulary.service.ts";
+import { mostCommonLevel } from "../metrics/skills.service.ts";
 import type { NewVocabularyWord } from "../ai/ai.types.ts";
 import type {
   SessionListItem,
@@ -290,6 +291,8 @@ export async function finalizeSession(sessionId: string): Promise<void> {
               overallScore: true,
               pronunciationScore: true,
               newWords: true,
+              detectedCefrLevel: true,
+              grammarErrors: true,
             },
           },
         },
@@ -325,12 +328,26 @@ export async function finalizeSession(sessionId: string): Promise<void> {
     const avgVocab = mean((e) => e.vocabularyScore);
     const avgFluency = mean((e) => e.fluencyScore);
     const avgOverall = mean((e) => e.overallScore);
-    const cefrLevel = scoreTocefrLevel(avgOverall);
+    // The level is the AI's per-message CEFR judgement (most common one), not a score band —
+    // a high score on two easy sentences is not C1. Too few messages → "" = not enough to tell.
+    const cefrLevel = totalUserMessages >= MIN_MESSAGES_FOR_LEVEL
+      ? mostCommonLevel(evaluatedMessages.map((m) => m.evaluation!.detectedCefrLevel)) ?? ""
+      : "";
+
+    // Grammar is never a strength in a chat where the tutor had to correct grammar.
+    const grammarMistakes = evaluatedMessages.reduce((n, m) => {
+      const errs = m.evaluation!.grammarErrors;
+      return n + (Array.isArray(errs) ? errs.length : 0);
+    }, 0);
 
     const scores = { grammar: avgGrammar, vocabulary: avgVocab, fluency: avgFluency };
     const strengths: string[] = [];
     const weaknesses: string[] = [];
     for (const [skill, score] of Object.entries(scores)) {
+      if (skill === "grammar" && grammarMistakes > 0) {
+        if (score < 50 || grammarMistakes >= totalUserMessages) weaknesses.push("grammar needs improvement");
+        continue;
+      }
       if (score >= 75) strengths.push(`Strong ${skill} skills`);
       else if (score < 50) weaknesses.push(`${skill} needs improvement`);
     }
@@ -449,11 +466,5 @@ export async function getSessionStats(
 
 // ── Helpers ───────────────────────────────────────────────
 
-function scoreTocefrLevel(score: number): string {
-  if (score >= 90) return "C2";
-  if (score >= 80) return "C1";
-  if (score >= 70) return "B2";
-  if (score >= 60) return "B1";
-  if (score >= 45) return "A2";
-  return "A1";
-}
+/** Below this many scored messages a chat says nothing about the learner's CEFR level. */
+const MIN_MESSAGES_FOR_LEVEL = 3;

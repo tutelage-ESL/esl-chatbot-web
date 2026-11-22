@@ -40,7 +40,7 @@ const CEFR_LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"] as const;
 const AI_PERSONALITIES = ["FRIENDLY", "FORMAL", "CASUAL", "ENCOURAGING", "STRICT", "PATIENT"] as const;
 
 export const adminUpdateProfileSchema = z.object({
-  displayName: z.string().min(1).max(100).optional(),
+  displayName: z.string().trim().min(1).max(100).optional(),
   phoneNumber: z.string().max(20).nullable().optional(),
 });
 

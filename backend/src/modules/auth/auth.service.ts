@@ -63,6 +63,15 @@ function expiryOf(token: string): Date {
 }
 
 /** Signs a refresh token for the user and stores its hash. */
+/**
+ * Resend returns { error } instead of throwing. Log the provider's message for us,
+ * but never show it to the user — it can leak provider/test-mode details.
+ */
+function throwEmailSendError(error: { message: string }): never {
+  logger.warn(`Email provider rejected a send: ${error.message}`);
+  throw new AppError("We couldn't send an email to this address. Check that it's correct or try again later.", 502);
+}
+
 async function persistRefreshToken(userId: string): Promise<{ refreshToken: string; refreshTokenExpiresAt: Date }> {
   const refreshToken = signRefreshToken(userId);
   const refreshTokenExpiresAt = expiryOf(refreshToken);
@@ -682,7 +691,7 @@ export async function forgotPassword(input: ForgotPasswordInput): Promise<void> 
     });
     // The Resend SDK returns { data, error } instead of throwing — an unchecked
     // error here means the user waits for an email that was never accepted.
-    if (error) throw new AppError(`Failed to send email: ${error.message}`, 502);
+    if (error) throwEmailSendError(error);
     return;
   }
 
@@ -708,7 +717,7 @@ export async function forgotPassword(input: ForgotPasswordInput): Promise<void> 
       <p>— The Tutelage Team</p>
     `,
   });
-  if (error) throw new AppError(`Failed to send email: ${error.message}`, 502);
+  if (error) throwEmailSendError(error);
 }
 
 // ─── Reset password (verify OTP + set new password) ───────────────────────────
@@ -843,6 +852,32 @@ export async function setPassword(userId: string, input: SetPasswordInput): Prom
   await prisma.user.update({ where: { id: userId }, data: { password: hashedPassword } });
 }
 
+// ─── Username availability (live sign-up check) ──────────────────────────────
+
+export async function isUsernameAvailable(username: string): Promise<boolean> {
+  const existing = await prisma.user.findUnique({ where: { username }, select: { id: true } });
+  return !existing;
+}
+
+// ─── Change password (signed-in users who already have one) ──────────────────
+
+export async function changePassword(
+  userId: string,
+  input: { currentPassword: string; newPassword: string },
+): Promise<void> {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { password: true } });
+  if (!user) throw new AppError("User not found", 404);
+  if (!user.password) {
+    throw new AppError("Your account doesn't have a password yet. Set one first.", 409);
+  }
+
+  const matches = await bcryptjs.compare(input.currentPassword, user.password);
+  if (!matches) throw new AppError("Current password is incorrect", 400);
+
+  const hashedPassword = await bcryptjs.hash(input.newPassword, 12);
+  await prisma.user.update({ where: { id: userId }, data: { password: hashedPassword } });
+}
+
 // ─── Email verification (OTP) ─────────────────────────────────────────────────
 
 /**
@@ -892,7 +927,7 @@ async function sendVerificationEmail(email: string, displayName: string, otp: st
       <p>— The Tutelage Team</p>
     `,
   });
-  if (error) throw new AppError(`Failed to send email: ${error.message}`, 502);
+  if (error) throwEmailSendError(error);
 }
 
 /** Sends the post-verification welcome email. Best-effort — silently skips if unconfigured; throws on a rejected send so the caller can log it. */
@@ -916,7 +951,7 @@ async function sendWelcomeEmail(email: string, displayName: string): Promise<voi
       <p>Happy learning,<br/>— The Tutelage Team</p>
     `,
   });
-  if (error) throw new AppError(`Failed to send email: ${error.message}`, 502);
+  if (error) throwEmailSendError(error);
 }
 
 /**

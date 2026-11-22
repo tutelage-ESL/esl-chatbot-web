@@ -6,12 +6,14 @@ import { logger } from "./logger.ts";
 export const cacheKeys = {
   authUser:  (userId: string) => `user:auth:${userId}`,
   dashboard: (userId: string) => `user:dashboard:${userId}`,
+  publicStats: "public:stats",
 } as const;
 
 // TTLs in seconds — short enough to be a safety net, long enough to matter
 export const cacheTTL = {
   authUser:  300, // 5 min — role/subscription changes visible within 5 min
   dashboard: 120, // 2 min — streak and due-vocab update frequently
+  publicStats: 3600, // 1 h — marketing numbers
 } as const;
 
 let client: Redis | null = null;

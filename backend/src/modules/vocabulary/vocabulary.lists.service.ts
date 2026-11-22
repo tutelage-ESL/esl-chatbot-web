@@ -9,9 +9,10 @@ import type { ClassWordList, ClassWordListCreated } from "./vocabulary.types.ts"
 
 // shortcut: an unnamed list (words given on their own) is stored with title "" instead of a
 // nullable column, to avoid a migration; make title nullable if lists ever need more states.
-const sentMessage = (title: string, words: { word: string }[], added = false) => {
+const sentMessage = (title: string, words: { word: string }[], _added = false) => {
   const n = words.length;
-  if (title) return added ? `${n} new ${n === 1 ? "word" : "words"} added to "${title}"` : `Your teacher gave you ${n} new ${n === 1 ? "word" : "words"}: "${title}"`;
+  // `_added` (words added to an existing list) reads the same as a new list: the title is a list, never a word.
+  if (title) return `Your teacher added ${n} new ${n === 1 ? "word" : "words"} to "${title}"`;
   return n === 1 ? `Your teacher gave you a new word: "${words[0]!.word.toLowerCase()}"` : `Your teacher gave you ${n} new words`;
 };
 

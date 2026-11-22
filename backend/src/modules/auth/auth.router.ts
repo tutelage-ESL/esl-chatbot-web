@@ -17,6 +17,8 @@ import {
   resendVerificationHandler,
   getAgreementHandler,
   acceptAgreementHandler,
+  usernameAvailableHandler,
+  changePasswordHandler,
 } from "./auth.controller.ts";
 import { env } from "../../config/env.ts";
 import { authenticate } from "../../middlewares/authenticate.ts";
@@ -29,6 +31,7 @@ import {
   refreshTokenLimiter,
   verifyEmailLimiter,
   resendVerificationLimiter,
+  usernameCheckLimiter,
 } from "../../middlewares/rateLimits.ts";
 
 const router = Router();
@@ -939,6 +942,135 @@ router.post("/verify-email", verifyEmailLimiter, verifyEmailHandler);
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post("/resend-verification", resendVerificationLimiter, resendVerificationHandler);
+
+// ─── GET /auth/username-available ─────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /auth/username-available:
+ *   get:
+ *     summary: Check whether a username is free (live sign-up check)
+ *     tags: [Auth]
+ *     parameters:
+ *       - in: query
+ *         name: username
+ *         required: true
+ *         schema:
+ *           type: string
+ *           example: student_ali
+ *     responses:
+ *       200:
+ *         description: Availability result
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Username is available
+ *                 data:
+ *                   type: object
+ *                   required: [available]
+ *                   properties:
+ *                     available:
+ *                       type: boolean
+ *                       example: true
+ *       422:
+ *         description: Username format is invalid
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       429:
+ *         description: Rate limit exceeded (60 checks per minute per IP)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.get("/username-available", usernameCheckLimiter, usernameAvailableHandler);
+
+// ─── POST /auth/change-password ───────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /auth/change-password:
+ *   post:
+ *     summary: Change the password of the signed-in user
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     description: >
+ *       Requires the current password. Google-only accounts (no password yet)
+ *       must use POST /auth/set-password instead.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [currentPassword, newPassword]
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *                 example: password123
+ *               newPassword:
+ *                 type: string
+ *                 minLength: 8
+ *                 example: newPassword456
+ *     responses:
+ *       200:
+ *         description: Password changed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Password changed
+ *                 data:
+ *                   nullable: true
+ *                   example: null
+ *       400:
+ *         description: Current password is incorrect
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Not signed in
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       409:
+ *         description: The account has no password yet (use set-password)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       422:
+ *         description: Validation error (new password too short or same as current)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       429:
+ *         description: Too many attempts
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.post("/change-password", authenticate, loginLimiter, changePasswordHandler);
 
 // ─── POST /auth/link-google ───────────────────────────────────────────────────
 

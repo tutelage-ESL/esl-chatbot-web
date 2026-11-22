@@ -10,12 +10,14 @@ import { classesSection, learningSection, peopleSection, trendSection } from "./
 const DAY = 86_400_000;
 const real = { isInternal: false } as const;
 
-/** A paid plan only counts while its period hasn't ended (expiry downgrades lazily). */
+const student = { ...real, role: "STUDENT" as const };
+
+/** A paid plan only counts while its period hasn't ended (expiry downgrades lazily). Students only. */
 const payingNow = (now: Date) => ({
   status: "ACTIVE" as const,
   plan: { not: "FREE" as const },
   OR: [{ currentPeriodEnd: null }, { currentPeriodEnd: { gt: now } }],
-  user: real,
+  user: student,
 });
 
 async function activeLearners(since: Date, until?: Date): Promise<string[]> {
@@ -37,7 +39,7 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardData> {
   const [
     byRole, newThisWeek, newLastWeek,
     active24h, activeThisWeek, activeLastWeek, messagesThisWeek, messagesLastWeek,
-    verified, practised, paidByPlan, freeActive, expiredUnpaid, paidByProvider,
+    verified, practised, paidByPlan, expiredUnpaid, paidByProvider,
     fibThisMonth, fibLastMonth, expiring, unverifiedStuck, fibStuck,
   ] = await Promise.all([
     prisma.user.groupBy({ by: ["role"], where: real, _count: { _all: true } }),
@@ -48,12 +50,12 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardData> {
     activeLearners(twoWeeksAgo, weekAgo),
     prisma.message.count({ where: { role: "USER", createdAt: { gte: weekAgo }, user: real } }),
     prisma.message.count({ where: { role: "USER", createdAt: { gte: twoWeeksAgo, lt: weekAgo }, user: real } }),
-    // Funnel: students who signed up → verified (subscription active) → practised → pay
-    prisma.user.count({ where: { ...real, role: "STUDENT", subscription: { status: "ACTIVE" } } }),
+    // Funnel: students who signed up → verified (email confirmed or Google linked — both set
+    // emailVerified) → practised → pay. An admin-assigned plan is not a verification.
+    prisma.user.count({ where: { ...student, emailVerified: true } }),
     prisma.user.count({ where: { ...real, role: "STUDENT", messages: { some: { role: "USER" } } } }),
     prisma.subscription.groupBy({ by: ["plan"], where: payingNow(now), _count: { _all: true } }),
-    prisma.subscription.count({ where: { status: "ACTIVE", plan: "FREE", user: real } }),
-    prisma.subscription.count({ where: { status: "ACTIVE", plan: { not: "FREE" }, currentPeriodEnd: { lte: now }, user: real } }),
+    prisma.subscription.count({ where: { status: "ACTIVE", plan: { not: "FREE" }, currentPeriodEnd: { lte: now }, user: student } }),
     prisma.subscription.groupBy({ by: ["paymentProvider"], where: payingNow(now), _count: { _all: true } }),
     // FIB: money from subscriptions activated in the month (renewal charges are not stored)
     prisma.fibSubscription.aggregate({ where: { activatedAt: { gte: monthStart } }, _sum: { amountIQD: true }, _count: { _all: true } }),
@@ -64,7 +66,7 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardData> {
       take: 8,
       select: { plan: true, currentPeriodEnd: true, cancelAtPeriodEnd: true, user: { select: { id: true, displayName: true, username: true } } },
     }),
-    prisma.subscription.count({ where: { status: "INACTIVE", createdAt: { lt: dayAgo }, user: { ...real, role: "STUDENT" } } }),
+    prisma.user.count({ where: { ...student, emailVerified: false, createdAt: { lt: dayAgo } } }),
     prisma.fibSubscription.count({ where: { fibStatus: "DRAFT", createdAt: { lt: new Date(now.getTime() - 60 * 60 * 1000) } } }),
   ]);
 
@@ -90,6 +92,8 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardData> {
   const role = new Map(byRole.map((r) => [r.role, (r._count as { _all: number })._all]));
   const paid = new Map(paidByPlan.map((p) => [p.plan, (p._count as { _all: number })._all]));
   const students = role.get("STUDENT") ?? 0;
+  const gold = paid.get("GOLD") ?? 0;
+  const premium = paid.get("PREMIUM") ?? 0;
 
   return {
     users: {
@@ -111,9 +115,11 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardData> {
       signedUp: students,
       verified,
       practised,
-      paying: (paid.get("GOLD") ?? 0) + (paid.get("PREMIUM") ?? 0),
+      paying: gold + premium,
     },
-    plans: { FREE: freeActive, GOLD: paid.get("GOLD") ?? 0, PREMIUM: paid.get("PREMIUM") ?? 0, expiredNotDowngraded: expiredUnpaid },
+    // Every student is on exactly one plan: anyone not paying right now is on Free
+    // (incl. unverified and expired-not-yet-downgraded), so the three add up to `students`.
+    plans: { FREE: students - gold - premium, GOLD: gold, PREMIUM: premium, expiredNotDowngraded: expiredUnpaid },
     revenue: {
       fibThisMonthIQD: fibThisMonth._sum.amountIQD ?? 0,
       fibThisMonthCount: (fibThisMonth._count as { _all: number })._all,

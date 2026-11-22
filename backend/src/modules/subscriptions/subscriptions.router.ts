@@ -3,6 +3,7 @@ import { readFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { authenticate } from "../../middlewares/authenticate.ts";
+import { authorize } from "../../middlewares/authorize.ts";
 import { env } from "../../config/env.ts";
 import {
   initiateFibHandler,
@@ -109,7 +110,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
  *       422: { $ref: '#/components/responses/ValidationError' }
  *       503: { description: FIB credentials not configured }
  */
-router.post("/initiate-fib", authenticate, initiateFibHandler);
+router.post("/initiate-fib", authenticate, authorize("STUDENT"), initiateFibHandler);
 
 /**
  * @swagger

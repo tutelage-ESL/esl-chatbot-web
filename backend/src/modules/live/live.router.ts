@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { authenticate } from "../../middlewares/authenticate.ts";
+import { authorize } from "../../middlewares/authorize.ts";
 import { createSessionLimiter, liveTurnLimiter } from "../../middlewares/rateLimits.ts";
 import { saveLiveTurnHandler, startLiveCallHandler } from "./live.controller.ts";
 
@@ -48,7 +49,7 @@ const router = Router();
  *       429: { description: Daily conversations or messages used up, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  *       503: { description: Live calls not configured or Google unavailable, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  */
-router.post("/calls", authenticate, createSessionLimiter, startLiveCallHandler);
+router.post("/calls", authenticate, authorize("STUDENT"), createSessionLimiter, startLiveCallHandler);
 
 /**
  * @swagger
@@ -132,6 +133,6 @@ router.post("/calls", authenticate, createSessionLimiter, startLiveCallHandler);
  *       422: { description: Invalid body, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  *       429: { description: Message limit reached — end the call, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  */
-router.post("/calls/:sessionId/turns", authenticate, liveTurnLimiter, saveLiveTurnHandler);
+router.post("/calls/:sessionId/turns", authenticate, authorize("STUDENT"), liveTurnLimiter, saveLiveTurnHandler);
 
 export default router;

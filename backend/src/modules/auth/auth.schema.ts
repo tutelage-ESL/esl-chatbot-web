@@ -15,6 +15,7 @@ export const registerSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters"),
   displayName: z
     .string()
+    .trim()
     .min(1, "Display name is required")
     .max(100, "Display name must be at most 100 characters"),
   // Must be exactly true — the user has to accept the current Terms of Service to register.
@@ -63,6 +64,25 @@ export const linkGoogleSchema = z.object({
 export const setPasswordSchema = z.object({
   newPassword: z.string().min(8, "Password must be at least 8 characters"),
 });
+
+export const usernameAvailableSchema = z.object({
+  username: z
+    .string()
+    .trim()
+    .min(3, "Username must be at least 3 characters")
+    .max(30, "Username must be at most 30 characters")
+    .regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores"),
+});
+
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Current password is required"),
+    newPassword: z.string().min(8, "Password must be at least 8 characters"),
+  })
+  .refine((d) => d.currentPassword !== d.newPassword, {
+    message: "New password must be different from your current password",
+    path: ["newPassword"],
+  });
 
 export const verifyEmailSchema = z.object({
   email: z.string().email("Invalid email address"),

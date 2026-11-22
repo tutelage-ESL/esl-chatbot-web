@@ -93,20 +93,27 @@ export async function topMistakesFor(userIds: string | string[], limit = 5): Pro
     where: { message: { userId: { in: ids } }, createdAt: { gte: since } },
     orderBy: { createdAt: "desc" },
     take: 300,
-    select: { grammarErrors: true },
+    select: { grammarErrors: true, corrections: true },
   });
   const tally = new Map<string, StudentMistake>();
   for (const ev of evals) {
     const errors = ev.grammarErrors as Array<{ error?: string; correction?: string; rule?: string }>;
     if (!Array.isArray(errors)) continue;
-    for (const e of errors) {
+    // grammarErrors[].error is the AI's *description* ("Incorrect verb tense"); the
+    // student's own words only live in corrections[].original.
+    const fixes = (Array.isArray(ev.corrections) ? ev.corrections : []) as Array<{ original?: string; corrected?: string }>;
+    errors.forEach((e, i) => {
       const rule = (e.rule ?? e.error ?? "").trim();
-      if (!rule) continue;
+      if (!rule) return;
+      const fix = fixes.find((f) => f.corrected && f.corrected === e.correction) ?? fixes[i];
+      const example = fix?.original && fix.corrected ? { said: fix.original, better: fix.corrected } : null;
       const key = rule.toLowerCase(); // the AI writes the same rule in different cases
       const hit = tally.get(key);
-      if (hit) hit.count++;
-      else tally.set(key, { rule, count: 1, example: e.error && e.correction ? { said: e.error, better: e.correction } : null });
-    }
+      if (hit) {
+        hit.count++;
+        hit.example ??= example;
+      } else tally.set(key, { rule, count: 1, example });
+    });
   }
   return [...tally.values()].sort((a, b) => b.count - a.count).slice(0, limit);
 }

@@ -16,7 +16,7 @@ export interface AdminDashboardData {
   users: { total: number; students: number; tutors: number; admins: number; newThisWeek: number; newLastWeek: number };
   /** Active = sent the AI tutor a message in the window */
   activity: { active24h: number; activeThisWeek: number; activeLastWeek: number; messagesThisWeek: number; messagesLastWeek: number };
-  /** Students: signed up → verified (subscription active) → practised (≥1 message) → paying now */
+  /** Students: signed up → verified (email confirmed or Google linked) → practised (≥1 message) → paying now */
   funnel: { signedUp: number; verified: number; practised: number; paying: number };
   /** Active plans; paid ones only while their period hasn't ended */
   plans: { FREE: number; GOLD: number; PREMIUM: number; expiredNotDowngraded: number };

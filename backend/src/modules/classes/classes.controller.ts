@@ -24,6 +24,7 @@ import {
   updateClassCodeSettings,
   setClassCodeBlocked,
   setClassArchived,
+  deleteClass,
   joinClassByCode,
   listMyClasses,
   getClassStudents,
@@ -106,6 +107,13 @@ export const setArchivedHandler = asyncHandler(async (req: Request, res: Respons
   const body = setArchivedSchema.parse(req.body);
   const cls = await setClassArchived(id, req.user.id, req.user.role, body.archived);
   sendSuccess(res, cls, body.archived ? "Class archived" : "Class unarchived");
+});
+
+export const deleteClassHandler = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.user) throw new AppError("Authentication required", 401);
+  const { id } = getClassParamSchema.parse(req.params);
+  await deleteClass(id, req.user.id, req.user.role);
+  sendSuccess(res, null, "Class deleted");
 });
 
 // ── Join by code (any authenticated user) ─────────────────

@@ -25,7 +25,7 @@ export type SkillSnapshot = {
 };
 
 /** The level that appears most often (ties: the higher level, the learner's best recent work). */
-function mostCommonLevel(levels: string[]): string | null {
+export function mostCommonLevel(levels: string[]): string | null {
   const order = ["A1", "A2", "B1", "B2", "C1", "C2"];
   const counts = new Map<string, number>();
   for (const l of levels) if (order.includes(l)) counts.set(l, (counts.get(l) ?? 0) + 1);
